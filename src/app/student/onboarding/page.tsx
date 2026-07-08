@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
+import { WelcomeScreen } from "@/components/student/Welcome/WelcomeScreen";
+
+export const metadata: Metadata = {
+  title: "Welcome — Nevo",
+};
+
+// The onboarding flow entry is the Welcome Screen (B.1). Subsequent steps
+// (name, school, class) live under /student/onboarding/*.
 export default function StudentOnboardingPage() {
-  return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-sm">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Student</p>
-      <h1 className="text-xl font-medium text-nevo-navy">Onboarding</h1>
-      <p className="text-sm text-nevo-near-black/60">Placeholder — built per the UI/UX spec.</p>
-    </main>
-  );
+  return <WelcomeScreen />;
 }
