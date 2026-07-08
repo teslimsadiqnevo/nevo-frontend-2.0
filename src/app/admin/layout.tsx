@@ -8,14 +8,18 @@
  * - PermissionContext provider — Admin Layer only (FE Arch §8)
  * - Dynamic navigation per scopes held (D.3)
  */
+import { PermissionProvider } from "@/context/PermissionContext";
+
 export default function AdminLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-nevo-cream text-nevo-near-black">
-      {children}
-    </div>
+    <PermissionProvider>
+      <div className="flex min-h-full flex-1 flex-col bg-nevo-cream text-nevo-near-black">
+        {children}
+      </div>
+    </PermissionProvider>
   );
 }
