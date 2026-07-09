@@ -4,21 +4,28 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 /**
  * Shared shell for onboarding Steps 1–3 (UI/UX spec B.2): a thin progress line,
  * a back-chevron + wordmark header, and a centered single-column content area.
  * Full-viewport, no chrome, solid cream.
+ *
+ * `fill` makes the content area a fixed-height flex column (no page scroll) so a
+ * child can own its own scroll region — e.g. Step 3's pinned search + scrolling
+ * class list.
  */
 export function OnboardingShell({
   step,
   totalSteps = 3,
   backHref,
+  fill = false,
   children,
 }: {
   step: number;
   totalSteps?: number;
   backHref: string;
+  fill?: boolean;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -54,8 +61,18 @@ export function OnboardingShell({
       </header>
 
       {/* Content — single-column, packed to the top of the remaining space */}
-      <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 pb-6 sm:pb-10">
-        <div className="flex w-full max-w-full flex-col sm:max-w-[440px]">
+      <div
+        className={cn(
+          "flex flex-1 flex-col items-center px-6 pb-6 sm:pb-10",
+          fill ? "min-h-0 overflow-hidden" : "overflow-y-auto",
+        )}
+      >
+        <div
+          className={cn(
+            "flex w-full max-w-full flex-col sm:max-w-[440px]",
+            fill && "min-h-0 flex-1",
+          )}
+        >
           {children}
         </div>
       </div>
