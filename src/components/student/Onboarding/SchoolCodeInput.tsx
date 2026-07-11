@@ -65,7 +65,7 @@ export function SchoolCodeInput({
   return (
     <div
       className={cn(
-        "relative flex h-15 w-full items-center justify-center rounded-[10px] border-[1.5px] bg-nevo-cream px-4 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-colors sm:h-17",
+        "relative flex h-15 w-full items-center justify-center rounded-[10px] border-[1.5px] bg-nevo-cream px-4 shadow-elevation-1 transition-colors sm:h-17",
         fieldBorder,
       )}
     >

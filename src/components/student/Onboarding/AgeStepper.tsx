@@ -50,7 +50,7 @@ export function AgeStepper({
     "cursor-not-allowed border-nevo-near-black/[0.14] text-nevo-near-black/[0.32]";
 
   return (
-    <div className="flex h-18 w-full items-center justify-between rounded-[10px] border-[1.5px] border-nevo-near-black/[0.16] bg-nevo-cream px-3 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+    <div className="flex h-18 w-full items-center justify-between rounded-[10px] border-[1.5px] border-nevo-near-black/[0.16] bg-nevo-cream px-3 shadow-elevation-1">
       <button
         type="button"
         aria-label="Decrease age"

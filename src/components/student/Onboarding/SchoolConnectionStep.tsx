@@ -1,9 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, IllustrationWrapper } from "@/components/shared";
 import { OnboardingShell } from "./OnboardingShell";
 import { SchoolCodeInput, type CodeStatus } from "./SchoolCodeInput";
 
@@ -70,7 +69,7 @@ export function SchoolConnectionStep() {
   return (
     <OnboardingShell step={2} backHref="/student/onboarding/name">
       <div className="flex justify-center">
-        <Image
+        <IllustrationWrapper
           src="/illustrations/onboarding-school.png"
           alt="A friendly figure holding up a school card"
           width={671}
@@ -104,7 +103,7 @@ export function SchoolConnectionStep() {
       <Button
         onClick={() => router.push(NEXT_STEP)}
         disabled={status !== "success"}
-        className="mt-7 h-13 w-full rounded-[10px] bg-nevo-navy text-base font-medium text-nevo-cream hover:bg-nevo-navy hover:brightness-[0.93] active:brightness-[0.86] disabled:opacity-40 sm:mt-8"
+        className="mt-7 w-full sm:mt-8"
       >
         Continue
       </Button>

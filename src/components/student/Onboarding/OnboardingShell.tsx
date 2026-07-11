@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { ProgressBar } from "@/components/shared";
 
 /**
  * Shared shell for onboarding Steps 1–3 (UI/UX spec B.2): a thin progress line,
@@ -29,17 +30,15 @@ export function OnboardingShell({
   children: ReactNode;
 }) {
   const router = useRouter();
-  const pct = (step / totalSteps) * 100;
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-nevo-cream text-nevo-near-black">
       {/* Progress — position `step` of `totalSteps` */}
-      <div className="h-[3px] w-full shrink-0 bg-nevo-navy/[0.12]">
-        <div
-          className="h-full bg-nevo-violet transition-[width] duration-300"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+      <ProgressBar
+        value={step / totalSteps}
+        className="shrink-0"
+        aria-label={`Step ${step} of ${totalSteps}`}
+      />
 
       {/* Header: back + wordmark */}
       <header className="flex h-14 shrink-0 items-center px-4 sm:h-16 sm:px-5 lg:px-6">

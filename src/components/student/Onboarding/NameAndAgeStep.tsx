@@ -1,10 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button, IllustrationWrapper, Input } from "@/components/shared";
 import { OnboardingShell } from "./OnboardingShell";
 import { AgeStepper, isAgeInRange } from "./AgeStepper";
 
@@ -30,7 +28,7 @@ export function NameAndAgeStep() {
   return (
     <OnboardingShell step={1} backHref="/student/onboarding">
       <div className="flex justify-center">
-        <Image
+        <IllustrationWrapper
           src="/illustrations/onboarding-name.png"
           alt="A friendly figure waving hello"
           width={500}
@@ -56,7 +54,7 @@ export function NameAndAgeStep() {
           placeholder="Your name"
           autoComplete="off"
           aria-label="Your name"
-          className="mt-6 h-13 rounded-[10px] border-[1.5px] border-nevo-near-black/[0.16] bg-nevo-cream px-4 text-base text-nevo-near-black shadow-[0_2px_8px_rgba(0,0,0,0.06)] placeholder:text-nevo-near-black/40 focus-visible:border-nevo-navy focus-visible:ring-[3px] focus-visible:ring-nevo-navy/[0.18]"
+          className="mt-6"
         />
 
         <p className="mt-8 text-[17px] font-medium text-nevo-near-black sm:text-lg">
@@ -67,11 +65,7 @@ export function NameAndAgeStep() {
           <AgeStepper value={ageText} onChange={setAgeText} />
         </div>
 
-        <Button
-          type="submit"
-          disabled={!valid}
-          className="mt-8 h-13 w-full rounded-[10px] bg-nevo-navy text-base font-medium text-nevo-cream hover:bg-nevo-navy hover:brightness-[0.93] active:brightness-[0.86] disabled:opacity-40"
-        >
+        <Button type="submit" disabled={!valid} className="mt-8 w-full">
           Continue
         </Button>
       </form>

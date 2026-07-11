@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { IllustrationWrapper } from "@/components/shared";
 import { OnboardingShell } from "./OnboardingShell";
 
 const NEXT_STEP = "/student/onboarding/sequence";
@@ -70,7 +70,7 @@ export function ClassConfirmationStep({
   if (mode === "autoskip") {
     return (
       <OnboardingShell step={3} backHref="/student/onboarding/school" fill>
-        <div className="fixed top-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 rounded-full bg-nevo-cream py-2 pr-5 pl-2 shadow-[0_4px_16px_rgba(0,0,0,0.10)] motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 sm:top-7">
+        <div className="fixed top-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 rounded-full bg-nevo-cream py-2 pr-5 pl-2 shadow-elevation-2 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 sm:top-7">
           <span className="flex size-[26px] items-center justify-center rounded-full bg-nevo-navy sm:size-[30px]">
             <Check className="size-[15px] text-nevo-cream sm:size-[17px]" strokeWidth={2.6} />
           </span>
@@ -80,7 +80,7 @@ export function ClassConfirmationStep({
         </div>
 
         <div className="flex flex-1 items-center justify-center">
-          <Image
+          <IllustrationWrapper
             src="/illustrations/onboarding-class.png"
             alt="Three friendly classmates standing together"
             width={941}
@@ -96,7 +96,7 @@ export function ClassConfirmationStep({
   return (
     <OnboardingShell step={3} backHref="/student/onboarding/school" fill>
       <div className="flex shrink-0 justify-center">
-        <Image
+        <IllustrationWrapper
           src="/illustrations/onboarding-class.png"
           alt="Three friendly classmates standing together"
           width={941}
@@ -110,7 +110,7 @@ export function ClassConfirmationStep({
         Which class are you in?
       </h2>
 
-      <div className="mt-4 flex h-13 shrink-0 items-center gap-2.5 rounded-[10px] border-[1.5px] border-nevo-near-black/[0.16] bg-nevo-cream px-4 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+      <div className="mt-4 flex h-13 shrink-0 items-center gap-2.5 rounded-[10px] border-[1.5px] border-nevo-near-black/[0.16] bg-nevo-cream px-4 shadow-elevation-1">
         <Search
           className="size-5 shrink-0 text-nevo-near-black/45"
           strokeWidth={2}
@@ -132,7 +132,7 @@ export function ClassConfirmationStep({
             type="button"
             onClick={() => pick(name)}
             className={cn(
-              "flex h-15 shrink-0 items-center justify-between rounded-xl border-[1.5px] bg-[#ede8dc] px-[18px] text-left shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition hover:brightness-[0.97] active:brightness-[0.94] sm:h-16",
+              "flex h-15 shrink-0 items-center justify-between rounded-xl border-[1.5px] bg-nevo-cream-elevated px-[18px] text-left shadow-elevation-1 transition hover:brightness-[0.97] active:brightness-[0.94] sm:h-16",
               selected === name ? "border-nevo-navy" : "border-transparent",
             )}
           >

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Button, SettlingCharacter } from "@/components/shared";
 import {
   Sheet,
   SheetContent,
@@ -36,13 +36,9 @@ export function WelcomeScreen({ linkError = false }: { linkError?: boolean }) {
       />
 
       {/* Settling character (Design System §12 illustration) */}
-      <Image
-        src="/illustrations/welcome-settling.png"
-        alt="A calm figure settling in, sitting cross-legged"
-        width={697}
-        height={598}
+      <SettlingCharacter
         priority
-        className="mt-7 w-[280px] max-w-full motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:delay-150 motion-safe:duration-500 sm:mt-9 sm:w-[320px]"
+        className="mt-7 w-[280px] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:delay-150 motion-safe:duration-500 sm:mt-9 sm:w-[320px]"
       />
 
       <div className="mt-8 flex w-full flex-col items-center motion-safe:animate-in motion-safe:fade-in motion-safe:delay-300 motion-safe:duration-500 sm:mt-9">
@@ -59,17 +55,14 @@ export function WelcomeScreen({ linkError = false }: { linkError?: boolean }) {
           <div className="mt-10 flex w-full flex-col gap-4 sm:mt-11 sm:max-w-[480px]">
             <Button
               onClick={() => router.push(NEXT_STEP)}
-              className="h-13 w-full rounded-[10px] bg-nevo-navy text-[15px] font-medium tracking-[0.005em] text-nevo-cream hover:bg-nevo-navy hover:brightness-[0.93] active:brightness-[0.86]"
+              className="w-full"
             >
               I have a school code
             </Button>
 
             <Sheet>
               <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="h-11 w-full rounded-[10px] text-sm font-normal text-nevo-navy hover:bg-nevo-navy/[0.06] hover:text-nevo-navy active:bg-nevo-navy/[0.12] sm:text-[15px]"
-                >
+                <Button variant="ghost" size="md" className="w-full">
                   I&apos;m joining through my teacher
                 </Button>
               </SheetTrigger>
