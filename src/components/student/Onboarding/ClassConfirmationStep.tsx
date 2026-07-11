@@ -132,7 +132,7 @@ export function ClassConfirmationStep({
             type="button"
             onClick={() => pick(name)}
             className={cn(
-              "flex h-15 shrink-0 items-center justify-between rounded-xl border-[1.5px] bg-nevo-cream-elevated px-[18px] text-left shadow-elevation-1 transition hover:brightness-[0.97] active:brightness-[0.94] sm:h-16",
+              "flex h-15 shrink-0 items-center justify-between rounded-[12px] border-[1.5px] bg-nevo-cream-elevated px-[18px] text-left shadow-elevation-1 transition hover:brightness-[0.97] active:brightness-[0.94] sm:h-16",
               selected === name ? "border-nevo-navy" : "border-transparent",
             )}
           >

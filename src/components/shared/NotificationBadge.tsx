@@ -17,7 +17,7 @@ function NotificationBadge({
       type="button"
       aria-label={unread ? "Notifications, unread" : "Notifications"}
       className={cn(
-        "relative flex size-11 cursor-pointer items-center justify-center rounded-lg bg-nevo-cream text-nevo-near-black shadow-elevation-1 transition-colors hover:bg-nevo-cream-elevated",
+        "relative flex size-11 cursor-pointer items-center justify-center rounded-[8px] bg-nevo-cream text-nevo-near-black shadow-elevation-1 transition-colors hover:bg-nevo-cream-elevated",
         className,
       )}
       {...props}

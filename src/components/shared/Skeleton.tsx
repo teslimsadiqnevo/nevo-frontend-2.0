@@ -9,7 +9,7 @@ export function Skeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-lg bg-nevo-cream-shimmer motion-safe:animate-pulse",
+        "rounded-[8px] bg-nevo-cream-shimmer motion-safe:animate-pulse",
         className,
       )}
       aria-hidden

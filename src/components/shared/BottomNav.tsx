@@ -21,7 +21,7 @@ export function BottomNav({
     <nav
       aria-label="Primary"
       className={cn(
-        "flex w-full rounded-2xl bg-nevo-cream-elevated p-2 shadow-elevation-1",
+        "flex w-full rounded-[16px] bg-nevo-cream-elevated p-2 shadow-elevation-1",
         className,
       )}
     >

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
  * is the only thing that separates levels (no borders, no white). Level 1 for
  * cards at rest, Level 2 for the leading/primary card on a screen.
  */
-const cardVariants = cva("rounded-xl bg-nevo-cream-elevated p-6", {
+const cardVariants = cva("rounded-[12px] bg-nevo-cream-elevated p-6", {
   variants: {
     elevation: {
       1: "shadow-elevation-1",
