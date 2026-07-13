@@ -6,6 +6,7 @@ import { TransitionScreen } from "./TransitionScreen";
 import { SequenceShell } from "./SequenceShell";
 import { VisualSortingTask } from "./VisualSortingTask";
 import { AudioComprehensionTask } from "./AudioComprehensionTask";
+import { EngagementTask } from "./EngagementTask";
 
 /**
  * The Observed Interaction Sequence (UI/UX spec) — one continuous experience:
@@ -37,7 +38,11 @@ export function ObservedInteractionSequence({
     return <AudioComprehensionTask onComplete={advance} />;
   }
 
-  // Activities 3–4 + The Close — placeholders until built.
+  if (index === 2) {
+    return <EngagementTask onComplete={advance} />;
+  }
+
+  // Activity 4 + The Close — placeholders until built.
   return (
     <SequenceShell
       filledDots={Math.min(index + 1, 4)}

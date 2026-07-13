@@ -12,6 +12,7 @@ import { ProgressDots } from "@/components/shared";
 export function SequenceShell({
   filledDots,
   totalDots = 4,
+  topRight,
   illustration,
   prompt,
   children,
@@ -19,6 +20,8 @@ export function SequenceShell({
   /** Current activity, 1-indexed (fills that many dots). */
   filledDots: number;
   totalDots?: number;
+  /** Optional content pinned to the top-bar's right edge (e.g. a small character). */
+  topRight?: ReactNode;
   illustration?: ReactNode;
   prompt?: string;
   children: ReactNode;
@@ -39,6 +42,11 @@ export function SequenceShell({
           current={filledDots}
           aria-label={`Activity ${filledDots} of ${totalDots}`}
         />
+        {topRight && (
+          <div className="absolute top-1/2 right-5 -translate-y-1/2 sm:right-8">
+            {topRight}
+          </div>
+        )}
       </div>
 
       {/* Centered content column; the activity fills the space below the prompt */}
