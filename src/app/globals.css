@@ -116,6 +116,17 @@
   }
 }
 
+/* Audio waveform bars (Activity 2). Per-bar duration/delay set inline. */
+@keyframes nevo-bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
 :root {
   /* Brand font placeholder — Agile (logo/wordmark only, DS §2). Until the Agile
    * font files are added via next/font/local, this falls back to Inter

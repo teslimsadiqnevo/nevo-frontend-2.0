@@ -4,30 +4,43 @@ import { useState } from "react";
 import { IllustrationWrapper } from "@/components/shared";
 import { TransitionScreen } from "./TransitionScreen";
 import { SequenceShell } from "./SequenceShell";
+import { VisualSortingTask } from "./VisualSortingTask";
+import { AudioComprehensionTask } from "./AudioComprehensionTask";
 
 /**
  * The Observed Interaction Sequence (UI/UX spec) — one continuous experience:
  * a calm transition, then Activities 1–4 inside the shared shell, then the
- * close. It runs identically for manual and SSO students on first use.
+ * close. Runs identically for manual and SSO students on first use.
  *
- * The four activities (Visual Sorting, Audio Comprehension, Engagement,
- * Memory Pairs) fill the shell's interaction stage and are built next; for now
- * the first activity slot shows a placeholder so the shell is walkable.
+ * Activity 1 (Visual Sorting) is built; Activities 2–4 (Audio, Engagement,
+ * Memory Pairs) and The Close are next — placeholders keep the flow walkable.
  */
 export function ObservedInteractionSequence({
   path = "manual",
 }: {
   path?: "manual" | "sso";
 }) {
-  const [phase, setPhase] = useState<"transition" | "sequence">("transition");
+  const [phase, setPhase] = useState<"transition" | "activities">("transition");
+  const [index, setIndex] = useState(0);
 
   if (phase === "transition") {
-    return <TransitionScreen path={path} onDone={() => setPhase("sequence")} />;
+    return <TransitionScreen path={path} onDone={() => setPhase("activities")} />;
   }
 
+  const advance = () => setIndex((i) => i + 1);
+
+  if (index === 0) {
+    return <VisualSortingTask onComplete={advance} />;
+  }
+
+  if (index === 1) {
+    return <AudioComprehensionTask onComplete={advance} />;
+  }
+
+  // Activities 3–4 + The Close — placeholders until built.
   return (
     <SequenceShell
-      filledDots={1}
+      filledDots={Math.min(index + 1, 4)}
       illustration={
         <IllustrationWrapper
           src="/illustrations/sequence-intro.png"
@@ -35,15 +48,16 @@ export function ObservedInteractionSequence({
           width={518}
           height={486}
           priority
-          className="w-[152px] sm:w-[208px]"
+          className="w-[132px] sm:w-[180px]"
         />
       }
-      prompt="Where do these belong?"
+      prompt="Nicely done — more coming soon"
     >
-      {/* TODO: Activity 1 — Visual Sorting Task. Placeholder until built. */}
-      <span className="text-center font-mono text-xs tracking-[0.04em] text-nevo-near-black/40">
-        Activity 1 — coming next
-      </span>
+      <div className="flex min-h-0 flex-1 items-center justify-center pb-6">
+        <span className="text-center font-mono text-xs tracking-[0.04em] text-nevo-near-black/40">
+          Activity {index + 1} — coming next
+        </span>
+      </div>
     </SequenceShell>
   );
 }
