@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { TransitionScreen } from "./TransitionScreen";
 import { VisualSortingTask } from "./VisualSortingTask";
 import { AudioComprehensionTask } from "./AudioComprehensionTask";
@@ -9,20 +10,20 @@ import { MemoryPairsTask } from "./MemoryPairsTask";
 import { TheCloseScreen } from "./TheCloseScreen";
 import { ConsentGate } from "./ConsentGate";
 import { PinCreationScreen } from "./PinCreationScreen";
+import { YoureInScreen } from "./YoureInScreen";
 
 /**
  * The Observed Interaction Sequence (UI/UX spec) — one continuous experience:
- * a calm transition, then Activities 1–4 inside the shared shell, then the
- * close. Runs identically for manual and SSO students on first use.
- *
- * Activities 1–4, The Close, the Consent Gate, and PIN Creation are built; the
- * "You're In" transition is next.
+ * a calm transition, Activities 1–4, The Close, the Consent Gate, PIN Creation,
+ * and the "You're In" hand-off into the app. Runs identically for manual and
+ * SSO students on first use.
  */
 export function ObservedInteractionSequence({
   path = "manual",
 }: {
   path?: "manual" | "sso";
 }) {
+  const router = useRouter();
   const [phase, setPhase] = useState<"transition" | "activities">("transition");
   const [index, setIndex] = useState(0);
 
@@ -61,12 +62,8 @@ export function ObservedInteractionSequence({
     return <PinCreationScreen sso={path === "sso"} onComplete={advance} />;
   }
 
-  // "You're In" transition — placeholder until built; keeps the flow walkable.
-  return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-nevo-cream px-8 text-nevo-near-black">
-      <span className="text-center font-mono text-xs tracking-[0.04em] text-nevo-near-black/40">
-        You&rsquo;re In — coming next
-      </span>
-    </div>
-  );
+  // "You're In" — the hand-off out of onboarding into the app.
+  // TODO(lessons): the spec sends students straight into the Lesson Player;
+  // route there once it exists. For now, land on the dashboard.
+  return <YoureInScreen onDone={() => router.push("/student/dashboard")} />;
 }
