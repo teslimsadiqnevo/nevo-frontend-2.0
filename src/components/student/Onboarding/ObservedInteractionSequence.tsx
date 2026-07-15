@@ -7,14 +7,15 @@ import { SequenceShell } from "./SequenceShell";
 import { VisualSortingTask } from "./VisualSortingTask";
 import { AudioComprehensionTask } from "./AudioComprehensionTask";
 import { EngagementTask } from "./EngagementTask";
+import { MemoryPairsTask } from "./MemoryPairsTask";
 
 /**
  * The Observed Interaction Sequence (UI/UX spec) — one continuous experience:
  * a calm transition, then Activities 1–4 inside the shared shell, then the
  * close. Runs identically for manual and SSO students on first use.
  *
- * Activity 1 (Visual Sorting) is built; Activities 2–4 (Audio, Engagement,
- * Memory Pairs) and The Close are next — placeholders keep the flow walkable.
+ * Activities 1–4 (Visual Sorting, Audio, Engagement, Memory Pairs) are built;
+ * The Close is next — the placeholder keeps the flow walkable.
  */
 export function ObservedInteractionSequence({
   path = "manual",
@@ -42,7 +43,11 @@ export function ObservedInteractionSequence({
     return <EngagementTask onComplete={advance} />;
   }
 
-  // Activity 4 + The Close — placeholders until built.
+  if (index === 3) {
+    return <MemoryPairsTask onComplete={advance} />;
+  }
+
+  // The Close — placeholder until built.
   return (
     <SequenceShell
       filledDots={Math.min(index + 1, 4)}
