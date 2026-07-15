@@ -7,17 +7,24 @@
  *
  * Keep the two in sync: if you change a value here, update globals.css too.
  *
- * The palette is intentionally small (4 roles). Functional colors (e.g. the
- * "warm-tone" error and "green-adjacent" success states referenced in the UI/UX
- * spec) are deliberately NOT part of the brand palette — add them as separate
- * semantic tokens when building the States components.
+ * The palette is intentionally small (4 brand roles + cream surface tones).
+ * There is no white and no gradients — elevation comes from tonal shifts within
+ * the cream family. Functional colors (e.g. the "warm-tone" error / success
+ * states) are NOT part of the brand palette — add them as separate semantic
+ * tokens when building the States components.
  */
 export const colors = {
   /** Primary / Navy — headers, primary surfaces, active states. */
   navy: "#3b3f6e",
   /** Background / Cream — default app background, calm surfaces. */
   cream: "#f7f1e6",
-  /** Accent / Soft Violet — accents, progress fills, highlights. */
+  /** Cream Elevated — cards and raised surfaces on cream. */
+  creamElevated: "#ede8dc",
+  /** Cream Sidebar — the darker cream the sidebar sits on. */
+  creamSidebar: "#e8e3d7",
+  /** Cream Shimmer — skeleton / loading surface. */
+  creamShimmer: "#ded7c6",
+  /** Accent / Soft Violet — accents, progress fills, system-triggered states. */
   violet: "#9a9ccb",
   /** Text / Near Black — primary text; also the shadow tint (see elevation). */
   nearBlack: "#2b2b2f",
