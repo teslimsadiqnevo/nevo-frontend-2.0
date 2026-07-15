@@ -8,14 +8,15 @@ import { EngagementTask } from "./EngagementTask";
 import { MemoryPairsTask } from "./MemoryPairsTask";
 import { TheCloseScreen } from "./TheCloseScreen";
 import { ConsentGate } from "./ConsentGate";
+import { PinCreationScreen } from "./PinCreationScreen";
 
 /**
  * The Observed Interaction Sequence (UI/UX spec) — one continuous experience:
  * a calm transition, then Activities 1–4 inside the shared shell, then the
  * close. Runs identically for manual and SSO students on first use.
  *
- * Activities 1–4, The Close, and the Consent Gate are built; PIN creation and
- * the "You're In" transition are next.
+ * Activities 1–4, The Close, the Consent Gate, and PIN Creation are built; the
+ * "You're In" transition is next.
  */
 export function ObservedInteractionSequence({
   path = "manual",
@@ -56,11 +57,15 @@ export function ObservedInteractionSequence({
     return <ConsentGate onContinue={advance} />;
   }
 
-  // PIN Creation — placeholder until built; keeps the flow walkable.
+  if (index === 6) {
+    return <PinCreationScreen sso={path === "sso"} onComplete={advance} />;
+  }
+
+  // "You're In" transition — placeholder until built; keeps the flow walkable.
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-nevo-cream px-8 text-nevo-near-black">
       <span className="text-center font-mono text-xs tracking-[0.04em] text-nevo-near-black/40">
-        PIN Creation — coming next
+        You&rsquo;re In — coming next
       </span>
     </div>
   );

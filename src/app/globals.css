@@ -83,6 +83,8 @@
   --animate-nevo-sway: nevo-sway 4s ease-in-out infinite;
   --animate-nevo-ring: nevo-ring 460ms ease-out forwards;
   --animate-nevo-reveal: nevo-reveal 220ms ease-out;
+  --animate-nevo-pop: nevo-pop 300ms ease-out;
+  --animate-nevo-kb-up: nevo-kb-up 220ms cubic-bezier(0.33, 1, 0.68, 1) both;
 }
 
 @keyframes nevo-pulse {
@@ -150,6 +152,31 @@
   100% {
     transform: rotateY(0deg);
     opacity: 1;
+  }
+}
+
+/* Success check pop (PIN Creation) — a small, satisfying settle. */
+@keyframes nevo-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Keypad tray slide-up (PIN Creation) — enters from the bottom edge. */
+@keyframes nevo-kb-up {
+  0% {
+    transform: translateY(100%);
+  }
+  100% {
+    transform: translateY(0);
   }
 }
 
