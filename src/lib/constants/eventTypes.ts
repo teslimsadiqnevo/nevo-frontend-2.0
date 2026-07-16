@@ -17,8 +17,31 @@ export const SIGNAL_EVENT_TYPES = {
   EXIT_ATTEMPT: "exit_attempt",
 } as const;
 
+/**
+ * Observed Interaction Sequence signals (Product Arch B.2) — the first-run
+ * onboarding activities seed the learner profile across cognitive dimensions.
+ * Each event carries timing/sequence/hesitation in its payload.
+ *
+ * TODO(intelligence): reconcile exact names + payload schema with the backend
+ * Intelligence Framework once the onboarding-signal contract lands.
+ */
+export const ONBOARDING_SIGNAL_TYPES = {
+  /** Activity entered / finished — brackets each activity's event stream. */
+  ACTIVITY_START: "onboarding_activity_start",
+  ACTIVITY_COMPLETE: "onboarding_activity_complete",
+  /** Visual Sorting — processing-channel / speed. */
+  SORT_PLACEMENT: "sort_placement",
+  /** Audio Comprehension — audio-channel preference. */
+  AUDIO_RESPONSE: "audio_response",
+  /** Interactive Engagement — attention pattern / light working memory. */
+  PATTERN_TAP: "pattern_tap",
+  /** Working-Memory Pairs — working-memory load. */
+  MEMORY_FLIP: "memory_flip",
+} as const;
+
 export type SignalEventType =
-  (typeof SIGNAL_EVENT_TYPES)[keyof typeof SIGNAL_EVENT_TYPES];
+  | (typeof SIGNAL_EVENT_TYPES)[keyof typeof SIGNAL_EVENT_TYPES]
+  | (typeof ONBOARDING_SIGNAL_TYPES)[keyof typeof ONBOARDING_SIGNAL_TYPES];
 
 /** How a toggle/adaptation was triggered — see `simplify_trigger` payload. */
 export const TRIGGER_SOURCE = {

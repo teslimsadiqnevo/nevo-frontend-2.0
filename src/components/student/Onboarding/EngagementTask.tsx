@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, now } from "@/lib/utils";
 import { IllustrationWrapper } from "@/components/shared";
+import { ONBOARDING_SIGNAL_TYPES } from "@/lib/constants";
+import type { TrackEvent } from "@/hooks";
 import { SequenceShell } from "./SequenceShell";
 
 // The sequence Nevo demonstrates, then the student copies.
@@ -25,19 +27,31 @@ const SHAPES: { kind: "circle" | "square" | "triangle"; className: string }[] = 
  * never evaluative. Generates the attention-pattern / light-working-memory
  * signal.
  */
-export function EngagementTask({ onComplete }: { onComplete?: () => void }) {
+export function EngagementTask({
+  onComplete,
+  track,
+}: {
+  onComplete?: () => void;
+  track?: TrackEvent;
+}) {
   const [phase, setPhase] = useState<"demo" | "input">("demo");
   const [hint, setHint] = useState("Watch…");
   const [activeId, setActiveId] = useState<number | null>(null);
   const [glow, setGlow] = useState<{ id: number; n: number }>({ id: -1, n: 0 });
   const tapsRef = useRef(0);
+  const inputStartedAt = useRef(0);
   const onCompleteRef = useRef(onComplete);
+  const trackRef = useRef(track);
   useEffect(() => {
     onCompleteRef.current = onComplete;
-  }, [onComplete]);
+    trackRef.current = track;
+  }, [onComplete, track]);
 
   // Play the demo sequence on mount, then hand over to the student.
   useEffect(() => {
+    trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_START, {
+      activity: "engagement",
+    });
     const timers: ReturnType<typeof setTimeout>[] = [];
     PATTERN.forEach((id, step) => {
       timers.push(
@@ -56,6 +70,7 @@ export function EngagementTask({ onComplete }: { onComplete?: () => void }) {
         () => {
           setPhase("input");
           setHint("Now your turn");
+          inputStartedAt.current = now();
         },
         600 + PATTERN.length * 620 + 200,
       ),
@@ -66,9 +81,20 @@ export function EngagementTask({ onComplete }: { onComplete?: () => void }) {
   const tap = (i: number) => {
     if (phase !== "input") return;
     setGlow((g) => ({ id: i, n: g.n + 1 }));
+    const step = tapsRef.current;
     tapsRef.current += 1;
-    // TODO(signals): trackEvent tap sequence, timing, attention drop-off.
+    // Attention / working-memory signal: tap order, match-to-demo, and timing.
+    trackRef.current?.(ONBOARDING_SIGNAL_TYPES.PATTERN_TAP, {
+      index: i,
+      step,
+      matchedDemo: i === PATTERN[step],
+      tapMs: now() - inputStartedAt.current,
+    });
     if (tapsRef.current >= PATTERN.length) {
+      trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_COMPLETE, {
+        activity: "engagement",
+        totalMs: now() - inputStartedAt.current,
+      });
       window.setTimeout(() => onCompleteRef.current?.(), 600);
     }
   };

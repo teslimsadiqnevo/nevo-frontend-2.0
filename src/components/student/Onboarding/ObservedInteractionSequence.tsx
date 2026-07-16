@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSignals } from "@/hooks";
 import { TransitionScreen } from "./TransitionScreen";
 import { VisualSortingTask } from "./VisualSortingTask";
 import { AudioComprehensionTask } from "./AudioComprehensionTask";
@@ -24,6 +25,11 @@ export function ObservedInteractionSequence({
   path?: "manual" | "sso";
 }) {
   const router = useRouter();
+  // One profile-seeding session spans the whole sequence; useSignals batches the
+  // activity events and flushes on completion (unmount). TODO(api): the backend
+  // may issue a real onboarding session id / dedicated endpoint — swap in here.
+  const [sessionId] = useState(() => `onboarding-${crypto.randomUUID()}`);
+  const { trackEvent } = useSignals(sessionId);
   const [phase, setPhase] = useState<"transition" | "activities">("transition");
   const [index, setIndex] = useState(0);
 
@@ -34,19 +40,19 @@ export function ObservedInteractionSequence({
   const advance = () => setIndex((i) => i + 1);
 
   if (index === 0) {
-    return <VisualSortingTask onComplete={advance} />;
+    return <VisualSortingTask onComplete={advance} track={trackEvent} />;
   }
 
   if (index === 1) {
-    return <AudioComprehensionTask onComplete={advance} />;
+    return <AudioComprehensionTask onComplete={advance} track={trackEvent} />;
   }
 
   if (index === 2) {
-    return <EngagementTask onComplete={advance} />;
+    return <EngagementTask onComplete={advance} track={trackEvent} />;
   }
 
   if (index === 3) {
-    return <MemoryPairsTask onComplete={advance} />;
+    return <MemoryPairsTask onComplete={advance} track={trackEvent} />;
   }
 
   if (index === 4) {

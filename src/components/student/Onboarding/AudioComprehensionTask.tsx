@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Book, Globe, Leaf, Play, RotateCcw, type LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, now } from "@/lib/utils";
 import { IllustrationWrapper } from "@/components/shared";
+import { ONBOARDING_SIGNAL_TYPES } from "@/lib/constants";
+import type { TrackEvent } from "@/hooks";
 import { SequenceShell } from "./SequenceShell";
 
 // Simple, text-free answer images (audio-visual matching, no labels).
@@ -23,25 +25,35 @@ const BAR_COUNT = 7;
  */
 export function AudioComprehensionTask({
   onComplete,
+  track,
 }: {
   onComplete?: () => void;
+  track?: TrackEvent;
 }) {
   const [phase, setPhase] = useState<"pre" | "playing" | "post">("pre");
   const [selected, setSelected] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onCompleteRef = useRef(onComplete);
+  const trackRef = useRef(track);
+  const startedAt = useRef(0);
+  const plays = useRef(0);
   useEffect(() => {
     onCompleteRef.current = onComplete;
-  }, [onComplete]);
-  useEffect(
-    () => () => {
+    trackRef.current = track;
+  }, [onComplete, track]);
+  useEffect(() => {
+    startedAt.current = now();
+    trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_START, {
+      activity: "audio_comprehension",
+    });
+    return () => {
       if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const play = () => {
     if (timer.current) clearTimeout(timer.current);
+    plays.current += 1;
     setSelected(null);
     setPhase("playing");
     // TODO(audio): play the real narrated clip; reveal options on `ended`.
@@ -50,7 +62,16 @@ export function AudioComprehensionTask({
 
   const pick = (id: string) => {
     setSelected(id);
-    // TODO(signals): trackEvent listen-through, replay taps, response time.
+    // The audio channel signal: what they chose, how many replays, response time.
+    trackRef.current?.(ONBOARDING_SIGNAL_TYPES.AUDIO_RESPONSE, {
+      choice: id,
+      replays: Math.max(0, plays.current - 1),
+      responseMs: now() - startedAt.current,
+    });
+    trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_COMPLETE, {
+      activity: "audio_comprehension",
+      totalMs: now() - startedAt.current,
+    });
     window.setTimeout(() => onCompleteRef.current?.(), 700);
   };
 
