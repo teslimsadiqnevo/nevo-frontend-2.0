@@ -55,7 +55,7 @@ export function SequenceShell({
           <div className="flex shrink-0 flex-col items-center px-4 pt-2">
             {illustration}
             {prompt && (
-              <p className="mt-3 max-w-[320px] text-center text-xl font-medium leading-[1.35] tracking-[-0.01em] text-balance">
+              <p className="mt-3 max-w-[320px] text-center text-xl font-semibold leading-[1.35] tracking-[-0.01em] text-balance">
                 {prompt}
               </p>
             )}

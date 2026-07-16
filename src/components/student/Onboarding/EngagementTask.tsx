@@ -88,7 +88,7 @@ export function EngagementTask({ onComplete }: { onComplete?: () => void }) {
       }
     >
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4">
-        <p className="text-center text-[21px] font-medium tracking-[-0.01em] text-nevo-near-black">
+        <p className="text-center text-[21px] font-semibold tracking-[-0.01em] text-nevo-near-black">
           Can you copy the pattern?
         </p>
         <p className="mt-2 min-h-5 text-center text-sm text-nevo-near-black/55">

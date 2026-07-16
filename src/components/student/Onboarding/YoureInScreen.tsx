@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef } from "react";
-import { IllustrationWrapper } from "@/components/shared";
+import { IllustrationWrapper, NevoLockup } from "@/components/shared";
 
 /**
  * "You're In" transition (UI/UX spec) — the final onboarding screen and the
@@ -38,17 +37,8 @@ export function YoureInScreen({
         className="w-[200px] sm:w-[260px] lg:w-[240px]"
       />
 
-      {/* Full Nevo lockup (mark + wordmark), cropped from the square asset. */}
-      <div className="relative mt-7 h-9 w-[119px] overflow-hidden">
-        <Image
-          src="/brand/nevo-logo-combined.png"
-          alt="Nevo"
-          width={226}
-          height={226}
-          priority
-          className="absolute -top-[95px] -left-[54px] h-[226px] w-[226px] max-w-none"
-        />
-      </div>
+      {/* Full Nevo lockup (mark + wordmark) — the brand beat before the app. */}
+      <NevoLockup priority className="mt-7" />
 
       <p className="mt-4 max-w-[280px] text-[19px] font-medium leading-[1.45] tracking-[-0.01em] text-balance sm:max-w-[360px] sm:text-[21px] lg:max-w-[380px] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:delay-200 motion-safe:duration-500">
         You&rsquo;re all set. Let&rsquo;s start learning

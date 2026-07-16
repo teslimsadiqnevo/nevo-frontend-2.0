@@ -72,7 +72,7 @@ export function MemoryPairsTask({ onComplete }: { onComplete?: () => void }) {
   return (
     <SequenceShell filledDots={4}>
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4">
-        <p className="mb-7 text-center text-[21px] font-medium tracking-[-0.01em] text-nevo-near-black">
+        <p className="mb-7 text-center text-[21px] font-semibold tracking-[-0.01em] text-nevo-near-black">
           Find the matching pairs
         </p>
 
