@@ -32,7 +32,7 @@ export function TheCloseScreen({
           height={1254}
           priority
           motion="breathe"
-          className="w-[220px] sm:w-[280px] lg:w-[300px]"
+          className="w-[220px] sm:w-[300px]"
         />
       </div>
     </SequenceShell>

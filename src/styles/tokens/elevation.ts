@@ -16,7 +16,7 @@ export const elevation = {
   /** Level 2 — floating elements, modals, sheets, primary cards. */
   2: "0 4px 16px rgba(0, 0, 0, 0.10)",
   /** Level 3 — break module, alerts. */
-  3: "0 8px 24px rgba(0, 0, 0, 0.16)",
+  3: "0 8px 32px rgba(0, 0, 0, 0.16)",
 } as const;
 
 export type ElevationLevel = keyof typeof elevation;

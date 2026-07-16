@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Nevo linear progress line (Design System v2 §6). 3px, violet fill on a cream
- * track — used beneath the Lesson Player top bar and in onboarding steps.
+ * Nevo linear progress line (Design System v2 §6). 3px, violet fill on a faint
+ * navy track — used beneath the Lesson Player top bar and in onboarding steps.
  */
 export function ProgressBar({
   value,
@@ -18,7 +18,7 @@ export function ProgressBar({
   return (
     <div
       className={cn(
-        "h-[3px] w-full overflow-hidden rounded-full bg-nevo-cream-elevated",
+        "h-[3px] w-full overflow-hidden rounded-full bg-nevo-navy/12",
         className,
       )}
       role="progressbar"

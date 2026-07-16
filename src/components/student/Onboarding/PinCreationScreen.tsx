@@ -113,7 +113,7 @@ export function PinCreationScreen({
           </span>
         )}
 
-        <h2 className="text-[23px] font-medium tracking-[-0.01em] sm:text-[25px]">
+        <h2 className="text-[23px] font-semibold tracking-[-0.01em] sm:text-[25px]">
           {sso ? "You're signed in" : done ? "You're all set" : "Create a PIN"}
         </h2>
         <p className="mt-3 text-[15px] text-nevo-near-black/60">

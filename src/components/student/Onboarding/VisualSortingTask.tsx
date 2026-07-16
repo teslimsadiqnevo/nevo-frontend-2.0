@@ -18,12 +18,12 @@ type CardDef = { id: string; label: string; Icon: LucideIcon; x: number; y: numb
 
 // Category-neutral objects, scattered (non-grid) with a slight hand-placed tilt.
 const CARDS: CardDef[] = [
-  { id: "sun", label: "sun", Icon: Sun, x: 24, y: 12, rot: -5 },
-  { id: "cup", label: "cup", Icon: Coffee, x: 244, y: 4, rot: 4 },
-  { id: "tree", label: "tree", Icon: TreePine, x: 124, y: 68, rot: -3 },
-  { id: "chair", label: "chair", Icon: Armchair, x: 258, y: 94, rot: 6 },
-  { id: "fish", label: "fish", Icon: Fish, x: 32, y: 126, rot: 3 },
-  { id: "lamp", label: "lamp", Icon: Lamp, x: 168, y: 152, rot: -6 },
+  { id: "sun", label: "sun", Icon: Sun, x: 30, y: 14, rot: -5 },
+  { id: "cup", label: "cup", Icon: Coffee, x: 250, y: 6, rot: 4 },
+  { id: "tree", label: "tree", Icon: TreePine, x: 130, y: 70, rot: -3 },
+  { id: "chair", label: "chair", Icon: Armchair, x: 270, y: 96, rot: 6 },
+  { id: "fish", label: "fish", Icon: Fish, x: 40, y: 128, rot: 3 },
+  { id: "lamp", label: "lamp", Icon: Lamp, x: 180, y: 156, rot: -6 },
 ];
 
 const ZONES = [

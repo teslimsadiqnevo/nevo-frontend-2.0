@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Button, SettlingCharacter } from "@/components/shared";
+import { Button, NevoLockup, SettlingCharacter } from "@/components/shared";
 import {
   Sheet,
   SheetContent,
@@ -24,21 +23,17 @@ export function WelcomeScreen({ linkError = false }: { linkError?: boolean }) {
   const router = useRouter();
 
   return (
-    <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-nevo-cream px-6 pb-[14vh] text-nevo-near-black">
-      {/* Wordmark (brand mark; the only Agile-typeface element, shipped as an asset) */}
-      <Image
-        src="/brand/nevo-wordmark.png"
-        alt="Nevo"
-        width={344}
-        height={116}
+    <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-nevo-cream px-6 text-nevo-near-black">
+      {/* Combined lockup — the primary brand mark for this first-arrival moment */}
+      <NevoLockup
         priority
-        className="h-9 w-auto motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 sm:h-10 lg:h-11"
+        className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300"
       />
 
       {/* Settling character (Design System §12 illustration) */}
       <SettlingCharacter
         priority
-        className="mt-7 w-[280px] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:delay-150 motion-safe:duration-500 sm:mt-9 sm:w-[320px]"
+        className="mt-7 w-[280px] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:delay-150 motion-safe:duration-500 sm:w-[340px] lg:w-[320px]"
       />
 
       <div className="mt-8 flex w-full flex-col items-center motion-safe:animate-in motion-safe:fade-in motion-safe:delay-300 motion-safe:duration-500 sm:mt-9">
@@ -52,7 +47,7 @@ export function WelcomeScreen({ linkError = false }: { linkError?: boolean }) {
             This link isn&apos;t working right now, ask your teacher for a new one.
           </p>
         ) : (
-          <div className="mt-10 flex w-full flex-col gap-4 sm:mt-11 sm:max-w-[480px]">
+          <div className="mt-7 flex w-full flex-col gap-2 sm:mt-8 sm:max-w-[480px]">
             <Button
               onClick={() => router.push(NEXT_STEP)}
               className="w-full"
@@ -62,7 +57,7 @@ export function WelcomeScreen({ linkError = false }: { linkError?: boolean }) {
 
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="md" className="w-full">
+                <Button variant="ghost" size="md" className="w-full font-normal">
                   I&apos;m joining through my teacher
                 </Button>
               </SheetTrigger>
