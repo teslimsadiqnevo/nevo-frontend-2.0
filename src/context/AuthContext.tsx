@@ -9,6 +9,12 @@ export interface AuthUser {
   role: UserRole;
   schoolId: string;
   name?: string;
+  /**
+   * How the student authenticated. Drives onboarding conditional branching:
+   * SSO students skip Steps 1–3 (name/school/class) and enter the sequence
+   * directly (Product Arch B.2). Populated from the session once auth lands.
+   */
+  method?: "sso" | "manual";
 }
 
 export type AuthStatus = "loading" | "authenticated" | "unauthenticated";

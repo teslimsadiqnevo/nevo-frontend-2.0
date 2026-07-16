@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Button, NevoLockup, SettlingCharacter } from "@/components/shared";
+import { useSSOSkip } from "@/components/student/Onboarding/useSSOSkip";
 import {
   Sheet,
   SheetContent,
@@ -21,6 +22,8 @@ const NEXT_STEP = "/student/onboarding/name";
  */
 export function WelcomeScreen({ linkError = false }: { linkError?: boolean }) {
   const router = useRouter();
+  // SSO students skip Welcome + Steps 1–3 and drop into the sequence.
+  if (useSSOSkip()) return null;
 
   return (
     <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-nevo-cream px-6 text-nevo-near-black">
