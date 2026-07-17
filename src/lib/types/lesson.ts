@@ -1,0 +1,159 @@
+/**
+ * Lesson content + adaptation types (FE Architecture §4; Product Arch §Lesson
+ * experience). These replace the `unknown` placeholders in `LessonContext` and
+ * `useAdaptation`. Shapes are built to a static mock now; when the backend
+ * content/adaptation contract lands, swapping the data source shouldn't touch the
+ * player UI. TODO(api): reconcile with the ratified backend schema.
+ */
+import type { CalcModality, Density, Modality } from "@/lib/constants";
+
+// ── Per-modality content ────────────────────────────────────────────────────
+
+/** Text modality — one heading, body variants keyed by density. */
+export interface TextContent {
+  heading: string;
+  /** `default` is the base rendering; density keys reshape the same segment. */
+  body: Record<Density | "default", string>;
+  /** Optional density-specific callout (e.g. "IN SHORT" / "WORD EQUATION"). */
+  callout?: { label: string; text: string };
+}
+
+/** Visual modality — an illustration and/or a simple input→output diagram. */
+export interface VisualContent {
+  heading: string;
+  illustration?: { src: string; alt: string; caption?: string };
+  /** e.g. Photosynthesis "TAKES IN → GIVES OUT". */
+  diagram?: { inLabel: string; outLabel: string; inputs: string[]; outputs: string[] };
+}
+
+/** Audio modality — a produced narration asset + transcript for the disclosure. */
+export interface AudioContent {
+  /** Backend-produced asset ref; absent in the mock (UI animates a placeholder). */
+  src?: string;
+  durationSec?: number;
+  transcript: string;
+}
+
+/** Interactive modality — tickable steps that reveal an outcome once all done. */
+export interface InteractiveContent {
+  heading: string;
+  /** "YOU'LL NEED" items. */
+  needs?: string[];
+  steps: string[];
+  outcome: { pending: string; done: string };
+}
+
+// ── Comprehension check (inline Quick Check) ────────────────────────────────
+
+export interface QuickCheck {
+  question: string;
+  options: { id: string; label: string }[];
+  correctId: string;
+  /** Navy note on a correct answer. */
+  correctNote: string;
+  /** Soft-violet (never red) note on a miss — always reassures continuity. */
+  recoveryNote: string;
+}
+
+// ── Calculation subsystem (17b §9 — co-construction) ────────────────────────
+
+/** Which calculation the solver co-constructs; non-null triggers the seam (§8). */
+export type CalculationVariant = "fraction_add_like" | (string & {});
+
+export interface CalcCardStep {
+  prompt: string;
+  choices: string[];
+  /** Index into `choices`. */
+  correct: number;
+  hint: string;
+  onCorrect?: { highlight?: string; confirm?: string };
+}
+
+export interface CalcNumericStep {
+  prompt: string;
+  input: "numeric";
+  answer: string;
+  hint: string;
+}
+
+export type CalculationStep = CalcCardStep | CalcNumericStep;
+
+export function isNumericStep(step: CalculationStep): step is CalcNumericStep {
+  return "input" in step && step.input === "numeric";
+}
+
+export interface CalculationSegment {
+  variant: CalculationVariant;
+  problem: { expression: string; answer: string };
+  scaffold: { kind: string; parts: number; rows: number[] };
+  steps: CalculationStep[];
+  completion: string;
+  /** Per-step narration asset refs — producer-generated content. */
+  narration?: string[];
+  /** Available layers (interactive always; audio/kinesthetic optional). */
+  modalities: CalcModality[];
+}
+
+// ── Segment + lesson ────────────────────────────────────────────────────────
+
+export interface LessonSegment {
+  id: string;
+  /** Modalities this segment supports (minimum two). */
+  modalities: Modality[];
+  text?: TextContent;
+  visual?: VisualContent;
+  audio?: AudioContent;
+  interactive?: InteractiveContent;
+  /**
+   * Non-null routes the Interactive modality to the co-construction solver
+   * instead of the standard interactive content (17b §8 — the ONLY place a
+   * toggle option renders a different component).
+   */
+  calculationVariant?: CalculationVariant | null;
+  /** Calculation content, present when `calculationVariant` is set. */
+  calculation?: CalculationSegment;
+  /** Optional inline comprehension check shown after this segment. */
+  quickCheck?: QuickCheck;
+}
+
+export interface AssessmentQuestion {
+  prompt: string;
+  options: { id: string; label: string }[];
+  correctId: string;
+  /** Soft-violet recovery note (never a score). */
+  recoveryNote?: string;
+}
+
+/** Low-stakes after-lesson assessment — growth framing, no score. */
+export interface Assessment {
+  questions: AssessmentQuestion[];
+  /** Concepts to surface in the result as "getting the hang of" vs "revisit". */
+  masteredConcepts?: string[];
+  revisitConcepts?: string[];
+}
+
+export interface Lesson {
+  id: string;
+  title: string;
+  subject?: string;
+  segments: LessonSegment[];
+  assessment?: Assessment;
+}
+
+// ── Adaptation plan (personalization overlay — §4) ──────────────────────────
+
+export interface SegmentAdaptation {
+  segmentId: string;
+  /** Modality the player opens this segment in. */
+  startModality: Modality;
+  /** Active reading density, if any. */
+  density?: Density | null;
+  /** One system-suggested modality to surface via the calm pill (never chained). */
+  suggestModality?: Modality | null;
+}
+
+/** The adapted lesson structure returned per student (§4). */
+export interface AdaptationPlan {
+  lessonId: string;
+  segments: SegmentAdaptation[];
+}

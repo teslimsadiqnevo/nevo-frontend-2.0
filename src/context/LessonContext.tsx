@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useMemo, useState, type ReactNode } from "react";
+import type { AdaptationPlan } from "@/lib/types";
 
 /**
  * Current lesson state — Student App only (FE Architecture §8). Holds the active
@@ -10,7 +11,7 @@ import { createContext, useMemo, useState, type ReactNode } from "react";
 export interface LessonContextValue {
   lessonId: string | null;
   sessionId: string | null;
-  adaptationPlan: unknown | null;
+  adaptationPlan: AdaptationPlan | null;
   setLessonId: (id: string | null) => void;
 }
 
@@ -21,7 +22,7 @@ export const LessonContext = createContext<LessonContextValue | undefined>(
 export function LessonProvider({ children }: { children: ReactNode }) {
   const [lessonId, setLessonId] = useState<string | null>(null);
   const [sessionId] = useState<string | null>(null);
-  const [adaptationPlan] = useState<unknown | null>(null);
+  const [adaptationPlan] = useState<AdaptationPlan | null>(null);
   // TODO: wire adaptation (useAdaptation) and signal collection (useSignals) for
   // the active lesson session.
   const value = useMemo<LessonContextValue>(
