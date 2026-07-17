@@ -49,6 +49,10 @@ export function VisualSortingTask({
   track?: TrackEvent;
 }) {
   const [placed, setPlaced] = useState<Record<string, string>>({});
+  // Authoritative placement map (source of truth for completion) — kept in a ref
+  // so the pointer-up handler reads current state without a stale closure and
+  // without doing side-effect work inside the setState updater.
+  const placedRef = useRef<Record<string, string>>({});
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const zoneRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -92,25 +96,25 @@ export function VisualSortingTask({
     };
     const up = (e: PointerEvent) => {
       const zone = hit(e.clientX, e.clientY);
-      if (zone) {
-        setPlaced((p) => {
-          const next = { ...p, [dragId]: zone };
-          const order = Object.keys(next).length;
-          trackRef.current?.(ONBOARDING_SIGNAL_TYPES.SORT_PLACEMENT, {
-            item: dragId,
-            zone,
-            order,
-            msSinceStart: now() - startedAt.current,
-          });
-          if (order === CARDS.length) {
-            trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_COMPLETE, {
-              activity: "visual_sorting",
-              totalMs: now() - startedAt.current,
-            });
-            window.setTimeout(() => onCompleteRef.current?.(), 700);
-          }
-          return next;
+      if (zone && !placedRef.current[dragId]) {
+        const order = Object.keys(placedRef.current).length + 1;
+        placedRef.current = { ...placedRef.current, [dragId]: zone };
+        setPlaced(placedRef.current);
+        // Side effects live OUTSIDE the state updater so React StrictMode's
+        // double-invoke of the updater can't fire them (or advance) twice.
+        trackRef.current?.(ONBOARDING_SIGNAL_TYPES.SORT_PLACEMENT, {
+          item: dragId,
+          zone,
+          order,
+          msSinceStart: now() - startedAt.current,
         });
+        if (order === CARDS.length) {
+          trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_COMPLETE, {
+            activity: "visual_sorting",
+            totalMs: now() - startedAt.current,
+          });
+          window.setTimeout(() => onCompleteRef.current?.(), 700);
+        }
       }
       setDrag(null);
       setOver(null);

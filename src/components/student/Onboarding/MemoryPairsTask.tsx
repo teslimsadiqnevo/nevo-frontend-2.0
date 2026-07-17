@@ -78,20 +78,20 @@ export function MemoryPairsTask({
     });
     if (isMatch) {
       timer.current = setTimeout(() => {
-        setMatched((m) => {
-          const nm = { ...m, [a]: true, [b]: true };
-          if (Object.keys(nm).length === ORDER.length) {
-            trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_COMPLETE, {
-              activity: "memory_pairs",
-              attempts: attempts.current,
-              totalMs: now() - startedAt.current,
-            });
-            window.setTimeout(() => onCompleteRef.current?.(), 700);
-          }
-          return nm;
-        });
+        // Compute completion outside the updater so StrictMode's double-invoke
+        // of the updater can't schedule onComplete (→ advance) twice.
+        const willComplete = Object.keys(matched).length + 2 === ORDER.length;
+        setMatched((m) => ({ ...m, [a]: true, [b]: true }));
         setFlipped([]);
         setLock(false);
+        if (willComplete) {
+          trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_COMPLETE, {
+            activity: "memory_pairs",
+            attempts: attempts.current,
+            totalMs: now() - startedAt.current,
+          });
+          window.setTimeout(() => onCompleteRef.current?.(), 700);
+        }
       }, 380);
     } else {
       timer.current = setTimeout(() => {
