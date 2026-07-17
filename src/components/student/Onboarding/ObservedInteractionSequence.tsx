@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSignals } from "@/hooks";
+import { FIRST_LESSON_ID } from "@/lib/mocks";
 import { TransitionScreen } from "./TransitionScreen";
 import { VisualSortingTask } from "./VisualSortingTask";
 import { AudioComprehensionTask } from "./AudioComprehensionTask";
@@ -68,8 +69,13 @@ export function ObservedInteractionSequence({
     return <PinCreationScreen sso={path === "sso"} onComplete={advance} />;
   }
 
-  // "You're In" — the hand-off out of onboarding into the app.
-  // TODO(lessons): the spec sends students straight into the Lesson Player;
-  // route there once it exists. For now, land on the dashboard.
-  return <YoureInScreen onDone={() => router.push("/student/dashboard")} />;
+  // "You're In" — the hand-off out of onboarding straight into the first lesson
+  // (Product Arch B.2: land in a lesson, never an empty dashboard).
+  // TODO(lessons): source the first lesson from the adaptation plan once the
+  // backend assigns one, instead of the mock's FIRST_LESSON_ID.
+  return (
+    <YoureInScreen
+      onDone={() => router.push(`/student/lessons/${FIRST_LESSON_ID}`)}
+    />
+  );
 }
