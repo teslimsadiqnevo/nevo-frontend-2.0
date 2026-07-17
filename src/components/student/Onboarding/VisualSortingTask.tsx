@@ -10,8 +10,10 @@ import {
   TreePine,
   type LucideIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, now } from "@/lib/utils";
 import { IllustrationWrapper } from "@/components/shared";
+import { ONBOARDING_SIGNAL_TYPES } from "@/lib/constants";
+import type { TrackEvent } from "@/hooks";
 import { SequenceShell } from "./SequenceShell";
 
 type CardDef = { id: string; label: string; Icon: LucideIcon; x: number; y: number; rot: number };
@@ -39,15 +41,34 @@ type Drag = { id: string; x: number; y: number; dx: number; dy: number };
  * initial processing-channel / speed signal. Pointer-based so it works on touch
  * and mouse alike.
  */
-export function VisualSortingTask({ onComplete }: { onComplete?: () => void }) {
+export function VisualSortingTask({
+  onComplete,
+  track,
+}: {
+  onComplete?: () => void;
+  track?: TrackEvent;
+}) {
   const [placed, setPlaced] = useState<Record<string, string>>({});
+  // Authoritative placement map (source of truth for completion) — kept in a ref
+  // so the pointer-up handler reads current state without a stale closure and
+  // without doing side-effect work inside the setState updater.
+  const placedRef = useRef<Record<string, string>>({});
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const zoneRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const onCompleteRef = useRef(onComplete);
+  const trackRef = useRef(track);
+  const startedAt = useRef(0);
   useEffect(() => {
     onCompleteRef.current = onComplete;
-  }, [onComplete]);
+    trackRef.current = track;
+  }, [onComplete, track]);
+  useEffect(() => {
+    startedAt.current = now();
+    trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_START, {
+      activity: "visual_sorting",
+    });
+  }, []);
 
   const onPointerDown = (e: React.PointerEvent, card: CardDef) => {
     e.preventDefault();
@@ -75,15 +96,25 @@ export function VisualSortingTask({ onComplete }: { onComplete?: () => void }) {
     };
     const up = (e: PointerEvent) => {
       const zone = hit(e.clientX, e.clientY);
-      if (zone) {
-        setPlaced((p) => {
-          const next = { ...p, [dragId]: zone };
-          // TODO(signals): trackEvent placement + timing/hesitation/sequence.
-          if (Object.keys(next).length === CARDS.length) {
-            window.setTimeout(() => onCompleteRef.current?.(), 700);
-          }
-          return next;
+      if (zone && !placedRef.current[dragId]) {
+        const order = Object.keys(placedRef.current).length + 1;
+        placedRef.current = { ...placedRef.current, [dragId]: zone };
+        setPlaced(placedRef.current);
+        // Side effects live OUTSIDE the state updater so React StrictMode's
+        // double-invoke of the updater can't fire them (or advance) twice.
+        trackRef.current?.(ONBOARDING_SIGNAL_TYPES.SORT_PLACEMENT, {
+          item: dragId,
+          zone,
+          order,
+          msSinceStart: now() - startedAt.current,
         });
+        if (order === CARDS.length) {
+          trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_COMPLETE, {
+            activity: "visual_sorting",
+            totalMs: now() - startedAt.current,
+          });
+          window.setTimeout(() => onCompleteRef.current?.(), 700);
+        }
       }
       setDrag(null);
       setOver(null);

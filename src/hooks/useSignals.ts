@@ -4,6 +4,12 @@ import { useCallback, useEffect, useRef } from "react";
 import { signalsApi, type SignalEvent } from "@/lib/api";
 import { SIGNAL_BATCH, type SignalEventType } from "@/lib/constants";
 
+/** Signature of `trackEvent` — pass down to child components that emit signals. */
+export type TrackEvent = (
+  type: SignalEventType,
+  payload?: Record<string, unknown>,
+) => void;
+
 /**
  * Signal collection (FE Architecture §3) — central to the Intelligence Framework.
  *

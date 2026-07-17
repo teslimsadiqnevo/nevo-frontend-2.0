@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Fish, Star, Sun, TreePine, type LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, now } from "@/lib/utils";
+import { ONBOARDING_SIGNAL_TYPES } from "@/lib/constants";
+import type { TrackEvent } from "@/hooks";
 import { SequenceShell } from "./SequenceShell";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -25,17 +27,33 @@ const FACE_DOWN_PATTERN =
  * counter, timer, or "tries remaining" pressure. Generates the working-memory /
  * cognitive-load signal.
  */
-export function MemoryPairsTask({ onComplete }: { onComplete?: () => void }) {
+export function MemoryPairsTask({
+  onComplete,
+  track,
+}: {
+  onComplete?: () => void;
+  track?: TrackEvent;
+}) {
   const [flipped, setFlipped] = useState<number[]>([]);
   const [matched, setMatched] = useState<Record<number, boolean>>({});
   const [lock, setLock] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const attempts = useRef(0);
+  const startedAt = useRef(0);
   const onCompleteRef = useRef(onComplete);
+  const trackRef = useRef(track);
   useEffect(() => {
     onCompleteRef.current = onComplete;
-  }, [onComplete]);
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
+    trackRef.current = track;
+  }, [onComplete, track]);
+  useEffect(() => {
+    startedAt.current = now();
+    trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_START, {
+      activity: "memory_pairs",
+    });
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
   }, []);
 
   const tap = (i: number) => {
@@ -48,18 +66,32 @@ export function MemoryPairsTask({ onComplete }: { onComplete?: () => void }) {
     setFlipped(next);
     setLock(true);
     const [a, b] = next;
-    // TODO(signals): trackEvent flip/match sequence, timing, cognitive load.
-    if (ORDER[a] === ORDER[b]) {
+    const isMatch = ORDER[a] === ORDER[b];
+    // Working-memory / cognitive-load signal: each pair attempt + match + timing.
+    attempts.current += 1;
+    trackRef.current?.(ONBOARDING_SIGNAL_TYPES.MEMORY_FLIP, {
+      first: a,
+      second: b,
+      matched: isMatch,
+      attempt: attempts.current,
+      msSinceStart: now() - startedAt.current,
+    });
+    if (isMatch) {
       timer.current = setTimeout(() => {
-        setMatched((m) => {
-          const nm = { ...m, [a]: true, [b]: true };
-          if (Object.keys(nm).length === ORDER.length) {
-            window.setTimeout(() => onCompleteRef.current?.(), 700);
-          }
-          return nm;
-        });
+        // Compute completion outside the updater so StrictMode's double-invoke
+        // of the updater can't schedule onComplete (→ advance) twice.
+        const willComplete = Object.keys(matched).length + 2 === ORDER.length;
+        setMatched((m) => ({ ...m, [a]: true, [b]: true }));
         setFlipped([]);
         setLock(false);
+        if (willComplete) {
+          trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_COMPLETE, {
+            activity: "memory_pairs",
+            attempts: attempts.current,
+            totalMs: now() - startedAt.current,
+          });
+          window.setTimeout(() => onCompleteRef.current?.(), 700);
+        }
       }, 380);
     } else {
       timer.current = setTimeout(() => {
@@ -95,7 +127,7 @@ export function MemoryPairsTask({ onComplete }: { onComplete?: () => void }) {
                 )}
                 style={{
                   boxShadow: isMatched
-                    ? "0 0 0 2px #3b3f6e, 0 2px 10px rgba(59, 63, 110, 0.25)"
+                    ? "0 0 0 2px var(--color-nevo-navy), 0 2px 10px rgba(59, 63, 110, 0.25)"
                     : "0 2px 8px rgba(0, 0, 0, 0.06)",
                   ...(faceUp
                     ? null

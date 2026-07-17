@@ -6,6 +6,7 @@ import { Check, ChevronRight, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IllustrationWrapper } from "@/components/shared";
 import { OnboardingShell } from "./OnboardingShell";
+import { useSSOSkip } from "./useSSOSkip";
 
 const NEXT_STEP = "/student/onboarding/sequence";
 
@@ -66,6 +67,8 @@ export function ClassConfirmationStep({
     if (navT.current) clearTimeout(navT.current);
     navT.current = setTimeout(() => router.push(NEXT_STEP), 480);
   };
+
+  if (useSSOSkip()) return null;
 
   if (mode === "autoskip") {
     return (

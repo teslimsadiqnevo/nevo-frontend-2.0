@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button, IllustrationWrapper, Input } from "@/components/shared";
 import { OnboardingShell } from "./OnboardingShell";
 import { AgeStepper, isAgeInRange } from "./AgeStepper";
+import { useSSOSkip } from "./useSSOSkip";
 
 const NEXT_STEP = "/student/onboarding/school";
 
@@ -17,6 +18,7 @@ export function NameAndAgeStep() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [ageText, setAgeText] = useState("");
+  if (useSSOSkip()) return null;
 
   const valid = name.trim().length > 0 && isAgeInRange(ageText);
 
