@@ -87,6 +87,7 @@
   --animate-nevo-reveal: nevo-reveal 220ms ease-out;
   --animate-nevo-pop: nevo-pop 300ms ease-out;
   --animate-nevo-kb-up: nevo-kb-up 220ms cubic-bezier(0.33, 1, 0.68, 1) both;
+  --animate-nevo-glow: nevo-glow 2s ease-in-out infinite;
 }
 
 @keyframes nevo-pulse {
@@ -179,6 +180,18 @@
   }
   100% {
     transform: translateY(0);
+  }
+}
+
+/* System-triggered adaptive toggle (Lesson Player) — a steady 3px ring that
+ * pulses in and out ("Nevo adjusted this"). */
+@keyframes nevo-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(154, 156, 203, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(154, 156, 203, 0.4);
   }
 }
 

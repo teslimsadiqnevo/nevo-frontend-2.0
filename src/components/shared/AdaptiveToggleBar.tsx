@@ -46,7 +46,7 @@ export function AdaptiveToggleBar({
             seg.state === "manual" &&
               "border-nevo-navy bg-nevo-navy text-nevo-cream",
             seg.state === "system" &&
-              "border-transparent bg-nevo-violet/80 text-nevo-near-black motion-safe:animate-nevo-pulse",
+              "border-transparent bg-nevo-violet/80 text-nevo-near-black motion-safe:animate-nevo-glow",
             seg.state === "default" &&
               "border-transparent bg-transparent text-nevo-near-black hover:bg-nevo-navy/6",
           )}

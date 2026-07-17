@@ -177,7 +177,7 @@ const PHOTOSYNTHESIS_PLAN: AdaptationPlan = {
   segments: [
     { segmentId: "intro", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.VISUAL },
     { segmentId: "calc-fractions", startModality: MODALITY.INTERACTIVE, density: null, suggestModality: null },
-    { segmentId: "recap", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.AUDIO },
+    { segmentId: "recap", startModality: MODALITY.TEXT, density: DENSITY.SLOWER, suggestModality: MODALITY.AUDIO },
   ],
 };
 
