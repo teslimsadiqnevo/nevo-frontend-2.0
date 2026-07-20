@@ -24,16 +24,29 @@ const PHOTOSYNTHESIS: Lesson = {
             "Plants make their own food using sunlight. They take in water and carbon dioxide, and give out oxygen.",
           [DENSITY.EXPAND]:
             "Photosynthesis takes place in the chloroplasts of a plant's cells, where a green pigment called chlorophyll captures energy from sunlight. That energy drives a reaction between water, drawn up from the roots, and carbon dioxide, taken in through tiny pores in the leaves. The products are glucose, which stores the captured energy, and oxygen, which is released back into the air.",
-          [DENSITY.SLOWER]:
-            "First, a leaf takes in sunlight. Next, it draws up water from the roots. Then it takes in carbon dioxide from the air. Together these make glucose, the plant's food — and oxygen is given out.",
+          [DENSITY.SLOWER]: "Let's take this one small step at a time.",
         },
-        callout: {
-          label: "IN SHORT",
-          text: "Sunlight + water + carbon dioxide → food + oxygen.",
+        slowerSteps: [
+          "A leaf takes in sunlight, caught by its green colour — chlorophyll.",
+          "It draws up water from the roots and takes in carbon dioxide from the air.",
+          "Together these make glucose, the plant's food — and oxygen is given out.",
+        ],
+        keyTerms: ["chlorophyll", "chloroplast", "glucose"],
+        callouts: {
+          [DENSITY.SIMPLIFY]: {
+            label: "IN SHORT",
+            text: "Sunlight + water + carbon dioxide → food + oxygen.",
+          },
+          [DENSITY.EXPAND]: {
+            label: "WORD EQUATION",
+            text: "Carbon dioxide + Water → Glucose + Oxygen",
+            sub: "…in the presence of sunlight and chlorophyll.",
+          },
         },
       },
       visual: {
         heading: "See it as a picture",
+        intro: "A leaf takes in three things and gives out two. Follow the arrows.",
         diagram: {
           inLabel: "TAKES IN",
           outLabel: "GIVES OUT",
@@ -42,12 +55,18 @@ const PHOTOSYNTHESIS: Lesson = {
         },
       },
       audio: {
+        heading: "Listen to this one",
+        intro:
+          "Play it and follow along. You can pause any time, and read the words too.",
+        title: "Narrated: What is photosynthesis?",
         durationSec: 48,
         transcript:
           "Photosynthesis is how green plants make their own food. Using energy from sunlight, they turn water and carbon dioxide into glucose, and release oxygen into the air.",
       },
       interactive: {
         heading: "Try it yourself",
+        intro:
+          "See photosynthesis happen for real. Tick each step as you go — there's no rush.",
         needs: ["A leaf", "A glass of water", "Sunlight"],
         steps: [
           "Rest the leaf in a glass of water in the light.",
@@ -84,9 +103,13 @@ const PHOTOSYNTHESIS: Lesson = {
             "Same bottom number? Just add the top numbers.",
           [DENSITY.EXPAND]:
             "The bottom number of a fraction (the denominator) tells you how many equal parts the whole is split into. When two fractions share that number, the parts are the same size, so you can add the top numbers (the numerators) directly and keep the denominator the same.",
-          [DENSITY.SLOWER]:
-            "First, check the bottom numbers match. Then add only the top numbers. Finally, keep the bottom number the same.",
+          [DENSITY.SLOWER]: "One small step at a time.",
         },
+        slowerSteps: [
+          "Check the bottom numbers match.",
+          "Add only the top numbers.",
+          "Keep the bottom number the same.",
+        ],
       },
       // Non-null variant → the Interactive modality routes to the solver (17b §8).
       calculationVariant: "fraction_add_like",
@@ -135,11 +158,19 @@ const PHOTOSYNTHESIS: Lesson = {
             "Plants give out the oxygen we breathe. That oxygen carries the sun's energy to us.",
           [DENSITY.EXPAND]:
             "Photosynthesis sits at the base of almost every food chain: the glucose plants make feeds the animals that eat them, and the oxygen they release makes animal respiration possible. In effect, it converts sunlight into a form of energy the rest of life can use.",
-          [DENSITY.SLOWER]:
-            "Plants release oxygen. Animals breathe that oxygen. So the sun's energy, captured by plants, reaches almost every living thing.",
+          [DENSITY.SLOWER]: "Let's take it one step at a time.",
         },
+        slowerSteps: [
+          "Plants release oxygen.",
+          "Animals breathe that oxygen.",
+          "So the sun's energy, captured by plants, reaches almost every living thing.",
+        ],
       },
       audio: {
+        heading: "Listen to this one",
+        intro:
+          "Play it and follow along. You can pause any time, and read the words too.",
+        title: "Narrated: Why it matters",
         durationSec: 32,
         transcript:
           "Almost every breath you take uses oxygen that plants released through photosynthesis.",
@@ -169,6 +200,8 @@ const PHOTOSYNTHESIS: Lesson = {
     ],
     masteredConcepts: ["What photosynthesis makes", "Adding like fractions"],
     revisitConcepts: ["Where the energy comes from"],
+    resultNote:
+      "You showed you understand what photosynthesis makes and how to add like fractions. One idea — where the energy comes from — we'll come back to together.",
   },
 };
 

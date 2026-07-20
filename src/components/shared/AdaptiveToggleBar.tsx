@@ -13,9 +13,11 @@ export type ToggleSegment = {
 };
 
 /**
- * Adaptive Toggle Bar (Design System v2 §6; Lesson Player B.7). Pacing control
- * with two active looks: manual (navy — the student tapped it) and
- * system-triggered (violet, pulsing, with a sparkle — Nevo adjusted it).
+ * Adaptive Toggle Bar (Lesson Player frame; Design System v2 §6). Compact pacing
+ * control on a quiet near-black track. Two active looks: manual (navy fill — the
+ * student chose it) and system (violet, pulsing — Nevo's recommendation, waiting).
+ * While a system recommendation sits unfollowed, a violet sparkle glints on the
+ * control's top-right corner.
  */
 export function AdaptiveToggleBar({
   segments,
@@ -26,12 +28,14 @@ export function AdaptiveToggleBar({
   onSelect?: (id: string) => void;
   className?: string;
 }) {
+  const sparkle = segments.some((seg) => seg.state === "system");
+
   return (
     <div
       role="group"
       aria-label="Lesson pacing"
       className={cn(
-        "inline-flex items-center gap-1 rounded-full bg-nevo-cream-elevated p-1.5 shadow-elevation-1",
+        "relative inline-flex items-center gap-1 rounded-full bg-nevo-near-black/6 p-[3px]",
         className,
       )}
     >
@@ -42,21 +46,25 @@ export function AdaptiveToggleBar({
           onClick={() => onSelect?.(seg.id)}
           aria-pressed={seg.state !== "default"}
           className={cn(
-            "inline-flex cursor-pointer items-center gap-2 rounded-full border-[1.5px] px-5 py-2.5 text-[15px] font-medium transition-colors",
-            seg.state === "manual" &&
-              "border-nevo-navy bg-nevo-navy text-nevo-cream",
+            "cursor-pointer rounded-full px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
+            seg.state === "manual" && "bg-nevo-navy text-nevo-cream",
             seg.state === "system" &&
-              "border-transparent bg-nevo-violet/80 text-nevo-near-black motion-safe:animate-nevo-glow",
+              "bg-nevo-violet/80 text-nevo-near-black motion-safe:animate-nevo-glow",
             seg.state === "default" &&
-              "border-transparent bg-transparent text-nevo-near-black hover:bg-nevo-navy/6",
+              "bg-transparent text-nevo-near-black hover:bg-nevo-navy/6",
           )}
         >
-          {seg.state === "system" && (
-            <Sparkles className="size-3.5" fill="currentColor" strokeWidth={0} />
-          )}
           {seg.label}
         </button>
       ))}
+      {sparkle && (
+        <Sparkles
+          aria-hidden
+          className="pointer-events-none absolute -top-2 -right-[7px] size-[15px] text-nevo-violet motion-safe:animate-nevo-sparkle"
+          fill="currentColor"
+          strokeWidth={0}
+        />
+      )}
     </div>
   );
 }

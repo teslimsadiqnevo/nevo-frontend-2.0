@@ -5,7 +5,11 @@ import { ChevronDown, Pause, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AudioContent } from "@/lib/types";
 
-const BARS = 24;
+/** The frame's waveform silhouette — 24 bars, explicit px heights. */
+const BAR_HEIGHTS = [
+  10, 16, 22, 14, 26, 18, 30, 20, 12, 24, 28, 16, 22, 32, 18, 12, 26, 20, 14,
+  28, 22, 16, 10, 24,
+];
 
 function clock(sec: number): string {
   const m = Math.floor(sec / 60);
@@ -14,10 +18,11 @@ function clock(sec: number): string {
 }
 
 /**
- * Audio modality (Lesson Player) — a narration player with a waveform, progress
- * and time, plus a Show/Hide transcript disclosure. Real narration assets are
- * producer-generated (TODO(audio)); until then playback is simulated so the UI
- * shell and signals (replay, transcript open) can be exercised.
+ * Audio modality (Lesson Player frame 17) — a narration card with a violet
+ * waveform, navy progress line and time, plus a transcript disclosure. Real
+ * narration assets are producer-generated (TODO(audio)); until then playback is
+ * simulated so the UI shell and signals (replay, transcript open) can be
+ * exercised.
  */
 export function AudioSegment({ content }: { content: AudioContent }) {
   const duration = content.durationSec ?? 40;
@@ -60,14 +65,25 @@ export function AudioSegment({ content }: { content: AudioContent }) {
   const played = (pct / 100) * duration;
 
   return (
-    <article className="motion-safe:animate-nevo-reveal">
-      <div className="rounded-[12px] bg-nevo-cream-elevated p-5 shadow-elevation-1">
-        <div className="flex items-center gap-4">
+    <article>
+      {content.heading && (
+        <h2 className="text-[22px] font-semibold leading-[1.3] tracking-[-0.01em] text-nevo-near-black sm:text-[26px] lg:text-[28px]">
+          {content.heading}
+        </h2>
+      )}
+      {content.intro && (
+        <p className="mt-4 text-base leading-[1.6] text-nevo-near-black/82 sm:text-[18px] lg:text-[19px]">
+          {content.intro}
+        </p>
+      )}
+
+      <div className="mt-[22px] flex flex-col gap-[18px] rounded-[12px] bg-nevo-cream-elevated p-[22px] shadow-elevation-1">
+        <div className="flex items-center gap-3.5">
           <button
             type="button"
             aria-label={playing ? "Pause" : "Play"}
             onClick={toggle}
-            className="flex size-13 shrink-0 cursor-pointer items-center justify-center rounded-full bg-nevo-navy text-nevo-cream shadow-[0_4px_14px_rgba(59,63,110,0.28)] transition-transform active:scale-95"
+            className="flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-nevo-navy text-nevo-cream transition-transform active:scale-[0.98]"
           >
             {playing ? (
               <Pause className="size-5" fill="currentColor" strokeWidth={0} />
@@ -75,33 +91,37 @@ export function AudioSegment({ content }: { content: AudioContent }) {
               <Play className="ml-0.5 size-5" fill="currentColor" strokeWidth={0} />
             )}
           </button>
-
-          {/* Waveform — bar opacity reflects the played fraction */}
-          <div className="flex h-9 flex-1 items-center gap-[3px]">
-            {Array.from({ length: BARS }).map((_, i) => {
-              const on = i / BARS <= pct / 100;
-              const h = 30 + ((i * 7) % 11) * 6; // deterministic, varied
-              return (
-                <span
-                  key={i}
-                  className="w-full rounded-full bg-nevo-violet transition-opacity"
-                  style={{ height: `${h}%`, opacity: on ? 1 : 0.35 }}
-                />
-              );
-            })}
+          <div className="min-w-0 flex-1">
+            {content.title && (
+              <p className="text-[15px] font-semibold text-nevo-near-black">
+                {content.title}
+              </p>
+            )}
+            <span className="text-[13px] text-nevo-near-black/60">
+              {clock(played)} / {clock(duration)}
+            </span>
           </div>
         </div>
 
-        {/* Progress + time */}
-        <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-nevo-navy/12">
+        {/* Waveform — bottom-aligned violet bars; opacity tracks the played fraction */}
+        <div className="flex h-9 items-end gap-[3px]">
+          {BAR_HEIGHTS.map((h, i) => {
+            const on = (i + 1) / BAR_HEIGHTS.length <= pct / 100;
+            return (
+              <span
+                key={i}
+                className="w-1 shrink-0 rounded-full bg-nevo-violet transition-opacity duration-200"
+                style={{ height: `${h}px`, opacity: on ? 1 : 0.3 }}
+              />
+            );
+          })}
+        </div>
+
+        <div className="h-[5px] w-full overflow-hidden rounded-full bg-nevo-near-black/12">
           <div
-            className="h-full rounded-full bg-nevo-violet"
+            className="h-full rounded-full bg-nevo-navy transition-[width] duration-[180ms] ease-linear"
             style={{ width: `${pct}%` }}
           />
-        </div>
-        <div className="mt-1.5 flex justify-between font-mono text-[11px] text-nevo-near-black/55">
-          <span>{clock(played)}</span>
-          <span>{clock(duration)}</span>
         </div>
       </div>
 
@@ -110,21 +130,23 @@ export function AudioSegment({ content }: { content: AudioContent }) {
         type="button"
         aria-expanded={transcriptOpen}
         onClick={() => setTranscriptOpen((o) => !o)}
-        className="mt-4 flex cursor-pointer items-center gap-1.5 text-[15px] font-medium text-nevo-navy"
+        className="mt-3.5 flex cursor-pointer items-center gap-2 text-sm font-medium text-nevo-navy"
       >
-        {transcriptOpen ? "Hide transcript" : "Show transcript"}
         <ChevronDown
           className={cn(
-            "size-4 transition-transform",
+            "size-4 transition-transform duration-[180ms]",
             transcriptOpen && "rotate-180",
           )}
           strokeWidth={2}
         />
+        {transcriptOpen ? "Hide transcript" : "Show transcript"}
       </button>
       {transcriptOpen && (
-        <p className="mt-3 text-base leading-[1.65] text-nevo-near-black/80 motion-safe:animate-nevo-reveal sm:text-[17px]">
-          {content.transcript}
-        </p>
+        <div className="mt-3 rounded-[12px] bg-nevo-violet/8 p-[18px]">
+          <p className="text-base leading-[1.7] text-nevo-near-black/82 sm:text-[18px] lg:text-[19px]">
+            {content.transcript}
+          </p>
+        </div>
       )}
     </article>
   );

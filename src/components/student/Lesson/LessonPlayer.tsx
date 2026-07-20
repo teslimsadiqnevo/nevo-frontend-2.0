@@ -75,40 +75,52 @@ export function LessonPlayer({
   const first = lesson.segments[0];
   const firstPlan = planFor(first.id);
 
-  // Active reading density, and whether it came from the adaptation plan (system)
-  // rather than a student tap (manual) — drives the toggle's two active looks.
+  // Active reading density. The plan's density arrives pre-applied and reads as
+  // the chosen option (navy); the violet "system" look is reserved for live
+  // mid-lesson recommendations (Slice 5).
   const [density, setDensity] = useState<Density | null>(
     firstPlan?.density ?? null,
-  );
-  const [fromSystem, setFromSystem] = useState<boolean>(
-    (firstPlan?.density ?? null) !== null,
   );
   const [modality, setModality] = useState<Modality>(
     openingModality(first, firstPlan?.startModality),
   );
   // The system gets ONE suggestion per segment; taking or declining it spends it.
   const [suggestionSpent, setSuggestionSpent] = useState(false);
+  // …and never offers on consecutive segments (17 doc page).
+  const [lastSuggestedIndex, setLastSuggestedIndex] = useState<number | null>(
+    null,
+  );
 
-  // Segments whose Quick Check has been answered (answering spends the check,
-  // even if the sheet is dismissed before "Keep going").
-  const [answeredChecks, setAnsweredChecks] = useState<ReadonlySet<string>>(
+  // Segments whose Quick Check has been answered correctly — only a correct
+  // answer spends the check (a miss offers Try again / See it explained).
+  const [passedChecks, setPassedChecks] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
   const [checkOpen, setCheckOpen] = useState(false);
-  // Segments are the lesson itself; the assessment phase replaces the reading
-  // column once the last segment is done (growth framing — never a score).
+  // Segments are the lesson itself; the assessment takes over the screen once
+  // the last segment is done (growth framing — never a score).
   const [phase, setPhase] = useState<"segments" | "assessment">("segments");
 
   const segment = lesson.segments[index];
-  const inSegments = phase === "segments";
+
+  // Offer the plan's suggestion only while it's renderable and not already showing.
+  const suggested = planFor(segment.id)?.suggestModality ?? null;
+  const showSuggestion =
+    !suggestionSpent &&
+    suggested !== null &&
+    suggested !== modality &&
+    hasContent(segment, suggested) &&
+    lastSuggestedIndex !== index - 1;
 
   const go = (next: number) => {
     if (next < 0 || next >= total) return;
+    // Leaving a segment that had a live offer counts as that segment having
+    // suggested — the next segment must stay quiet (never consecutive).
+    if (showSuggestion) setLastSuggestedIndex(index);
     const nextSegment = lesson.segments[next];
     const nextPlan = planFor(nextSegment.id);
     setIndex(next);
     setDensity(nextPlan?.density ?? null);
-    setFromSystem((nextPlan?.density ?? null) !== null);
     setModality(openingModality(nextSegment, nextPlan?.startModality));
     setSuggestionSpent(false);
   };
@@ -123,9 +135,9 @@ export function LessonPlayer({
     // No assessment: the completion screen arrives in Slice 4.
   };
 
-  /** Next chevron — an unanswered Quick Check intercepts the advance. */
+  /** Next chevron — an unpassed Quick Check intercepts the advance. */
   const handleNext = () => {
-    if (segment.quickCheck && !answeredChecks.has(segment.id)) {
+    if (segment.quickCheck && !passedChecks.has(segment.id)) {
       setCheckOpen(true);
       return;
     }
@@ -134,49 +146,49 @@ export function LessonPlayer({
 
   const pickDensity = (id: string) => {
     const d = id as Density;
-    if (density === d) {
-      setDensity(null);
-      setFromSystem(false);
-    } else {
-      setDensity(d);
-      setFromSystem(false); // a tap is always a manual choice
-    }
+    setDensity((current) => (current === d ? null : d));
   };
 
   const densitySegments: ToggleSegment[] = DENSITIES.map(({ id, label }) => ({
     id,
     label,
-    state: density === id ? (fromSystem ? "system" : "manual") : "default",
+    state: density === id ? "manual" : "default",
   }));
-
-  // Offer the plan's suggestion only while it's renderable and not already showing.
-  const suggested = planFor(segment.id)?.suggestModality ?? null;
-  const showSuggestion =
-    inSegments &&
-    !suggestionSpent &&
-    suggested !== null &&
-    suggested !== modality &&
-    hasContent(segment, suggested);
 
   const acceptSuggestion = useCallback(() => {
     if (suggested) setModality(suggested);
+    setLastSuggestedIndex(index);
     setSuggestionSpent(true);
-  }, [suggested]);
+  }, [suggested, index]);
 
-  const dismissSuggestion = useCallback(() => setSuggestionSpent(true), []);
+  const dismissSuggestion = useCallback(() => {
+    setLastSuggestedIndex(index);
+    setSuggestionSpent(true);
+  }, [index]);
 
   // Once the last segment is behind us there is nowhere further to chevron to
   // (the assessment brings its own forward path).
   const nextDisabled =
     index === total - 1 &&
     !lesson.assessment &&
-    !(segment.quickCheck && !answeredChecks.has(segment.id));
+    !(segment.quickCheck && !passedChecks.has(segment.id));
+
+  // The assessment takes over the full screen — its own header, no player chrome.
+  if (phase === "assessment") {
+    return (
+      <AfterLessonAssessment
+        assessment={lesson.assessment!}
+        // TODO(slice-4): hand off to the LessonComplete screen instead.
+        onFinish={() => router.push("/student/lessons")}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-nevo-cream text-nevo-near-black">
-      {/* Top bar: exit + title, then the density toggle */}
-      <header className="shrink-0 px-4 pt-2.5 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-2">
+      {/* Top bar: exit + title, then the density toggle (present in every modality) */}
+      <header className="flex shrink-0 flex-col gap-2.5 px-4 pt-2.5 pb-3 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             aria-label="Exit lesson"
@@ -189,53 +201,41 @@ export function LessonPlayer({
             {lesson.title}
           </h1>
         </div>
-        {/* Density reshapes written text, so the toggle belongs to Text alone. */}
-        <div className="mt-2 flex min-h-[60px] justify-end overflow-x-auto pb-3">
-          {inSegments && modality === MODALITY.TEXT && (
-            <AdaptiveToggleBar segments={densitySegments} onSelect={pickDensity} />
-          )}
+        <div className="flex justify-end">
+          <AdaptiveToggleBar segments={densitySegments} onSelect={pickDensity} />
         </div>
       </header>
 
-      {/* Progress line — full once the segments are behind us */}
+      {/* Progress line — segment `index + 1` of `total` */}
       <ProgressBar
-        value={inSegments ? (index + 1) / total : 1}
+        value={(index + 1) / total}
         className="shrink-0"
-        aria-label={
-          inSegments ? `Segment ${index + 1} of ${total}` : "Lesson complete"
-        }
+        aria-label={`Segment ${index + 1} of ${total}`}
       />
+
+      {/* Anchor for the suggestion pill — slides down just below the top bar */}
+      <div className="relative">
+        {showSuggestion && (
+          <ModalitySuggestionPill
+            key={`pill-${segment.id}`}
+            modality={suggested}
+            onAccept={acceptSuggestion}
+            onDismiss={dismissSuggestion}
+          />
+        )}
+      </div>
 
       {/* Content — centered reading column */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-full px-6 py-8 sm:max-w-[620px] sm:px-8 lg:max-w-[680px] lg:px-10">
-          {inSegments ? (
-            <SegmentBody
-              // Remount on either axis so entry motion replays and per-modality
-              // state (audio playback, ticked steps) never leaks across segments.
-              key={`${segment.id}:${modality}`}
-              segment={segment}
-              modality={modality}
-              density={density}
-            />
-          ) : (
-            <AfterLessonAssessment
-              assessment={lesson.assessment!}
-              // TODO(slice-4): hand off to the LessonComplete screen instead.
-              onFinish={() => router.push("/student/lessons")}
-            />
-          )}
+        <div
+          // Remount on either axis so entry motion replays and per-modality
+          // state (audio playback, ticked steps) never leaks across segments.
+          key={`${segment.id}:${modality}`}
+          className="mx-auto w-full max-w-full px-6 py-8 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:ease-nevo-slide sm:max-w-[620px] sm:px-8 lg:max-w-[680px] lg:px-10"
+        >
+          <SegmentBody segment={segment} modality={modality} density={density} />
         </div>
       </div>
-
-      {showSuggestion && (
-        <ModalitySuggestionPill
-          key={`pill-${segment.id}`}
-          modality={suggested}
-          onAccept={acceptSuggestion}
-          onDismiss={dismissSuggestion}
-        />
-      )}
 
       {segment.quickCheck && (
         <QuickCheckSheet
@@ -243,10 +243,11 @@ export function LessonPlayer({
           check={segment.quickCheck}
           open={checkOpen}
           onOpenChange={setCheckOpen}
-          onAnswered={() =>
+          onAnswered={(correct) => {
             // TODO(slice-5): emit the comprehension_response signal here.
-            setAnsweredChecks((prev) => new Set(prev).add(segment.id))
-          }
+            if (correct)
+              setPassedChecks((prev) => new Set(prev).add(segment.id));
+          }}
           onContinue={() => {
             setCheckOpen(false);
             advancePastSegment();
@@ -255,16 +256,14 @@ export function LessonPlayer({
       )}
 
       {/* Chevron nav */}
-      {inSegments && (
-        <nav className="flex shrink-0 items-center justify-center gap-8 px-4 pt-2 pb-6">
-          <ChevronButton
-            dir="prev"
-            disabled={index === 0}
-            onClick={() => go(index - 1)}
-          />
-          <ChevronButton dir="next" disabled={nextDisabled} onClick={handleNext} />
-        </nav>
-      )}
+      <nav className="flex shrink-0 items-center justify-center gap-8 px-4 pt-2 pb-6">
+        <ChevronButton
+          dir="prev"
+          disabled={index === 0}
+          onClick={() => go(index - 1)}
+        />
+        <ChevronButton dir="next" disabled={nextDisabled} onClick={handleNext} />
+      </nav>
     </div>
   );
 }
@@ -309,7 +308,7 @@ function ChevronButton({
       className={cn(
         "flex size-12 items-center justify-center rounded-full transition-colors",
         disabled
-          ? "cursor-not-allowed text-nevo-near-black/25"
+          ? "cursor-not-allowed text-nevo-near-black/20"
           : "cursor-pointer text-nevo-navy hover:bg-nevo-navy/6 active:bg-nevo-cream-elevated",
       )}
     >

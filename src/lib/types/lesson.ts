@@ -9,18 +9,29 @@ import type { CalcModality, Density, Modality } from "@/lib/constants";
 
 // ── Per-modality content ────────────────────────────────────────────────────
 
-/** Text modality — one heading, body variants keyed by density. */
+/** Text modality — one heading, body variants keyed by density (frame 17). */
 export interface TextContent {
   heading: string;
   /** `default` is the base rendering; density keys reshape the same segment. */
   body: Record<Density | "default", string>;
-  /** Optional density-specific callout (e.g. "IN SHORT" / "WORD EQUATION"). */
-  callout?: { label: string; text: string };
+  /**
+   * Slower breaks the same idea into small numbered step cards (frame 17);
+   * the density's `body` string becomes the lead line above them.
+   */
+  slowerSteps?: string[];
+  /** Expand surfaces key terms as violet chips under the fuller prose. */
+  keyTerms?: string[];
+  /** Per-density callout (e.g. Simplify "IN SHORT", Expand "WORD EQUATION"). */
+  callouts?: Partial<
+    Record<Density | "default", { label: string; text: string; sub?: string }>
+  >;
 }
 
 /** Visual modality — an illustration and/or a simple input→output diagram. */
 export interface VisualContent {
   heading: string;
+  /** One-line orientation under the heading ("Follow the arrows."). */
+  intro?: string;
   illustration?: { src: string; alt: string; caption?: string };
   /** e.g. Photosynthesis "TAKES IN → GIVES OUT". */
   diagram?: { inLabel: string; outLabel: string; inputs: string[]; outputs: string[] };
@@ -28,6 +39,11 @@ export interface VisualContent {
 
 /** Audio modality — a produced narration asset + transcript for the disclosure. */
 export interface AudioContent {
+  heading?: string;
+  /** One-line orientation under the heading. */
+  intro?: string;
+  /** Player-card title, e.g. "Narrated: What is photosynthesis?". */
+  title?: string;
   /** Backend-produced asset ref; absent in the mock (UI animates a placeholder). */
   src?: string;
   durationSec?: number;
@@ -37,6 +53,8 @@ export interface AudioContent {
 /** Interactive modality — tickable steps that reveal an outcome once all done. */
 export interface InteractiveContent {
   heading: string;
+  /** One-line orientation under the heading ("…there's no rush."). */
+  intro?: string;
   /** "YOU'LL NEED" items. */
   needs?: string[];
   steps: string[];
@@ -130,6 +148,8 @@ export interface Assessment {
   /** Concepts to surface in the result as "getting the hang of" vs "revisit". */
   masteredConcepts?: string[];
   revisitConcepts?: string[];
+  /** Warm result paragraph under "You're getting the hang of this". */
+  resultNote?: string;
 }
 
 export interface Lesson {
