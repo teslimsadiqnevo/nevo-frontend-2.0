@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Nevo dot progress indicator (Design System v2 §6). Onboarding-only — the
- * Observed Interaction Sequence's four dots. Filled = solid navy, remaining =
- * violet outline.
+ * Nevo dot progress indicator (Design System v2 §6) — a handful of discrete
+ * steps (the onboarding sequence's four dots, the assessment's questions).
+ * Filled = solid navy, remaining = violet outline.
  */
 export function ProgressDots({
   total,
