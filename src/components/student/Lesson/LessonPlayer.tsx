@@ -1,13 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { AdaptiveToggleBar, ProgressBar, type ToggleSegment } from "@/components/shared";
-import { DENSITY, type Density } from "@/lib/constants";
-import type { AdaptationPlan, Lesson } from "@/lib/types";
+import { DENSITY, MODALITY, type Density, type Modality } from "@/lib/constants";
+import type { AdaptationPlan, Lesson, LessonSegment } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { AudioSegment } from "./AudioSegment";
+import { InteractiveSegment } from "./InteractiveSegment";
+import { ModalitySuggestionPill } from "./ModalitySuggestionPill";
 import { TextSegment } from "./TextSegment";
+import { VisualSegment } from "./VisualSegment";
 
 const DENSITIES: { id: Density; label: string }[] = [
   { id: DENSITY.SIMPLIFY, label: "Simplify" },
@@ -16,10 +20,39 @@ const DENSITIES: { id: Density; label: string }[] = [
 ];
 
 /**
- * Lesson Player (screen 17) — the immersive reading/learning shell. Slice 1: the
- * spine (top bar + progress + centered reading column + chevron nav) and the Text
- * modality with Simplify/Expand/Slower density. Other modalities, the modality
- * suggestion, comprehension checks and completion arrive in later slices.
+ * Whether we can actually render `modality` for this segment. A segment may list
+ * a modality it has no content for, and an Interactive segment carrying a
+ * `calculationVariant` routes to the co-construction solver — which doesn't exist
+ * until Slice 6, so it reads as "no content" for now rather than rendering blank.
+ */
+function hasContent(segment: LessonSegment, modality: Modality): boolean {
+  switch (modality) {
+    case MODALITY.TEXT:
+      return Boolean(segment.text);
+    case MODALITY.VISUAL:
+      return Boolean(segment.visual);
+    case MODALITY.AUDIO:
+      return Boolean(segment.audio);
+    case MODALITY.INTERACTIVE:
+      return Boolean(segment.interactive) && !segment.calculationVariant;
+  }
+}
+
+/** The modality a segment opens in: the plan's choice, else the first renderable one. */
+function openingModality(
+  segment: LessonSegment,
+  planned: Modality | undefined,
+): Modality {
+  if (planned && hasContent(segment, planned)) return planned;
+  return segment.modalities.find((m) => hasContent(segment, m)) ?? MODALITY.TEXT;
+}
+
+/**
+ * Lesson Player (screen 17) — the immersive reading/learning shell. Slices 1–2:
+ * the spine (top bar + progress + centered reading column + chevron nav), all
+ * four modalities, reading density on Text, and the system's one-per-segment
+ * modality suggestion. Comprehension checks, completion and the calculation
+ * solver arrive in later slices.
  */
 export function LessonPlayer({
   lesson,
@@ -31,27 +64,39 @@ export function LessonPlayer({
   const router = useRouter();
   const total = lesson.segments.length;
 
-  const planDensityFor = (segmentId: string): Density | null =>
-    plan?.segments.find((s) => s.segmentId === segmentId)?.density ?? null;
+  const planFor = (segmentId: string) =>
+    plan?.segments.find((s) => s.segmentId === segmentId);
 
   const [index, setIndex] = useState(0);
+
+  const first = lesson.segments[0];
+  const firstPlan = planFor(first.id);
+
   // Active reading density, and whether it came from the adaptation plan (system)
   // rather than a student tap (manual) — drives the toggle's two active looks.
   const [density, setDensity] = useState<Density | null>(
-    planDensityFor(lesson.segments[0].id),
+    firstPlan?.density ?? null,
   );
   const [fromSystem, setFromSystem] = useState<boolean>(
-    planDensityFor(lesson.segments[0].id) !== null,
+    (firstPlan?.density ?? null) !== null,
   );
+  const [modality, setModality] = useState<Modality>(
+    openingModality(first, firstPlan?.startModality),
+  );
+  // The system gets ONE suggestion per segment; taking or declining it spends it.
+  const [suggestionSpent, setSuggestionSpent] = useState(false);
 
   const segment = lesson.segments[index];
 
   const go = (next: number) => {
     if (next < 0 || next >= total) return;
-    const planned = planDensityFor(lesson.segments[next].id);
+    const nextSegment = lesson.segments[next];
+    const nextPlan = planFor(nextSegment.id);
     setIndex(next);
-    setDensity(planned);
-    setFromSystem(planned !== null);
+    setDensity(nextPlan?.density ?? null);
+    setFromSystem((nextPlan?.density ?? null) !== null);
+    setModality(openingModality(nextSegment, nextPlan?.startModality));
+    setSuggestionSpent(false);
   };
 
   const pickDensity = (id: string) => {
@@ -71,6 +116,21 @@ export function LessonPlayer({
     state: density === id ? (fromSystem ? "system" : "manual") : "default",
   }));
 
+  // Offer the plan's suggestion only while it's renderable and not already showing.
+  const suggested = planFor(segment.id)?.suggestModality ?? null;
+  const showSuggestion =
+    !suggestionSpent &&
+    suggested !== null &&
+    suggested !== modality &&
+    hasContent(segment, suggested);
+
+  const acceptSuggestion = useCallback(() => {
+    if (suggested) setModality(suggested);
+    setSuggestionSpent(true);
+  }, [suggested]);
+
+  const dismissSuggestion = useCallback(() => setSuggestionSpent(true), []);
+
   return (
     <div className="flex min-h-[100dvh] flex-col bg-nevo-cream text-nevo-near-black">
       {/* Top bar: exit + title, then the density toggle */}
@@ -88,8 +148,11 @@ export function LessonPlayer({
             {lesson.title}
           </h1>
         </div>
-        <div className="mt-2 flex justify-end overflow-x-auto pb-3">
-          <AdaptiveToggleBar segments={densitySegments} onSelect={pickDensity} />
+        {/* Density reshapes written text, so the toggle belongs to Text alone. */}
+        <div className="mt-2 flex min-h-[60px] justify-end overflow-x-auto pb-3">
+          {modality === MODALITY.TEXT && (
+            <AdaptiveToggleBar segments={densitySegments} onSelect={pickDensity} />
+          )}
         </div>
       </header>
 
@@ -103,13 +166,25 @@ export function LessonPlayer({
       {/* Content — centered reading column */}
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-full px-6 py-8 sm:max-w-[620px] sm:px-8 lg:max-w-[680px] lg:px-10">
-          {segment.text ? (
-            <TextSegment content={segment.text} density={density} />
-          ) : (
-            <ModalityPlaceholder />
-          )}
+          <SegmentBody
+            // Remount on either axis so entry motion replays and per-modality
+            // state (audio playback, ticked steps) never leaks across segments.
+            key={`${segment.id}:${modality}`}
+            segment={segment}
+            modality={modality}
+            density={density}
+          />
         </div>
       </div>
+
+      {showSuggestion && (
+        <ModalitySuggestionPill
+          key={segment.id}
+          modality={suggested}
+          onAccept={acceptSuggestion}
+          onDismiss={dismissSuggestion}
+        />
+      )}
 
       {/* Chevron nav */}
       <nav className="flex shrink-0 items-center justify-center gap-8 px-4 pt-2 pb-6">
@@ -126,6 +201,27 @@ export function LessonPlayer({
       </nav>
     </div>
   );
+}
+
+/** Renders the segment through the active modality. */
+function SegmentBody({
+  segment,
+  modality,
+  density,
+}: {
+  segment: LessonSegment;
+  modality: Modality;
+  density: Density | null;
+}) {
+  if (modality === MODALITY.TEXT && segment.text)
+    return <TextSegment content={segment.text} density={density} />;
+  if (modality === MODALITY.VISUAL && segment.visual)
+    return <VisualSegment content={segment.visual} />;
+  if (modality === MODALITY.AUDIO && segment.audio)
+    return <AudioSegment content={segment.audio} />;
+  if (modality === MODALITY.INTERACTIVE && segment.interactive)
+    return <InteractiveSegment content={segment.interactive} />;
+  return <ModalityPlaceholder />;
 }
 
 function ChevronButton({
@@ -156,7 +252,7 @@ function ChevronButton({
   );
 }
 
-/** Placeholder for a modality not yet built (Slice 2+). */
+/** Fallback for content this slice can't render yet (the calculation solver, Slice 6). */
 function ModalityPlaceholder() {
   return (
     <div className="flex min-h-[200px] items-center justify-center rounded-[12px] bg-nevo-cream-elevated">
