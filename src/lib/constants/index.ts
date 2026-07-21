@@ -2,3 +2,4 @@
 export * from "./permissions";
 export * from "./eventTypes";
 export * from "./breakTypes";
+export * from "./lessonModality";

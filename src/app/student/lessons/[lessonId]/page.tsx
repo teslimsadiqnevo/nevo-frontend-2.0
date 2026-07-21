@@ -1,17 +1,19 @@
+import { notFound } from "next/navigation";
+import { LessonPlayer } from "@/components/student/Lesson/LessonPlayer";
+import { getMockAdaptation, getMockLesson } from "@/lib/mocks";
+
 // Next.js 16: `params` is a Promise and must be awaited.
+// TODO(api): replace the mock getters with contentApi.getLesson +
+// intelligenceApi.getAdaptation once the backend contracts land.
 export default async function StudentLessonPlayerPage({
   params,
 }: {
   params: Promise<{ lessonId: string }>;
 }) {
   const { lessonId } = await params;
-  return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-2">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Student</p>
-      <h1 className="text-xl font-medium text-nevo-navy">Lesson player</h1>
-      <p className="text-sm text-nevo-near-black/60">
-        Placeholder for <span className="font-mono">{lessonId}</span> — built per the UI/UX spec.
-      </p>
-    </main>
-  );
+  const lesson = getMockLesson(lessonId);
+  if (!lesson) notFound();
+
+  const plan = getMockAdaptation(lessonId);
+  return <LessonPlayer lesson={lesson} plan={plan} />;
 }
