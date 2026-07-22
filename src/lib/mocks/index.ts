@@ -5,3 +5,4 @@ export {
   getMockAdaptation,
   FIRST_LESSON_ID,
 } from "./photosynthesis";
+export { resolveMockSso, SSO_RESOLVE_MS, type SsoResolution } from "./sso";

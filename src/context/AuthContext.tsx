@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { UserRole } from "@/lib/constants";
 
 /** The authenticated user (Product Arch A.1–A.2). */
@@ -22,6 +28,13 @@ export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 export interface AuthContextValue {
   user: AuthUser | null;
   status: AuthStatus;
+  /**
+   * Establish a client session. Real auth will hydrate this from the FastAPI
+   * session (see proxy.ts); today it's called by the SSO callback once the
+   * identity provider returns, so onboarding reads `user.method` from the
+   * session rather than a spoofable `?path=sso` query param.
+   */
+  signIn: (user: AuthUser) => void;
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -29,10 +42,11 @@ export const AuthContext = createContext<AuthContextValue | undefined>(undefined
 export function AuthProvider({ children }: { children: ReactNode }) {
   // TODO(auth): hydrate from the session (authApi.session) once the FastAPI auth
   // contract exists (see proxy.ts). Starts unauthenticated for now.
-  const [user] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const signIn = useCallback((next: AuthUser) => setUser(next), []);
   const value = useMemo<AuthContextValue>(
-    () => ({ user, status: user ? "authenticated" : "unauthenticated" }),
-    [user],
+    () => ({ user, status: user ? "authenticated" : "unauthenticated", signIn }),
+    [user, signIn],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
