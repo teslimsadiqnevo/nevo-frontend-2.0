@@ -354,3 +354,44 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Accessibility preferences (Profile & Settings, applied to <html>) ──────── */
+
+/* Reduced Motion toggle — the same neutralization as the OS query above, but
+ * driven by the student's in-app choice regardless of their OS setting. */
+html[data-reduced-motion="true"] *,
+html[data-reduced-motion="true"] *::before,
+html[data-reduced-motion="true"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Text Size — the content zoom that scales the app's fixed-px type is applied as
+ * a numeric `zoom` on the shell's content region (StudentShell), since
+ * `zoom: var(...)` doesn't resolve. No global rule is needed here. */
+
+/* High Contrast — a first pass: darken muted text and strengthen the faint
+ * borders/dividers so the hierarchy reads at low vision. A full high-contrast
+ * palette is a design follow-up. */
+html[data-contrast="high"] {
+  --tw-text-opacity: 1;
+}
+html[data-contrast="high"] .text-nevo-near-black\/45,
+html[data-contrast="high"] .text-nevo-near-black\/50,
+html[data-contrast="high"] .text-nevo-near-black\/55,
+html[data-contrast="high"] .text-nevo-near-black\/60,
+html[data-contrast="high"] .text-nevo-near-black\/65,
+html[data-contrast="high"] .text-nevo-near-black\/68,
+html[data-contrast="high"] .text-nevo-near-black\/70,
+html[data-contrast="high"] .text-nevo-near-black\/72 {
+  color: rgba(43, 43, 47, 0.92) !important;
+}
+html[data-contrast="high"] .border-nevo-near-black\/8,
+html[data-contrast="high"] .border-nevo-near-black\/\[0\.08\],
+html[data-contrast="high"] .border-nevo-near-black\/10,
+html[data-contrast="high"] .border-nevo-near-black\/12,
+html[data-contrast="high"] .border-nevo-near-black\/16 {
+  border-color: rgba(43, 43, 47, 0.4) !important;
+}

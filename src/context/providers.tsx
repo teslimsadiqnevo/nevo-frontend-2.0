@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
+import { AccessibilityProvider } from "./AccessibilityContext";
 import { AuthProvider } from "./AuthContext";
 import { NotificationProvider } from "./NotificationContext";
 
@@ -11,8 +12,10 @@ import { NotificationProvider } from "./NotificationContext";
  */
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <AuthProvider>
-      <NotificationProvider>{children}</NotificationProvider>
-    </AuthProvider>
+    <AccessibilityProvider>
+      <AuthProvider>
+        <NotificationProvider>{children}</NotificationProvider>
+      </AuthProvider>
+    </AccessibilityProvider>
   );
 }
