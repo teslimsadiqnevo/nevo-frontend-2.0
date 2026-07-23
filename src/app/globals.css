@@ -89,6 +89,8 @@
   --animate-nevo-kb-up: nevo-kb-up 220ms cubic-bezier(0.33, 1, 0.68, 1) both;
   --animate-nevo-glow: nevo-glow 2s ease-in-out infinite;
   --animate-nevo-sparkle: nevo-sparkle 2600ms ease-in-out infinite;
+  --animate-nevo-shake: nevo-shake 260ms ease-in-out both;
+  --animate-nevo-fill: nevo-fill 460ms cubic-bezier(0.33, 1, 0.68, 1) both;
 }
 
 @keyframes nevo-pulse {
@@ -210,6 +212,37 @@
   100% {
     opacity: 0;
     transform: scale(0.85) rotate(6deg);
+  }
+}
+
+/* Calculation solver — a single gentle horizontal shake on a wrong step (never a
+ * red flash or a cross). One-shot, honours reduced-motion. */
+@keyframes nevo-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+/* Calculation solver — a scaffold bar filling in as the answer assembles. */
+@keyframes nevo-fill {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
   }
 }
 
