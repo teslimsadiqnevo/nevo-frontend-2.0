@@ -24,7 +24,14 @@ function clock(sec: number): string {
  * simulated so the UI shell and signals (replay, transcript open) can be
  * exercised.
  */
-export function AudioSegment({ content }: { content: AudioContent }) {
+export function AudioSegment({
+  content,
+  onReplay,
+}: {
+  content: AudioContent;
+  /** Fired when the student restarts a finished clip (a "replay" signal). */
+  onReplay?: () => void;
+}) {
   const duration = content.durationSec ?? 40;
   const [playing, setPlaying] = useState(false);
   const [pct, setPct] = useState(0);
@@ -46,6 +53,8 @@ export function AudioSegment({ content }: { content: AudioContent }) {
       setPlaying(false);
       return;
     }
+    // Pressing play on a finished clip restarts it — that's a replay.
+    if (pct >= 100) onReplay?.();
     // TODO(audio): play the real narrated clip; drive `pct` from timeupdate.
     setPct((p) => (p >= 100 ? 0 : p));
     setPlaying(true);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { intelligenceApi, ApiError } from "@/lib/api";
+import type { AdaptationPlan } from "@/lib/types";
 
 /**
  * Lesson adaptation (FE Architecture §4). On lesson load, fetches the adapted
@@ -13,7 +14,7 @@ export function useAdaptation(
   studentId: string | undefined,
   lessonId: string | undefined,
 ) {
-  const [plan, setPlan] = useState<unknown | null>(null);
+  const [plan, setPlan] = useState<AdaptationPlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +30,9 @@ export function useAdaptation(
       .getAdaptation(studentId, lessonId)
       .then((res) => {
         if (active) {
-          setPlan(res);
+          // TODO(api): validate the shape once the backend contract is ratified;
+          // the client cast holds until then.
+          setPlan(res as AdaptationPlan);
           setError(null);
         }
       })

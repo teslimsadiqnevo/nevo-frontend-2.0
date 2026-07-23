@@ -25,9 +25,12 @@ const DEFAULT_RECOVERY =
 export function AfterLessonAssessment({
   assessment,
   onFinish,
+  onAnswer,
 }: {
   assessment: Assessment;
   onFinish: () => void;
+  /** Reports each confirmed answer (comprehension_response signal). */
+  onAnswer?: (result: { questionIndex: number; correct: boolean }) => void;
 }) {
   const [stage, setStage] = useState<"intro" | "questions" | "result">("intro");
   const [qIndex, setQIndex] = useState(0);
@@ -55,7 +58,9 @@ export function AfterLessonAssessment({
 
   const confirm = () => {
     if (!selected) return;
-    if (selected === question.correctId) advance();
+    const correct = selected === question.correctId;
+    onAnswer?.({ questionIndex: qIndex, correct });
+    if (correct) advance();
     else setRevealed(true);
   };
 
