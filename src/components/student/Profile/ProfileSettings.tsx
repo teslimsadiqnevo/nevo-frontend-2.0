@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, ChevronRight } from "lucide-react";
 import { Switch } from "@/components/shared";
 import { MOCK_STUDENT } from "@/components/student/Shell/studentNav";
+import { useAccessibility } from "@/context/AccessibilityContext";
 import { cn } from "@/lib/utils";
 import {
   MOCK_CHANNEL_CONFIDENCE,
@@ -12,30 +13,33 @@ import {
 } from "./learningChannels";
 
 const TEXT_SIZES = [
-  { id: "s", label: "S", px: 14 },
-  { id: "m", label: "M", px: 16 },
-  { id: "l", label: "L", px: 19 },
-  { id: "xl", label: "XL", px: 22 },
+  { id: "s", label: "S" },
+  { id: "m", label: "M" },
+  { id: "l", label: "L" },
+  { id: "xl", label: "XL" },
 ] as const;
-
-type TextSize = (typeof TEXT_SIZES)[number]["id"];
 
 /**
  * Profile & Settings (screen 27). Read-only learning preferences (observed, not
  * self-reported), accessibility controls, break preference, and account. Every
  * change is acknowledged with a quiet "Saved" pill.
  *
- * The accessibility controls persist their selection here; applying them across
- * the whole app (reduced-motion override, font scaling, high contrast) is the
- * separate global-wiring story. TODO(a11y-story): wire + persist app-wide.
+ * The accessibility controls (Reduced Motion / Text Size / High Contrast) are the
+ * global, persisted preferences from `AccessibilityContext` — changing one here
+ * takes effect across the whole app immediately.
  */
 export function ProfileSettings() {
   const statements = visibleChannelStatements(MOCK_CHANNEL_CONFIDENCE);
 
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const [highContrast, setHighContrast] = useState(false);
+  const {
+    reducedMotion,
+    highContrast,
+    textSize,
+    setReducedMotion,
+    setHighContrast,
+    setTextSize,
+  } = useAccessibility();
   const [suggestBreaks, setSuggestBreaks] = useState(true);
-  const [textSize, setTextSize] = useState<TextSize>("m");
 
   // Transient "Saved" confirmation.
   const [saved, setSaved] = useState(false);
@@ -48,8 +52,6 @@ export function ProfileSettings() {
     if (savedTimer.current) clearTimeout(savedTimer.current);
     savedTimer.current = setTimeout(() => setSaved(false), 1700);
   }, []);
-
-  const previewPx = TEXT_SIZES.find((s) => s.id === textSize)?.px ?? 16;
 
   return (
     <div className="mx-auto w-full max-w-[600px] px-5 py-2 pb-8 sm:px-8 sm:py-6">
@@ -119,10 +121,8 @@ export function ProfileSettings() {
             ))}
           </div>
         </div>
-        <p
-          className="mt-3 text-nevo-near-black/72"
-          style={{ fontSize: `${previewPx}px` }}
-        >
+        {/* A live sample — scales with the whole app via the content zoom. */}
+        <p className="mt-3 text-[15px] text-nevo-near-black/72">
           The quick brown fox
         </p>
       </div>

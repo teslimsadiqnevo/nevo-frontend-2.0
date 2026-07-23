@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { BottomNav, Sidebar } from "@/components/shared";
+import { TEXT_ZOOM, useAccessibility } from "@/context/AccessibilityContext";
 import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
 
 /**
@@ -17,6 +18,7 @@ import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
  */
 export function StudentShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
+  const { textSize } = useAccessibility();
 
   // Sidebar defaults collapsed (matches the server render, so no hydration
   // mismatch), then opens on desktop after mount. Tablet stays collapsed for room.
@@ -63,8 +65,15 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           </span>
         </header>
 
-        {/* Only the content region scrolls; the sidebar/nav stay fixed */}
-        <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+        {/* Only the content region scrolls; the sidebar/nav stay fixed.
+            The Text Size preference is applied here as a numeric `zoom`
+            (`zoom: var(...)` isn't supported, so it's read from context). */}
+        <main
+          className="min-h-0 flex-1 overflow-y-auto"
+          style={{ zoom: TEXT_ZOOM[textSize] }}
+        >
+          {children}
+        </main>
 
         {/* Bottom nav — mobile only */}
         <div className="shrink-0 px-3 pb-3 md:hidden">
