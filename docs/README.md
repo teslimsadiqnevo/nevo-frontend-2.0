@@ -18,6 +18,24 @@ to the repo, so the whole team (and CI) works from the same reference.
   codebase is organized and why" document, including the key decisions made
   along the way.
 
+### Ticket status
+
+- **[onboarding-ticket-status.md](./onboarding-ticket-status.md)** — B.2
+  onboarding: clause-by-clause coverage. Frontend-complete; only backend-blocked
+  gaps remain.
+- **[lesson-player-ticket-status.md](./lesson-player-ticket-status.md)** — B.7
+  lesson player: coverage across Slices 0–6, remaining frontend work, and the
+  backend-blocked adaptation spine.
+- **[blocked-items-handoff.md](./blocked-items-handoff.md)** — consolidated
+  design decisions + backend contracts outstanding across both tickets, for
+  handoff to Design & Backend.
+
+### Planning
+
+- **[student-daily-experience-epic.md](./student-daily-experience-epic.md)** —
+  the "student daily experience" ticket (B.4–B.11) split into buildable per-screen
+  stories, with scope decisions and data dependencies flagged.
+
 ## Conventions
 
 - Docs are Markdown and kept in sync with the code as it evolves.
