@@ -46,7 +46,7 @@ export function LessonPreviewSheet({
             {lesson.subject}
           </span>
           <span className="text-sm text-nevo-near-black/60">
-            {lesson.timeEstimate.replace(/^About /, "About ")}
+            {lesson.timeEstimate.replace(/\bmin\b/, "minutes")}
           </span>
         </div>
 

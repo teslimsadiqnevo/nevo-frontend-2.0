@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { BottomNav, Sidebar } from "@/components/shared";
 import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
@@ -10,9 +11,22 @@ import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
  * left `Sidebar` (tablet/desktop) or `BottomNav` (mobile). Full-screen flows —
  * onboarding and the immersive Lesson Player — render bare, with no chrome
  * ("no in-lesson sidebar").
+ *
+ * The shell is a fixed-height viewport frame: the sidebar/nav stay put while only
+ * the content region scrolls.
  */
 export function StudentShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
+
+  // Sidebar defaults collapsed (matches the server render, so no hydration
+  // mismatch), then opens on desktop after mount. Tablet stays collapsed for room.
+  const [collapsed, setCollapsed] = useState(true);
+  useEffect(() => {
+    // Client-only media read, once on mount — the deliberate way to pick a
+    // hydration-safe default (server can't know the viewport width).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCollapsed(!window.matchMedia("(min-width: 1024px)").matches);
+  }, []);
 
   if (isFullScreen(pathname)) return <>{children}</>;
 
@@ -21,14 +35,15 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   )?.href;
 
   return (
-    <div className="flex min-h-[100dvh] bg-nevo-cream text-nevo-near-black">
+    <div className="flex h-[100dvh] bg-nevo-cream text-nevo-near-black">
       {/* Sidebar — tablet & desktop */}
       <div className="hidden shrink-0 md:block">
         <Sidebar
           items={STUDENT_NAV}
           activeHref={activeHref}
           user={MOCK_STUDENT}
-          defaultCollapsed
+          collapsed={collapsed}
+          onToggle={setCollapsed}
         />
       </div>
 
@@ -48,7 +63,8 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           </span>
         </header>
 
-        <main className="min-h-0 flex-1">{children}</main>
+        {/* Only the content region scrolls; the sidebar/nav stay fixed */}
+        <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
 
         {/* Bottom nav — mobile only */}
         <div className="shrink-0 px-3 pb-3 md:hidden">

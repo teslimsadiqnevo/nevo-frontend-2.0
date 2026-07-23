@@ -23,15 +23,23 @@ export function Sidebar({
   activeHref,
   user,
   defaultCollapsed = false,
+  collapsed: collapsedProp,
+  onToggle,
   className,
 }: {
   items: NavItem[];
   activeHref?: string;
   user?: { name: string; subtitle?: string; initials: string };
   defaultCollapsed?: boolean;
+  /** Controlled collapse. Omit to let the sidebar manage its own state. */
+  collapsed?: boolean;
+  onToggle?: (collapsed: boolean) => void;
   className?: string;
 }) {
-  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const [internalCollapsed, setInternalCollapsed] = useState(defaultCollapsed);
+  const collapsed = collapsedProp ?? internalCollapsed;
+  const toggle = () =>
+    onToggle ? onToggle(!collapsed) : setInternalCollapsed((v) => !v);
 
   return (
     <nav
@@ -102,7 +110,7 @@ export function Sidebar({
       <button
         type="button"
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        onClick={() => setCollapsed((v) => !v)}
+        onClick={toggle}
         className="flex h-10 cursor-pointer items-center justify-center rounded-[10px] text-nevo-near-black transition-colors hover:bg-nevo-near-black/[0.04]"
       >
         <Icon icon={collapsed ? ChevronRight : ChevronLeft} size="dense" />
