@@ -190,23 +190,32 @@ function LessonCard({
 function StatusMark({ status }: { status: LessonStatus }) {
   if (status === "completed") {
     return (
-      <span className="absolute top-3 right-3 flex size-5 items-center justify-center rounded-full bg-nevo-navy">
-        <Check className="size-3 text-nevo-cream" strokeWidth={3} />
+      <span
+        role="img"
+        aria-label="Completed"
+        className="absolute top-3 right-3 flex size-5 items-center justify-center rounded-full bg-nevo-navy"
+      >
+        <Check className="size-3 text-nevo-cream" strokeWidth={3} aria-hidden />
       </span>
     );
   }
   if (status === "in_progress") {
     return (
       <span
+        role="img"
+        aria-label="In progress"
         className="absolute top-3 right-3 size-5 rounded-full border-2 border-nevo-violet"
         style={{
           background: "conic-gradient(#3b3f6e 55%, transparent 0)",
         }}
-        aria-label="In progress"
       />
     );
   }
   return (
-    <span className="absolute top-3 right-3 size-5 rounded-full border-2 border-nevo-near-black/28" />
+    <span
+      role="img"
+      aria-label="Not started"
+      className="absolute top-3 right-3 size-5 rounded-full border-2 border-nevo-near-black/28"
+    />
   );
 }
