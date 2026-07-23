@@ -1,14 +1,23 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { AdaptiveToggleBar, ProgressBar, type ToggleSegment } from "@/components/shared";
-import { DENSITY, MODALITY, type Density, type Modality } from "@/lib/constants";
+import {
+  DENSITY,
+  MODALITY,
+  SIGNAL_EVENT_TYPES,
+  TRIGGER_SOURCE,
+  type Density,
+  type Modality,
+} from "@/lib/constants";
+import { useLesson, useSignals } from "@/hooks";
 import type { AdaptationPlan, Lesson, LessonSegment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { AfterLessonAssessment } from "./AfterLessonAssessment";
 import { AudioSegment } from "./AudioSegment";
+import { FeedbackStrip } from "./FeedbackStrip";
 import { InteractiveSegment } from "./InteractiveSegment";
 import { LeaveLessonDialog } from "./LeaveLessonDialog";
 import { LessonComplete } from "./LessonComplete";
@@ -25,6 +34,12 @@ const DENSITIES: { id: Density; label: string }[] = [
   { id: DENSITY.EXPAND, label: "Expand" },
   { id: DENSITY.SLOWER, label: "Slower" },
 ];
+
+/** Scroll-depth marks (%) that each emit one `scroll` signal per segment. */
+const SCROLL_MILESTONES = [25, 50, 75, 100];
+
+/** How long the transient post-answer feedback note lingers before fading. */
+const FEEDBACK_MS = 3500;
 
 /**
  * Whether we can actually render `modality` for this segment. A segment may list
@@ -55,12 +70,11 @@ function openingModality(
 }
 
 /**
- * Lesson Player (screen 17) — the immersive reading/learning shell. Slices 1–3:
- * the spine (top bar + progress + centered reading column + chevron nav), all
- * four modalities, reading density on Text, the system's one-per-segment
- * modality suggestion, the inline Quick Check, and the after-lesson assessment.
- * Completion, the leave dialog and the calculation solver arrive in later
- * slices.
+ * Lesson Player (screen 17) — the immersive reading/learning shell. Slices 1–4:
+ * the spine, all four modalities, reading density, the modality suggestion, the
+ * inline Quick Check, the after-lesson assessment, completion, the leave dialog,
+ * and system states. Slice 5 wires signal collection (`useSignals`) across every
+ * interaction and publishes the session into `LessonContext`.
  */
 export function LessonPlayer({
   lesson,
@@ -74,6 +88,19 @@ export function LessonPlayer({
 
   const planFor = (segmentId: string) =>
     plan?.segments.find((s) => s.segmentId === segmentId);
+
+  // One signal session spans the whole lesson; useSignals batches events and
+  // flushes every 5s, at 20 events, and on unmount (exit/completion).
+  const [sessionId] = useState(() => `lesson-${lesson.id}-${crypto.randomUUID()}`);
+  const { trackEvent } = useSignals(sessionId);
+  const { setActiveLesson } = useLesson();
+
+  // Publish the active session so surfaces outside the player (e.g. Ask Nevo)
+  // can see what's being learned; cleared on unmount.
+  useEffect(() => {
+    setActiveLesson({ lessonId: lesson.id, sessionId, adaptationPlan: plan });
+    return () => setActiveLesson(null);
+  }, [lesson.id, sessionId, plan, setActiveLesson]);
 
   const [index, setIndex] = useState(0);
 
@@ -109,8 +136,55 @@ export function LessonPlayer({
   );
   // Exiting mid-lesson goes through the leave dialog, not straight out.
   const [leaveOpen, setLeaveOpen] = useState(false);
+  // Transient post-answer note that greets the next segment, then fades.
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const segment = lesson.segments[index];
+
+  // ── Signal helpers ──────────────────────────────────────────────────────
+  // Max scroll depth + which milestones have fired, reset per segment.
+  const scrollDepth = useRef(0);
+  const scrollMarks = useRef<Set<number>>(new Set());
+
+  // time_on_segment: one event per segment, emitted when it's left (index
+  // change) or on unmount. Keyed on `index` so within-segment modality/density
+  // changes don't split the timing.
+  useEffect(() => {
+    const enteredAt = Date.now();
+    const segId = lesson.segments[index].id;
+    scrollDepth.current = 0;
+    scrollMarks.current = new Set();
+    return () => {
+      trackEvent(SIGNAL_EVENT_TYPES.TIME_ON_SEGMENT, {
+        segmentId: segId,
+        durationMs: Date.now() - enteredAt,
+        scrollDepthPct: Math.round(scrollDepth.current),
+      });
+    };
+  }, [index, lesson.segments, trackEvent]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const room = el.scrollHeight - el.clientHeight;
+    const pct = room <= 0 ? 100 : (el.scrollTop / room) * 100;
+    scrollDepth.current = Math.max(scrollDepth.current, pct);
+    for (const mark of SCROLL_MILESTONES) {
+      if (pct >= mark && !scrollMarks.current.has(mark)) {
+        scrollMarks.current.add(mark);
+        trackEvent(SIGNAL_EVENT_TYPES.SCROLL, {
+          segmentId: segment.id,
+          depthPct: mark,
+        });
+      }
+    }
+  };
+
+  // Auto-clear the feedback note.
+  useEffect(() => {
+    if (!feedback) return;
+    const t = setTimeout(() => setFeedback(null), FEEDBACK_MS);
+    return () => clearTimeout(t);
+  }, [feedback]);
 
   // Offer the plan's suggestion only while it's renderable and not already showing.
   const suggested = planFor(segment.id)?.suggestModality ?? null;
@@ -132,6 +206,14 @@ export function LessonPlayer({
     setDensity(nextPlan?.density ?? null);
     setModality(openingModality(nextSegment, nextPlan?.startModality));
     setSuggestionSpent(false);
+    // A plan-applied density on the new segment is a system-driven adaptation.
+    if (nextPlan?.density) {
+      trackEvent(SIGNAL_EVENT_TYPES.SIMPLIFY_TRIGGER, {
+        segmentId: nextSegment.id,
+        density: nextPlan.density,
+        source: TRIGGER_SOURCE.SYSTEM,
+      });
+    }
   };
 
   /** Leave the current segment forward — next segment, then assessment, then done. */
@@ -154,7 +236,16 @@ export function LessonPlayer({
 
   const pickDensity = (id: string) => {
     const d = id as Density;
-    setDensity((current) => (current === d ? null : d));
+    const next = density === d ? null : d;
+    setDensity(next);
+    // A tap that sets (not clears) a density is a manual adaptation.
+    if (next) {
+      trackEvent(SIGNAL_EVENT_TYPES.SIMPLIFY_TRIGGER, {
+        segmentId: segment.id,
+        density: next,
+        source: TRIGGER_SOURCE.MANUAL,
+      });
+    }
   };
 
   const densitySegments: ToggleSegment[] = DENSITIES.map(({ id, label }) => ({
@@ -174,6 +265,14 @@ export function LessonPlayer({
     setSuggestionSpent(true);
   }, [index]);
 
+  const requestExit = () => {
+    trackEvent(SIGNAL_EVENT_TYPES.EXIT_ATTEMPT, {
+      segmentId: segment.id,
+      index,
+    });
+    setLeaveOpen(true);
+  };
+
   // Once the last segment is behind us there is nowhere further to chevron to
   // (the assessment brings its own forward path).
   const nextDisabled =
@@ -187,6 +286,13 @@ export function LessonPlayer({
     return (
       <AfterLessonAssessment
         assessment={lesson.assessment!}
+        onAnswer={({ questionIndex, correct }) =>
+          trackEvent(SIGNAL_EVENT_TYPES.COMPREHENSION_RESPONSE, {
+            kind: "assessment",
+            questionIndex,
+            correct,
+          })
+        }
         onFinish={() => setPhase("complete")}
       />
     );
@@ -206,7 +312,7 @@ export function LessonPlayer({
           <button
             type="button"
             aria-label="Exit lesson"
-            onClick={() => setLeaveOpen(true)}
+            onClick={requestExit}
             className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-[10px] transition-colors hover:bg-nevo-near-black/[0.06] active:bg-nevo-near-black/[0.12]"
           >
             <X className="size-5" strokeWidth={2} />
@@ -243,14 +349,24 @@ export function LessonPlayer({
       </div>
 
       {/* Content — centered reading column */}
-      <div className="flex-1 overflow-y-auto">
-        <div
-          // Remount on either axis so entry motion replays and per-modality
-          // state (audio playback, ticked steps) never leaks across segments.
-          key={`${segment.id}:${modality}`}
-          className="mx-auto w-full max-w-full px-6 py-8 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:ease-nevo-slide sm:max-w-[620px] sm:px-8 lg:max-w-[680px] lg:px-10"
-        >
-          <SegmentBody segment={segment} modality={modality} density={density} />
+      <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
+        <div className="mx-auto w-full max-w-full px-6 py-8 sm:max-w-[620px] sm:px-8 lg:max-w-[680px] lg:px-10">
+          {feedback && <FeedbackStrip message={feedback} />}
+          <div
+            // Remount on either axis so entry motion replays and per-modality
+            // state (audio playback, ticked steps) never leaks across segments.
+            key={`${segment.id}:${modality}`}
+            className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:ease-nevo-slide"
+          >
+            <SegmentBody
+              segment={segment}
+              modality={modality}
+              density={density}
+              onReplay={() =>
+                trackEvent(SIGNAL_EVENT_TYPES.REPLAY, { segmentId: segment.id })
+              }
+            />
+          </div>
         </div>
       </div>
 
@@ -261,12 +377,17 @@ export function LessonPlayer({
           open={checkOpen}
           onOpenChange={setCheckOpen}
           onAnswered={(correct) => {
-            // TODO(slice-5): emit the comprehension_response signal here.
+            trackEvent(SIGNAL_EVENT_TYPES.COMPREHENSION_RESPONSE, {
+              kind: "quick_check",
+              segmentId: segment.id,
+              correct,
+            });
             if (correct)
               setPassedChecks((prev) => new Set(prev).add(segment.id));
           }}
           onContinue={() => {
             setCheckOpen(false);
+            setFeedback("Nice — that's got it. Here's what's next.");
             advancePastSegment();
           }}
         />
@@ -296,17 +417,19 @@ function SegmentBody({
   segment,
   modality,
   density,
+  onReplay,
 }: {
   segment: LessonSegment;
   modality: Modality;
   density: Density | null;
+  onReplay: () => void;
 }) {
   if (modality === MODALITY.TEXT && segment.text)
     return <TextSegment content={segment.text} density={density} />;
   if (modality === MODALITY.VISUAL && segment.visual)
     return <VisualSegment content={segment.visual} />;
   if (modality === MODALITY.AUDIO && segment.audio)
-    return <AudioSegment content={segment.audio} />;
+    return <AudioSegment content={segment.audio} onReplay={onReplay} />;
   if (modality === MODALITY.INTERACTIVE && segment.interactive)
     return <InteractiveSegment content={segment.interactive} />;
   return <ModalityPlaceholder />;
