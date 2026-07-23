@@ -17,6 +17,7 @@ import type { AdaptationPlan, Lesson, LessonSegment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { AfterLessonAssessment } from "./AfterLessonAssessment";
 import { AudioSegment } from "./AudioSegment";
+import { CalculationSolver } from "./CalculationSolver";
 import { FeedbackStrip } from "./FeedbackStrip";
 import { InteractiveSegment } from "./InteractiveSegment";
 import { LeaveLessonDialog } from "./LeaveLessonDialog";
@@ -41,11 +42,17 @@ const SCROLL_MILESTONES = [25, 50, 75, 100];
 /** How long the transient post-answer feedback note lingers before fading. */
 const FEEDBACK_MS = 3500;
 
+/** A calculation segment whose Interactive modality routes to the solver (§8). */
+function isCalculation(segment: LessonSegment): boolean {
+  return Boolean(segment.calculationVariant) && Boolean(segment.calculation);
+}
+
 /**
  * Whether we can actually render `modality` for this segment. A segment may list
- * a modality it has no content for, and an Interactive segment carrying a
- * `calculationVariant` routes to the co-construction solver — which doesn't exist
- * until Slice 6, so it reads as "no content" for now rather than rendering blank.
+ * a modality it has no content for. The Interactive modality renders the standard
+ * interactive content, or — when the segment carries a `calculationVariant` — the
+ * co-construction calculation solver instead (17b §8, the one place a toggle
+ * option renders a different component).
  */
 function hasContent(segment: LessonSegment, modality: Modality): boolean {
   switch (modality) {
@@ -56,7 +63,7 @@ function hasContent(segment: LessonSegment, modality: Modality): boolean {
     case MODALITY.AUDIO:
       return Boolean(segment.audio);
     case MODALITY.INTERACTIVE:
-      return Boolean(segment.interactive) && !segment.calculationVariant;
+      return Boolean(segment.interactive) || isCalculation(segment);
   }
 }
 
@@ -138,6 +145,11 @@ export function LessonPlayer({
   const [leaveOpen, setLeaveOpen] = useState(false);
   // Transient post-answer note that greets the next segment, then fades.
   const [feedback, setFeedback] = useState<string | null>(null);
+  // Calculation segments the student has co-constructed to completion — the
+  // forward chevron stays gated until the answer assembles (17b §11).
+  const [solvedCalcs, setSolvedCalcs] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   const segment = lesson.segments[index];
 
@@ -273,12 +285,20 @@ export function LessonPlayer({
     setLeaveOpen(true);
   };
 
+  // A calculation being co-constructed holds the forward chevron until it's
+  // solved (17b: forward disabled until the segment completes).
+  const calcBlocking =
+    modality === MODALITY.INTERACTIVE &&
+    isCalculation(segment) &&
+    !solvedCalcs.has(segment.id);
+
   // Once the last segment is behind us there is nowhere further to chevron to
   // (the assessment brings its own forward path).
   const nextDisabled =
-    index === total - 1 &&
-    !lesson.assessment &&
-    !(segment.quickCheck && !passedChecks.has(segment.id));
+    calcBlocking ||
+    (index === total - 1 &&
+      !lesson.assessment &&
+      !(segment.quickCheck && !passedChecks.has(segment.id)));
 
   // The assessment and completion each take over the full screen — their own
   // layout, no player chrome.
@@ -365,6 +385,16 @@ export function LessonPlayer({
               onReplay={() =>
                 trackEvent(SIGNAL_EVENT_TYPES.REPLAY, { segmentId: segment.id })
               }
+              onCalcSolved={() =>
+                setSolvedCalcs((prev) => new Set(prev).add(segment.id))
+              }
+              onCalcStep={(correct) =>
+                trackEvent(SIGNAL_EVENT_TYPES.COMPREHENSION_RESPONSE, {
+                  kind: "calculation",
+                  segmentId: segment.id,
+                  correct,
+                })
+              }
             />
           </div>
         </div>
@@ -418,11 +448,15 @@ function SegmentBody({
   modality,
   density,
   onReplay,
+  onCalcSolved,
+  onCalcStep,
 }: {
   segment: LessonSegment;
   modality: Modality;
   density: Density | null;
   onReplay: () => void;
+  onCalcSolved: () => void;
+  onCalcStep: (correct: boolean) => void;
 }) {
   if (modality === MODALITY.TEXT && segment.text)
     return <TextSegment content={segment.text} density={density} />;
@@ -430,8 +464,20 @@ function SegmentBody({
     return <VisualSegment content={segment.visual} />;
   if (modality === MODALITY.AUDIO && segment.audio)
     return <AudioSegment content={segment.audio} onReplay={onReplay} />;
-  if (modality === MODALITY.INTERACTIVE && segment.interactive)
-    return <InteractiveSegment content={segment.interactive} />;
+  if (modality === MODALITY.INTERACTIVE) {
+    // A calculation segment routes the Interactive modality to the solver (§8).
+    if (segment.calculationVariant && segment.calculation)
+      return (
+        <CalculationSolver
+          calculation={segment.calculation}
+          onSolved={onCalcSolved}
+          onStepAnswered={onCalcStep}
+          onReplay={onReplay}
+        />
+      );
+    if (segment.interactive)
+      return <InteractiveSegment content={segment.interactive} />;
+  }
   return <ModalityPlaceholder />;
 }
 
