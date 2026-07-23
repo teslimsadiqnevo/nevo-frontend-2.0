@@ -1,9 +1,10 @@
+import type { Metadata } from "next";
+import { LessonsTab } from "@/components/student/Lessons/LessonsTab";
+
+export const metadata: Metadata = {
+  title: "Lessons — Nevo",
+};
+
 export default function StudentLessonsPage() {
-  return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-2">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Student</p>
-      <h1 className="text-xl font-medium text-nevo-navy">Lessons</h1>
-      <p className="text-sm text-nevo-near-black/60">Placeholder — built per the UI/UX spec.</p>
-    </main>
-  );
+  return <LessonsTab />;
 }
