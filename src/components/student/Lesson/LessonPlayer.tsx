@@ -10,10 +10,15 @@ import { cn } from "@/lib/utils";
 import { AfterLessonAssessment } from "./AfterLessonAssessment";
 import { AudioSegment } from "./AudioSegment";
 import { InteractiveSegment } from "./InteractiveSegment";
+import { LeaveLessonDialog } from "./LeaveLessonDialog";
+import { LessonComplete } from "./LessonComplete";
 import { ModalitySuggestionPill } from "./ModalitySuggestionPill";
+import { OfflineBanner } from "./OfflineBanner";
 import { QuickCheckSheet } from "./QuickCheckSheet";
 import { TextSegment } from "./TextSegment";
 import { VisualSegment } from "./VisualSegment";
+
+const LESSONS_HREF = "/student/lessons";
 
 const DENSITIES: { id: Density; label: string }[] = [
   { id: DENSITY.SIMPLIFY, label: "Simplify" },
@@ -98,8 +103,12 @@ export function LessonPlayer({
   );
   const [checkOpen, setCheckOpen] = useState(false);
   // Segments are the lesson itself; the assessment takes over the screen once
-  // the last segment is done (growth framing — never a score).
-  const [phase, setPhase] = useState<"segments" | "assessment">("segments");
+  // the last segment is done (growth framing — never a score), then completion.
+  const [phase, setPhase] = useState<"segments" | "assessment" | "complete">(
+    "segments",
+  );
+  // Exiting mid-lesson goes through the leave dialog, not straight out.
+  const [leaveOpen, setLeaveOpen] = useState(false);
 
   const segment = lesson.segments[index];
 
@@ -125,14 +134,13 @@ export function LessonPlayer({
     setSuggestionSpent(false);
   };
 
-  /** Leave the current segment forward — into the next one, or the assessment. */
+  /** Leave the current segment forward — next segment, then assessment, then done. */
   const advancePastSegment = () => {
     if (index < total - 1) {
       go(index + 1);
       return;
     }
-    if (lesson.assessment) setPhase("assessment");
-    // No assessment: the completion screen arrives in Slice 4.
+    setPhase(lesson.assessment ? "assessment" : "complete");
   };
 
   /** Next chevron — an unpassed Quick Check intercepts the advance. */
@@ -173,14 +181,20 @@ export function LessonPlayer({
     !lesson.assessment &&
     !(segment.quickCheck && !passedChecks.has(segment.id));
 
-  // The assessment takes over the full screen — its own header, no player chrome.
+  // The assessment and completion each take over the full screen — their own
+  // layout, no player chrome.
   if (phase === "assessment") {
     return (
       <AfterLessonAssessment
         assessment={lesson.assessment!}
-        // TODO(slice-4): hand off to the LessonComplete screen instead.
-        onFinish={() => router.push("/student/lessons")}
+        onFinish={() => setPhase("complete")}
       />
+    );
+  }
+
+  if (phase === "complete") {
+    return (
+      <LessonComplete onBackToLessons={() => router.push(LESSONS_HREF)} />
     );
   }
 
@@ -192,7 +206,7 @@ export function LessonPlayer({
           <button
             type="button"
             aria-label="Exit lesson"
-            onClick={() => router.push("/student/lessons")}
+            onClick={() => setLeaveOpen(true)}
             className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-[10px] transition-colors hover:bg-nevo-near-black/[0.06] active:bg-nevo-near-black/[0.12]"
           >
             <X className="size-5" strokeWidth={2} />
@@ -212,6 +226,9 @@ export function LessonPlayer({
         className="shrink-0"
         aria-label={`Segment ${index + 1} of ${total}`}
       />
+
+      {/* Calm banner while the device is offline — the cached lesson stays usable */}
+      <OfflineBanner />
 
       {/* Anchor for the suggestion pill — slides down just below the top bar */}
       <div className="relative">
@@ -254,6 +271,12 @@ export function LessonPlayer({
           }}
         />
       )}
+
+      <LeaveLessonDialog
+        open={leaveOpen}
+        onOpenChange={setLeaveOpen}
+        onLeave={() => router.push(LESSONS_HREF)}
+      />
 
       {/* Chevron nav */}
       <nav className="flex shrink-0 items-center justify-center gap-8 px-4 pt-2 pb-6">
