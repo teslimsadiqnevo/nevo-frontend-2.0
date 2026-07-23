@@ -1,26 +1,11 @@
-// ── Mock data ───────────────────────────────────────────────────────────────
-// TODO(api): source the growth summary + per-subject notes from the profile /
-// progress backend. All framing is plain-language and qualitative — never a
-// percentile, score, or peer comparison (Product Arch B.7 / constitution).
-const GROWTH_SUMMARY =
-  "You've been building strong reading skills this month, and sticking with maths even when it got tricky.";
-
-interface SubjectGrowth {
-  name: string;
-  note: string;
-}
-
-const SUBJECTS: SubjectGrowth[] = [
-  { name: "Mathematics", note: "Getting faster at solving problems" },
-  { name: "English", note: "Reading longer stories with ease" },
-  { name: "Science", note: "Asking more of your own questions" },
-];
+import Link from "next/link";
+import { GROWTH_SUMMARY, SUBJECTS, type SubjectSummary } from "./progressData";
 
 /**
  * Progress Tab (screen 22). Growth in plain language: a warm summary of how the
  * student has been doing, then a card per subject with a gentle upward curve and
  * a qualitative note. Deliberately no numbers — no percentile, no score, no
- * peer comparison — only the direction of travel.
+ * peer comparison — only the direction of travel. Each card opens the subject.
  */
 export function ProgressTab() {
   return (
@@ -36,7 +21,7 @@ export function ProgressTab() {
       {/* Subject growth — horizontal scroll on mobile, grid on tablet/desktop */}
       <div className="-mx-5 mt-6 flex gap-3.5 overflow-x-auto px-5 pb-1 sm:mx-0 sm:mt-9 sm:grid sm:grid-cols-2 sm:gap-5 sm:overflow-visible sm:px-0 lg:mt-10 lg:grid-cols-3 [&::-webkit-scrollbar]:hidden">
         {SUBJECTS.map((subject) => (
-          <SubjectCard key={subject.name} subject={subject} />
+          <SubjectCard key={subject.slug} subject={subject} />
         ))}
       </div>
     </div>
@@ -44,9 +29,12 @@ export function ProgressTab() {
 }
 
 /** One subject's growth — a decorative upward curve + a plain-language note. */
-function SubjectCard({ subject }: { subject: SubjectGrowth }) {
+function SubjectCard({ subject }: { subject: SubjectSummary }) {
   return (
-    <div className="w-[180px] shrink-0 overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 sm:w-auto">
+    <Link
+      href={`/student/progress/${subject.slug}`}
+      className="w-[180px] shrink-0 overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 transition-transform active:scale-[0.98] sm:w-auto"
+    >
       <GrowthCurve />
       <div className="p-3.5 sm:p-[18px]">
         <p className="text-base font-semibold text-nevo-near-black sm:text-[18px]">
@@ -56,7 +44,7 @@ function SubjectCard({ subject }: { subject: SubjectGrowth }) {
           {subject.note}
         </p>
       </div>
-    </div>
+    </Link>
   );
 }
 

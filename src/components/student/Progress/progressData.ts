@@ -1,0 +1,96 @@
+// ── Progress mock data ────────────────────────────────────────────────────────
+// TODO(api): source the growth summary, per-subject prose, timeline and session
+// list from the profile / progress backend. All framing is plain-language and
+// qualitative — never a percentile, score, or peer comparison.
+
+/** Warm, whole-picture summary shown at the top of the Progress tab. */
+export const GROWTH_SUMMARY =
+  "You've been building strong reading skills this month, and sticking with maths even when it got tricky.";
+
+export interface SubjectSummary {
+  slug: string;
+  name: string;
+  /** Plain-language growth note for the Progress card. */
+  note: string;
+}
+
+export const SUBJECTS: SubjectSummary[] = [
+  {
+    slug: "mathematics",
+    name: "Mathematics",
+    note: "Getting faster at solving problems",
+  },
+  { slug: "english", name: "English", note: "Reading longer stories with ease" },
+  { slug: "science", name: "Science", note: "Asking more of your own questions" },
+];
+
+export interface SessionRow {
+  title: string;
+  date: string;
+}
+
+export interface SubjectDetail {
+  name: string;
+  /** Plain-language reflection on how the subject has been going. */
+  prose: string;
+  /** Growth-line markers as [x, y] on a 0–320 × 0–80 canvas (direction, not data). */
+  timeline: [number, number][];
+  lessons: SessionRow[];
+}
+
+export const SUBJECT_DETAIL: Record<string, SubjectDetail> = {
+  mathematics: {
+    name: "Mathematics",
+    prose:
+      "You've been getting quicker at problems that used to take a while. Fractions clicked this week. When something's hard, you're staying with it longer before asking for help.",
+    timeline: [
+      [10, 60],
+      [90, 42],
+      [150, 30],
+      [230, 33],
+      [310, 20],
+    ],
+    lessons: [
+      { title: "Adding Fractions", date: "2 Jul" },
+      { title: "Counting in 5s", date: "28 Jun" },
+      { title: "Telling the Time", date: "24 Jun" },
+      { title: "Number Bonds to 20", date: "19 Jun" },
+    ],
+  },
+  english: {
+    name: "English",
+    prose:
+      "Your reading has been stretching to longer stories, and you're noticing describing words on your own. You're taking your time with the tricky sentences instead of skipping them.",
+    timeline: [
+      [10, 58],
+      [90, 46],
+      [150, 34],
+      [230, 28],
+      [310, 18],
+    ],
+    lessons: [
+      { title: "The Lighthouse", date: "1 Jul" },
+      { title: "Rhyming Words", date: "27 Jun" },
+      { title: "Describing Words", date: "22 Jun" },
+      { title: "Story Beginnings", date: "17 Jun" },
+    ],
+  },
+  science: {
+    name: "Science",
+    prose:
+      "You've started asking more of your own questions, and following them up. When an experiment surprised you, you wanted to know why rather than moving on.",
+    timeline: [
+      [10, 62],
+      [90, 50],
+      [150, 38],
+      [230, 30],
+      [310, 22],
+    ],
+    lessons: [
+      { title: "What is Photosynthesis?", date: "30 Jun" },
+      { title: "Floating and Sinking", date: "25 Jun" },
+      { title: "The Water Cycle", date: "20 Jun" },
+      { title: "Living and Non-living", date: "15 Jun" },
+    ],
+  },
+};
