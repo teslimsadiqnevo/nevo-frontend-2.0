@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import { Button, IllustrationWrapper } from "@/components/shared";
 import { OnboardingShell } from "./OnboardingShell";
 import { SchoolCodeInput, type CodeStatus } from "./SchoolCodeInput";
-import { useSSOSkip } from "./useSSOSkip";
 
 const NEXT_STEP = "/student/onboarding/class";
 
@@ -28,7 +27,6 @@ export function SchoolConnectionStep() {
     const active = timers.current;
     return () => active.forEach(clearTimeout);
   }, []);
-  if (useSSOSkip()) return null;
 
   const reset = () => {
     timers.current.forEach(clearTimeout);

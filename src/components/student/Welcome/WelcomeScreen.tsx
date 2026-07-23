@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { Button, NevoLockup, SettlingCharacter } from "@/components/shared";
-import { useSSOSkip } from "@/components/student/Onboarding/useSSOSkip";
 import {
   Sheet,
   SheetContent,
@@ -16,14 +15,14 @@ import {
 const NEXT_STEP = "/student/onboarding/name";
 
 /**
- * Welcome Screen (UI/UX spec B.1) — first arrival for manual-path students
- * (SSO students skip this). Solid cream, Level 0, no chrome. Routes into
- * onboarding or opens the teacher-join path. See design output "01 Welcome".
+ * Welcome Screen (UI/UX spec B.1) — first arrival for the manual onboarding
+ * entry. SSO students never reach here: they enter through /auth/sso-callback,
+ * which routes them straight to the sequence. Solid cream, Level 0, no chrome.
+ * Routes into onboarding or opens the teacher-join path. See design output
+ * "01 Welcome".
  */
 export function WelcomeScreen({ linkError = false }: { linkError?: boolean }) {
   const router = useRouter();
-  // SSO students skip Welcome + Steps 1–3 and drop into the sequence.
-  if (useSSOSkip()) return null;
 
   return (
     <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-nevo-cream px-6 text-nevo-near-black">

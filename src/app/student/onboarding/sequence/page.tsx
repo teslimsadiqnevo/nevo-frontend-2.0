@@ -5,16 +5,9 @@ export const metadata: Metadata = {
   title: "Getting to know you — Nevo",
 };
 
-// Next.js 16: `searchParams` is a Promise and must be awaited.
-// `?path=sso` (set by the SSO skip redirect) drives the SSO copy + PIN-as-SSO
-// confirmation; manual students arrive with no param and default to "manual".
-export default async function OnboardingSequencePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ path?: string }>;
-}) {
-  const { path } = await searchParams;
-  return (
-    <ObservedInteractionSequence path={path === "sso" ? "sso" : "manual"} />
-  );
+// The convergence point for both onboarding entries. Whether the run is SSO or
+// manual is read from the session inside the sequence (`user.method`), not from
+// the URL — so there's no spoofable `?path=sso` and no per-screen branching.
+export default function OnboardingSequencePage() {
+  return <ObservedInteractionSequence />;
 }

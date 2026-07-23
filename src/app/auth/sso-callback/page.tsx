@@ -1,9 +1,21 @@
+import type { Metadata } from "next";
+import { Suspense } from "react";
+import { SsoCallback } from "@/components/student/Auth/SsoCallback";
+
+export const metadata: Metadata = {
+  title: "Signing you in — Nevo",
+};
+
+// The Student App's dedicated SSO entry point: the identity provider redirects
+// here, we resolve the handshake, then route first-use students into onboarding
+// and returning students into the app. Kept separate from the manual Welcome →
+// Steps 1–3 entry; the paths converge only at the Observed Interaction Sequence.
+//
+// `SsoCallback` reads `useSearchParams`, which requires a Suspense boundary.
 export default function SsoCallbackPage() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-2">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Auth</p>
-      <h1 className="text-xl font-medium text-nevo-navy">SSO callback</h1>
-      <p className="text-sm text-nevo-near-black/60">Placeholder — built per the UI/UX spec.</p>
-    </main>
+    <Suspense>
+      <SsoCallback />
+    </Suspense>
   );
 }
