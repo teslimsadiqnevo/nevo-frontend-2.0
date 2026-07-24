@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, Pause, Play } from "lucide-react";
+import { NevoKeyboard } from "@/components/shared";
 import { CALC_MODALITY } from "@/lib/constants";
 import type { CalculationSegment } from "@/lib/types";
 import { isNumericStep } from "@/lib/types";
@@ -278,7 +279,10 @@ export function CalculationSolver({
             ) : (
               <div className="mt-[18px] flex justify-center">
                 <input
-                  inputMode="numeric"
+                  // A.12: suppress the native OS keyboard on web — the Nevo
+                  // Keyboard drives entry on touch; a hardware keyboard still
+                  // types normally (desktop), where the on-screen one is hidden.
+                  inputMode="none"
                   value={numVal}
                   onChange={(e) => onNumChange(e.target.value)}
                   placeholder="—"
@@ -286,6 +290,15 @@ export function CalculationSolver({
                   className="h-[52px] w-[120px] rounded-[10px] border-2 border-nevo-near-black/18 bg-nevo-cream-elevated text-center text-[26px] font-semibold text-nevo-navy shadow-elevation-1 outline-none transition-colors focus:border-nevo-navy"
                 />
               </div>
+            )}
+
+            {!manip && (
+              <NevoKeyboard
+                layout="pad"
+                onKey={(d) => onNumChange(numVal + d)}
+                onBackspace={() => onNumChange(numVal.slice(0, -1))}
+                className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+              />
             )}
 
             {kinestheticAvailable && !manip && (

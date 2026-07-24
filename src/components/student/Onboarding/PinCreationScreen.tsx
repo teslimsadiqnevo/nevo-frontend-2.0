@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import { Check, Delete } from "lucide-react";
+import { Check } from "lucide-react";
+import { NevoKeyboard } from "@/components/shared";
 import { cn } from "@/lib/utils";
 
 /**
@@ -141,7 +142,12 @@ export function PinCreationScreen({
       </div>
 
       {showEntry && (
-        <Keypad onDigit={pressDigit} onBackspace={backspace} className="lg:hidden" />
+        <NevoKeyboard
+          layout="pad"
+          onKey={pressDigit}
+          onBackspace={backspace}
+          className="lg:hidden"
+        />
       )}
     </div>
   );
@@ -185,53 +191,3 @@ function PinRow({
   );
 }
 
-/** Branded numeric keypad (Design System keyboard, "pad" layout). */
-function Keypad({
-  onDigit,
-  onBackspace,
-  className,
-}: {
-  onDigit: (d: string) => void;
-  onBackspace: () => void;
-  className?: string;
-}) {
-  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "back"];
-  return (
-    <div
-      className={cn(
-        // Keyboard chrome tones are keyboard-specific, not DS surface tokens.
-        "flex shrink-0 flex-col gap-2.5 border-t border-nevo-near-black/8 bg-[#e4ddcc] px-1.5 pt-1.5 pb-3 motion-safe:animate-nevo-kb-up",
-        className,
-      )}
-    >
-      <div className="mx-auto grid w-full max-w-[420px] grid-cols-3 gap-1.5">
-        {keys.map((k, i) => {
-          if (k === "") return <span key={i} aria-hidden />;
-          if (k === "back") {
-            return (
-              <button
-                key={i}
-                type="button"
-                aria-label="Delete"
-                onClick={onBackspace}
-                className="flex h-[46px] cursor-pointer items-center justify-center rounded-md bg-[#d8d0be] text-nevo-near-black shadow-[0_1px_1px_rgba(43,43,47,0.22)] transition-transform active:scale-95"
-              >
-                <Delete className="size-5" strokeWidth={2} />
-              </button>
-            );
-          }
-          return (
-            <button
-              key={i}
-              type="button"
-              onClick={() => onDigit(k)}
-              className="flex h-[46px] cursor-pointer items-center justify-center rounded-md bg-nevo-cream text-[20px] text-nevo-near-black shadow-[0_1px_1px_rgba(43,43,47,0.28)] transition-transform active:scale-95"
-            >
-              {k}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
