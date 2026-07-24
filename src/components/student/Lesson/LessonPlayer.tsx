@@ -29,6 +29,8 @@ import { TextSegment } from "./TextSegment";
 import { VisualSegment } from "./VisualSegment";
 
 const LESSONS_HREF = "/student/lessons";
+// Finishing a lesson returns to Home (the daily landing), not the lesson list.
+const HOME_HREF = "/student/dashboard";
 
 const DENSITIES: { id: Density; label: string }[] = [
   { id: DENSITY.SIMPLIFY, label: "Simplify" },
@@ -320,7 +322,7 @@ export function LessonPlayer({
 
   if (phase === "complete") {
     return (
-      <LessonComplete onBackToLessons={() => router.push(LESSONS_HREF)} />
+      <LessonComplete onDone={() => router.push(HOME_HREF)} />
     );
   }
 

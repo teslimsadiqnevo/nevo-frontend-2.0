@@ -10,10 +10,10 @@ import { Button, SettlingCharacter } from "@/components/shared";
  * `onSeeSummary`.
  */
 export function LessonComplete({
-  onBackToLessons,
+  onDone,
   onSeeSummary,
 }: {
-  onBackToLessons: () => void;
+  onDone: () => void;
   onSeeSummary?: () => void;
 }) {
   return (
@@ -31,8 +31,8 @@ export function LessonComplete({
           Your progress is saved.
         </p>
 
-        <Button className="mt-8 w-full max-w-[300px]" onClick={onBackToLessons}>
-          Back to lessons
+        <Button className="mt-8 w-full max-w-[300px]" onClick={onDone}>
+          Back to home
         </Button>
         {onSeeSummary && (
           <Button
