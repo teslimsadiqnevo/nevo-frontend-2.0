@@ -40,6 +40,9 @@ export function NevoKeyboard({
     <div
       role="group"
       aria-label="On-screen keyboard"
+      // Keep the focused field focused when a key is tapped (the keys drive its
+      // state directly), so a focus-gated keyboard doesn't dismiss itself.
+      onMouseDown={(e) => e.preventDefault()}
       className={cn(
         "flex shrink-0 flex-col border-t border-nevo-near-black/8 bg-[#e4ddcc] px-1.5 pt-1.5 pb-3 md:px-3 md:pt-3 md:pb-3.5 motion-safe:animate-nevo-kb-up",
         "gap-2.5 md:gap-[11px]",
