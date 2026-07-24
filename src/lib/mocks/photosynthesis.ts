@@ -203,6 +203,12 @@ const PHOTOSYNTHESIS: Lesson = {
     resultNote:
       "You showed you understand what photosynthesis makes and how to add like fractions. One idea — where the energy comes from — we'll come back to together.",
   },
+  summary: {
+    recap:
+      "You worked through what photosynthesis makes and how a plant uses sunlight, and added some like fractions along the way. You took your time with the tricky idea and came back to it.",
+    covered:
+      "What photosynthesis makes · adding like fractions · why it matters",
+  },
 };
 
 const PHOTOSYNTHESIS_PLAN: AdaptationPlan = {
