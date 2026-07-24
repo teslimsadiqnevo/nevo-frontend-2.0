@@ -81,7 +81,7 @@ export function AfterLessonAssessment({
             <span className="text-[13px] text-nevo-near-black/45">No timer</span>
           </div>
           <div
-            className="h-[5px] overflow-hidden rounded-full bg-nevo-near-black/10"
+            className="h-[5px] overflow-hidden rounded-full bg-nevo-navy/12"
             role="progressbar"
             aria-valuenow={qIndex + 1}
             aria-valuemin={0}

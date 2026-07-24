@@ -322,7 +322,14 @@ export function LessonPlayer({
 
   if (phase === "complete") {
     return (
-      <LessonComplete onDone={() => router.push(HOME_HREF)} />
+      <LessonComplete
+        onDone={() => router.push(HOME_HREF)}
+        onSeeSummary={
+          lesson.summary
+            ? () => router.push(`${LESSONS_HREF}/${lesson.id}/summary`)
+            : undefined
+        }
+      />
     );
   }
 
@@ -419,7 +426,7 @@ export function LessonPlayer({
           }}
           onContinue={() => {
             setCheckOpen(false);
-            setFeedback("Nice — that's got it. Here's what's next.");
+            setFeedback("Nice - that's got it. Here's what's next.");
             advancePastSegment();
           }}
         />

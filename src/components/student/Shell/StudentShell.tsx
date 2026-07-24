@@ -87,7 +87,8 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
 /** Onboarding and the lesson player (`/student/lessons/<id>`) run without chrome. */
 function isFullScreen(pathname: string): boolean {
   if (pathname.startsWith("/student/onboarding")) return true;
-  // A sub-segment under /student/lessons/ is a specific lesson → the player.
-  if (/^\/student\/lessons\/[^/]+/.test(pathname)) return true;
+  // Only the bare lesson route is the immersive player; its sub-routes (e.g.
+  // `/summary`) are ordinary in-shell screens and keep the sidebar/nav.
+  if (/^\/student\/lessons\/[^/]+\/?$/.test(pathname)) return true;
   return false;
 }

@@ -152,12 +152,26 @@ export interface Assessment {
   resultNote?: string;
 }
 
+/**
+ * Post-lesson recap (frame 18 · Lesson Summary). A warm narrative of what the
+ * student did, plus a compact "what you covered" line. Named distinctly from the
+ * catalogue's `LessonSummary` (the browse-list card), which is a different shape.
+ */
+export interface CompletionSummary {
+  /** Warm recap paragraph — what they worked through, in plain language. */
+  recap: string;
+  /** "What you covered" — a middot-joined list of the concepts touched. */
+  covered: string;
+}
+
 export interface Lesson {
   id: string;
   title: string;
   subject?: string;
   segments: LessonSegment[];
   assessment?: Assessment;
+  /** Recap shown on the post-lesson summary screen (frame 18). */
+  summary?: CompletionSummary;
 }
 
 // ── Adaptation plan (personalization overlay — §4) ──────────────────────────
