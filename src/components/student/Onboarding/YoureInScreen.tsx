@@ -40,7 +40,7 @@ export function YoureInScreen({
       {/* Full Nevo lockup (mark + wordmark) — the brand beat before the app. */}
       <NevoLockup priority className="mt-7" />
 
-      <p className="mt-4 max-w-[280px] text-[19px] font-medium leading-[1.45] tracking-[-0.01em] text-balance sm:max-w-[360px] sm:text-[21px] lg:max-w-[380px] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:delay-200 motion-safe:duration-500">
+      <p className="mt-4 max-w-[280px] text-center text-[19px] font-medium leading-[1.45] tracking-[-0.01em] text-balance sm:max-w-[360px] sm:text-[21px] lg:max-w-[380px] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:delay-200 motion-safe:duration-500">
         You&rsquo;re all set. Let&rsquo;s start learning
       </p>
     </div>
