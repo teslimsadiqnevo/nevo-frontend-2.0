@@ -12,6 +12,7 @@
  *   ?mock=error → the provider/handshake failed
  */
 import { USER_ROLES } from "@/lib/constants";
+import { randomId } from "@/lib/utils";
 import type { AuthUser } from "@/context/AuthContext";
 
 export interface SsoResolution {
@@ -41,7 +42,7 @@ export function resolveMockSso(params: {
     status: "success",
     isFirstUse,
     user: {
-      id: `sso-${crypto.randomUUID()}`,
+      id: `sso-${randomId()}`,
       role: USER_ROLES.STUDENT,
       schoolId: "school-demo",
       method: "sso",

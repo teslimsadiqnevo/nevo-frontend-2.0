@@ -14,7 +14,7 @@ import {
 } from "@/lib/constants";
 import { useLesson, useSignals } from "@/hooks";
 import type { AdaptationPlan, Lesson, LessonSegment } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, randomId } from "@/lib/utils";
 import { AfterLessonAssessment } from "./AfterLessonAssessment";
 import { AudioSegment } from "./AudioSegment";
 import { CalculationSolver } from "./CalculationSolver";
@@ -100,7 +100,7 @@ export function LessonPlayer({
 
   // One signal session spans the whole lesson; useSignals batches events and
   // flushes every 5s, at 20 events, and on unmount (exit/completion).
-  const [sessionId] = useState(() => `lesson-${lesson.id}-${crypto.randomUUID()}`);
+  const [sessionId] = useState(() => `lesson-${lesson.id}-${randomId()}`);
   const { trackEvent } = useSignals(sessionId);
   const { setActiveLesson } = useLesson();
 

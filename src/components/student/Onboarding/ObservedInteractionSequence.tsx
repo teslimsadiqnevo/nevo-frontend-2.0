@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, useSignals } from "@/hooks";
 import { FIRST_LESSON_ID } from "@/lib/mocks";
+import { randomId } from "@/lib/utils";
 import { TransitionScreen } from "./TransitionScreen";
 import { VisualSortingTask } from "./VisualSortingTask";
 import { AudioComprehensionTask } from "./AudioComprehensionTask";
@@ -30,7 +31,7 @@ export function ObservedInteractionSequence() {
   // One profile-seeding session spans the whole sequence; useSignals batches the
   // activity events and flushes on completion (unmount). TODO(api): the backend
   // may issue a real onboarding session id / dedicated endpoint — swap in here.
-  const [sessionId] = useState(() => `onboarding-${crypto.randomUUID()}`);
+  const [sessionId] = useState(() => `onboarding-${randomId()}`);
   const { trackEvent } = useSignals(sessionId);
   const [phase, setPhase] = useState<"transition" | "activities">("transition");
   const [index, setIndex] = useState(0);
