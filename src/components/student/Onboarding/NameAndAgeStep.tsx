@@ -2,7 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button, IllustrationWrapper, Input } from "@/components/shared";
+import {
+  Button,
+  IllustrationWrapper,
+  Input,
+  NevoKeyboard,
+} from "@/components/shared";
 import { OnboardingShell } from "./OnboardingShell";
 import { AgeStepper, isAgeInRange } from "./AgeStepper";
 
@@ -17,6 +22,9 @@ export function NameAndAgeStep() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [ageText, setAgeText] = useState("");
+  // A.12: the Nevo Keyboard opens while the name field is focused (touch); a
+  // hardware keyboard still types on desktop, where the on-screen one is hidden.
+  const [kbOpen, setKbOpen] = useState(false);
 
   const valid = name.trim().length > 0 && isAgeInRange(ageText);
 
@@ -51,6 +59,9 @@ export function NameAndAgeStep() {
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
+          onFocus={() => setKbOpen(true)}
+          onBlur={() => setKbOpen(false)}
+          inputMode="none"
           placeholder="Your name"
           autoComplete="off"
           aria-label="Your name"
@@ -69,6 +80,16 @@ export function NameAndAgeStep() {
           Continue
         </Button>
       </form>
+
+      {kbOpen && (
+        <NevoKeyboard
+          layout="qwerty"
+          onKey={(c) => setName((n) => n + c)}
+          onBackspace={() => setName((n) => n.slice(0, -1))}
+          onReturn={submit}
+          className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+        />
+      )}
     </OnboardingShell>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Check } from "lucide-react";
+import { NevoKeyboard } from "@/components/shared";
 import { cn } from "@/lib/utils";
 
 export type CodeStatus = "idle" | "pending" | "success" | "error";
@@ -26,6 +27,11 @@ export function SchoolCodeInput({
   status: CodeStatus;
 }) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
+  // A.12: the Nevo Keyboard opens while a code box is focused (touch). It stays
+  // open across the auto-advance between boxes; a hardware keyboard still types
+  // on desktop, where the on-screen one is hidden.
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [kbOpen, setKbOpen] = useState(false);
 
   const setChar = (i: number, raw: string) => {
     const ch = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(-1);
@@ -47,6 +53,28 @@ export function SchoolCodeInput({
       onChange(next);
       refs.current[i - 1]?.focus();
     }
+  };
+
+  // On-screen backspace: clear the active box, or step back and clear the previous.
+  const kbBackspace = () => {
+    const next = value.slice();
+    if (value[activeIndex]) {
+      next[activeIndex] = "";
+      onChange(next);
+    } else if (activeIndex > 0) {
+      next[activeIndex - 1] = "";
+      onChange(next);
+      refs.current[activeIndex - 1]?.focus();
+    }
+  };
+
+  // Close only when focus leaves the field entirely (not on auto-advance).
+  const handleBlur = () => {
+    setTimeout(() => {
+      if (!refs.current.some((el) => el && el === document.activeElement)) {
+        setKbOpen(false);
+      }
+    }, 0);
   };
 
   const fieldBorder =
@@ -86,8 +114,13 @@ export function SchoolCodeInput({
             value={c}
             onChange={(e) => setChar(i, e.target.value)}
             onKeyDown={(e) => handleKeyDown(i, e)}
+            onFocus={() => {
+              setActiveIndex(i);
+              setKbOpen(true);
+            }}
+            onBlur={handleBlur}
             maxLength={1}
-            inputMode="text"
+            inputMode="none"
             autoComplete="off"
             autoFocus={i === 0}
             aria-label={`Code character ${i + 1}`}
@@ -109,6 +142,15 @@ export function SchoolCodeInput({
             </span>
           )}
         </div>
+      )}
+
+      {kbOpen && (
+        <NevoKeyboard
+          layout="qwerty"
+          onKey={(ch) => setChar(activeIndex, ch)}
+          onBackspace={kbBackspace}
+          className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+        />
       )}
     </div>
   );
