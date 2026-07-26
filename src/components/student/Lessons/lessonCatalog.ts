@@ -44,7 +44,7 @@ export const LESSON_CATALOG: LessonSummary[] = [
     progress: 0.55,
     description:
       "Learn how to add fractions with the same bottom number, using pictures of pizza and chocolate bars.",
-    lessonId: FIRST_LESSON_ID,
+    lessonId: "adding-fractions",
   },
   {
     id: "telling-the-time",

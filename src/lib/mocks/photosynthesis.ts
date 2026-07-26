@@ -7,7 +7,7 @@
 import { MODALITY, DENSITY, CALC_MODALITY } from "@/lib/constants";
 import type { AdaptationPlan, Lesson } from "@/lib/types";
 
-const PHOTOSYNTHESIS: Lesson = {
+export const PHOTOSYNTHESIS: Lesson = {
   id: "photosynthesis",
   title: "Photosynthesis",
   subject: "Science",
@@ -211,7 +211,7 @@ const PHOTOSYNTHESIS: Lesson = {
   },
 };
 
-const PHOTOSYNTHESIS_PLAN: AdaptationPlan = {
+export const PHOTOSYNTHESIS_PLAN: AdaptationPlan = {
   lessonId: "photosynthesis",
   segments: [
     { segmentId: "intro", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.VISUAL },
@@ -220,20 +220,3 @@ const PHOTOSYNTHESIS_PLAN: AdaptationPlan = {
   ],
 };
 
-const LESSONS: Record<string, Lesson> = { [PHOTOSYNTHESIS.id]: PHOTOSYNTHESIS };
-const PLANS: Record<string, AdaptationPlan> = {
-  [PHOTOSYNTHESIS_PLAN.lessonId]: PHOTOSYNTHESIS_PLAN,
-};
-
-/** Mock stand-in for `contentApi.getLesson`. TODO(api): replace with the real fetch. */
-export function getMockLesson(lessonId: string): Lesson | null {
-  return LESSONS[lessonId] ?? null;
-}
-
-/** Mock stand-in for `intelligenceApi.getAdaptation`. TODO(api): replace with the real fetch. */
-export function getMockAdaptation(lessonId: string): AdaptationPlan | null {
-  return PLANS[lessonId] ?? null;
-}
-
-/** The default lesson to route a fresh student into (onboarding "You're In"). */
-export const FIRST_LESSON_ID = PHOTOSYNTHESIS.id;
