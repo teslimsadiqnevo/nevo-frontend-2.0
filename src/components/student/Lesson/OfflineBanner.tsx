@@ -39,7 +39,7 @@ export function OfflineBanner() {
         <WifiOff className="size-[13px] text-nevo-navy" strokeWidth={2} />
       </span>
       <span className="text-[13px] font-medium leading-[1.4] text-nevo-near-black">
-        You&apos;re offline — showing your saved lesson. Your progress is saved.
+        You&apos;re offline - showing your saved lesson. Your progress is saved.
       </span>
     </div>
   );

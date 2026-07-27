@@ -69,7 +69,7 @@ export function AgeStepper({
         onBlur={commit}
         inputMode="numeric"
         aria-label="Age"
-        placeholder="—"
+        placeholder="-"
         className="w-18 bg-transparent text-center text-[28px] font-semibold tracking-[-0.01em] text-nevo-near-black tabular-nums outline-none placeholder:text-nevo-near-black/40"
       />
 
