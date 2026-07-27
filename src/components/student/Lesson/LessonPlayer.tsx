@@ -25,6 +25,7 @@ import { LessonComplete } from "./LessonComplete";
 import { ModalitySuggestionPill } from "./ModalitySuggestionPill";
 import { OfflineBanner } from "./OfflineBanner";
 import { QuickCheckSheet } from "./QuickCheckSheet";
+import { type ReviewAnswer, saveReviewAnswers } from "./reviewStore";
 import { TextSegment } from "./TextSegment";
 import { VisualSegment } from "./VisualSegment";
 
@@ -103,6 +104,9 @@ export function LessonPlayer({
   const [sessionId] = useState(() => `lesson-${lesson.id}-${randomId()}`);
   const { trackEvent } = useSignals(sessionId);
   const { setActiveLesson } = useLesson();
+
+  // Assessment picks, captured for the Review Answers screen (a separate route).
+  const reviewAnswers = useRef<ReviewAnswer[]>([]);
 
   // Publish the active session so surfaces outside the player (e.g. Ask Nevo)
   // can see what's being learned; cleared on unmount.
@@ -308,14 +312,23 @@ export function LessonPlayer({
     return (
       <AfterLessonAssessment
         assessment={lesson.assessment!}
-        onAnswer={({ questionIndex, correct }) =>
+        onAnswer={({ questionIndex, selectedId, correct }) => {
           trackEvent(SIGNAL_EVENT_TYPES.COMPREHENSION_RESPONSE, {
             kind: "assessment",
             questionIndex,
             correct,
-          })
-        }
+          });
+          // Record the pick (first per question) for the Review Answers screen.
+          reviewAnswers.current = [
+            ...reviewAnswers.current.filter((a) => a.questionIndex !== questionIndex),
+            { questionIndex, selectedId },
+          ];
+          saveReviewAnswers(lesson.id, reviewAnswers.current);
+        }}
         onFinish={() => setPhase("complete")}
+        onReviewAnswers={() =>
+          router.push(`${LESSONS_HREF}/${lesson.id}/review`)
+        }
       />
     );
   }
