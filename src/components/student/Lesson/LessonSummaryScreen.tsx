@@ -1,11 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Check } from "lucide-react";
 import { Button } from "@/components/shared";
 import type { Lesson } from "@/lib/types";
 
 const LESSONS_HREF = "/student/lessons";
-const HOME_HREF = "/student/dashboard";
 
 /**
  * Lesson Summary (frame 18 · Lesson Summary) — the calm after-lesson recap,
@@ -19,6 +19,8 @@ const HOME_HREF = "/student/dashboard";
 export function LessonSummaryScreen({ lesson }: { lesson: Lesson }) {
   const router = useRouter();
   const summary = lesson.summary;
+  const mastered = lesson.assessment?.masteredConcepts ?? [];
+  const revisit = lesson.assessment?.revisitConcepts ?? [];
 
   return (
     <div className="flex min-h-full flex-col bg-nevo-cream text-nevo-near-black">
@@ -44,6 +46,45 @@ export function LessonSummaryScreen({ lesson }: { lesson: Lesson }) {
               </div>
             </>
           )}
+
+          {(mastered.length > 0 || revisit.length > 0) && (
+            <>
+              <span className="mt-7 block font-mono text-[11px] tracking-[0.06em] text-nevo-near-black/55">
+                FROM THE CHECK-IN
+              </span>
+              <div className="mt-3 flex flex-col gap-2.5">
+                {mastered.map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-center gap-3 rounded-[12px] bg-nevo-cream-elevated px-4 py-3.5 shadow-elevation-1"
+                  >
+                    <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-nevo-navy">
+                      <Check className="size-3 text-nevo-cream" strokeWidth={2.8} />
+                    </span>
+                    <span className="text-[15px] font-medium text-nevo-near-black">
+                      {item}
+                    </span>
+                  </div>
+                ))}
+                {revisit.map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-center gap-3 rounded-[12px] bg-nevo-cream-elevated px-4 py-3.5 shadow-elevation-1"
+                  >
+                    <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-nevo-violet/35">
+                      <span className="size-2 rounded-full bg-nevo-violet" />
+                    </span>
+                    <span className="text-[15px] font-medium text-nevo-near-black">
+                      {item}{" "}
+                      <span className="font-normal text-nevo-near-black/60">
+                        · we&rsquo;ll revisit soon
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -58,9 +99,9 @@ export function LessonSummaryScreen({ lesson }: { lesson: Lesson }) {
           <Button
             variant="ghost"
             className="w-full sm:w-auto sm:px-7"
-            onClick={() => router.push(HOME_HREF)}
+            onClick={() => router.push(`${LESSONS_HREF}/${lesson.id}/review`)}
           >
-            Home
+            Review answers
           </Button>
         </div>
       </div>

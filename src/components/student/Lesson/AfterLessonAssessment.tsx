@@ -26,11 +26,18 @@ export function AfterLessonAssessment({
   assessment,
   onFinish,
   onAnswer,
+  onReviewAnswers,
 }: {
   assessment: Assessment;
   onFinish: () => void;
-  /** Reports each confirmed answer (comprehension_response signal). */
-  onAnswer?: (result: { questionIndex: number; correct: boolean }) => void;
+  /** Reports each confirmed answer (comprehension_response signal + review). */
+  onAnswer?: (result: {
+    questionIndex: number;
+    selectedId: string;
+    correct: boolean;
+  }) => void;
+  /** "Review answers" on the result → the Review Answers screen (A5). */
+  onReviewAnswers?: () => void;
 }) {
   const [stage, setStage] = useState<"intro" | "questions" | "result">("intro");
   const [qIndex, setQIndex] = useState(0);
@@ -42,7 +49,13 @@ export function AfterLessonAssessment({
     return <Intro count={assessment.questions.length} onStart={() => setStage("questions")} />;
   }
   if (stage === "result") {
-    return <GrowthResult assessment={assessment} onFinish={onFinish} />;
+    return (
+      <GrowthResult
+        assessment={assessment}
+        onFinish={onFinish}
+        onReviewAnswers={onReviewAnswers}
+      />
+    );
   }
 
   const total = assessment.questions.length;
@@ -59,7 +72,7 @@ export function AfterLessonAssessment({
   const confirm = () => {
     if (!selected) return;
     const correct = selected === question.correctId;
-    onAnswer?.({ questionIndex: qIndex, correct });
+    onAnswer?.({ questionIndex: qIndex, selectedId: selected, correct });
     if (correct) advance();
     else setRevealed(true);
   };
@@ -185,9 +198,11 @@ function Intro({ count, onStart }: { count: number; onStart: () => void }) {
 function GrowthResult({
   assessment,
   onFinish,
+  onReviewAnswers,
 }: {
   assessment: Assessment;
   onFinish: () => void;
+  onReviewAnswers?: () => void;
 }) {
   const mastered = assessment.masteredConcepts ?? [];
   const revisit = assessment.revisitConcepts ?? [];
@@ -241,6 +256,15 @@ function GrowthResult({
         <Button className="mt-7 w-full" onClick={onFinish}>
           Continue
         </Button>
+        {onReviewAnswers && (
+          <Button
+            variant="ghost"
+            className="mt-2 h-[46px] w-full text-[15px]"
+            onClick={onReviewAnswers}
+          >
+            Review answers
+          </Button>
+        )}
       </div>
     </div>
   );
