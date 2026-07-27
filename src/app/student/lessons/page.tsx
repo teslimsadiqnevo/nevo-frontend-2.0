@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { LessonsTab } from "@/components/student/Lessons/LessonsTab";
 
 export const metadata: Metadata = {
-  title: "Lessons — Nevo",
+  title: "Lessons - Nevo",
 };
 
 export default function StudentLessonsPage() {

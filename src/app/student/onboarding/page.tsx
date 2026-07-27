@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { WelcomeScreen } from "@/components/student/Welcome/WelcomeScreen";
 
 export const metadata: Metadata = {
-  title: "Welcome — Nevo",
+  title: "Welcome - Nevo",
 };
 
 // The onboarding flow entry is the Welcome Screen (B.1). Subsequent steps

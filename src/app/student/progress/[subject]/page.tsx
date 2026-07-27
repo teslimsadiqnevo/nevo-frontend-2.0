@@ -11,7 +11,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { subject } = await params;
   const detail = SUBJECT_DETAIL[subject];
-  return { title: detail ? `${detail.name} — Nevo` : "Progress — Nevo" };
+  return { title: detail ? `${detail.name} - Nevo` : "Progress - Nevo" };
 }
 
 export default async function SubjectDetailPage({

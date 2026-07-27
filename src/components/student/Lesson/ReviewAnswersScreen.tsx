@@ -47,7 +47,7 @@ export function ReviewAnswersScreen({ lesson }: { lesson: Lesson }) {
             A look back at the check-in
           </h1>
           <p className="mt-2.5 text-base leading-[1.6] text-nevo-near-black/72 sm:text-[17px]">
-            Nothing to fix here — this is just to look back over. Your progress is
+            Nothing to fix here - this is just to look back over. Your progress is
             saved.
           </p>
 

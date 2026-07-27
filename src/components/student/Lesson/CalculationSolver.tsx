@@ -31,7 +31,7 @@ export function CalculationSolver({
   onReplay,
 }: {
   calculation: CalculationSegment;
-  /** Fired once the answer assembles — the player opens the forward chevron. */
+  /** Fired once the answer assembles - the player opens the forward chevron. */
   onSolved: () => void;
   /** Each confirmed step (comprehension_response signal). */
   onStepAnswered?: (correct: boolean) => void;
@@ -265,7 +265,7 @@ export function CalculationSolver({
         {isFinalStep && (
           <>
             <p className="text-center text-[19px] font-semibold leading-[1.35] text-nevo-near-black sm:text-[22px]">
-              {manip ? "Build the total — tap a quarter to drop it in." : current.prompt}
+              {manip ? "Build the total - tap a quarter to drop it in." : current.prompt}
             </p>
             {showHint && <HintPill text={hintText} />}
 
@@ -285,7 +285,7 @@ export function CalculationSolver({
                   inputMode="none"
                   value={numVal}
                   onChange={(e) => onNumChange(e.target.value)}
-                  placeholder="—"
+                  placeholder="-"
                   aria-label={current.prompt}
                   className="h-[52px] w-[120px] rounded-[10px] border-2 border-nevo-near-black/18 bg-nevo-cream-elevated text-center text-[26px] font-semibold text-nevo-navy shadow-elevation-1 outline-none transition-colors focus:border-nevo-navy"
                 />
@@ -393,7 +393,7 @@ function Fraction({
   );
 }
 
-/** The requested/auto-surfaced hint — a calm pill above the response. */
+/** The requested/auto-surfaced hint - a calm pill above the response. */
 function HintPill({ text }: { text: string }) {
   return (
     <div className="mx-auto mt-4 flex w-max max-w-full items-center gap-2.5 rounded-full bg-nevo-cream-elevated px-[18px] py-2.5 shadow-elevation-1 motion-safe:animate-nevo-reveal">
@@ -403,7 +403,7 @@ function HintPill({ text }: { text: string }) {
   );
 }
 
-/** "Need a hint?" — grows to medium weight once the student has missed. */
+/** "Need a hint?" - grows to medium weight once the student has missed. */
 function HintLink({
   attempts,
   onClick,
@@ -427,7 +427,7 @@ function HintLink({
   );
 }
 
-/** Kinesthetic final step — tap quarter tiles into the total bar until it fills. */
+/** Kinesthetic final step - tap quarter tiles into the total bar until it fills. */
 function ManipulativeTray({
   parts,
   sum,
@@ -481,7 +481,7 @@ function ManipulativeTray({
   );
 }
 
-/** Audio narration layer — reads the current step aloud; the text always stays. */
+/** Audio narration layer - reads the current step aloud; the text always stays. */
 function NarrationBar({ onReplay }: { onReplay?: () => void }) {
   const [playing, setPlaying] = useState(false);
   const [pct, setPct] = useState(0);

@@ -11,7 +11,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-/** First onboarding step (Name & Age entry) — the primary action's destination. */
+/** First onboarding step (Name & Age entry) - the primary action's destination. */
 const NEXT_STEP = "/student/onboarding/name";
 
 /**
@@ -70,7 +70,7 @@ export function WelcomeScreen({ linkError = false }: { linkError?: boolean }) {
                   </SheetTitle>
                   <SheetDescription className="text-nevo-near-black/70">
                     Ask your teacher for your class QR code or join link. Scan it
-                    or open it on this device to get started — no school code
+                    or open it on this device to get started - no school code
                     needed.
                   </SheetDescription>
                 </SheetHeader>

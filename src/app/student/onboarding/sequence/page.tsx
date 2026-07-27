@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ObservedInteractionSequence } from "@/components/student/Onboarding/ObservedInteractionSequence";
 
 export const metadata: Metadata = {
-  title: "Getting to know you — Nevo",
+  title: "Getting to know you - Nevo",
 };
 
 // The convergence point for both onboarding entries. Whether the run is SSO or

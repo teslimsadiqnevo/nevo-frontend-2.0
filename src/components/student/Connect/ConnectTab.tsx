@@ -259,7 +259,7 @@ function MessageStatusLine({
       className="flex cursor-pointer items-center gap-1.5 px-1 text-xs text-nevo-violet"
     >
       <span className="size-1.5 rounded-full bg-nevo-violet" />
-      Didn&apos;t send — tap to try again
+      Didn&apos;t send - tap to try again
     </button>
   );
 }

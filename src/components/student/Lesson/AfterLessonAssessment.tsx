@@ -13,7 +13,7 @@ import {
 
 /** House recovery copy for questions that don't bring their own. */
 const DEFAULT_RECOVERY =
-  "That one didn't land — and that's okay. We'll bring it back later. Nothing to fix right now.";
+  "That one didn't land - and that's okay. We'll bring it back later. Nothing to fix right now.";
 
 /**
  * After-lesson assessment (Lesson Check frame) — a short check-in framed as
@@ -166,7 +166,7 @@ export function AfterLessonAssessment({
   );
 }
 
-/** Low-stakes framing before the first question — no timer, not graded. */
+/** Low-stakes framing before the first question - no timer, not graded. */
 function Intro({ count, onStart }: { count: number; onStart: () => void }) {
   const minutes = Math.max(1, Math.round(count / 2));
   return (
@@ -180,7 +180,7 @@ function Intro({ count, onStart }: { count: number; onStart: () => void }) {
         </h2>
         <p className="mt-3 text-base leading-[1.6] text-nevo-near-black/72 sm:text-[17px]">
           This helps Nevo see what landed. There&apos;s no timer, and it
-          isn&apos;t graded — take your time.
+          isn&apos;t graded - take your time.
         </p>
         <Button className="mt-9 w-full max-w-[300px]" onClick={onStart}>
           Start
@@ -194,7 +194,7 @@ function Intro({ count, onStart }: { count: number; onStart: () => void }) {
   );
 }
 
-/** The growth result — what's taking hold and what we'll revisit. No score. */
+/** The growth result - what's taking hold and what we'll revisit. No score. */
 function GrowthResult({
   assessment,
   onFinish,

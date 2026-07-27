@@ -10,7 +10,7 @@ export default async function TeacherLessonDetailPage({
       <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Teacher</p>
       <h1 className="text-xl font-medium text-nevo-navy">Lesson detail</h1>
       <p className="text-sm text-nevo-near-black/60">
-        Placeholder for <span className="font-mono">{lessonId}</span> — built per the UI/UX spec.
+        Placeholder for <span className="font-mono">{lessonId}</span> - built per the UI/UX spec.
       </p>
     </main>
   );

@@ -19,7 +19,7 @@ export const PHOTOSYNTHESIS: Lesson = {
         heading: "What is photosynthesis?",
         body: {
           default:
-            "Photosynthesis is how green plants make their own food. Using energy from sunlight, they turn water and carbon dioxide into glucose — a sugar they use for energy — and release oxygen into the air.",
+            "Photosynthesis is how green plants make their own food. Using energy from sunlight, they turn water and carbon dioxide into glucose - a sugar they use for energy - and release oxygen into the air.",
           [DENSITY.SIMPLIFY]:
             "Plants make their own food using sunlight. They take in water and carbon dioxide, and give out oxygen.",
           [DENSITY.EXPAND]:
@@ -27,9 +27,9 @@ export const PHOTOSYNTHESIS: Lesson = {
           [DENSITY.SLOWER]: "Let's take this one small step at a time.",
         },
         slowerSteps: [
-          "A leaf takes in sunlight, caught by its green colour — chlorophyll.",
+          "A leaf takes in sunlight, caught by its green colour - chlorophyll.",
           "It draws up water from the roots and takes in carbon dioxide from the air.",
-          "Together these make glucose, the plant's food — and oxygen is given out.",
+          "Together these make glucose, the plant's food - and oxygen is given out.",
         ],
         keyTerms: ["chlorophyll", "chloroplast", "glucose"],
         callouts: {
@@ -66,7 +66,7 @@ export const PHOTOSYNTHESIS: Lesson = {
       interactive: {
         heading: "Try it yourself",
         intro:
-          "See photosynthesis happen for real. Tick each step as you go — there's no rush.",
+          "See photosynthesis happen for real. Tick each step as you go - there's no rush.",
         needs: ["A leaf", "A glass of water", "Sunlight"],
         steps: [
           "Rest the leaf in a glass of water in the light.",
@@ -75,7 +75,7 @@ export const PHOTOSYNTHESIS: Lesson = {
         ],
         outcome: {
           pending: "Tiny bubbles will start to appear on the leaf.",
-          done: "Those bubbles are oxygen — the leaf is photosynthesising.",
+          done: "Those bubbles are oxygen - the leaf is photosynthesising.",
         },
       },
       quickCheck: {
@@ -86,9 +86,9 @@ export const PHOTOSYNTHESIS: Lesson = {
           { id: "n2", label: "Nitrogen" },
         ],
         correctId: "co2",
-        correctNote: "That's it — plants take in carbon dioxide from the air.",
+        correctNote: "That's it - plants take in carbon dioxide from the air.",
         recoveryNote:
-          "Not quite — oxygen is what plants give out. Let's look again. Your progress is saved.",
+          "Not quite - oxygen is what plants give out. Let's look again. Your progress is saved.",
       },
     },
     {
@@ -125,14 +125,14 @@ export const PHOTOSYNTHESIS: Lesson = {
             hint: "Look at the bottom number of each fraction.",
             onCorrect: {
               highlight: "denominators",
-              confirm: "Both denominators are 4 — they match, so we can add directly.",
+              confirm: "Both denominators are 4 - they match, so we can add directly.",
             },
           },
           {
             prompt: "What do we add together?",
             choices: ["The numerators: 1 and 2", "The denominators: 4 and 4"],
             correct: 0,
-            hint: "We add the top numbers — the ones above the line.",
+            hint: "We add the top numbers - the ones above the line.",
           },
           {
             prompt: "So what is 1 + 2?",
@@ -142,7 +142,7 @@ export const PHOTOSYNTHESIS: Lesson = {
           },
         ],
         completion:
-          "When fractions share the same denominator, you only add the numerators — the denominator stays the same.",
+          "When fractions share the same denominator, you only add the numerators - the denominator stays the same.",
         modalities: [CALC_MODALITY.INTERACTIVE, CALC_MODALITY.AUDIO, CALC_MODALITY.KINESTHETIC],
       },
     },
@@ -195,13 +195,13 @@ export const PHOTOSYNTHESIS: Lesson = {
         ],
         correctId: "sun",
         recoveryNote:
-          "That one didn't land — and that's okay. The energy comes from sunlight. Nothing to fix right now.",
+          "That one didn't land - and that's okay. The energy comes from sunlight. Nothing to fix right now.",
       },
     ],
     masteredConcepts: ["What photosynthesis makes", "Adding like fractions"],
     revisitConcepts: ["Where the energy comes from"],
     resultNote:
-      "You showed you understand what photosynthesis makes and how to add like fractions. One idea — where the energy comes from — we'll come back to together.",
+      "You showed you understand what photosynthesis makes and how to add like fractions. One idea - where the energy comes from - we'll come back to together.",
   },
   summary: {
     recap:

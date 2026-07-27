@@ -10,7 +10,7 @@ export default async function AdminSencoStudentPage({
       <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Admin</p>
       <h1 className="text-xl font-medium text-nevo-navy">Learner support profile</h1>
       <p className="text-sm text-nevo-near-black/60">
-        Placeholder for <span className="font-mono">{studentId}</span> — built per the UI/UX spec.
+        Placeholder for <span className="font-mono">{studentId}</span> - built per the UI/UX spec.
       </p>
     </main>
   );

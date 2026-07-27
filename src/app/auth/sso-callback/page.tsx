@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { SsoCallback } from "@/components/student/Auth/SsoCallback";
 
 export const metadata: Metadata = {
-  title: "Signing you in — Nevo",
+  title: "Signing you in - Nevo",
 };
 
 // The Student App's dedicated SSO entry point: the identity provider redirects

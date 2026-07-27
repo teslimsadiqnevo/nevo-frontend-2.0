@@ -56,7 +56,7 @@ export function SchoolConnectionStep() {
   const message =
     status === "success"
       ? {
-          text: "That's a match — connecting you to your school…",
+          text: "That's a match - connecting you to your school…",
           className: "text-nevo-navy",
         }
       : status === "error"

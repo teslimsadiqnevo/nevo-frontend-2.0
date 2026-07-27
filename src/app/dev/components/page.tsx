@@ -23,7 +23,7 @@ import {
 import { NavDemo } from "./_nav-demo";
 
 export const metadata: Metadata = {
-  title: "Component Library — Nevo (dev)",
+  title: "Component Library - Nevo (dev)",
   robots: { index: false, follow: false },
 };
 
@@ -222,7 +222,7 @@ export default function ComponentsPage() {
 
         <Section
           title="Illustrations (Section 12)"
-          note="Settling (static), Breathing (slow pulse), Stretching (gentle sway) — motion respects reduced-motion."
+          note="Settling (static), Breathing (slow pulse), Stretching (gentle sway) - motion respects reduced-motion."
         >
           <Card className="flex flex-wrap items-end gap-10">
             <div className="flex flex-col items-center gap-2">

@@ -135,7 +135,7 @@ export function PinCreationScreen({
               role="alert"
               className="mt-4 min-h-5 text-sm text-nevo-violet"
             >
-              {error ? "Those didn't match — let's try once more" : ""}
+              {error ? "Those didn't match - let's try once more" : ""}
             </p>
           </>
         )}
