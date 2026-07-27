@@ -522,7 +522,7 @@ function NarrationBar({ onReplay }: { onReplay?: () => void }) {
         type="button"
         aria-label={playing ? "Pause narration" : "Play narration"}
         onClick={toggle}
-        className="flex size-[42px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-nevo-navy text-nevo-cream transition-transform active:scale-[0.98]"
+        className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-nevo-navy text-nevo-cream transition-transform active:scale-[0.98]"
       >
         {playing ? (
           <Pause className="size-[18px]" fill="currentColor" strokeWidth={0} />

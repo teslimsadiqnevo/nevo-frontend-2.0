@@ -355,7 +355,7 @@ export function LessonPlayer({
             type="button"
             aria-label="Exit lesson"
             onClick={requestExit}
-            className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-[10px] transition-colors hover:bg-nevo-near-black/[0.06] active:bg-nevo-near-black/[0.12]"
+            className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[10px] transition-colors hover:bg-nevo-near-black/[0.06] active:bg-nevo-near-black/[0.12]"
           >
             <X className="size-5" strokeWidth={2} />
           </button>
