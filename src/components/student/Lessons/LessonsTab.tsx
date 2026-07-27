@@ -2,7 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { Check, Search } from "lucide-react";
-import { IllustrationWrapper } from "@/components/shared";
+import {
+  IllustrationWrapper,
+  NevoKeyboard,
+  useNevoKeyboardDock,
+} from "@/components/shared";
 import { cn } from "@/lib/utils";
 import {
   LESSON_CATALOG,
@@ -30,6 +34,7 @@ const FILTERS: { id: Filter; label: string }[] = [
 export function LessonsTab() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const kb = useNevoKeyboardDock();
   const [preview, setPreview] = useState<LessonSummary | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -72,11 +77,26 @@ export function LessonsTab() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onFocus={kb.onFocus}
+          onBlur={kb.onBlur}
+          // A.12: the Nevo Keyboard drives entry on touch; hardware keyboards
+          // still type on desktop, where the on-screen one is hidden.
+          inputMode="none"
           placeholder="Search lessons"
           aria-label="Search lessons"
           className="h-[46px] w-full rounded-[10px] border-[1.5px] border-nevo-near-black/16 bg-nevo-cream-elevated pr-3.5 pl-[42px] text-[15px] text-nevo-near-black outline-none transition-colors focus:border-nevo-navy"
         />
       </div>
+
+      {kb.open && (
+        <NevoKeyboard
+          layout="qwerty"
+          onKey={(c) => setQuery((q) => q + c)}
+          onBackspace={() => setQuery((q) => q.slice(0, -1))}
+          onReturn={kb.close}
+          className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+        />
+      )}
 
       {/* Status filters */}
       <div className="mt-3 flex flex-wrap gap-2">

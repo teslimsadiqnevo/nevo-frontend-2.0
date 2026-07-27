@@ -7,6 +7,7 @@ import {
   IllustrationWrapper,
   Input,
   NevoKeyboard,
+  useNevoKeyboardDock,
 } from "@/components/shared";
 import { OnboardingShell } from "./OnboardingShell";
 import { AgeStepper, isAgeInRange } from "./AgeStepper";
@@ -24,7 +25,7 @@ export function NameAndAgeStep() {
   const [ageText, setAgeText] = useState("");
   // A.12: the Nevo Keyboard opens while the name field is focused (touch); a
   // hardware keyboard still types on desktop, where the on-screen one is hidden.
-  const [kbOpen, setKbOpen] = useState(false);
+  const kb = useNevoKeyboardDock();
 
   const valid = name.trim().length > 0 && isAgeInRange(ageText);
 
@@ -59,8 +60,8 @@ export function NameAndAgeStep() {
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onFocus={() => setKbOpen(true)}
-          onBlur={() => setKbOpen(false)}
+          onFocus={kb.onFocus}
+          onBlur={kb.onBlur}
           inputMode="none"
           placeholder="Your name"
           autoComplete="off"
@@ -81,7 +82,7 @@ export function NameAndAgeStep() {
         </Button>
       </form>
 
-      {kbOpen && (
+      {kb.open && (
         <NevoKeyboard
           layout="qwerty"
           onKey={(c) => setName((n) => n + c)}

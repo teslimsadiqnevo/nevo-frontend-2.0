@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, Send } from "lucide-react";
+import { NevoKeyboard, useNevoKeyboardDock } from "@/components/shared";
 import { cn } from "@/lib/utils";
 import { THREADS, type Message, type Thread } from "./connectData";
 
@@ -23,6 +24,7 @@ export function ConnectTab() {
   // Mobile only: which pane is showing.
   const [mobileView, setMobileView] = useState<"list" | "thread">("list");
   const [draft, setDraft] = useState("");
+  const kb = useNevoKeyboardDock();
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const nextId = useRef(0);
@@ -167,6 +169,10 @@ export function ConnectTab() {
                 send();
               }
             }}
+            onFocus={kb.onFocus}
+            onBlur={kb.onBlur}
+            // A.12: Nevo Keyboard on touch; hardware keyboard on desktop.
+            inputMode="none"
             placeholder="Type a message"
             aria-label={`Message ${active.name}`}
             className="h-11 flex-1 rounded-full border-[1.5px] border-nevo-near-black/16 bg-nevo-cream px-4 text-[15px] text-nevo-near-black outline-none transition-colors focus:border-nevo-navy"
@@ -180,6 +186,17 @@ export function ConnectTab() {
             <Send className="size-5" strokeWidth={2} />
           </button>
         </div>
+
+        {/* Message entry on touch - docked below the composer so it stays visible. */}
+        {kb.open && (
+          <NevoKeyboard
+            layout="qwerty"
+            onKey={(c) => setDraft((d) => d + c)}
+            onBackspace={() => setDraft((d) => d.slice(0, -1))}
+            onReturn={send}
+            className="shrink-0 lg:hidden"
+          />
+        )}
       </section>
     </div>
   );

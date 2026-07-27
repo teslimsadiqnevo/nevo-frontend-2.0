@@ -4,7 +4,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { IllustrationWrapper } from "@/components/shared";
+import {
+  IllustrationWrapper,
+  NevoKeyboard,
+  useNevoKeyboardDock,
+} from "@/components/shared";
 import { OnboardingShell } from "./OnboardingShell";
 
 const NEXT_STEP = "/student/onboarding/sequence";
@@ -42,6 +46,7 @@ export function ClassConfirmationStep({
   const router = useRouter();
   const mode = classes.length === 1 ? "autoskip" : "select";
   const [query, setQuery] = useState("");
+  const kb = useNevoKeyboardDock();
   const [selected, setSelected] = useState<string | null>(null);
   const navT = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -118,6 +123,10 @@ export function ClassConfirmationStep({
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onFocus={kb.onFocus}
+          onBlur={kb.onBlur}
+          // A.12: Nevo Keyboard on touch; hardware keyboard on desktop.
+          inputMode="none"
           placeholder="Search for your class"
           autoComplete="off"
           aria-label="Search for your class"
@@ -153,6 +162,16 @@ export function ClassConfirmationStep({
           </p>
         )}
       </div>
+
+      {kb.open && (
+        <NevoKeyboard
+          layout="qwerty"
+          onKey={(c) => setQuery((q) => q + c)}
+          onBackspace={() => setQuery((q) => q.slice(0, -1))}
+          onReturn={kb.close}
+          className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+        />
+      )}
     </OnboardingShell>
   );
 }

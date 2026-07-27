@@ -9,7 +9,12 @@ export { Pill } from "./Pill";
 export { Switch } from "./Switch";
 export { Sidebar, type NavItem } from "./Sidebar";
 export { BottomNav } from "./BottomNav";
-export { NevoKeyboard, type KeyboardLayout } from "./NevoKeyboard";
+export {
+  NevoKeyboard,
+  useNevoKeyboardDock,
+  type KeyboardComposer,
+  type KeyboardLayout,
+} from "./NevoKeyboard";
 export { TopNav } from "./TopNav";
 export {
   AdaptiveToggleBar,
