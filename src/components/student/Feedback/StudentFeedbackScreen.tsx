@@ -1,0 +1,110 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ChevronLeft, Check, X } from "lucide-react";
+
+const PROFILE_HREF = "/student/profile";
+/** The sent state closes on its own (frame: "auto-closes ~1.5s in-app"). */
+const SENT_CLOSE_MS = 1500;
+
+/**
+ * Student feedback (SCRUM-68 · `Nevo Feedback`, role=student) - the "Tell us
+ * something" destination from Profile & Settings. The gentler student variant:
+ * no Feedback/Feature pills, a short optional note, and reassurance that nothing
+ * they say changes their lesson. Sent shows the calm success pattern (navy
+ * circle + cream check) and returns to Profile on its own.
+ *
+ * Full-screen view over a dimmed cream backdrop with a 44×44 back chevron,
+ * matching the Student App's feedback view. TODO(api): submit to the real
+ * feedback endpoint when it lands; TODO(D6): route the note through the Nevo
+ * Keyboard composer on touch.
+ */
+export function StudentFeedbackScreen() {
+  const router = useRouter();
+  const [note, setNote] = useState("");
+  const [sent, setSent] = useState(false);
+
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
+
+  const back = () => router.push(PROFILE_HREF);
+
+  const submit = () => {
+    setSent(true);
+    closeTimer.current = setTimeout(back, SENT_CLOSE_MS);
+  };
+
+  return (
+    <div className="relative flex min-h-[100dvh] items-center justify-center bg-[#d9d2c2] px-6 py-10">
+      <button
+        type="button"
+        aria-label="Back"
+        onClick={back}
+        className="absolute top-4 left-4 z-20 flex size-11 cursor-pointer items-center justify-center rounded-[10px] transition-colors hover:bg-nevo-near-black/[0.06] active:bg-nevo-near-black/[0.12]"
+      >
+        <ChevronLeft className="size-6 text-nevo-near-black" strokeWidth={2} />
+      </button>
+
+      {/* Panel surface is Cream Elevated 2 (#e5dfd3) - raised-on-raised (DS tokens). */}
+      <div className="flex w-[360px] max-w-full min-h-[300px] flex-col rounded-[16px] bg-[#e5dfd3] p-6 shadow-[0_20px_56px_rgba(0,0,0,0.2)]">
+        {sent ? (
+          <div className="m-auto text-center">
+            <span className="inline-flex size-14 items-center justify-center rounded-full bg-nevo-navy motion-safe:animate-nevo-pop">
+              <Check className="size-[26px] text-nevo-cream" strokeWidth={2.6} />
+            </span>
+            <h3 className="mt-4 text-[17px] font-semibold text-nevo-near-black">
+              Thank you - that&apos;s on its way
+            </h3>
+            <p className="mt-2 text-sm leading-[1.55] text-nevo-near-black/62">
+              The panel closes on its own. You can share more any time.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-base font-bold text-nevo-navy">
+                  Share Feedback
+                </div>
+                <p className="mt-2 max-w-[280px] text-[13px] leading-[1.55] text-nevo-near-black/60">
+                  How is Nevo working for you?
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={back}
+                className="-mt-1.5 -mr-1.5 flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-nevo-near-black/40 transition-colors hover:text-nevo-near-black/60"
+              >
+                <X className="size-4" strokeWidth={2} />
+              </button>
+            </div>
+
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Tell us what you think..."
+              className="mt-4 min-h-[80px] w-full resize-none rounded-[8px] border border-nevo-near-black/12 bg-nevo-cream-elevated p-3.5 text-sm leading-[1.5] text-nevo-near-black outline-none transition-colors placeholder:text-nevo-near-black/30 focus:border-nevo-navy"
+            />
+
+            <button
+              type="button"
+              onClick={submit}
+              className="mt-4 flex h-11 w-full cursor-pointer items-center justify-center rounded-[8px] bg-nevo-navy text-[13px] font-bold text-nevo-cream transition-[filter,transform] hover:brightness-106 active:scale-[0.98]"
+            >
+              Send Feedback
+            </button>
+
+            <p className="mx-0.5 mt-3.5 text-xs leading-[1.5] text-nevo-near-black/50">
+              No feature requests here - students share how it&apos;s going, and
+              their teacher sees the themes.
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

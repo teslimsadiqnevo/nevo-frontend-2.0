@@ -90,5 +90,9 @@ function isFullScreen(pathname: string): boolean {
   // Only the bare lesson route is the immersive player; its sub-routes (e.g.
   // `/summary`) are ordinary in-shell screens and keep the sidebar/nav.
   if (/^\/student\/lessons\/[^/]+\/?$/.test(pathname)) return true;
+  // Feedback + Change PIN are full-screen views with their own back chevron
+  // (Nevo Student App: `feedback` / `changepin`).
+  if (pathname === "/student/profile/feedback") return true;
+  if (pathname === "/student/profile/pin") return true;
   return false;
 }
