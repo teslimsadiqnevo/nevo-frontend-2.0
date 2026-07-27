@@ -35,7 +35,8 @@ export function AdaptiveToggleBar({
       role="group"
       aria-label="Lesson pacing"
       className={cn(
-        "relative inline-flex items-center gap-1 rounded-full bg-nevo-near-black/6 p-[3px]",
+        // 44px-tall pills with 8px gaps - touch-first sizing (frame 17 / Touch Audit).
+        "relative inline-flex items-center gap-2 rounded-full bg-nevo-near-black/6 p-1",
         className,
       )}
     >
@@ -46,7 +47,7 @@ export function AdaptiveToggleBar({
           onClick={() => onSelect?.(seg.id)}
           aria-pressed={seg.state !== "default"}
           className={cn(
-            "cursor-pointer rounded-full px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
+            "flex h-11 cursor-pointer items-center justify-center rounded-full px-4 text-[13px] font-medium whitespace-nowrap transition-colors",
             seg.state === "manual" && "bg-nevo-navy text-nevo-cream",
             seg.state === "system" &&
               "bg-nevo-violet/80 text-nevo-near-black motion-safe:animate-nevo-glow",
