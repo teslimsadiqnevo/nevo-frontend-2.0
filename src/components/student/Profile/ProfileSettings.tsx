@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, ChevronRight } from "lucide-react";
-import { Switch } from "@/components/shared";
+import { useRouter } from "next/navigation";
+import { Check, ChevronRight, MessageCircle } from "lucide-react";
+import { NevoKeyboard, Switch } from "@/components/shared";
 import { MOCK_STUDENT } from "@/components/student/Shell/studentNav";
 import { useAccessibility } from "@/context/AccessibilityContext";
 import { cn } from "@/lib/utils";
@@ -29,7 +30,23 @@ const TEXT_SIZES = [
  * takes effect across the whole app immediately.
  */
 export function ProfileSettings() {
+  const router = useRouter();
   const statements = visibleChannelStatements(MOCK_CHANNEL_CONFIDENCE);
+
+  // Editable display name (product frame: tap Change → inline input; initials
+  // derive from the name). TODO(api): persist via the profile endpoint.
+  const [name, setName] = useState(MOCK_STUDENT.name);
+  const [editingName, setEditingName] = useState(false);
+  const [nameKbOpen, setNameKbOpen] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const initials =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || MOCK_STUDENT.initials;
 
   const {
     reducedMotion,
@@ -161,24 +178,83 @@ export function ProfileSettings() {
       <SectionHeading>Account</SectionHeading>
       <div className="flex items-center gap-3.5 py-3">
         <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-nevo-navy text-xl font-semibold text-nevo-cream">
-          {MOCK_STUDENT.initials}
+          {initials}
         </span>
-        <button
-          type="button"
-          className="cursor-pointer text-[15px] font-medium text-nevo-navy"
-          // TODO(account): edit name/avatar flow.
-        >
-          Change
-        </button>
+        {editingName ? (
+          <input
+            ref={nameInputRef}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onFocus={() => setNameKbOpen(true)}
+            onBlur={() => {
+              setNameKbOpen(false);
+              setEditingName(false);
+              if (!name.trim()) setName(MOCK_STUDENT.name);
+              else flashSaved();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+            }}
+            // A.12: the Nevo Keyboard drives entry on touch; hardware keyboard
+            // still types on desktop, where the on-screen one is hidden.
+            inputMode="none"
+            autoFocus
+            aria-label="Your name"
+            className="h-[42px] min-w-0 flex-1 rounded-[10px] border-[1.5px] border-nevo-navy bg-nevo-cream-elevated px-3.5 text-[15px] text-nevo-near-black outline-none"
+          />
+        ) : (
+          <>
+            <span className="min-w-0 flex-1 truncate text-[15px] text-nevo-near-black">
+              {name}
+            </span>
+            <button
+              type="button"
+              onClick={() => setEditingName(true)}
+              className="cursor-pointer text-[15px] font-medium text-nevo-navy"
+            >
+              Change
+            </button>
+          </>
+        )}
       </div>
       <button
         type="button"
-        // TODO(pin): open the Change PIN flow (reuses the onboarding PIN pattern).
+        onClick={() => router.push("/student/profile/feedback")}
+        className="flex w-full cursor-pointer items-center justify-between border-t border-nevo-near-black/8 py-4 text-left"
+      >
+        <span className="flex items-center gap-2.5">
+          <MessageCircle
+            className="size-[18px] text-nevo-navy/70"
+            strokeWidth={1.9}
+          />
+          <span className="text-[15px] text-nevo-near-black">
+            Tell us something
+          </span>
+        </span>
+        <ChevronRight className="size-5 text-nevo-near-black/40" strokeWidth={2} />
+      </button>
+      <button
+        type="button"
+        onClick={() => router.push("/student/profile/pin")}
         className="flex w-full cursor-pointer items-center justify-between border-t border-nevo-near-black/8 py-4 text-left"
       >
         <span className="text-[15px] text-nevo-near-black">Change PIN</span>
         <ChevronRight className="size-5 text-nevo-near-black/40" strokeWidth={2} />
       </button>
+
+      {/* Name entry on touch - the branded keyboard, focus-gated (A.12). */}
+      {nameKbOpen && (
+        <NevoKeyboard
+          layout="qwerty"
+          onKey={(c) => setName((n) => n + c)}
+          onBackspace={() => setName((n) => n.slice(0, -1))}
+          onReturn={() => nameInputRef.current?.blur()}
+          className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+        />
+      )}
 
       {/* Saved confirmation — quiet, transient, non-blocking */}
       <div
