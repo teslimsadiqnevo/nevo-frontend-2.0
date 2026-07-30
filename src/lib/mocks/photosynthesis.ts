@@ -47,6 +47,12 @@ export const PHOTOSYNTHESIS: Lesson = {
       visual: {
         heading: "See it as a picture",
         intro: "A leaf takes in three things and gives out two. Follow the arrows.",
+        art: {
+          id: "leaf-photosynthesis",
+          alt: "A leaf photosynthesising: sunlight, water and carbon dioxide go in; glucose and oxygen come out",
+          caption:
+            "Inside the leaf, chloroplasts use sunlight to turn water and carbon dioxide into food.",
+        },
         diagram: {
           inLabel: "TAKES IN",
           outLabel: "GIVES OUT",
