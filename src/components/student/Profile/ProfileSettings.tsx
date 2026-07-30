@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronRight, MessageCircle } from "lucide-react";
+import { Check, ChevronRight, LogOut, MessageCircle } from "lucide-react";
 import { NevoKeyboard, Switch } from "@/components/shared";
+import { useAuth } from "@/hooks";
 import { MOCK_STUDENT } from "@/components/student/Shell/studentNav";
 import { useAccessibility } from "@/context/AccessibilityContext";
 import { cn } from "@/lib/utils";
+import { SignOutSheet } from "./SignOutSheet";
 import {
   MOCK_CHANNEL_CONFIDENCE,
   NO_CHANNELS_LINE,
@@ -31,6 +33,8 @@ const TEXT_SIZES = [
  */
 export function ProfileSettings() {
   const router = useRouter();
+  const { signOut } = useAuth();
+  const [signOutOpen, setSignOutOpen] = useState(false);
   const statements = visibleChannelStatements(MOCK_CHANNEL_CONFIDENCE);
 
   // Editable display name (product frame: tap Change → inline input; initials
@@ -244,6 +248,27 @@ export function ProfileSettings() {
         <span className="text-[15px] text-nevo-near-black">Change PIN</span>
         <ChevronRight className="size-5 text-nevo-near-black/40" strokeWidth={2} />
       </button>
+      <button
+        type="button"
+        onClick={() => setSignOutOpen(true)}
+        className="flex w-full cursor-pointer items-center justify-between border-t border-nevo-near-black/8 py-4 text-left"
+      >
+        <span className="flex items-center gap-2.5">
+          <LogOut className="size-[18px] text-nevo-navy/70" strokeWidth={1.9} />
+          <span className="text-[15px] text-nevo-near-black">Sign out</span>
+        </span>
+        <ChevronRight className="size-5 text-nevo-near-black/40" strokeWidth={2} />
+      </button>
+
+      <SignOutSheet
+        open={signOutOpen}
+        onOpenChange={setSignOutOpen}
+        onSignOut={() => {
+          setSignOutOpen(false);
+          signOut();
+          router.push("/student/onboarding");
+        }}
+      />
 
       {/* Name entry on touch - the branded keyboard, focus-gated (A.12). */}
       {nameKbOpen && (
