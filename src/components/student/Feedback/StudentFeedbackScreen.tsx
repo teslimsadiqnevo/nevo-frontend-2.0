@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Check, X } from "lucide-react";
+import { NevoKeyboard, useNevoKeyboardDock } from "@/components/shared";
 
 const PROFILE_HREF = "/student/profile";
 /** The sent state closes on its own (frame: "auto-closes ~1.5s in-app"). */
@@ -16,14 +17,16 @@ const SENT_CLOSE_MS = 1500;
  * circle + cream check) and returns to Profile on its own.
  *
  * Full-screen view over a dimmed cream backdrop with a 44×44 back chevron,
- * matching the Student App's feedback view. TODO(api): submit to the real
- * feedback endpoint when it lands; TODO(D6): route the note through the Nevo
- * Keyboard composer on touch.
+ * matching the Student App's feedback view. On touch the note routes through the
+ * Nevo Keyboard's multi-line composer (the keyboard covers the panel, so the
+ * composer mirrors the note above the tray). TODO(api): submit to the real
+ * feedback endpoint when it lands.
  */
 export function StudentFeedbackScreen() {
   const router = useRouter();
   const [note, setNote] = useState("");
   const [sent, setSent] = useState(false);
+  const kb = useNevoKeyboardDock();
 
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -86,6 +89,10 @@ export function StudentFeedbackScreen() {
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
+              onFocus={kb.onFocus}
+              onBlur={kb.onBlur}
+              // A.12: Nevo Keyboard on touch; hardware keyboard on desktop.
+              inputMode="none"
               placeholder="Tell us what you think..."
               className="mt-4 min-h-[80px] w-full resize-none rounded-[8px] border border-nevo-near-black/12 bg-nevo-cream-elevated p-3.5 text-sm leading-[1.5] text-nevo-near-black outline-none transition-colors placeholder:text-nevo-near-black/30 focus:border-nevo-navy"
             />
@@ -105,6 +112,21 @@ export function StudentFeedbackScreen() {
           </>
         )}
       </div>
+
+      {/* Note entry on touch - the multi-line composer mirrors the note above
+          the tray (the keyboard covers the panel on small screens). */}
+      {kb.open && !sent && (
+        <NevoKeyboard
+          layout="qwerty"
+          composer="multi"
+          value={note}
+          placeholder="Tell us what you think..."
+          onKey={(c) => setNote((n) => n + c)}
+          onBackspace={() => setNote((n) => n.slice(0, -1))}
+          onReturn={() => setNote((n) => n + "\n")}
+          className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+        />
+      )}
     </div>
   );
 }

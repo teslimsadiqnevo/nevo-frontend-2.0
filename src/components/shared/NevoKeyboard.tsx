@@ -1,10 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Delete } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type KeyboardLayout = "qwerty" | "pad";
+export type KeyboardComposer = "single" | "multi";
+
+/** Handoff: dock the keyboard behind focus state, debouncing blur ~120ms. */
+const BLUR_DEBOUNCE_MS = 120;
+
+/**
+ * Focus-gated docking for the Nevo Keyboard (frontend handoff §05): a field sets
+ * the dock open on focus and closed on blur, with the blur debounced ~120ms so
+ * momentary focus churn (e.g. a key tap racing the guard on some platforms)
+ * doesn't dismiss the keyboard. Refocusing within the window cancels the close.
+ */
+export function useNevoKeyboardDock() {
+  const [open, setOpen] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
+
+  const onFocus = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setOpen(true);
+  };
+  const onBlur = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setOpen(false), BLUR_DEBOUNCE_MS);
+  };
+  const close = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setOpen(false);
+  };
+
+  return { open, onFocus, onBlur, close };
+}
 
 /**
  * Nevo Keyboard (design frame · "Nevo Keyboard") — the branded on-screen keyboard
@@ -22,31 +56,43 @@ export function NevoKeyboard({
   onKey,
   onBackspace,
   onReturn,
+  composer,
+  value,
+  placeholder = "Type here",
   className,
 }: {
   layout: KeyboardLayout;
   /** A character key was pressed (letter, digit, or " "). */
   onKey: (char: string) => void;
   onBackspace: () => void;
-  /** The accent "return" key (qwerty only). */
+  /** The accent "return" key (qwerty only). In `multi` it inserts a newline. */
   onReturn?: () => void;
+  /**
+   * Attach a composer field above the tray (Nevo Keyboard frame) — for fields
+   * the docked keyboard would cover, and `multi` for notes. Displays `value`.
+   */
+  composer?: KeyboardComposer;
+  /** The host field's current text, mirrored in the composer. */
+  value?: string;
+  /** Composer placeholder while `value` is empty. */
+  placeholder?: string;
   className?: string;
 }) {
   // qwerty-only modes: capitalisation + a digits/symbols plane.
   const [caps, setCaps] = useState(true);
   const [numeric, setNumeric] = useState(false);
 
-  return (
+  const isMulti = composer === "multi";
+  const hasVal = Boolean(value && value.length > 0);
+
+  const tray = (
     <div
-      role="group"
-      aria-label="On-screen keyboard"
-      // Keep the focused field focused when a key is tapped (the keys drive its
-      // state directly), so a focus-gated keyboard doesn't dismiss itself.
-      onMouseDown={(e) => e.preventDefault()}
       className={cn(
-        "flex shrink-0 flex-col border-t border-nevo-near-black/8 bg-[#e4ddcc] px-1.5 pt-1.5 pb-3 md:px-3 md:pt-3 md:pb-3.5 motion-safe:animate-nevo-kb-up",
-        "gap-2.5 md:gap-[11px]",
-        className,
+        "flex shrink-0 flex-col gap-2.5 bg-[#e4ddcc] px-1.5 pt-1.5 pb-3 md:gap-[11px] md:px-3 md:pt-3 md:pb-3.5",
+        // Without a composer the tray is the whole assembly: it carries the
+        // top hairline and the slide-up itself.
+        !composer &&
+          "border-t border-nevo-near-black/8 motion-safe:animate-nevo-kb-up",
       )}
     >
       {layout === "pad" ? (
@@ -55,6 +101,7 @@ export function NevoKeyboard({
         <QwertyLayout
           caps={caps}
           numeric={numeric}
+          returnLabel={isMulti ? "return ↵" : "return"}
           onKey={onKey}
           onBackspace={onBackspace}
           onReturn={onReturn}
@@ -62,6 +109,44 @@ export function NevoKeyboard({
           onToggleNumeric={() => setNumeric((n) => !n)}
         />
       )}
+    </div>
+  );
+
+  return (
+    <div
+      role="group"
+      aria-label="On-screen keyboard"
+      // Keep the focused field focused when a key is tapped (the keys drive its
+      // state directly), so a focus-gated keyboard doesn't dismiss itself.
+      onMouseDown={(e) => e.preventDefault()}
+      className={cn("flex flex-col", composer && "motion-safe:animate-nevo-kb-up", className)}
+    >
+      {composer && (
+        <div className="w-full border-t border-nevo-near-black/8 bg-[#e4ddcc] px-1.5 pt-1.5 pb-1 md:px-3 md:pt-3 md:pb-2">
+          <div
+            className={cn(
+              "flex w-full flex-wrap rounded-[10px] border-[1.5px] border-nevo-near-black/16 bg-nevo-cream px-3.5 py-3 shadow-[inset_0_1px_2px_rgba(43,43,47,0.05)]",
+              isMulti
+                ? "min-h-[84px] items-start md:min-h-[100px]"
+                : "min-h-[46px] items-center md:min-h-[52px]",
+            )}
+          >
+            <span
+              className={cn(
+                "text-[16px] leading-[1.5] break-words whitespace-pre-wrap md:text-[18px]",
+                hasVal ? "text-nevo-near-black" : "text-nevo-near-black/40",
+              )}
+            >
+              {hasVal ? value : placeholder}
+            </span>
+            <span
+              aria-hidden
+              className="mt-0.5 ml-px inline-block h-[19px] w-[2px] bg-nevo-navy md:h-[22px] motion-safe:animate-nevo-kb-caret"
+            />
+          </div>
+        </div>
+      )}
+      {tray}
     </div>
   );
 }
@@ -191,6 +276,7 @@ const NUM_ROWS = [
 function QwertyLayout({
   caps,
   numeric,
+  returnLabel,
   onKey,
   onBackspace,
   onReturn,
@@ -199,6 +285,7 @@ function QwertyLayout({
 }: {
   caps: boolean;
   numeric: boolean;
+  returnLabel: string;
   onKey: (c: string) => void;
   onBackspace: () => void;
   onReturn?: () => void;
@@ -242,7 +329,7 @@ function QwertyLayout({
         <div className={ROW}>
           <ModKey label="ABC" onClick={onToggleNumeric} grow={1.5} />
           <Key label="space" onClick={() => onKey(" ")} grow={5} />
-          {onReturn && <AccentKey label="return" onClick={onReturn} grow={1.8} />}
+          {onReturn && <AccentKey label={returnLabel} onClick={onReturn} grow={1.8} />}
         </div>
       </>
     );
@@ -281,7 +368,7 @@ function QwertyLayout({
       <div className={ROW}>
         <ModKey label="123" onClick={onToggleNumeric} grow={1.5} />
         <Key label="space" onClick={() => onKey(" ")} grow={5} />
-        {onReturn && <AccentKey label="return" onClick={onReturn} grow={1.8} />}
+        {onReturn && <AccentKey label={returnLabel} onClick={onReturn} grow={1.8} />}
       </div>
     </>
   );

@@ -69,12 +69,13 @@ export function SchoolCodeInput({
   };
 
   // Close only when focus leaves the field entirely (not on auto-advance).
+  // ~120ms debounce per the frontend handoff's keyboard-docking guidance.
   const handleBlur = () => {
     setTimeout(() => {
       if (!refs.current.some((el) => el && el === document.activeElement)) {
         setKbOpen(false);
       }
-    }, 0);
+    }, 120);
   };
 
   const fieldBorder =
