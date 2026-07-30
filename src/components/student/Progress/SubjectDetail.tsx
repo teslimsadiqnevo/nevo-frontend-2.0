@@ -1,6 +1,13 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import type { SubjectDetail as SubjectDetailData } from "./progressData";
+import type {
+  SessionRow,
+  SubjectDetail as SubjectDetailData,
+} from "./progressData";
+import { SessionDetailSheet } from "./SessionDetailSheet";
 
 /** Smooth path through the timeline points (0–320 × 0–80 space). */
 function smoothPath(points: [number, number][]): string {
@@ -22,6 +29,24 @@ function smoothPath(points: [number, number][]): string {
  * no score, no comparison.
  */
 export function SubjectDetail({ subject }: { subject: SubjectDetailData }) {
+  // Session Detail sheet (Subject Detail frame): tapping a growth-line marker
+  // opens the session behind it.
+  const [session, setSession] = useState<SessionRow | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Markers run oldest → newest left-to-right; the lessons list is newest-first.
+  // Map from the newest end so the most recent markers carry sessions; any
+  // extra leading markers stay decorative.
+  const chronological = [...subject.lessons].reverse();
+  const offset = subject.timeline.length - chronological.length;
+  const sessionForDot = (i: number): SessionRow | null =>
+    i - offset >= 0 ? (chronological[i - offset] ?? null) : null;
+
+  const openSession = (s: SessionRow) => {
+    setSession(s);
+    setSheetOpen(true);
+  };
+
   return (
     <div className="flex min-h-full flex-col">
       {/* Back to Progress */}
@@ -68,14 +93,36 @@ export function SubjectDetail({ subject }: { subject: SubjectDetailData }) {
                 vectorEffect="non-scaling-stroke"
               />
             </svg>
-            {subject.timeline.map(([x, y], i) => (
-              <span
-                key={i}
-                aria-hidden
-                className="absolute size-[13px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-nevo-navy shadow-[0_0_0_4px_rgba(237,232,220,0.9)]"
-                style={{ left: `${(x / 320) * 100}%`, top: `${(y / 80) * 100}%` }}
-              />
-            ))}
+            {subject.timeline.map(([x, y], i) => {
+              const dot = (
+                <span
+                  aria-hidden
+                  className="size-[13px] rounded-full bg-nevo-navy shadow-[0_0_0_4px_rgba(237,232,220,0.9)]"
+                />
+              );
+              const s = sessionForDot(i);
+              return s ? (
+                // 44×44 hit area around the 13px marker (touch-first).
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={`View session: ${s.title}, ${s.date}`}
+                  onClick={() => openSession(s)}
+                  className="absolute flex size-11 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-transform active:scale-95"
+                  style={{ left: `${(x / 320) * 100}%`, top: `${(y / 80) * 100}%` }}
+                >
+                  {dot}
+                </button>
+              ) : (
+                <span
+                  key={i}
+                  className="absolute flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center"
+                  style={{ left: `${(x / 320) * 100}%`, top: `${(y / 80) * 100}%` }}
+                >
+                  {dot}
+                </span>
+              );
+            })}
           </div>
         </div>
 
@@ -98,6 +145,12 @@ export function SubjectDetail({ subject }: { subject: SubjectDetailData }) {
           ))}
         </ul>
       </div>
+
+      <SessionDetailSheet
+        session={session}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+      />
     </div>
   );
 }
