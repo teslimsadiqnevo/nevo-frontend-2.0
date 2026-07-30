@@ -35,6 +35,8 @@ export interface AuthContextValue {
    * session rather than a spoofable `?path=sso` query param.
    */
   signIn: (user: AuthUser) => void;
+  /** End the client session (Sign Out Modal). TODO(auth): revoke server-side. */
+  signOut: () => void;
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -44,9 +46,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // contract exists (see proxy.ts). Starts unauthenticated for now.
   const [user, setUser] = useState<AuthUser | null>(null);
   const signIn = useCallback((next: AuthUser) => setUser(next), []);
+  const signOut = useCallback(() => setUser(null), []);
   const value = useMemo<AuthContextValue>(
-    () => ({ user, status: user ? "authenticated" : "unauthenticated", signIn }),
-    [user, signIn],
+    () => ({
+      user,
+      status: user ? "authenticated" : "unauthenticated",
+      signIn,
+      signOut,
+    }),
+    [user, signIn, signOut],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
