@@ -1,3 +1,4 @@
+import { RotatePrompt } from "@/components/student/Shell/RotatePrompt";
 import { StudentShell } from "@/components/student/Shell/StudentShell";
 
 /**
@@ -13,5 +14,11 @@ export default function StudentLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <StudentShell>{children}</StudentShell>;
+  return (
+    <>
+      <StudentShell>{children}</StudentShell>
+      {/* Portrait-only v1 - covers every student surface, incl. bare flows. */}
+      <RotatePrompt />
+    </>
+  );
 }
