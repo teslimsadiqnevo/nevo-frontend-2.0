@@ -32,6 +32,11 @@ export interface VisualContent {
   heading: string;
   /** One-line orientation under the heading ("Follow the arrows."). */
   intro?: string;
+  /**
+   * Named inline artwork (finished SVG shipped with the app) — the frame's
+   * answer to missing produced assets: real art, never a wireframe box.
+   */
+  art?: { id: string; alt: string; caption?: string };
   illustration?: { src: string; alt: string; caption?: string };
   /** e.g. Photosynthesis "TAKES IN → GIVES OUT". */
   diagram?: { inLabel: string; outLabel: string; inputs: string[]; outputs: string[] };

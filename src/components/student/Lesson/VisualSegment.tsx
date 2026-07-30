@@ -3,11 +3,15 @@ import { IllustrationWrapper } from "@/components/shared";
 import type { VisualContent } from "@/lib/types";
 
 /**
- * Visual modality (Lesson Player frame 17) — the segment as a picture: an
- * illustration (a quiet dashed placeholder until real art lands) plus the
- * on-brand input→output diagram card.
+ * Visual modality (Lesson Player frame 17) — the segment as a picture: finished
+ * inline art (or a produced illustration asset) plus the on-brand input→output
+ * diagram card. Where no art exists at all, a quiet cream-elevated tile — never
+ * a dashed wireframe box on a finished screen (frontend handoff §07).
  */
 export function VisualSegment({ content }: { content: VisualContent }) {
+  const inlineArt = content.art ? INLINE_ART[content.art.id] : undefined;
+  const caption = content.art?.caption ?? content.illustration?.caption;
+
   return (
     <article>
       <h2 className="text-[22px] font-semibold leading-[1.3] tracking-[-0.01em] text-nevo-near-black sm:text-[26px] lg:text-[28px]">
@@ -20,7 +24,15 @@ export function VisualSegment({ content }: { content: VisualContent }) {
       )}
 
       <figure className="mt-[22px]">
-        {content.illustration ? (
+        {content.art && inlineArt ? (
+          <div
+            role="img"
+            aria-label={content.art.alt}
+            className="flex h-[180px] items-center justify-center overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 sm:h-[220px]"
+          >
+            {inlineArt}
+          </div>
+        ) : content.illustration ? (
           <div className="flex justify-center">
             <IllustrationWrapper
               src={content.illustration.src}
@@ -31,17 +43,14 @@ export function VisualSegment({ content }: { content: VisualContent }) {
             />
           </div>
         ) : (
-          // No art yet — the frame's dashed cream-elevated placeholder.
-          <div className="flex h-[180px] flex-col items-center justify-center gap-3 rounded-[12px] border border-dashed border-nevo-navy/22 bg-nevo-cream-elevated shadow-elevation-1 sm:h-[220px]">
+          // No art at all — a quiet cream-elevated tile (calm, finished-looking).
+          <div className="flex h-[180px] items-center justify-center rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 sm:h-[220px]">
             <Leaf className="size-[46px] text-nevo-violet" strokeWidth={1.6} />
-            <span className="font-mono text-[11px] tracking-[0.04em] text-nevo-near-black/50">
-              illustration on the way
-            </span>
           </div>
         )}
-        {content.illustration?.caption && (
+        {caption && (
           <figcaption className="mx-0.5 mt-2.5 text-[13px] leading-[1.5] text-nevo-near-black/60">
-            {content.illustration.caption}
+            {caption}
           </figcaption>
         )}
       </figure>
@@ -69,6 +78,107 @@ export function VisualSegment({ content }: { content: VisualContent }) {
     </article>
   );
 }
+
+/**
+ * Named inline artwork shipped with the app (Lesson Player frame) — finished
+ * SVG pieces used until produced assets land. Keyed by `VisualContent.art.id`.
+ */
+const INLINE_ART: Record<string, React.ReactNode> = {
+  // The frame's leaf-photosynthesising diagram: sun + arrows in, leaf, arrow out.
+  "leaf-photosynthesis": (
+    <svg
+      viewBox="0 0 320 200"
+      className="block h-[82%] w-auto max-w-[94%]"
+      aria-hidden
+    >
+      <defs>
+        <marker
+          id="nevo-leaf-arrowhead"
+          markerWidth="7"
+          markerHeight="7"
+          refX="5"
+          refY="3.5"
+          orient="auto"
+        >
+          <path d="M0 0L7 3.5L0 7z" fill="#3b3f6e" />
+        </marker>
+      </defs>
+      <g stroke="#9a9ccb" strokeWidth="3" strokeLinecap="round">
+        <line x1="52" y1="16" x2="52" y2="26" />
+        <line x1="52" y1="66" x2="52" y2="76" />
+        <line x1="22" y1="46" x2="32" y2="46" />
+        <line x1="72" y1="46" x2="82" y2="46" />
+        <line x1="31" y1="25" x2="38" y2="32" />
+        <line x1="66" y1="60" x2="73" y2="67" />
+        <line x1="73" y1="25" x2="66" y2="32" />
+        <line x1="38" y1="60" x2="31" y2="67" />
+      </g>
+      <circle cx="52" cy="46" r="16" fill="#9a9ccb" />
+      <path
+        d="M186 58 C238 66 252 128 198 166 C150 156 128 96 186 58 Z"
+        fill="rgba(154,156,203,0.28)"
+        stroke="#3b3f6e"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M188 66 L196 158"
+        stroke="#3b3f6e"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M191 96 L168 92 M193 118 L216 108 M194 136 L173 136"
+        stroke="#3b3f6e"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity="0.6"
+      />
+      <line
+        x1="70"
+        y1="58"
+        x2="150"
+        y2="96"
+        stroke="#3b3f6e"
+        strokeWidth="2.5"
+        markerEnd="url(#nevo-leaf-arrowhead)"
+      />
+      <line
+        x1="150"
+        y1="196"
+        x2="170"
+        y2="162"
+        stroke="#3b3f6e"
+        strokeWidth="2.5"
+        markerEnd="url(#nevo-leaf-arrowhead)"
+      />
+      <line
+        x1="212"
+        y1="78"
+        x2="262"
+        y2="42"
+        stroke="#3b3f6e"
+        strokeWidth="2.5"
+        markerEnd="url(#nevo-leaf-arrowhead)"
+      />
+      <g
+        fontFamily="ui-monospace, Menlo, monospace"
+        fontSize="10"
+        fill="rgba(43,43,47,0.55)"
+      >
+        <text x="84" y="44">
+          sunlight
+        </text>
+        <text x="126" y="196">
+          in
+        </text>
+        <text x="264" y="40">
+          out
+        </text>
+      </g>
+    </svg>
+  ),
+};
 
 function DiagramColumn({
   label,

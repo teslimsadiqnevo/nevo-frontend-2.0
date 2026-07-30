@@ -70,9 +70,9 @@ export function Sidebar({
             aria-current={active ? "page" : undefined}
             title={collapsed ? item.label : undefined}
             className={cn(
-              "relative flex h-12 items-center rounded-[10px] transition-colors",
+              "relative flex h-12 items-center rounded-[10px] transition-colors duration-[130ms]",
               collapsed ? "w-full justify-center" : "gap-3 px-1",
-              active ? "bg-nevo-navy/6" : "hover:bg-nevo-near-black/[0.04]",
+              active ? "bg-nevo-navy/8" : "hover:bg-nevo-navy/5",
             )}
           >
             {active && (
