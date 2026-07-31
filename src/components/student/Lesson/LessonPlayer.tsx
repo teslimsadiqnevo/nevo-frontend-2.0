@@ -15,6 +15,12 @@ import {
 import { useLesson, useSignals } from "@/hooks";
 import type { AdaptationPlan, Lesson, LessonSegment } from "@/lib/types";
 import { cn, randomId } from "@/lib/utils";
+import {
+  lessonModules,
+  modulePositionFor,
+  opensLaterModule,
+  positionLine,
+} from "@/lib/utils/modules";
 import { AfterLessonAssessment } from "./AfterLessonAssessment";
 import { AudioSegment } from "./AudioSegment";
 import { CalculationSolver } from "./CalculationSolver";
@@ -23,6 +29,7 @@ import { InteractiveSegment } from "./InteractiveSegment";
 import { LeaveLessonDialog } from "./LeaveLessonDialog";
 import { LessonComplete } from "./LessonComplete";
 import { ModalitySuggestionPill } from "./ModalitySuggestionPill";
+import { ModuleBoundaryScreen } from "./ModuleBoundaryScreen";
 import { OfflineBanner } from "./OfflineBanner";
 import { QuickCheckSheet } from "./QuickCheckSheet";
 import { type ReviewAnswer, saveReviewAnswers } from "./reviewStore";
@@ -149,6 +156,10 @@ export function LessonPlayer({
   );
   // Exiting mid-lesson goes through the leave dialog, not straight out.
   const [leaveOpen, setLeaveOpen] = useState(false);
+  // SCRUM-101: the segment index the player is about to enter across a module
+  // boundary. Non-null takes over the screen with the boundary landing; the
+  // student's continue (or break + "I'm ready") completes the move.
+  const [boundaryTo, setBoundaryTo] = useState<number | null>(null);
   // Transient post-answer note that greets the next segment, then fades.
   const [feedback, setFeedback] = useState<string | null>(null);
   // Calculation segments the student has co-constructed to completion — the
@@ -204,14 +215,18 @@ export function LessonPlayer({
     return () => clearTimeout(t);
   }, [feedback]);
 
-  // Offer the plan's suggestion only while it's renderable and not already showing.
+  // Offer the plan's suggestion only while it's renderable and not already
+  // showing. Rate-limits: never on consecutive segments, and never on the first
+  // segment after a module boundary (SCRUM-101 - the student just made a
+  // transition decision; don't stack an adaptation offer on top of it).
   const suggested = planFor(segment.id)?.suggestModality ?? null;
   const showSuggestion =
     !suggestionSpent &&
     suggested !== null &&
     suggested !== modality &&
     hasContent(segment, suggested) &&
-    lastSuggestedIndex !== index - 1;
+    lastSuggestedIndex !== index - 1 &&
+    !opensLaterModule(lesson, index);
 
   const go = (next: number) => {
     if (next < 0 || next >= total) return;
@@ -237,6 +252,12 @@ export function LessonPlayer({
   /** Leave the current segment forward — next segment, then assessment, then done. */
   const advancePastSegment = () => {
     if (index < total - 1) {
+      // Crossing into a later module lands on the boundary screen first
+      // (SCRUM-101). Backward moves never re-show it.
+      if (opensLaterModule(lesson, index + 1)) {
+        setBoundaryTo(index + 1);
+        return;
+      }
       go(index + 1);
       return;
     }
@@ -346,6 +367,41 @@ export function LessonPlayer({
     );
   }
 
+  // Module boundary landing (SCRUM-101) — a full player screen between modules,
+  // never a modal. Continue (or break + "I'm ready") completes the move.
+  if (boundaryTo !== null) {
+    const modules = lessonModules(lesson);
+    const nextPos = modulePositionFor(lesson, boundaryTo);
+    if (modules && nextPos) {
+      return (
+        <ModuleBoundaryScreen
+          lessonTitle={lesson.title}
+          finished={modules[nextPos.moduleIndex - 1]}
+          next={nextPos.module}
+          nextModuleIndex={nextPos.moduleIndex}
+          moduleCount={nextPos.moduleCount}
+          lessonProgress={boundaryTo / total}
+          showRecap={Boolean(plan?.accommodations?.attention)}
+          onReached={() =>
+            trackEvent(SIGNAL_EVENT_TYPES.MODULE_BOUNDARY_REACHED, {
+              moduleId: nextPos.module.id,
+            })
+          }
+          onAction={(action) =>
+            trackEvent(SIGNAL_EVENT_TYPES.MODULE_BOUNDARY_ACTION, {
+              moduleId: nextPos.module.id,
+              action,
+            })
+          }
+          onEnterNext={() => {
+            setBoundaryTo(null);
+            go(boundaryTo);
+          }}
+        />
+      );
+    }
+  }
+
   return (
     <div className="flex min-h-[100dvh] flex-col bg-nevo-cream text-nevo-near-black">
       {/* Top bar: exit + title, then the density toggle (present in every modality) */}
@@ -363,16 +419,22 @@ export function LessonPlayer({
             {lesson.title}
           </h1>
         </div>
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-3">
+          {/* Two-level position line for modular lessons (SCRUM-101.3);
+              segment-only lessons read exactly as today. */}
+          <span className="min-w-0 truncate font-mono text-[11px] text-nevo-near-black/50">
+            {positionLine(lesson, index)}
+          </span>
           <AdaptiveToggleBar segments={densitySegments} onSelect={pickDensity} />
         </div>
       </header>
 
-      {/* Progress line — segment `index + 1` of `total` */}
+      {/* Progress line — the bar tracks the whole lesson, continuous across
+          module boundaries; the text above carries the module breakdown. */}
       <ProgressBar
         value={(index + 1) / total}
         className="shrink-0"
-        aria-label={`Segment ${index + 1} of ${total}`}
+        aria-label={positionLine(lesson, index)}
       />
 
       {/* Calm banner while the device is offline — the cached lesson stays usable */}
