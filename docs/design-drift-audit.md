@@ -148,3 +148,112 @@ language ("dyslexia" → "read-aloud support"). Board 17 now carries a
 *The prior version of this audit under-reported: it keyword-scanned the two big
 frames, skipped the Nevo Keyboard diff and every numbered reference board, and
 missed the three root documents entirely. This pass covered every changed file.*
+
+
+---
+---
+
+# ROUND 2 — mirror re-sync of 31 Jul 2026 (`4b29faf` → `556627b`)
+
+**Method.** Same as round 1: every changed file in the mirror examined — new root
+docs read in full, all 18 changed student files diffed (big ones read whole, the
+rest via the dash-normalizing filter), our built components then grepped for the
+same defects. Four mirror commits: file renumbering + ops/admin specs, the C07
+collision fix, LFS restore, and a "Launch pixel perfect" pass.
+
+**Headline.** This round is dominated by **SCRUM-94 (touch signal correctness)**
+and **SCRUM-101 (module structure)**. Design fixed a set of interaction defects
+in their frames that **our build shares** — we inherited them faithfully from the
+old frames, so several shipped components now need the same corrections. Plus one
+new student feature (modules), one copy ruling (greetings), and a small polish set.
+
+## R0 · New governing documents (read first when actioning)
+
+- **`Touch Signal Contract.md`** (SCRUM-94 · G1/G2/G5) — build-affecting invariants:
+  the closed gesture set (tap / vertical scroll / framed drag only; HTML5 drag,
+  swipe-only and long-press-only actions banned), `system_busy` marker pairs
+  (`auth_pending`, `content_loading`, `transition_screen`, `confirmation_hold`,
+  `modality_switch`, `view_transition`, `media_playing`, `blocked_by_modal`),
+  scrim taps emit `tap_blocked` (never latency/aborted channels), every overlay
+  needs a visible ≥44×44 dismiss, form-factor session tagging, and the retirement
+  of `pointer_dwell_time` in favour of `tap_duration` + `inter_touch_idle`
+  (our constants never used the retired name — verified clean).
+- **`Touch Signal Capture Audit.md`** — the per-screen audit behind the contract.
+  Its §5 re-measurement confirms our D2/D3 sizes landed in design's own files
+  ("was already fixed"); its remaining sizing tickets are Lessons filter chips
+  (→44), Ask Nevo close/send (unbuilt), and the Preview Sheet close.
+- **`36 Design System Audit - v1 Build Lock`** — locked rulings; the one that
+  binds us now: **time-of-day greetings removed** product-wide.
+- **`37 Pixel Audit - Batch 1 Student`** — 0 in-place fixes for the student
+  surfaces; two open questions (700-weight scope, radius 14) are design's to rule.
+- **Frontend handoff §11–12** — "Pressable, not disabled" house rule;
+  module-structure defaults (below). Feedback consolidated to one component
+  (roles now include `parent`).
+
+## R1 · Signal-correctness drift in built components (SCRUM-94)
+
+Design fixed these in their frames; our build inherited the old behaviour:
+
+| # | Component | Change |
+|---|---|---|
+| R1.1 | `VisualSortingTask` (onboarding Activity 1) | **HTML5 drag → tap-to-select, tap-a-zone.** Drag never fires on touch, so on tablet the diagnostic that seeds the baseline is uncompletable. New frame: tap arms a card (navy ring, 1.06 scale), zones go from quiet cream tiles to armed (inset navy ring), re-tap releases, hint line cycles "Tap one to pick it up / Now tap where it belongs / That's all of them." Zones are solid cream-elevated now, not dashed. |
+| R1.2 | `ModalitySuggestionPill` (+ player wiring) | **v3: card with two discrete peer buttons.** "Yes, try it" (navy) + "Not now" (navy-outline), both 44px tall, 8px gap, container no longer tappable (SCRUM-94.5 killed the nested dismiss), and **no auto-dismiss** — the pill holds until acted (a timeout is indistinguishable from a decline in the signal record). Keep the 300ms navy accept beat. Card: radius 12, max-w 340, padding 18. |
+| R1.3 | `CalculationSolver` | **All three auto-advances removed — every step ends on a commit tap.** Cards: choose (selection ring) → "Check my answer". Step-1 confirmation → "Next step" button (no 1500ms timer). Numeric: "Check my answer" (no value-sniff; wrong commit → attempt + nudge + hint). Manipulative: "That's the total" once 3 placed. And **`nevo-shake` is retired** — replaced by `nevo-nudge`, a non-displacing soft-violet ring pulse (displacement moves options under the finger; shake reads as alarm). |
+| R1.4 | `HomeDashboard` mobile rail | **Horizontal snap rail → 2-up grid.** scroll-snap overrides the student's deceleration curve and nests a horizontal scroller in the vertical page (banned by G5). Same card width, no nested gesture zone. |
+| R1.5 | `LessonsTab` | **Subject headers no longer sticky** — sticky headers overlay cards (taps land on the header) and perturb scroll signal. |
+| R1.6 | All sheets/dialogs (`ui/sheet` skin) | **Scrim 0.30 → 0.55** (G1: the backdrop must read unavailable). And per the updated boards, sheets swap the drag handle for a **top-right 44×44 close** — Preview Sheet (which currently has *no* visible dismiss — the audit's highest-value sizing item), Session Detail, and the Profile-pattern sheets. |
+| R1.7 | `globals.css` animations | **`nevo-glow` and `nevo-sparkle` become one-shot** (were infinite — perpetual motion inside measured windows). The frustration chevron, when built, uses glow x3. |
+| R1.8 | `LessonsTab` filter chips | ~33px tall → **44px** (capture-audit sizing table). |
+
+## R2 · Signals infrastructure (with Teslim, per the contract)
+
+- Emit `system_busy` start/end pairs from: player loading/skeleton
+  (`content_loading`), audio play/pause/end (`media_playing` — its own reason:
+  attending, not idle), the suggestion accept beat (`modality_switch`),
+  transition screens 07/16 (`transition_screen`), consent/SSO pending
+  (`auth_pending`). The calc's `confirmation_hold` reason mostly disappears
+  because R1.3 removes the holds.
+- Scrim taps emit `tap_blocked` (diagnostic only).
+- Tag every signal session with **form factor** at start (G6) and reduced-motion mode.
+
+## R3 · New feature — SCRUM-101 Module Structure
+
+- Lesson model gains optional **modules** (lesson → modules → segments); the
+  default flips at **6+ segments**; students never see the distinction named.
+- Player position line becomes **two-level** ("Module 2 of 3 · Segment 4 of 6 in
+  this module") above the progress bar; single-level ("Segment 2 of 5") otherwise.
+- **`Nevo Module Boundary`** renders between modules — a full player screen
+  (never a modal, no scrim): names position + what finished/what's next, two peer
+  44px actions ("Yes, continue" / "Take a break first" → break module), recap +
+  preview only under the attention accommodation (backend-gated), no celebration.
+- Home Continue card shows the two-level line ("Module 2 of 3: Practice").
+- Suggestion rate-limit: no modality offer on the first segment after a boundary.
+
+## R4 · Copy & polish
+
+- **Greeting**: "Good morning/afternoon, Ada" → **"Welcome back, Ada"** (build-lock
+  ruling; the dated eyebrow line stays). Drop the clock-driven greeting logic.
+- Feedback panel: textarea/buttons radius 8 → **10**, heading + Send weight 700 →
+  **600**; component now also serves a `parent` role (not a student-app surface).
+- QuickCheck sheet scrim joins the 0.55 rule (Lesson Check board).
+
+## R5 · Verified no-action
+
+- 30/32/09 board updates document the tap rebuild + scrim rules (reference only).
+- Renumbering (D0→D00 etc.), admin/teacher/ops/landing additions: new scope, not
+  student drift. `Nevo Self-Driving Product Walkthrough` is the renamed Autopilot
+  demo. Root marketing decks (Pitch, YC demo, Auto-Play Briefing) are internal.
+- Event-name hygiene: our signal constants never used `pointer_dwell_time` — clean.
+
+## Suggested order
+
+1. **R1.2 + R1.3** (pill v3 + calc commit taps/nudge) — one player PR; largest
+   signal payoff and user-visible correctness.
+2. **R1.1** Activity-1 tap rebuild (protects the onboarding baseline).
+3. **R1.4–R1.8** structural/polish sweep (rail, sticky, scrims + closes, one-shot
+   animations, chips) — can be one PR.
+4. **R4** greeting + feedback polish (small PR).
+5. **R3** module structure (its own feature PR: types, player line, boundary
+   screen, Home line, rate-limit).
+6. **R2** signal markers alongside Teslim's collection layer (the marker emits
+   can land early behind the existing `useSignals` seam).
