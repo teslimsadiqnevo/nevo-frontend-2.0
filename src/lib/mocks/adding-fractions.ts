@@ -4,7 +4,7 @@
  * remain a data-source swap. The calculation co-construction solver is the
  * centrepiece. Content is illustrative, not curriculum-reviewed.
  */
-import { MODALITY, DENSITY, CALC_MODALITY } from "@/lib/constants";
+import { BREAK_TYPES, MODALITY, DENSITY, CALC_MODALITY } from "@/lib/constants";
 import type { AdaptationPlan, Lesson } from "@/lib/types";
 
 export const ADDING_FRACTIONS: Lesson = {
@@ -201,8 +201,10 @@ export const ADDING_FRACTIONS: Lesson = {
 export const ADDING_FRACTIONS_PLAN: AdaptationPlan = {
   lessonId: "adding-fractions",
   segments: [
-    { segmentId: "intro", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.VISUAL },
-    { segmentId: "calc-add-fifths", startModality: MODALITY.INTERACTIVE, density: null, suggestModality: null },
+    // Exercises the other break types: a micro breath after the reading
+    // stretch, a movement break after the working one.
+    { segmentId: "intro", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.VISUAL, breakAfter: BREAK_TYPES.MICRO },
+    { segmentId: "calc-add-fifths", startModality: MODALITY.INTERACTIVE, density: null, suggestModality: null, breakAfter: BREAK_TYPES.MOVEMENT },
     { segmentId: "recap", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.AUDIO },
   ],
 };

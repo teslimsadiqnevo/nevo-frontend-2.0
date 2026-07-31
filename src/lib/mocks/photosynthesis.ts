@@ -4,7 +4,7 @@
  * `contentApi.getLesson` / `intelligenceApi.getAdaptation` later is a data-source
  * swap, not a UI change. Content here is illustrative, not curriculum-reviewed.
  */
-import { MODALITY, DENSITY, CALC_MODALITY } from "@/lib/constants";
+import { BREAK_TYPES, MODALITY, DENSITY, CALC_MODALITY } from "@/lib/constants";
 import type { AdaptationPlan, Lesson } from "@/lib/types";
 
 export const PHOTOSYNTHESIS: Lesson = {
@@ -242,7 +242,9 @@ export const PHOTOSYNTHESIS_PLAN: AdaptationPlan = {
   accommodations: { attention: true },
   segments: [
     { segmentId: "intro", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.VISUAL },
-    { segmentId: "calc-fractions", startModality: MODALITY.INTERACTIVE, density: null, suggestModality: null },
+    // The consolidation break (feeling check-in) lands after the working
+    // stretch — the natural place to surface how it felt.
+    { segmentId: "calc-fractions", startModality: MODALITY.INTERACTIVE, density: null, suggestModality: null, breakAfter: BREAK_TYPES.CONSOLIDATION },
     { segmentId: "recap", startModality: MODALITY.TEXT, density: DENSITY.SLOWER, suggestModality: MODALITY.AUDIO },
   ],
 };

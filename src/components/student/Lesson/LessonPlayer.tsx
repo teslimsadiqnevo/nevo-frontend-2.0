@@ -11,6 +11,7 @@ import {
   MODALITY,
   SIGNAL_EVENT_TYPES,
   TRIGGER_SOURCE,
+  type BreakType,
   type BusyPhase,
   type BusyReason,
   type Density,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/utils/modules";
 import { AfterLessonAssessment } from "./AfterLessonAssessment";
 import { AudioSegment } from "./AudioSegment";
+import { BreakScreen } from "./BreakScreen";
 import { CalculationSolver } from "./CalculationSolver";
 import { FeedbackStrip } from "./FeedbackStrip";
 import { InteractiveSegment } from "./InteractiveSegment";
@@ -164,6 +166,11 @@ export function LessonPlayer({
   // boundary. Non-null takes over the screen with the boundary landing; the
   // student's continue (or break + "I'm ready") completes the move.
   const [boundaryTo, setBoundaryTo] = useState<number | null>(null);
+  // Break module (frame 18): a plan-delivered break takes over the screen on
+  // the way out of its segment; finishing it resumes the interrupted advance.
+  // One break per segment - taken breaks never re-trigger on a back-and-forth.
+  const [breakActive, setBreakActive] = useState<BreakType | null>(null);
+  const breaksTaken = useRef<Set<string>>(new Set());
   // Transient post-answer note that greets the next segment, then fades.
   const [feedback, setFeedback] = useState<string | null>(null);
   // Calculation segments the student has co-constructed to completion — the
@@ -277,8 +284,8 @@ export function LessonPlayer({
     }
   };
 
-  /** Leave the current segment forward — next segment, then assessment, then done. */
-  const advancePastSegment = () => {
+  /** The forward move itself — next segment, then assessment, then done. */
+  const continueAdvance = () => {
     if (index < total - 1) {
       // Crossing into a later module lands on the boundary screen first
       // (SCRUM-101). Backward moves never re-show it.
@@ -290,6 +297,20 @@ export function LessonPlayer({
       return;
     }
     setPhase(lesson.assessment ? "assessment" : "complete");
+  };
+
+  /**
+   * Leave the current segment forward. A plan-delivered break (frame 18)
+   * intercepts once on the way out; finishing it resumes this same advance.
+   */
+  const advancePastSegment = () => {
+    const plannedBreak = planFor(segment.id)?.breakAfter ?? null;
+    if (plannedBreak && !breaksTaken.current.has(segment.id)) {
+      breaksTaken.current.add(segment.id);
+      setBreakActive(plannedBreak);
+      return;
+    }
+    continueAdvance();
   };
 
   /** Next chevron — an unpassed Quick Check intercepts the advance. */
@@ -393,6 +414,37 @@ export function LessonPlayer({
             ? () => router.push(`${LESSONS_HREF}/${lesson.id}/summary`)
             : undefined
         }
+      />
+    );
+  }
+
+  // Break module (frame 18) — a calm full screen over the lesson. Ending it
+  // resumes the advance the break interrupted (which may itself land on a
+  // module boundary next).
+  if (breakActive) {
+    return (
+      <BreakScreen
+        type={breakActive}
+        onStart={() =>
+          trackEvent(SIGNAL_EVENT_TYPES.BREAK_START, {
+            type: breakActive,
+            trigger: "adaptation_plan",
+            segmentId: segment.id,
+          })
+        }
+        onEnd={(durationMs) =>
+          trackEvent(SIGNAL_EVENT_TYPES.BREAK_END, {
+            type: breakActive,
+            durationMs,
+          })
+        }
+        onFeelings={(feelings) =>
+          trackEvent(SIGNAL_EVENT_TYPES.FEELING_CHECKIN, { feelings })
+        }
+        onDone={() => {
+          setBreakActive(null);
+          continueAdvance();
+        }}
       />
     );
   }
