@@ -96,6 +96,8 @@
   /* Ask Nevo (26): thinking dots + listening mic - state-bound, end with the state. */
   --animate-nevo-dot: nevo-dot 1200ms ease-in-out infinite;
   --animate-nevo-mic-pulse: nevo-mic-pulse 2000ms ease-in-out infinite;
+  /* Teacher join (03): the viewfinder scan line - state-bound, only while scanning. */
+  --animate-nevo-scanline: nevo-scan 2600ms cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
   --animate-nevo-nudge: nevo-nudge 460ms ease-out both;
   --animate-nevo-fill: nevo-fill 460ms cubic-bezier(0.33, 1, 0.68, 1) both;
 }
@@ -184,6 +186,16 @@
 }
 
 /* Keypad tray slide-up (PIN Creation) — enters from the bottom edge. */
+/* Teacher-join viewfinder scan line - sweeps the frame while looking. */
+@keyframes nevo-scan {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(var(--scan-travel, 200px));
+  }
+}
+
 /* Ask Nevo thinking indicator - three dots taking gentle turns. */
 @keyframes nevo-dot {
   0%,

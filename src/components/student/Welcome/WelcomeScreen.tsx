@@ -63,18 +63,39 @@ export function WelcomeScreen({ linkError = false }: { linkError?: boolean }) {
                   I&apos;m joining through my teacher
                 </Button>
               </SheetTrigger>
-              <SheetContent side="bottom" className="bg-nevo-cream">
-                <SheetHeader>
+              <SheetContent
+                side="bottom"
+                className="rounded-t-[20px] border-0! bg-nevo-cream pb-7 sm:inset-x-auto! sm:top-1/2! sm:bottom-auto! sm:left-1/2! sm:w-[440px] sm:max-w-[calc(100%-48px)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[16px]! sm:p-7 sm:shadow-[0_8px_32px_rgba(0,0,0,0.16)]"
+              >
+                <SheetHeader className="pr-11">
                   <SheetTitle className="text-nevo-navy">
                     Joining through your teacher
                   </SheetTitle>
                   <SheetDescription className="text-nevo-near-black/70">
-                    Ask your teacher for your class QR code or join link. Scan it
-                    or open it on this device to get started - no school code
-                    needed.
+                    Your teacher can show you a QR code to scan, or read out a
+                    class code for you to type in.
                   </SheetDescription>
                 </SheetHeader>
-                {/* TODO: QR code scanner / quick class join (C.12). */}
+                <div className="flex flex-col gap-2 px-4 pb-2 sm:px-0">
+                  <Button
+                    className="w-full"
+                    onClick={() =>
+                      router.push("/student/onboarding/teacher-join?mode=scan")
+                    }
+                  >
+                    Scan a QR code
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="md"
+                    className="w-full font-normal"
+                    onClick={() =>
+                      router.push("/student/onboarding/teacher-join?mode=code")
+                    }
+                  >
+                    Enter a code instead
+                  </Button>
+                </div>
               </SheetContent>
             </Sheet>
           </div>
