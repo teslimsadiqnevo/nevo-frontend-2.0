@@ -3,25 +3,45 @@
 import Image from "next/image";
 import { useEffect } from "react";
 import { IllustrationWrapper } from "@/components/shared";
+import { BUSY_PHASE, BUSY_REASON, SIGNAL_EVENT_TYPES } from "@/lib/constants";
+import type { TrackEvent } from "@/hooks";
 
 /**
  * Transition into the Observed Interaction Sequence (UI/UX spec). A brief,
  * button-less pause — this must feel like a breath, not a decision point. Two
- * copy variants (manual vs SSO first-ever screen). Auto-advances.
+ * copy variants (manual vs SSO first-ever screen). Auto-advances; the hold is
+ * bracketed as `system_busy` (transition_screen) so the stillness on it never
+ * reads as hesitation.
  */
 export function TransitionScreen({
   path = "manual",
   onDone,
   holdMs = 1600,
+  track,
 }: {
   path?: "manual" | "sso";
   onDone: () => void;
   holdMs?: number;
+  track?: TrackEvent;
 }) {
   useEffect(() => {
     const t = setTimeout(onDone, holdMs);
     return () => clearTimeout(t);
   }, [onDone, holdMs]);
+
+  useEffect(() => {
+    track?.(SIGNAL_EVENT_TYPES.SYSTEM_BUSY, {
+      reason: BUSY_REASON.TRANSITION_SCREEN,
+      phase: BUSY_PHASE.START,
+    });
+    return () =>
+      track?.(SIGNAL_EVENT_TYPES.SYSTEM_BUSY, {
+        reason: BUSY_REASON.TRANSITION_SCREEN,
+        phase: BUSY_PHASE.END,
+      });
+    // Mount-scoped bracket; `track` is stable from useSignals.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const message =
     path === "sso"

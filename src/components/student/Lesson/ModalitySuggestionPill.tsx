@@ -34,11 +34,17 @@ const INVITATION: Record<Modality, string> = {
 export function ModalitySuggestionPill({
   modality,
   onAccept,
+  onAcceptStart,
   onDismiss,
 }: {
   modality: Modality;
   /** Student took the offer - switch to `modality` (fires after the beat). */
   onAccept: () => void;
+  /**
+   * Fires the moment "Yes, try it" is tapped - opens the `system_busy`
+   * modality_switch window that `onAccept` (the player's switch) closes.
+   */
+  onAcceptStart?: () => void;
   /** Declined. The offer is spent. */
   onDismiss: () => void;
 }) {
@@ -58,6 +64,7 @@ export function ModalitySuggestionPill({
   const accept = () => {
     if (accepting) return;
     setAccepting(true);
+    onAcceptStart?.();
     acceptTimer.current = setTimeout(onAccept, ACCEPT_BEAT_MS);
   };
 

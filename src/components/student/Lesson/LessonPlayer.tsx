@@ -5,10 +5,14 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { AdaptiveToggleBar, ProgressBar, type ToggleSegment } from "@/components/shared";
 import {
+  BUSY_PHASE,
+  BUSY_REASON,
   DENSITY,
   MODALITY,
   SIGNAL_EVENT_TYPES,
   TRIGGER_SOURCE,
+  type BusyPhase,
+  type BusyReason,
   type Density,
   type Modality,
 } from "@/lib/constants";
@@ -215,6 +219,30 @@ export function LessonPlayer({
     return () => clearTimeout(t);
   }, [feedback]);
 
+  // ── Touch Signal Contract markers (SCRUM-94.8) ──────────────────────────
+  /** `system_busy` start/end pair — brackets windows the system owns. */
+  const trackBusy = useCallback(
+    (reason: BusyReason, phase: BusyPhase) =>
+      trackEvent(SIGNAL_EVENT_TYPES.SYSTEM_BUSY, { reason, phase }),
+    [trackEvent],
+  );
+
+  // While the Quick Check sheet is up, the player beneath is unavailable.
+  useEffect(() => {
+    if (!checkOpen) return;
+    trackBusy(BUSY_REASON.BLOCKED_BY_MODAL, BUSY_PHASE.START);
+    return () => trackBusy(BUSY_REASON.BLOCKED_BY_MODAL, BUSY_PHASE.END);
+  }, [checkOpen, trackBusy]);
+
+  // Scrim taps (the shared sheet overlay broadcasts them): recorded as blocked,
+  // never as latency or an aborted gesture — a design signal, not a student one.
+  useEffect(() => {
+    const onScrimTap = () =>
+      trackEvent(SIGNAL_EVENT_TYPES.TAP_BLOCKED, { target: "scrim" });
+    window.addEventListener("nevo-scrim-tap", onScrimTap);
+    return () => window.removeEventListener("nevo-scrim-tap", onScrimTap);
+  }, [trackEvent]);
+
   // Offer the plan's suggestion only while it's renderable and not already
   // showing. Rate-limits: never on consecutive segments, and never on the first
   // segment after a module boundary (SCRUM-101 - the student just made a
@@ -297,7 +325,9 @@ export function LessonPlayer({
     if (suggested) setModality(suggested);
     setLastSuggestedIndex(index);
     setSuggestionSpent(true);
-  }, [suggested, index]);
+    // The accept beat is over and the new modality is on screen.
+    trackBusy(BUSY_REASON.MODALITY_SWITCH, BUSY_PHASE.END);
+  }, [suggested, index, trackBusy]);
 
   const dismissSuggestion = useCallback(() => {
     setLastSuggestedIndex(index);
@@ -447,6 +477,9 @@ export function LessonPlayer({
             key={`pill-${segment.id}`}
             modality={suggested}
             onAccept={acceptSuggestion}
+            onAcceptStart={() =>
+              trackBusy(BUSY_REASON.MODALITY_SWITCH, BUSY_PHASE.START)
+            }
             onDismiss={dismissSuggestion}
           />
         )}
@@ -468,6 +501,9 @@ export function LessonPlayer({
               density={density}
               onReplay={() =>
                 trackEvent(SIGNAL_EVENT_TYPES.REPLAY, { segmentId: segment.id })
+              }
+              onAudioBusy={(phase) =>
+                trackBusy(BUSY_REASON.MEDIA_PLAYING, phase)
               }
               onCalcSolved={() =>
                 setSolvedCalcs((prev) => new Set(prev).add(segment.id))
@@ -532,6 +568,7 @@ function SegmentBody({
   modality,
   density,
   onReplay,
+  onAudioBusy,
   onCalcSolved,
   onCalcStep,
 }: {
@@ -539,6 +576,7 @@ function SegmentBody({
   modality: Modality;
   density: Density | null;
   onReplay: () => void;
+  onAudioBusy: (phase: BusyPhase) => void;
   onCalcSolved: () => void;
   onCalcStep: (correct: boolean) => void;
 }) {
@@ -547,7 +585,13 @@ function SegmentBody({
   if (modality === MODALITY.VISUAL && segment.visual)
     return <VisualSegment content={segment.visual} />;
   if (modality === MODALITY.AUDIO && segment.audio)
-    return <AudioSegment content={segment.audio} onReplay={onReplay} />;
+    return (
+      <AudioSegment
+        content={segment.audio}
+        onReplay={onReplay}
+        onBusy={onAudioBusy}
+      />
+    );
   if (modality === MODALITY.INTERACTIVE) {
     // A calculation segment routes the Interactive modality to the solver (§8).
     if (segment.calculationVariant && segment.calculation)
