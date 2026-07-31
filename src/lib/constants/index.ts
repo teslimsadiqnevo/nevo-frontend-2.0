@@ -4,3 +4,4 @@ export * from "./eventTypes";
 export * from "./breakTypes";
 export * from "./lessonModality";
 export * from "./scaffold";
+export * from "./affect";

@@ -15,7 +15,14 @@ import { cn } from "@/lib/utils";
  * Tapping it opens a small reassurance popover (player frame copy) - the one
  * interaction it has, and it changes nothing.
  */
-export function ScaffoldIndicator({ level }: { level: ScaffoldLevel }) {
+export function ScaffoldIndicator({
+  level,
+  pulse = false,
+}: {
+  level: ScaffoldLevel;
+  /** One glow cycle on mount (37b: boredom pulses the indicator once). */
+  pulse?: boolean;
+}) {
   const [infoOpen, setInfoOpen] = useState(false);
 
   if (level === SCAFFOLD_LEVELS.OFF) return null;
@@ -28,7 +35,10 @@ export function ScaffoldIndicator({ level }: { level: ScaffoldLevel }) {
         aria-expanded={infoOpen}
         aria-label={`Support level: ${level}`}
         onClick={() => setInfoOpen((o) => !o)}
-        className="flex h-[26px] cursor-pointer items-center gap-2 rounded-2xl bg-nevo-near-black/6 px-[11px] transition-transform active:scale-[0.98]"
+        className={cn(
+          "flex h-[26px] cursor-pointer items-center gap-2 rounded-2xl bg-nevo-near-black/6 px-[11px] transition-transform active:scale-[0.98]",
+          pulse && "motion-safe:animate-nevo-glow",
+        )}
       >
         <span className="flex gap-[5px]">
           {Array.from({ length: 4 }, (_, i) => (

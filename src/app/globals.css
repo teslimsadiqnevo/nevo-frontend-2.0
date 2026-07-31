@@ -91,6 +91,8 @@
   /* One-shot (SCRUM-94: no perpetual motion inside measured windows). */
   --animate-nevo-glow: nevo-glow 2s ease-in-out both;
   --animate-nevo-sparkle: nevo-sparkle 2600ms ease-in-out both;
+  /* Frustration guide (37b): the forward control glows three cycles, then rests. */
+  --animate-nevo-glow-guide: nevo-glow 2s ease-in-out 3 both;
   --animate-nevo-nudge: nevo-nudge 460ms ease-out both;
   --animate-nevo-fill: nevo-fill 460ms cubic-bezier(0.33, 1, 0.68, 1) both;
 }

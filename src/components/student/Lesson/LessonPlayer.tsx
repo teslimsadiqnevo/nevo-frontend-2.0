@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { AdaptiveToggleBar, ProgressBar, type ToggleSegment } from "@/components/shared";
 import {
+  AFFECTIVE_STATES,
+  BREAK_TYPES,
   BUSY_PHASE,
   BUSY_REASON,
   DENSITY,
@@ -17,7 +19,7 @@ import {
   type Density,
   type Modality,
 } from "@/lib/constants";
-import { useLesson, useSignals } from "@/hooks";
+import { useBreakMonitor, useLesson, useSignals } from "@/hooks";
 import type { AdaptationPlan, Lesson, LessonSegment } from "@/lib/types";
 import { cn, randomId } from "@/lib/utils";
 import {
@@ -26,8 +28,15 @@ import {
   opensLaterModule,
   positionLine,
 } from "@/lib/utils/modules";
+import {
+  affectDim,
+  BoredomOfferPill,
+  ConfusionSupport,
+  FrustrationHint,
+} from "./AffectiveLayer";
 import { AfterLessonAssessment } from "./AfterLessonAssessment";
 import { AudioSegment } from "./AudioSegment";
+import { BreakOfferPill } from "./BreakOfferPill";
 import { BreakScreen } from "./BreakScreen";
 import { CalculationSolver } from "./CalculationSolver";
 import { FeedbackStrip } from "./FeedbackStrip";
@@ -185,6 +194,21 @@ export function LessonPlayer({
   // One break per segment - taken breaks never re-trigger on a back-and-forth.
   const [breakActive, setBreakActive] = useState<BreakType | null>(null);
   const breaksTaken = useRef<Set<string>>(new Set());
+  // Where the active break came from: "advance" resumes the interrupted move,
+  // "offer" returns to the same segment. Trigger travels into `break_start`.
+  const breakOrigin = useRef<"advance" | "offer">("advance");
+  const breakTrigger = useRef<string>("adaptation_plan");
+  // Break OFFERS (B.7/37b): spent per segment for affect offers, once per
+  // session for the 20-minute monitor. Declining spends; never re-asks.
+  const [spentBreakOffers, setSpentBreakOffers] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [timeOfferSpent, setTimeOfferSpent] = useState(false);
+  // Boredom escalation offers, spent per segment by acting on them.
+  const [spentEscalations, setSpentEscalations] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const { approachingThreshold } = useBreakMonitor(phase === "segments");
   // Transient post-answer note that greets the next segment, then fades.
   const [feedback, setFeedback] = useState<string | null>(null);
   // Calculation segments the student has co-constructed to completion — the
@@ -264,13 +288,35 @@ export function LessonPlayer({
     return () => window.removeEventListener("nevo-scrim-tap", onScrimTap);
   }, [trackEvent]);
 
+  // ── Affective state (37b) ───────────────────────────────────────────────
+  // Server-inferred later; the plan seam carries it today. The interface
+  // modulates while it holds and returns to default when it passes.
+  const segPlan = planFor(segment.id);
+  const affect = segPlan?.affect ?? AFFECTIVE_STATES.NONE;
+  const anxious = affect === AFFECTIVE_STATES.ANXIETY;
+
+  // Break OFFERS (B.7): frustration persisting offers the plan's break type;
+  // the 20-minute monitor primes a micro one. One ask on screen at a time -
+  // an offered break outranks (and suppresses) the modality suggestion.
+  const affectOfferType =
+    affect === AFFECTIVE_STATES.FRUSTRATION
+      ? (segPlan?.offerBreak ?? null)
+      : null;
+  const showAffectBreakOffer =
+    affectOfferType !== null && !spentBreakOffers.has(segment.id);
+  const showTimeBreakOffer =
+    !showAffectBreakOffer && approachingThreshold && !timeOfferSpent;
+  const showBreakOffer = showAffectBreakOffer || showTimeBreakOffer;
+
   // Offer the plan's suggestion only while it's renderable and not already
-  // showing. Rate-limits: never on consecutive segments, and never on the first
+  // showing. Rate-limits: never on consecutive segments, never on the first
   // segment after a module boundary (SCRUM-101 - the student just made a
-  // transition decision; don't stack an adaptation offer on top of it).
-  const suggested = planFor(segment.id)?.suggestModality ?? null;
+  // transition decision; don't stack an adaptation offer on top of it), and
+  // never alongside a break offer.
+  const suggested = segPlan?.suggestModality ?? null;
   const showSuggestion =
     !suggestionSpent &&
+    !showBreakOffer &&
     suggested !== null &&
     suggested !== modality &&
     hasContent(segment, suggested) &&
@@ -323,10 +369,35 @@ export function LessonPlayer({
     const plannedBreak = planFor(segment.id)?.breakAfter ?? null;
     if (plannedBreak && !breaksTaken.current.has(segment.id)) {
       breaksTaken.current.add(segment.id);
+      breakOrigin.current = "advance";
+      breakTrigger.current = "adaptation_plan";
       setBreakActive(plannedBreak);
       return;
     }
     continueAdvance();
+  };
+
+  /** Accept/decline the offered break; either way the offer is spent. */
+  const acceptBreakOffer = () => {
+    if (showAffectBreakOffer) {
+      setSpentBreakOffers((prev) => new Set(prev).add(segment.id));
+      breakTrigger.current = "affect_offer";
+      breakOrigin.current = "offer";
+      setBreakActive(affectOfferType);
+      return;
+    }
+    setTimeOfferSpent(true);
+    breakTrigger.current = "time_offer";
+    breakOrigin.current = "offer";
+    setBreakActive(BREAK_TYPES.MICRO);
+  };
+
+  const dismissBreakOffer = () => {
+    if (showAffectBreakOffer) {
+      setSpentBreakOffers((prev) => new Set(prev).add(segment.id));
+      return;
+    }
+    setTimeOfferSpent(true);
   };
 
   /** Next chevron — an unpassed Quick Check intercepts the advance. */
@@ -465,7 +536,7 @@ export function LessonPlayer({
         onStart={() =>
           trackEvent(SIGNAL_EVENT_TYPES.BREAK_START, {
             type: breakActive,
-            trigger: "adaptation_plan",
+            trigger: breakTrigger.current,
             segmentId: segment.id,
           })
         }
@@ -480,7 +551,9 @@ export function LessonPlayer({
         }
         onDone={() => {
           setBreakActive(null);
-          continueAdvance();
+          // An offered break returns to the segment it interrupted; a
+          // plan-delivered one resumes the advance it intercepted.
+          if (breakOrigin.current === "advance") continueAdvance();
         }}
       />
     );
@@ -543,12 +616,17 @@ export function LessonPlayer({
           <h1 className="min-w-0 flex-1 truncate text-base font-medium text-nevo-near-black sm:text-lg">
             {lesson.title}
           </h1>
-          {/* 37a: the global scaffold indicator, opposite the exit. */}
+          {/* 37a: the global scaffold indicator, opposite the exit. 37b:
+              boredom pulses it once at the transition. */}
           <ScaffoldIndicator
-            level={planFor(segment.id)?.scaffold ?? "light"}
+            key={`scaf-${segment.id}`}
+            level={segPlan?.scaffold ?? "light"}
+            pulse={affect === AFFECTIVE_STATES.BOREDOM}
           />
         </div>
-        <div className="flex items-center justify-between gap-3">
+        <div
+          className={cn("flex items-center justify-between gap-3", affectDim(anxious))}
+        >
           {/* Two-level position line for modular lessons (SCRUM-101.3);
               segment-only lessons read exactly as today. */}
           <span className="min-w-0 truncate font-mono text-[11px] text-nevo-near-black/50">
@@ -569,25 +647,59 @@ export function LessonPlayer({
       {/* Calm banner while the device is offline — the cached lesson stays usable */}
       <OfflineBanner />
 
-      {/* Anchor for the suggestion pill — slides down just below the top bar */}
+      {/* Anchor for system offers — one ask at a time, just below the top bar.
+          A break offer (B.7) outranks the modality suggestion. */}
       <div className="relative">
-        {showSuggestion && (
-          <ModalitySuggestionPill
-            key={`pill-${segment.id}`}
-            modality={suggested}
-            onAccept={acceptSuggestion}
-            onAcceptStart={() =>
-              trackBusy(BUSY_REASON.MODALITY_SWITCH, BUSY_PHASE.START)
-            }
-            onDismiss={dismissSuggestion}
+        {showBreakOffer ? (
+          <BreakOfferPill
+            key={`break-offer-${segment.id}`}
+            trigger={showAffectBreakOffer ? "affect" : "time"}
+            onAccept={acceptBreakOffer}
+            onDismiss={dismissBreakOffer}
           />
+        ) : (
+          showSuggestion && (
+            <ModalitySuggestionPill
+              key={`pill-${segment.id}`}
+              modality={suggested}
+              onAccept={acceptSuggestion}
+              onAcceptStart={() =>
+                trackBusy(BUSY_REASON.MODALITY_SWITCH, BUSY_PHASE.START)
+              }
+              onDismiss={dismissSuggestion}
+            />
+          )
         )}
       </div>
 
-      {/* Content — centered reading column */}
+      {/* Content — centered reading column. 37b: boredom frames it in a soft
+          violet border ("more here if you want it"). */}
       <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
-        <div className="mx-auto w-full max-w-full px-6 py-8 sm:max-w-[620px] sm:px-8 lg:max-w-[680px] lg:px-10">
+        <div
+          className={cn(
+            "mx-auto w-full max-w-full px-6 py-8 sm:max-w-[620px] sm:px-8 lg:max-w-[680px] lg:px-10",
+            affect === AFFECTIVE_STATES.BOREDOM &&
+              "rounded-[14px] border-2 border-nevo-violet/45",
+          )}
+        >
           {feedback && <FeedbackStrip message={feedback} />}
+          {affect === AFFECTIVE_STATES.BOREDOM &&
+            !spentEscalations.has(segment.id) && (
+              <BoredomOfferPill
+                key={`boredom-${segment.id}`}
+                onSpent={() => {
+                  setSpentEscalations((prev) => new Set(prev).add(segment.id));
+                  setFeedback("Noted - we'll step things up.");
+                }}
+              />
+            )}
+          {affect === AFFECTIVE_STATES.CONFUSION &&
+            (segPlan?.socraticPrompts?.length ?? 0) > 0 && (
+              <ConfusionSupport
+                key={`confusion-${segment.id}`}
+                prompts={segPlan!.socraticPrompts!}
+              />
+            )}
           <div
             // Remount on either axis so entry motion replays and per-modality
             // state (audio playback, ticked steps) never leaks across segments.
@@ -616,6 +728,10 @@ export function LessonPlayer({
               }
             />
           </div>
+          {/* 37b frustration: the unrequested hint under the content. */}
+          {affect === AFFECTIVE_STATES.FRUSTRATION && segPlan?.affectHint && (
+            <FrustrationHint hint={segPlan.affectHint} />
+          )}
         </div>
       </div>
 
@@ -648,14 +764,29 @@ export function LessonPlayer({
         onLeave={() => router.push(LESSONS_HREF)}
       />
 
-      {/* Chevron nav */}
-      <nav className="flex shrink-0 items-center justify-center gap-8 px-4 pt-2 pb-6">
+      {/* Chevron nav — dims under anxiety; frustration guides the forward
+          control with three quiet glow cycles (never displaces it). */}
+      <nav
+        className={cn(
+          "flex shrink-0 items-center justify-center gap-8 px-4 pt-2 pb-6",
+          affectDim(anxious),
+        )}
+      >
         <ChevronButton
           dir="prev"
           disabled={index === 0}
           onClick={() => go(index - 1)}
         />
-        <ChevronButton dir="next" disabled={nextDisabled} onClick={handleNext} />
+        <ChevronButton
+          dir="next"
+          disabled={nextDisabled}
+          onClick={handleNext}
+          className={cn(
+            affect === AFFECTIVE_STATES.FRUSTRATION &&
+              !nextDisabled &&
+              "motion-safe:animate-nevo-glow-guide",
+          )}
+        />
       </nav>
     </div>
   );
@@ -712,10 +843,12 @@ function ChevronButton({
   dir,
   disabled,
   onClick,
+  className,
 }: {
   dir: "prev" | "next";
   disabled: boolean;
   onClick: () => void;
+  className?: string;
 }) {
   const Icon = dir === "prev" ? ChevronLeft : ChevronRight;
   return (
@@ -729,6 +862,7 @@ function ChevronButton({
         disabled
           ? "cursor-not-allowed text-nevo-near-black/20"
           : "cursor-pointer text-nevo-navy hover:bg-nevo-navy/6 active:bg-nevo-cream-elevated",
+        className,
       )}
     >
       <Icon className="size-6" strokeWidth={2} />
