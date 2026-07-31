@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { BottomNav, Sidebar } from "@/components/shared";
+import { AskNevo } from "@/components/student/AskNevo/AskNevo";
 import { TEXT_ZOOM, useAccessibility } from "@/context/AccessibilityContext";
 import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
 
@@ -80,6 +81,9 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           <BottomNav items={STUDENT_NAV} activeHref={activeHref} />
         </div>
       </div>
+
+      {/* Ask Nevo (26) — always reachable from the tabs, never interruptive. */}
+      <AskNevo />
     </div>
   );
 }
@@ -88,8 +92,10 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
 function isFullScreen(pathname: string): boolean {
   if (pathname.startsWith("/student/onboarding")) return true;
   // Only the bare lesson route is the immersive player; its sub-routes (e.g.
-  // `/summary`) are ordinary in-shell screens and keep the sidebar/nav.
+  // `/summary`) are ordinary in-shell screens and keep the sidebar/nav. The
+  // review session (37d) reuses the player wholesale, so it runs bare too.
   if (/^\/student\/lessons\/[^/]+\/?$/.test(pathname)) return true;
+  if (/^\/student\/lessons\/[^/]+\/review-session\/?$/.test(pathname)) return true;
   // Feedback + Change PIN are full-screen views with their own back chevron
   // (Nevo Student App: `feedback` / `changepin`).
   if (pathname === "/student/profile/feedback") return true;

@@ -93,6 +93,9 @@
   --animate-nevo-sparkle: nevo-sparkle 2600ms ease-in-out both;
   /* Frustration guide (37b): the forward control glows three cycles, then rests. */
   --animate-nevo-glow-guide: nevo-glow 2s ease-in-out 3 both;
+  /* Ask Nevo (26): thinking dots + listening mic - state-bound, end with the state. */
+  --animate-nevo-dot: nevo-dot 1200ms ease-in-out infinite;
+  --animate-nevo-mic-pulse: nevo-mic-pulse 2000ms ease-in-out infinite;
   --animate-nevo-nudge: nevo-nudge 460ms ease-out both;
   --animate-nevo-fill: nevo-fill 460ms cubic-bezier(0.33, 1, 0.68, 1) both;
 }
@@ -181,6 +184,31 @@
 }
 
 /* Keypad tray slide-up (PIN Creation) — enters from the bottom edge. */
+/* Ask Nevo thinking indicator - three dots taking gentle turns. */
+@keyframes nevo-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* Ask Nevo mic while listening - a soft breathing scale. */
+@keyframes nevo-mic-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
 @keyframes nevo-kb-up {
   0% {
     transform: translateY(100%);
