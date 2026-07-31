@@ -205,6 +205,9 @@ export const ADDING_FRACTIONS_PLAN: AdaptationPlan = {
     // stretch, a movement break after the working one.
     { segmentId: "intro", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.VISUAL, breakAfter: BREAK_TYPES.MICRO },
     { segmentId: "calc-add-fifths", startModality: MODALITY.INTERACTIVE, density: null, suggestModality: null, breakAfter: BREAK_TYPES.MOVEMENT },
-    { segmentId: "recap", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.AUDIO },
+    // ...and the full rest on the way out of the last segment, so all four
+    // break types are reachable in the mock (this one lands before the
+    // assessment - a real pause between learning and being asked about it).
+    { segmentId: "recap", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.AUDIO, breakAfter: BREAK_TYPES.FULL },
   ],
 };
