@@ -4,7 +4,7 @@
  * `contentApi.getLesson` / `intelligenceApi.getAdaptation` later is a data-source
  * swap, not a UI change. Content here is illustrative, not curriculum-reviewed.
  */
-import { BREAK_TYPES, MODALITY, DENSITY, CALC_MODALITY } from "@/lib/constants";
+import { BREAK_TYPES, MODALITY, DENSITY } from "@/lib/constants";
 import type { AdaptationPlan, Lesson } from "@/lib/types";
 
 export const PHOTOSYNTHESIS: Lesson = {
@@ -12,28 +12,31 @@ export const PHOTOSYNTHESIS: Lesson = {
   title: "Photosynthesis",
   subject: "Science",
   // SCRUM-101: teacher-confirmed module structure (mock stands in for the
-  // upload-step output; the 6+ default would leave a 3-segment lesson flat,
-  // but the teacher can override in either direction).
+  // upload-step output; the 6+ default would leave a 4-segment lesson flat,
+  // but the teacher can override in either direction). The recap/preview pair
+  // is the Module Boundary frame's fixed example copy.
   modules: [
     {
       id: "m-introduction",
       title: "Introduction",
-      segmentIds: ["intro"],
+      segmentIds: ["intro", "inside-leaf"],
       recap:
         "You saw how leaves take in light and water, and where photosynthesis happens inside the leaf.",
     },
     {
       id: "m-practice",
       title: "Practice",
-      segmentIds: ["calc-fractions", "recap"],
+      segmentIds: ["experiment", "recap"],
       preview:
-        "Now you'll try it yourself - working through the numbers one small step at a time.",
+        "Now you'll try it yourself with a leaf and a glass of water.",
     },
   ],
   segments: [
     {
       id: "intro",
-      modalities: [MODALITY.TEXT, MODALITY.VISUAL, MODALITY.AUDIO, MODALITY.INTERACTIVE],
+      // The hands-on channel for this idea is the Practice module's experiment
+      // segment - the boundary preview points straight at it.
+      modalities: [MODALITY.TEXT, MODALITY.VISUAL, MODALITY.AUDIO],
       text: {
         heading: "What is photosynthesis?",
         body: {
@@ -88,21 +91,6 @@ export const PHOTOSYNTHESIS: Lesson = {
         transcript:
           "Photosynthesis is how green plants make their own food. Using energy from sunlight, they turn water and carbon dioxide into glucose, and release oxygen into the air.",
       },
-      interactive: {
-        heading: "Try it yourself",
-        intro:
-          "See photosynthesis happen for real. Tick each step as you go - there's no rush.",
-        needs: ["A leaf", "A glass of water", "Sunlight"],
-        steps: [
-          "Rest the leaf in a glass of water in the light.",
-          "Leave it for a few minutes.",
-          "Look closely for tiny bubbles forming on the leaf.",
-        ],
-        outcome: {
-          pending: "Tiny bubbles will start to appear on the leaf.",
-          done: "Those bubbles are oxygen - the leaf is photosynthesising.",
-        },
-      },
       quickCheck: {
         question: "What do plants take in from the air?",
         options: [
@@ -117,58 +105,86 @@ export const PHOTOSYNTHESIS: Lesson = {
       },
     },
     {
-      id: "calc-fractions",
-      modalities: [MODALITY.TEXT, MODALITY.INTERACTIVE],
+      // "Inside the leaf" - the chloroplast idea, copy from the intelligence
+      // layer boards (37/37b), which walk this exact segment.
+      id: "inside-leaf",
+      modalities: [MODALITY.TEXT, MODALITY.AUDIO],
       text: {
-        heading: "Adding what the plant makes",
+        heading: "Inside the leaf",
         body: {
           default:
-            "A leaf made 1/4 of its glucose in the morning and 2/4 more by midday. When two fractions share the same bottom number, you add them by adding just the top numbers.",
+            "Plants make their own food using sunlight. Inside their leaves, tiny parts called chloroplasts catch the light and turn water and air into sugar. That sugar is the plant's energy: it is how a plant grows without ever eating a meal.",
           [DENSITY.SIMPLIFY]:
-            "Same bottom number? Just add the top numbers.",
+            "Plants make their own food using sunlight. Their leaves catch the light and turn water and air into sugar.",
           [DENSITY.EXPAND]:
-            "The bottom number of a fraction (the denominator) tells you how many equal parts the whole is split into. When two fractions share that number, the parts are the same size, so you can add the top numbers (the numerators) directly and keep the denominator the same.",
+            "Look closely inside a leaf cell and you'll find dozens of chloroplasts - tiny green factories. Each one holds chlorophyll, the pigment that catches sunlight. That caught light powers the change of water and air into sugar, and the sugar fuels every bit of growing the plant ever does. No meals, no hunting - just light, water and air.",
+          [DENSITY.SLOWER]: "Let's take this one small step at a time.",
+        },
+        slowerSteps: [
+          "Inside every leaf are tiny parts called chloroplasts.",
+          "They catch sunlight and turn water and air into sugar.",
+          "That sugar is the plant's energy - it grows without ever eating a meal.",
+        ],
+        keyTerms: ["chloroplast", "chlorophyll"],
+      },
+      audio: {
+        heading: "Listen to this one",
+        intro:
+          "Play it and follow along. You can pause any time, and read the words too.",
+        title: "Narrated: Inside the leaf",
+        durationSec: 36,
+        transcript:
+          "Plants make their own food using sunlight. Inside their leaves, tiny parts called chloroplasts catch the light and turn water and air into sugar. That sugar is the plant's energy.",
+      },
+      quickCheck: {
+        question: "What do plants use sunlight to make?",
+        options: [
+          { id: "sugar", label: "Sugar (their food)" },
+          { id: "water", label: "Water" },
+        ],
+        correctId: "sugar",
+        correctNote: "That's it - the light becomes sugar, the plant's food.",
+        recoveryNote:
+          "Not quite - water is something the plant takes in. Let's look again. Your progress is saved.",
+      },
+    },
+    {
+      // The Practice module's hands-on stretch - the leaf-in-water experiment
+      // from the Lesson Player frame's kinesthetic activity.
+      id: "experiment",
+      modalities: [MODALITY.INTERACTIVE, MODALITY.TEXT],
+      interactive: {
+        heading: "Try it yourself",
+        intro:
+          "See photosynthesis happen for real. Tick each step as you go - there's no rush.",
+        needs: ["A fresh green leaf", "A glass of water", "A sunny windowsill"],
+        steps: [
+          "Put a fresh green leaf in a glass of water.",
+          "Place the glass on a sunny windowsill.",
+          "Wait a while, then look closely at the leaf's surface.",
+        ],
+        outcome: {
+          pending:
+            "Once you've done the steps, look for tiny bubbles on the leaf. Take your time.",
+          done: "Tiny bubbles are forming on the leaf - that's oxygen, the gas photosynthesis makes.",
+        },
+      },
+      text: {
+        heading: "Try it yourself",
+        body: {
+          default:
+            "You can watch photosynthesis happen with just a leaf and a glass of water. Put a fresh green leaf in the glass, place it on a sunny windowsill, and wait a while. Tiny bubbles will start to form on the leaf's surface - that's oxygen, the gas photosynthesis makes.",
+          [DENSITY.SIMPLIFY]:
+            "Put a leaf in a glass of water on a sunny windowsill. The little bubbles that appear are oxygen.",
+          [DENSITY.EXPAND]:
+            "The bubbles gather on the leaf because the oxygen made inside it escapes through the same tiny pores that let carbon dioxide in. In stronger light the leaf photosynthesises faster, so more bubbles appear - which is exactly why the sunny windowsill matters.",
           [DENSITY.SLOWER]: "One small step at a time.",
         },
         slowerSteps: [
-          "Check the bottom numbers match.",
-          "Add only the top numbers.",
-          "Keep the bottom number the same.",
+          "Put a fresh green leaf in a glass of water.",
+          "Place the glass somewhere sunny.",
+          "The tiny bubbles that appear are oxygen - photosynthesis, happening.",
         ],
-      },
-      // Non-null variant → the Interactive modality routes to the solver (17b §8).
-      calculationVariant: "fraction_add_like",
-      calculation: {
-        variant: "fraction_add_like",
-        problem: { expression: "1/4 + 2/4", answer: "3/4" },
-        scaffold: { kind: "fraction_bars", parts: 4, rows: [1, 2] },
-        steps: [
-          {
-            prompt: "What are the denominators?",
-            choices: ["4 and 4", "1 and 2"],
-            correct: 0,
-            hint: "Look at the bottom number of each fraction.",
-            onCorrect: {
-              highlight: "denominators",
-              confirm: "Both denominators are 4 - they match, so we can add directly.",
-            },
-          },
-          {
-            prompt: "What do we add together?",
-            choices: ["The numerators: 1 and 2", "The denominators: 4 and 4"],
-            correct: 0,
-            hint: "We add the top numbers - the ones above the line.",
-          },
-          {
-            prompt: "So what is 1 + 2?",
-            input: "numeric",
-            answer: "3",
-            hint: "Just add the two top numbers: 1 + 2.",
-          },
-        ],
-        completion:
-          "When fractions share the same denominator, you only add the numerators - the denominator stays the same.",
-        modalities: [CALC_MODALITY.INTERACTIVE, CALC_MODALITY.AUDIO, CALC_MODALITY.KINESTHETIC],
       },
     },
     {
@@ -223,16 +239,16 @@ export const PHOTOSYNTHESIS: Lesson = {
           "That one didn't land - and that's okay. The energy comes from sunlight. Nothing to fix right now.",
       },
     ],
-    masteredConcepts: ["What photosynthesis makes", "Adding like fractions"],
+    masteredConcepts: ["What photosynthesis makes", "Seeing it happen on a real leaf"],
     revisitConcepts: ["Where the energy comes from"],
     resultNote:
-      "You showed you understand what photosynthesis makes and how to add like fractions. One idea - where the energy comes from - we'll come back to together.",
+      "You showed you understand what photosynthesis makes and what those bubbles on your leaf were. One idea - where the energy comes from - we'll come back to together.",
   },
   summary: {
     recap:
-      "You worked through what photosynthesis makes and how a plant uses sunlight, and added some like fractions along the way. You took your time with the tricky idea and came back to it.",
+      "You worked through what photosynthesis makes and how the leaf does it, then watched it happen on a real leaf. You took your time with the tricky idea and came back to it.",
     covered:
-      "What photosynthesis makes · adding like fractions · why it matters",
+      "What photosynthesis makes · inside the leaf · seeing it for real · why it matters",
   },
 };
 
@@ -242,9 +258,12 @@ export const PHOTOSYNTHESIS_PLAN: AdaptationPlan = {
   accommodations: { attention: true },
   segments: [
     { segmentId: "intro", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.VISUAL },
-    // The consolidation break (feeling check-in) lands after the working
-    // stretch — the natural place to surface how it felt.
-    { segmentId: "calc-fractions", startModality: MODALITY.INTERACTIVE, density: null, suggestModality: null, breakAfter: BREAK_TYPES.CONSOLIDATION },
+    // No suggestion here: consecutive-segment rate limit (intro just offered).
+    { segmentId: "inside-leaf", startModality: MODALITY.TEXT, density: null, suggestModality: null },
+    // First segment after the boundary - the engine stays quiet anyway. The
+    // consolidation break (feeling check-in) lands after the hands-on stretch,
+    // the natural place to surface how it felt.
+    { segmentId: "experiment", startModality: MODALITY.INTERACTIVE, density: null, suggestModality: null, breakAfter: BREAK_TYPES.CONSOLIDATION },
     { segmentId: "recap", startModality: MODALITY.TEXT, density: DENSITY.SLOWER, suggestModality: MODALITY.AUDIO },
   ],
 };
