@@ -40,37 +40,26 @@ const TODAY: TodayLesson[] = [
 const ENCOURAGEMENT =
   "You've been showing up this week. Keep going at your own pace.";
 
-/** Time-of-day greeting — no data, just the clock. */
-function greetingFor(hour: number): string {
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
-}
-
 /**
- * Date + greeting depend on the viewer's local clock, which only the client
- * knows — computing them during render would mismatch the server HTML on
- * hydration. Resolve them after mount instead; until then the greeting is a
- * time-neutral "Hello".
+ * The dated eyebrow depends on the viewer's local clock, which only the client
+ * knows — computing it during render would mismatch the server HTML on
+ * hydration. Resolve it after mount instead. (The greeting itself is fixed:
+ * time-of-day greetings were removed by the v1 build lock.)
  */
-function useLocalClock() {
-  const [clock, setClock] = useState<{ date: string; greeting: string } | null>(
-    null,
-  );
+function useLocalDate() {
+  const [date, setDate] = useState<string | null>(null);
   useEffect(() => {
-    const now = new Date();
     // Client-only clock read, once on mount — keeps SSR + hydration in agreement.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setClock({
-      date: now.toLocaleDateString(undefined, {
+    setDate(
+      new Date().toLocaleDateString(undefined, {
         weekday: "long",
         day: "numeric",
         month: "long",
       }),
-      greeting: greetingFor(now.getHours()),
-    });
+    );
   }, []);
-  return clock;
+  return date;
 }
 
 /**
@@ -80,7 +69,7 @@ function useLocalClock() {
  * aware; a settled empty state when there's nothing queued.
  */
 export function HomeDashboard() {
-  const clock = useLocalClock();
+  const date = useLocalDate();
   const nothingQueued = !CONTINUE && TODAY.length === 0;
 
   return (
@@ -88,10 +77,10 @@ export function HomeDashboard() {
       {/* Greeting */}
       <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-500">
         <span className="flex h-4 items-center font-mono text-[11px] tracking-[0.14em] text-nevo-near-black/60 uppercase">
-          {clock?.date ?? ""}
+          {date ?? ""}
         </span>
         <h1 className="mt-2 text-[28px] font-semibold leading-[1.12] tracking-[-0.02em] text-nevo-near-black sm:text-[34px]">
-          {clock?.greeting ?? "Hello"}, {MOCK_STUDENT.name}
+          Welcome back, {MOCK_STUDENT.name}
         </h1>
       </div>
 
