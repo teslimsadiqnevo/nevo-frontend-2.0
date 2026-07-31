@@ -35,6 +35,11 @@ function SheetOverlay({
   return (
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
+      // SCRUM-94.8 (G1): a tap on the scrim is broadcast so a listening signal
+      // session records it as `tap_blocked` - never latency or aborted-gesture.
+      onPointerDown={() =>
+        window.dispatchEvent(new CustomEvent("nevo-scrim-tap"))
+      }
       className={cn(
         // Nevo skin: the DS scrim is near-black at 55% (SCRUM-94 G1: the backdrop
         // must read unavailable, never pure black), no blur.

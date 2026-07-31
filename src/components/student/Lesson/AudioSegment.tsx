@@ -27,20 +27,42 @@ function clock(sec: number): string {
 export function AudioSegment({
   content,
   onReplay,
+  onBusy,
 }: {
   content: AudioContent;
   /** Fired when the student restarts a finished clip (a "replay" signal). */
   onReplay?: () => void;
+  /**
+   * `system_busy` bracket for playback (Touch Signal Contract: media_playing is
+   * its own reason — the student is attending, not idle). Start on play, end on
+   * pause, finish or unmount mid-clip.
+   */
+  onBusy?: (phase: "start" | "end") => void;
 }) {
   const duration = content.durationSec ?? 40;
   const [playing, setPlaying] = useState(false);
   const [pct, setPct] = useState(0);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onBusyRef = useRef(onBusy);
+  const playingRef = useRef(false);
+
+  useEffect(() => {
+    onBusyRef.current = onBusy;
+  }, [onBusy]);
 
   useEffect(() => () => {
     if (timer.current) clearInterval(timer.current);
+    // Unmounting mid-clip must still close the busy window.
+    if (playingRef.current) onBusyRef.current?.("end");
   }, []);
+
+  const setPlayState = (on: boolean) => {
+    if (playingRef.current === on) return;
+    playingRef.current = on;
+    setPlaying(on);
+    onBusyRef.current?.(on ? "start" : "end");
+  };
 
   const stop = () => {
     if (timer.current) clearInterval(timer.current);
@@ -50,20 +72,20 @@ export function AudioSegment({
   const toggle = () => {
     if (playing) {
       stop();
-      setPlaying(false);
+      setPlayState(false);
       return;
     }
     // Pressing play on a finished clip restarts it — that's a replay.
     if (pct >= 100) onReplay?.();
     // TODO(audio): play the real narrated clip; drive `pct` from timeupdate.
     setPct((p) => (p >= 100 ? 0 : p));
-    setPlaying(true);
+    setPlayState(true);
     const step = 100 / (duration * 10); // ~10 ticks/sec
     timer.current = setInterval(() => {
       setPct((p) => {
         if (p + step >= 100) {
           stop();
-          setPlaying(false);
+          setPlayState(false);
           return 100;
         }
         return p + step;

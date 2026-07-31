@@ -5,8 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Check, Info } from "lucide-react";
 import { Button } from "@/components/shared";
-import { useAuth } from "@/hooks";
+import { useAuth, useSignals } from "@/hooks";
+import { BUSY_PHASE, BUSY_REASON, SIGNAL_EVENT_TYPES } from "@/lib/constants";
 import { FIRST_LESSON_ID, resolveMockSso, SSO_RESOLVE_MS } from "@/lib/mocks";
+import { randomId } from "@/lib/utils";
 
 type Phase = "signing-in" | "success" | "error";
 
@@ -29,6 +31,24 @@ export function SsoCallback() {
   const searchParams = useSearchParams();
   const { signIn } = useAuth();
   const [phase, setPhase] = useState<Phase>("signing-in");
+  // Short-lived signal session for the handshake window (SCRUM-94.8): waiting
+  // on the identity provider is the system's time, marked so it is never read
+  // as the student hesitating.
+  const [signalSession] = useState(() => `auth-${randomId()}`);
+  const { trackEvent } = useSignals(signalSession);
+
+  useEffect(() => {
+    if (phase !== "signing-in") return;
+    trackEvent(SIGNAL_EVENT_TYPES.SYSTEM_BUSY, {
+      reason: BUSY_REASON.AUTH_PENDING,
+      phase: BUSY_PHASE.START,
+    });
+    return () =>
+      trackEvent(SIGNAL_EVENT_TYPES.SYSTEM_BUSY, {
+        reason: BUSY_REASON.AUTH_PENDING,
+        phase: BUSY_PHASE.END,
+      });
+  }, [phase, trackEvent]);
 
   const resolveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

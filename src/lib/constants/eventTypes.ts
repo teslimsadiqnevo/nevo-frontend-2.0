@@ -19,7 +19,45 @@ export const SIGNAL_EVENT_TYPES = {
   MODULE_BOUNDARY_REACHED: "module_boundary_reached",
   /** The student's boundary choice — payload { moduleId, action: continue|break }. */
   MODULE_BOUNDARY_ACTION: "module_boundary_action",
+  /**
+   * Touch Signal Contract (SCRUM-94.8): a start/end pair bracketing every
+   * window in which the system, not the student, owns the wait — so idle time
+   * inside it is never misread as hesitation. Payload { reason, phase }.
+   */
+  SYSTEM_BUSY: "system_busy",
+  /**
+   * A tap on an inert scrim (SCRUM-94.8 G1). Diagnostic only — recorded as
+   * blocked, never written to latency or aborted-gesture channels. It tells us
+   * the scrim still read as tappable: a design signal, not a student one.
+   */
+  TAP_BLOCKED: "tap_blocked",
+  /**
+   * One per session, at start (G6): the form factor and reduced-motion mode the
+   * whole session's signals should be interpreted under.
+   */
+  SESSION_CONTEXT: "session_context",
 } as const;
+
+/** `system_busy` reasons — the closed set from the Touch Signal Contract. */
+export const BUSY_REASON = {
+  AUTH_PENDING: "auth_pending",
+  CONTENT_LOADING: "content_loading",
+  TRANSITION_SCREEN: "transition_screen",
+  CONFIRMATION_HOLD: "confirmation_hold",
+  MODALITY_SWITCH: "modality_switch",
+  VIEW_TRANSITION: "view_transition",
+  MEDIA_PLAYING: "media_playing",
+  BLOCKED_BY_MODAL: "blocked_by_modal",
+} as const;
+
+export type BusyReason = (typeof BUSY_REASON)[keyof typeof BUSY_REASON];
+
+export const BUSY_PHASE = {
+  START: "start",
+  END: "end",
+} as const;
+
+export type BusyPhase = (typeof BUSY_PHASE)[keyof typeof BUSY_PHASE];
 
 /**
  * Observed Interaction Sequence signals (Product Arch B.2) — the first-run

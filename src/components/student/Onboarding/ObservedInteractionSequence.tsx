@@ -41,6 +41,7 @@ export function ObservedInteractionSequence() {
       <TransitionScreen
         path={isSso ? "sso" : "manual"}
         onDone={() => setPhase("activities")}
+        track={trackEvent}
       />
     );
   }
