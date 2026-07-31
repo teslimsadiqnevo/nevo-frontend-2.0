@@ -5,7 +5,7 @@
  * content/adaptation contract lands, swapping the data source shouldn't touch the
  * player UI. TODO(api): reconcile with the ratified backend schema.
  */
-import type { CalcModality, Density, Modality } from "@/lib/constants";
+import type { BreakType, CalcModality, Density, Modality } from "@/lib/constants";
 
 // ── Per-modality content ────────────────────────────────────────────────────
 
@@ -217,6 +217,12 @@ export interface SegmentAdaptation {
   density?: Density | null;
   /** One system-suggested modality to surface via the calm pill (never chained). */
   suggestModality?: Modality | null;
+  /**
+   * Break module (frame 18) inserted after the student leaves this segment
+   * forward. Break decisions are confirmed server-side (FE Architecture §5);
+   * the plan is the delivery seam the mock exercises today.
+   */
+  breakAfter?: BreakType | null;
 }
 
 /** The adapted lesson structure returned per student (§4). */

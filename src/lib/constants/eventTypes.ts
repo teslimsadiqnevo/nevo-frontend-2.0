@@ -36,6 +36,17 @@ export const SIGNAL_EVENT_TYPES = {
    * whole session's signals should be interpreted under.
    */
   SESSION_CONTEXT: "session_context",
+  /**
+   * Break module (frame 18) — brackets the student's pause so time inside it is
+   * break time, not hesitation. Payload { type, trigger } / { type, durationMs }.
+   */
+  BREAK_START: "break_start",
+  BREAK_END: "break_end",
+  /**
+   * The consolidation break's feeling check-in — payload { feelings: string[] }.
+   * Qualitative, multi-select, never scored; skipping is a legitimate answer.
+   */
+  FEELING_CHECKIN: "feeling_checkin",
 } as const;
 
 /** `system_busy` reasons — the closed set from the Touch Signal Contract. */
