@@ -91,15 +91,16 @@ export const PHOTOSYNTHESIS: Lesson = {
         transcript:
           "Photosynthesis is how green plants make their own food. Using energy from sunlight, they turn water and carbon dioxide into glucose, and release oxygen into the air.",
       },
+      // Lesson Check frame's fixed quick-check copy, verbatim.
       quickCheck: {
-        question: "What do plants take in from the air?",
+        question: "What gas do plants take in to make their food?",
         options: [
-          { id: "co2", label: "Carbon dioxide" },
           { id: "o2", label: "Oxygen" },
+          { id: "co2", label: "Carbon dioxide" },
           { id: "n2", label: "Nitrogen" },
         ],
         correctId: "co2",
-        correctNote: "That's it - plants take in carbon dioxide from the air.",
+        correctNote: "That's it - plants take in carbon dioxide and give out oxygen.",
         recoveryNote:
           "Not quite - oxygen is what plants give out. Let's look again. Your progress is saved.",
       },
@@ -218,37 +219,67 @@ export const PHOTOSYNTHESIS: Lesson = {
       },
     },
   ],
+  // The canonical four-question set from the Lesson Check + Post-Lesson frames
+  // (their review-answers board lists exactly these, with the word equation as
+  // the revisit item). Recovery copy is the frames' fixed text.
   assessment: {
     questions: [
       {
-        prompt: "What gas do plants release during photosynthesis?",
+        prompt: "What do plants use to make their own food?",
+        options: [
+          { id: "swc", label: "Sunlight, water and carbon dioxide" },
+          { id: "soil", label: "Soil and rainwater" },
+          { id: "sugar", label: "Oxygen and sugar" },
+        ],
+        correctId: "swc",
+        recoveryNote:
+          "That one didn't land - and that's okay. We'll bring it back later. Nothing to fix right now.",
+      },
+      {
+        prompt: "Where in a plant does photosynthesis mostly happen?",
+        options: [
+          { id: "leaves", label: "In the leaves" },
+          { id: "roots", label: "In the roots" },
+          { id: "flowers", label: "In the flowers" },
+          { id: "stem", label: "In the stem" },
+        ],
+        correctId: "leaves",
+        recoveryNote:
+          "That one didn't land - and that's okay. We'll bring it back later. Nothing to fix right now.",
+      },
+      {
+        prompt: "What gas do plants take in to make their food?",
         options: [
           { id: "o2", label: "Oxygen" },
           { id: "co2", label: "Carbon dioxide" },
+          { id: "n2", label: "Nitrogen" },
         ],
-        correctId: "o2",
+        correctId: "co2",
+        recoveryNote:
+          "That one didn't land - and that's okay. We'll bring it back later. Nothing to fix right now.",
       },
       {
-        prompt: "Where does a plant get the energy for photosynthesis?",
+        prompt: "Which one shows the word equation for photosynthesis?",
         options: [
-          { id: "sun", label: "Sunlight" },
-          { id: "soil", label: "The soil" },
+          { id: "right", label: "Sunlight + water + carbon dioxide → glucose + oxygen" },
+          { id: "reversed", label: "Glucose + oxygen → sunlight + water" },
         ],
-        correctId: "sun",
+        correctId: "right",
         recoveryNote:
-          "That one didn't land - and that's okay. The energy comes from sunlight. Nothing to fix right now.",
+          "That one didn't land - and that's okay. We'll bring it back later. Nothing to fix right now.",
       },
     ],
-    masteredConcepts: ["What photosynthesis makes", "Seeing it happen on a real leaf"],
-    revisitConcepts: ["Where the energy comes from"],
+    masteredConcepts: ["What photosynthesis is & needs"],
+    revisitConcepts: ["The word equation"],
     resultNote:
-      "You showed you understand what photosynthesis makes and what those bubbles on your leaf were. One idea - where the energy comes from - we'll come back to together.",
+      "You showed you understand what photosynthesis is and what a plant needs. One idea - the word equation - we'll come back to together.",
   },
+  // Post-Lesson frame's fixed summary copy, verbatim (the break line is now
+  // literally true: the plan schedules one consolidation break mid-lesson).
   summary: {
     recap:
-      "You worked through what photosynthesis makes and how the leaf does it, then watched it happen on a real leaf. You took your time with the tricky idea and came back to it.",
-    covered:
-      "What photosynthesis makes · inside the leaf · seeing it for real · why it matters",
+      "You worked through what photosynthesis is, what a plant needs, and where it happens - and tried a few on your own. You took one break and came back focused.",
+    covered: "What photosynthesis is · what a plant needs · where it happens",
   },
 };
 
