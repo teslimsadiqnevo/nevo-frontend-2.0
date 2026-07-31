@@ -33,13 +33,17 @@ const ZONES = [
   { key: "outside", label: "Outside" },
 ] as const;
 
-type Drag = { id: string; x: number; y: number; dx: number; dy: number };
-
 /**
- * Activity 1 — Visual Sorting Task (UI/UX spec). Drag 6 category-neutral objects
- * into two zones. No right/wrong — every placement is accepted. Generates the
- * initial processing-channel / speed signal. Pointer-based so it works on touch
- * and mouse alike.
+ * Activity 1 — Visual Sorting Task (UI/UX spec · SCRUM-94.1). Sort 6
+ * category-neutral objects into two zones. No right/wrong — every placement is
+ * accepted. Generates the initial processing-channel / speed signal.
+ *
+ * Interaction is **tap-to-select, then tap-a-zone** (the gesture-vocabulary
+ * decision: tap is the universal interaction; drag is reserved for the solver's
+ * framed manipulative). Two discrete taps, both large, both unambiguous — clean
+ * tap latency, no aborted-gesture noise in the screen that seeds the student's
+ * baseline. Tapping the selected card again releases it, so a change of mind is
+ * a real, recorded decision rather than a stuck state.
  */
 export function VisualSortingTask({
   onComplete,
@@ -49,13 +53,7 @@ export function VisualSortingTask({
   track?: TrackEvent;
 }) {
   const [placed, setPlaced] = useState<Record<string, string>>({});
-  // Authoritative placement map (source of truth for completion) — kept in a ref
-  // so the pointer-up handler reads current state without a stale closure and
-  // without doing side-effect work inside the setState updater.
-  const placedRef = useRef<Record<string, string>>({});
-  const [drag, setDrag] = useState<Drag | null>(null);
-  const [over, setOver] = useState<string | null>(null);
-  const zoneRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const onCompleteRef = useRef(onComplete);
   const trackRef = useRef(track);
   const startedAt = useRef(0);
@@ -70,67 +68,33 @@ export function VisualSortingTask({
     });
   }, []);
 
-  const onPointerDown = (e: React.PointerEvent, card: CardDef) => {
-    e.preventDefault();
-    const r = e.currentTarget.getBoundingClientRect();
-    setDrag({ id: card.id, x: e.clientX, y: e.clientY, dx: e.clientX - r.left, dy: e.clientY - r.top });
+  const select = (id: string) =>
+    setSelectedId((s) => (s === id ? null : id));
+
+  const place = (zone: string) => {
+    if (!selectedId || placed[selectedId]) return;
+    const id = selectedId;
+    const order = Object.keys(placed).length + 1;
+    setPlaced((p) => ({ ...p, [id]: zone }));
+    setSelectedId(null);
+    trackRef.current?.(ONBOARDING_SIGNAL_TYPES.SORT_PLACEMENT, {
+      item: id,
+      zone,
+      order,
+      msSinceStart: now() - startedAt.current,
+    });
+    if (order === CARDS.length) {
+      trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_COMPLETE, {
+        activity: "visual_sorting",
+        totalMs: now() - startedAt.current,
+      });
+      window.setTimeout(() => onCompleteRef.current?.(), 700);
+    }
   };
 
-  // While a card is held, track the pointer on the window so movement continues
-  // even once the finger/cursor leaves the card (touch + mouse).
-  const dragId = drag?.id ?? null;
-  useEffect(() => {
-    if (!dragId) return;
-
-    const hit = (x: number, y: number): string | null => {
-      for (const z of ZONES) {
-        const r = zoneRefs.current[z.key]?.getBoundingClientRect();
-        if (r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return z.key;
-      }
-      return null;
-    };
-
-    const move = (e: PointerEvent) => {
-      setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d));
-      setOver(hit(e.clientX, e.clientY));
-    };
-    const up = (e: PointerEvent) => {
-      const zone = hit(e.clientX, e.clientY);
-      if (zone && !placedRef.current[dragId]) {
-        const order = Object.keys(placedRef.current).length + 1;
-        placedRef.current = { ...placedRef.current, [dragId]: zone };
-        setPlaced(placedRef.current);
-        // Side effects live OUTSIDE the state updater so React StrictMode's
-        // double-invoke of the updater can't fire them (or advance) twice.
-        trackRef.current?.(ONBOARDING_SIGNAL_TYPES.SORT_PLACEMENT, {
-          item: dragId,
-          zone,
-          order,
-          msSinceStart: now() - startedAt.current,
-        });
-        if (order === CARDS.length) {
-          trackRef.current?.(ONBOARDING_SIGNAL_TYPES.ACTIVITY_COMPLETE, {
-            activity: "visual_sorting",
-            totalMs: now() - startedAt.current,
-          });
-          window.setTimeout(() => onCompleteRef.current?.(), 700);
-        }
-      }
-      setDrag(null);
-      setOver(null);
-    };
-
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", up);
-    return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", up);
-    };
-  }, [dragId]);
-
   const loose = CARDS.filter((c) => !placed[c.id]);
+  const armed = selectedId != null;
+  const allPlaced = loose.length === 0;
 
   return (
     <SequenceShell
@@ -148,35 +112,43 @@ export function VisualSortingTask({
       prompt="Where do these belong?"
     >
       <div className="flex min-h-0 flex-1 flex-col">
-        {/* Scattered draggable cards */}
-        <div className="relative min-h-0 flex-1">
+        {/* The affordance is what makes the second tap unambiguous. */}
+        <p
+          className={cn(
+            "shrink-0 text-center text-[15px] leading-[1.4] transition-colors duration-150",
+            armed ? "text-nevo-navy" : "text-nevo-near-black/60",
+          )}
+        >
+          {allPlaced
+            ? "That's all of them."
+            : armed
+              ? "Now tap where it belongs"
+              : "Tap one to pick it up"}
+        </p>
+
+        {/* Scattered tappable cards */}
+        <div className="relative mt-2 min-h-0 flex-1">
           {loose.map((card) => {
-            const isDragging = drag?.id === card.id;
+            const on = selectedId === card.id;
             const CardIcon = card.Icon;
             return (
               <button
                 key={card.id}
                 type="button"
                 aria-label={`Sort the ${card.label}`}
-                onPointerDown={(e) => onPointerDown(e, card)}
-                className="absolute flex size-[66px] touch-none items-center justify-center rounded-[12px] bg-nevo-cream-elevated text-nevo-navy shadow-elevation-1"
-                style={
-                  isDragging
-                    ? {
-                        position: "fixed",
-                        left: drag.x - drag.dx,
-                        top: drag.y - drag.dy,
-                        transform: "scale(1.06)",
-                        cursor: "grabbing",
-                        zIndex: 50,
-                      }
-                    : {
-                        left: card.x,
-                        top: card.y,
-                        transform: `rotate(${card.rot}deg)`,
-                        cursor: "grab",
-                      }
-                }
+                aria-pressed={on}
+                onClick={() => select(card.id)}
+                className={cn(
+                  "absolute flex size-[66px] cursor-pointer items-center justify-center rounded-[12px] bg-nevo-cream-elevated text-nevo-navy transition-[box-shadow,transform] duration-150 active:scale-[0.97]",
+                  on
+                    ? "shadow-[0_0_0_2.5px_#3b3f6e,0_8px_24px_rgba(0,0,0,0.16)]"
+                    : "shadow-elevation-1",
+                )}
+                style={{
+                  left: card.x,
+                  top: card.y,
+                  transform: `rotate(${card.rot}deg)${on ? " scale(1.06)" : ""}`,
+                }}
               >
                 <CardIcon className="size-8" strokeWidth={2} />
               </button>
@@ -184,25 +156,29 @@ export function VisualSortingTask({
           })}
         </div>
 
-        {/* Drop zones */}
+        {/* Zones — quiet cream tiles at rest, unmistakably armed once a card is
+            selected. Solid surfaces (the dashed drop affordance no longer applies). */}
         <div className="flex shrink-0 justify-center gap-3.5 px-4 pb-6">
           {ZONES.map((z) => {
             const items = CARDS.filter((c) => placed[c.id] === z.key);
-            const isOver = over === z.key;
             return (
-              <div
+              <button
                 key={z.key}
-                ref={(el) => {
-                  zoneRefs.current[z.key] = el;
-                }}
+                type="button"
+                onClick={() => place(z.key)}
                 className={cn(
-                  "flex min-h-[118px] flex-1 flex-col items-center rounded-[14px] border-2 border-dashed px-2.5 py-3.5 transition-colors",
-                  isOver
-                    ? "border-nevo-violet bg-nevo-violet/15"
-                    : "border-nevo-violet/70",
+                  "flex min-h-[118px] flex-1 flex-col items-center rounded-[14px] bg-nevo-cream-elevated px-2.5 py-3.5 transition-[box-shadow] duration-150",
+                  armed
+                    ? "cursor-pointer shadow-[inset_0_0_0_2px_#3b3f6e,0_8px_24px_rgba(0,0,0,0.16)]"
+                    : "cursor-default shadow-elevation-1",
                 )}
               >
-                <span className="text-[17px] font-medium text-nevo-near-black">
+                <span
+                  className={cn(
+                    "text-[17px] text-nevo-near-black transition-[font-weight] duration-150",
+                    armed ? "font-semibold" : "font-medium",
+                  )}
+                >
                   {z.label}
                 </span>
                 <div className="mt-2 flex flex-wrap justify-center gap-1.5">
@@ -217,7 +193,7 @@ export function VisualSortingTask({
                     );
                   })}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
