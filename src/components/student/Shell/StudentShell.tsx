@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { BottomNav, Sidebar } from "@/components/shared";
 import { AskNevo } from "@/components/student/AskNevo/AskNevo";
 import { TEXT_ZOOM, useAccessibility } from "@/context/AccessibilityContext";
+import { NotificationBell } from "./NotificationBell";
+import { OfflineTakeover, useOnline } from "./OfflineTakeover";
 import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
 
 /**
@@ -20,6 +22,10 @@ import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
 export function StudentShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
   const { textSize } = useAccessibility();
+  const online = useOnline();
+  // Offline takes over network-backed tabs (board 28); Downloads stays
+  // reachable - it is where "See saved lessons" points.
+  const offlineTakeover = !online && !pathname.startsWith("/student/downloads");
 
   // Sidebar defaults collapsed (matches the server render, so no hydration
   // mismatch), then opens on desktop after mount. Tablet stays collapsed for room.
@@ -50,7 +56,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
         />
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="relative flex min-w-0 flex-1 flex-col">
         {/* Top bar — mobile only (logo + avatar) */}
         <header className="flex h-[60px] shrink-0 items-center justify-between px-5 md:hidden">
           <Image
@@ -61,10 +67,18 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
             priority
             className="h-[14px] w-auto"
           />
-          <span className="flex size-10 items-center justify-center rounded-full bg-nevo-navy text-sm font-semibold text-nevo-cream">
-            {MOCK_STUDENT.initials}
-          </span>
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <span className="flex size-10 items-center justify-center rounded-full bg-nevo-navy text-sm font-semibold text-nevo-cream">
+              {MOCK_STUDENT.initials}
+            </span>
+          </div>
         </header>
+
+        {/* Notifications — tablet/desktop: quiet bell top-right of the content. */}
+        <div className="absolute top-4 right-5 z-30 hidden md:block">
+          <NotificationBell />
+        </div>
 
         {/* Only the content region scrolls; the sidebar/nav stay fixed.
             The Text Size preference is applied here as a numeric `zoom`
@@ -73,7 +87,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           className="min-h-0 flex-1 overflow-y-auto"
           style={{ zoom: TEXT_ZOOM[textSize] }}
         >
-          {children}
+          {offlineTakeover ? <OfflineTakeover /> : children}
         </main>
 
         {/* Bottom nav — mobile only */}

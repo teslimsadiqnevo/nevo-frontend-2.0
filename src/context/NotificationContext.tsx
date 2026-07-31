@@ -10,6 +10,11 @@ import {
 
 export interface NotificationItem {
   id: string;
+  /** Plain-language line ("A new lesson is ready for you"). */
+  text: string;
+  /** Compact age label ("2h", "1d") - backend-computed later. */
+  ago: string;
+  read?: boolean;
   // TODO: type per role (Student B.13 / Teacher C.13 / Admin D.13).
 }
 
@@ -23,9 +28,17 @@ export const NotificationContext = createContext<
   NotificationContextValue | undefined
 >(undefined);
 
+// Board 28's demo items. TODO(api): notificationsApi feed.
+const MOCK_NOTIFICATIONS: NotificationItem[] = [
+  { id: "n1", text: "A new lesson is ready for you", ago: "2h" },
+  { id: "n2", text: "Ms Okafor sent you a message", ago: "1d", read: true },
+];
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const [notifications] = useState<NotificationItem[]>([]);
-  const [unreadCount] = useState(0);
+  const [notifications] = useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
+  const [unreadCount] = useState(
+    MOCK_NOTIFICATIONS.filter((n) => !n.read).length,
+  );
 
   const refresh = useCallback(() => {
     // TODO: re-fetch via notificationsApi and update state (polling/subscription).
