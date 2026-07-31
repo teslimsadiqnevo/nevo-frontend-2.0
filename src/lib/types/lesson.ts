@@ -5,7 +5,13 @@
  * content/adaptation contract lands, swapping the data source shouldn't touch the
  * player UI. TODO(api): reconcile with the ratified backend schema.
  */
-import type { BreakType, CalcModality, Density, Modality } from "@/lib/constants";
+import type {
+  BreakType,
+  CalcModality,
+  Density,
+  Modality,
+  ScaffoldLevel,
+} from "@/lib/constants";
 
 // ── Per-modality content ────────────────────────────────────────────────────
 
@@ -223,6 +229,12 @@ export interface SegmentAdaptation {
    * the plan is the delivery seam the mock exercises today.
    */
   breakAfter?: BreakType | null;
+  /**
+   * Scaffold indicator level for this segment (37a) - the support the system
+   * is quietly giving, generated from behaviour server-side. Defaults to
+   * "light" when absent.
+   */
+  scaffold?: ScaffoldLevel;
 }
 
 /** The adapted lesson structure returned per student (§4). */

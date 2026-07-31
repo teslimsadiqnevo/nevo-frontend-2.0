@@ -4,7 +4,7 @@
  * remain a data-source swap. The calculation co-construction solver is the
  * centrepiece. Content is illustrative, not curriculum-reviewed.
  */
-import { BREAK_TYPES, MODALITY, DENSITY, CALC_MODALITY } from "@/lib/constants";
+import { BREAK_TYPES, MODALITY, DENSITY, CALC_MODALITY, SCAFFOLD_LEVELS } from "@/lib/constants";
 import type { AdaptationPlan, Lesson } from "@/lib/types";
 
 export const ADDING_FRACTIONS: Lesson = {
@@ -202,9 +202,10 @@ export const ADDING_FRACTIONS_PLAN: AdaptationPlan = {
   lessonId: "adding-fractions",
   segments: [
     // Exercises the other break types: a micro breath after the reading
-    // stretch, a movement break after the working one.
-    { segmentId: "intro", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.VISUAL, breakAfter: BREAK_TYPES.MICRO },
-    { segmentId: "calc-add-fifths", startModality: MODALITY.INTERACTIVE, density: null, suggestModality: null, breakAfter: BREAK_TYPES.MOVEMENT },
+    // stretch, a movement break after the working one. Scaffold (37a) steps to
+    // full through the co-construction, then eases back.
+    { segmentId: "intro", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.VISUAL, breakAfter: BREAK_TYPES.MICRO, scaffold: SCAFFOLD_LEVELS.LIGHT },
+    { segmentId: "calc-add-fifths", startModality: MODALITY.INTERACTIVE, density: null, suggestModality: null, breakAfter: BREAK_TYPES.MOVEMENT, scaffold: SCAFFOLD_LEVELS.FULL },
     // ...and the full rest on the way out of the last segment, so all four
     // break types are reachable in the mock (this one lands before the
     // assessment - a real pause between learning and being asked about it).

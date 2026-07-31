@@ -37,6 +37,7 @@ import { LessonComplete } from "./LessonComplete";
 import { ModalitySuggestionPill } from "./ModalitySuggestionPill";
 import { ModuleBoundaryScreen } from "./ModuleBoundaryScreen";
 import { OfflineBanner } from "./OfflineBanner";
+import { ScaffoldIndicator } from "./ScaffoldIndicator";
 import { QuickCheckSheet } from "./QuickCheckSheet";
 import { type ReviewAnswer, saveReviewAnswers } from "./reviewStore";
 import { TextSegment } from "./TextSegment";
@@ -500,6 +501,10 @@ export function LessonPlayer({
           <h1 className="min-w-0 flex-1 truncate text-base font-medium text-nevo-near-black sm:text-lg">
             {lesson.title}
           </h1>
+          {/* 37a: the global scaffold indicator, opposite the exit. */}
+          <ScaffoldIndicator
+            level={planFor(segment.id)?.scaffold ?? "light"}
+          />
         </div>
         <div className="flex items-center justify-between gap-3">
           {/* Two-level position line for modular lessons (SCRUM-101.3);

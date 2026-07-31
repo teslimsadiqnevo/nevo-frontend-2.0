@@ -4,7 +4,7 @@
  * `contentApi.getLesson` / `intelligenceApi.getAdaptation` later is a data-source
  * swap, not a UI change. Content here is illustrative, not curriculum-reviewed.
  */
-import { BREAK_TYPES, MODALITY, DENSITY } from "@/lib/constants";
+import { BREAK_TYPES, MODALITY, DENSITY, SCAFFOLD_LEVELS } from "@/lib/constants";
 import type { AdaptationPlan, Lesson } from "@/lib/types";
 
 export const PHOTOSYNTHESIS: Lesson = {
@@ -287,15 +287,16 @@ export const PHOTOSYNTHESIS_PLAN: AdaptationPlan = {
   lessonId: "photosynthesis",
   // Enriches the module boundary with recap/preview blocks (SCRUM-101.2).
   accommodations: { attention: true },
+  // Scaffold arc (37a): support quietly withdraws as the lesson lands.
   segments: [
-    { segmentId: "intro", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.VISUAL },
+    { segmentId: "intro", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.VISUAL, scaffold: SCAFFOLD_LEVELS.MODERATE },
     // No suggestion here: consecutive-segment rate limit (intro just offered).
-    { segmentId: "inside-leaf", startModality: MODALITY.TEXT, density: null, suggestModality: null },
+    { segmentId: "inside-leaf", startModality: MODALITY.TEXT, density: null, suggestModality: null, scaffold: SCAFFOLD_LEVELS.LIGHT },
     // First segment after the boundary - the engine stays quiet anyway. The
     // consolidation break (feeling check-in) lands after the hands-on stretch,
     // the natural place to surface how it felt.
-    { segmentId: "experiment", startModality: MODALITY.INTERACTIVE, density: null, suggestModality: null, breakAfter: BREAK_TYPES.CONSOLIDATION },
-    { segmentId: "recap", startModality: MODALITY.TEXT, density: DENSITY.SLOWER, suggestModality: MODALITY.AUDIO },
+    { segmentId: "experiment", startModality: MODALITY.INTERACTIVE, density: null, suggestModality: null, breakAfter: BREAK_TYPES.CONSOLIDATION, scaffold: SCAFFOLD_LEVELS.LIGHT },
+    { segmentId: "recap", startModality: MODALITY.TEXT, density: DENSITY.SLOWER, suggestModality: MODALITY.AUDIO, scaffold: SCAFFOLD_LEVELS.MINIMAL },
   ],
 };
 
