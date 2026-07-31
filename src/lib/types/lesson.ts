@@ -259,9 +259,16 @@ export interface AdaptationPlan {
   lessonId: string;
   segments: SegmentAdaptation[];
   /**
-   * Active accommodations (SCRUM-71, backend-owned). `attention` enriches the
-   * module boundary with recap/preview blocks - supportive, never gating.
-   * TODO(api): source from the ratified accommodation contract.
+   * Active UDL accommodations (37c / SCRUM-71, backend-owned). Cross-session
+   * delivery themes, never a label: `reading` renders text more spaciously;
+   * `attention` chunks long text into tap-to-continue parts (with a calm pause
+   * between), dims secondary chrome and enriches the module boundary with
+   * recap/preview blocks; `numerical` is carried by the calc solver's
+   * picture-first rendering. TODO(api): source from the ratified contract.
    */
-  accommodations?: { attention?: boolean };
+  accommodations?: {
+    attention?: boolean;
+    reading?: boolean;
+    numerical?: boolean;
+  };
 }

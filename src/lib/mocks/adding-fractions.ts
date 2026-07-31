@@ -200,6 +200,9 @@ export const ADDING_FRACTIONS: Lesson = {
 
 export const ADDING_FRACTIONS_PLAN: AdaptationPlan = {
   lessonId: "adding-fractions",
+  // UDL (37c): reading renders the text spaciously; numerical is carried by
+  // the calc solver's picture-first rendering (bars + notation alongside).
+  accommodations: { reading: true, numerical: true },
   segments: [
     // Exercises the other break types: a micro breath after the reading
     // stretch, a movement break after the working one. Scaffold (37a) steps to
