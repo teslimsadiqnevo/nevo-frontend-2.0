@@ -69,7 +69,7 @@ export function StudentFeedbackScreen() {
           <>
             <div className="flex items-start justify-between">
               <div>
-                <div className="text-base font-bold text-nevo-navy">
+                <div className="text-base font-semibold text-nevo-navy">
                   Share Feedback
                 </div>
                 <p className="mt-2 max-w-[280px] text-[13px] leading-[1.55] text-nevo-near-black/60">
@@ -94,13 +94,13 @@ export function StudentFeedbackScreen() {
               // A.12: Nevo Keyboard on touch; hardware keyboard on desktop.
               inputMode="none"
               placeholder="Tell us what you think..."
-              className="mt-4 min-h-[80px] w-full resize-none rounded-[8px] border border-nevo-near-black/12 bg-nevo-cream-elevated p-3.5 text-sm leading-[1.5] text-nevo-near-black outline-none transition-colors placeholder:text-nevo-near-black/30 focus:border-nevo-navy"
+              className="mt-4 min-h-[80px] w-full resize-none rounded-[10px] border border-nevo-near-black/12 bg-nevo-cream-elevated p-3.5 text-sm leading-[1.5] text-nevo-near-black outline-none transition-colors placeholder:text-nevo-near-black/30 focus:border-nevo-navy"
             />
 
             <button
               type="button"
               onClick={submit}
-              className="mt-4 flex h-11 w-full cursor-pointer items-center justify-center rounded-[8px] bg-nevo-navy text-[13px] font-bold text-nevo-cream transition-[filter,transform] hover:brightness-106 active:scale-[0.98]"
+              className="mt-4 flex h-11 w-full cursor-pointer items-center justify-center rounded-[10px] bg-nevo-navy text-[13px] font-semibold text-nevo-cream transition-[filter,transform] hover:brightness-106 active:scale-[0.98]"
             >
               Send Feedback
             </button>
