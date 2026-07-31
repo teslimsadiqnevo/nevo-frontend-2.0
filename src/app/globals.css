@@ -90,7 +90,7 @@
   --animate-nevo-kb-caret: nevo-kb-caret 1000ms step-end infinite;
   --animate-nevo-glow: nevo-glow 2s ease-in-out infinite;
   --animate-nevo-sparkle: nevo-sparkle 2600ms ease-in-out infinite;
-  --animate-nevo-shake: nevo-shake 260ms ease-in-out both;
+  --animate-nevo-nudge: nevo-nudge 460ms ease-out both;
   --animate-nevo-fill: nevo-fill 460ms cubic-bezier(0.33, 1, 0.68, 1) both;
 }
 
@@ -227,24 +227,19 @@
   }
 }
 
-/* Calculation solver — a single gentle horizontal shake on a wrong step (never a
- * red flash or a cross). One-shot, honours reduced-motion. */
-@keyframes nevo-shake {
-  0%,
+/* Calculation solver — a wrong step answers with a soft-violet ring pulse
+ * (SCRUM-94: the displacing shake is retired — displacement moves the options
+ * under the finger, and a shake reads as alarm). One-shot, honours
+ * reduced-motion, nothing moves. */
+@keyframes nevo-nudge {
+  0% {
+    box-shadow: 0 0 0 0 rgba(154, 156, 203, 0);
+  }
+  45% {
+    box-shadow: 0 0 0 4px rgba(154, 156, 203, 0.45);
+  }
   100% {
-    transform: translateX(0);
-  }
-  20% {
-    transform: translateX(-6px);
-  }
-  40% {
-    transform: translateX(6px);
-  }
-  60% {
-    transform: translateX(-4px);
-  }
-  80% {
-    transform: translateX(4px);
+    box-shadow: 0 0 0 0 rgba(154, 156, 203, 0);
   }
 }
 
