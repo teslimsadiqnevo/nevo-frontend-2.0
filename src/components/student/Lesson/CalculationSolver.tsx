@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, Pause, Play } from "lucide-react";
-import { NevoKeyboard } from "@/components/shared";
+import { Button, NevoKeyboard } from "@/components/shared";
 import { CALC_MODALITY } from "@/lib/constants";
 import type { CalculationSegment } from "@/lib/types";
 import { isNumericStep } from "@/lib/types";
@@ -45,14 +45,13 @@ export function CalculationSolver({
   const [phase, setPhase] = useState<"ask" | "confirmed" | "done">("ask");
   const [attempts, setAttempts] = useState(0);
   const [showHint, setShowHint] = useState(false);
+  // Card steps: selecting is not answering (SCRUM-94.3). The student picks, can
+  // change their mind, then commits - a changed selection before commit is
+  // itself a hesitation signal worth having.
+  const [chosen, setChosen] = useState<number | null>(null);
   const [numVal, setNumVal] = useState("");
   const [manip, setManip] = useState(false);
   const [placed, setPlaced] = useState(0);
-
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (advanceTimer.current) clearTimeout(advanceTimer.current);
-  }, []);
 
   const done = phase === "done";
 
@@ -78,14 +77,24 @@ export function CalculationSolver({
   const audioAvailable = calculation.modalities.includes(CALC_MODALITY.AUDIO);
 
   const finish = () => {
-    if (advanceTimer.current) clearTimeout(advanceTimer.current);
     setPhase("done");
     onSolved();
   };
 
-  const pickCard = (choiceIndex: number) => {
-    if (phase !== "ask" || isNumericStep(current)) return;
-    const correct = choiceIndex === current.correct;
+  const goNext = () => {
+    setStep((s) => s + 1);
+    setPhase("ask");
+    setAttempts(0);
+    setShowHint(false);
+    setChosen(null);
+  };
+
+  // SCRUM-94.3: every step ends on a tap the student chooses to make. The
+  // 1500ms confirmation hold, the value-sniff numeric advance and the
+  // third-tile hop are all gone - answer-submission latency now exists.
+  const commitChoice = () => {
+    if (phase !== "ask" || isNumericStep(current) || chosen == null) return;
+    const correct = chosen === current.correct;
     onStepAnswered?.(correct);
     if (!correct) {
       setAttempts((a) => {
@@ -95,42 +104,33 @@ export function CalculationSolver({
       });
       return;
     }
-    // Correct. A step that carries confirm copy pauses on a confirmation, then
-    // auto-advances; otherwise it advances straight away.
-    const nextStep = step + 1;
-    const goNext = () => {
-      setStep(nextStep);
-      setPhase("ask");
-      setAttempts(0);
-      setShowHint(false);
-    };
     if (current.onCorrect?.confirm) {
-      setPhase("confirmed");
-      advanceTimer.current = setTimeout(goNext, 1500);
+      setPhase("confirmed"); // waits for the student's "Next step" tap
+      setChosen(null);
     } else {
       goNext();
     }
   };
 
-  const onNumChange = (value: string) => {
-    setNumVal(value);
-    if (value.trim() === numericAnswer) {
-      onStepAnswered?.(true);
-      if (advanceTimer.current) clearTimeout(advanceTimer.current);
-      advanceTimer.current = setTimeout(finish, 250);
+  const commitNum = () => {
+    const correct = numVal.trim() === numericAnswer;
+    onStepAnswered?.(correct);
+    if (correct) finish();
+    else {
+      setAttempts((a) => a + 1);
+      setShowHint(true);
     }
   };
 
   const placeTile = () => {
-    setPlaced((p) => {
-      const next = Math.min(sum, p + 1);
-      if (next >= sum) {
-        onStepAnswered?.(true);
-        if (advanceTimer.current) clearTimeout(advanceTimer.current);
-        advanceTimer.current = setTimeout(finish, 400);
-      }
-      return next;
-    });
+    setPlaced((p) => Math.min(sum, p + 1));
+  };
+
+  const commitManip = () => {
+    if (placed >= sum) {
+      onStepAnswered?.(true);
+      finish();
+    }
   };
 
   const hintText = "hint" in current ? current.hint : "";
@@ -225,6 +225,9 @@ export function CalculationSolver({
                 {current.onCorrect.confirm}
               </p>
             )}
+            <Button className="w-full" onClick={goNext}>
+              Next step
+            </Button>
           </div>
         )}
 
@@ -243,21 +246,33 @@ export function CalculationSolver({
             <div
               key={`cards-${attempts}`}
               className={cn(
-                "mt-4 flex flex-col gap-2.5",
-                attempts > 0 && "motion-safe:animate-nevo-shake",
+                "mt-4 flex flex-col gap-2.5 rounded-[12px]",
+                // A wrong commit answers with a soft-violet ring pulse - the
+                // "not that one" message with nothing moving under the finger
+                // (SCRUM-94: the displacing shake is retired).
+                attempts > 0 && "motion-safe:animate-nevo-nudge",
               )}
             >
               {current.choices.map((choice, i) => (
                 <button
                   key={i}
                   type="button"
-                  onClick={() => pickCard(i)}
-                  className="rounded-[12px] border-2 border-transparent bg-nevo-cream-elevated px-[18px] py-4 text-center text-base font-medium text-nevo-near-black shadow-elevation-1 transition-transform active:scale-[0.98] sm:text-[18px]"
+                  onClick={() => setChosen(i)}
+                  aria-pressed={chosen === i}
+                  className={cn(
+                    "cursor-pointer rounded-[12px] border-2 bg-nevo-cream-elevated px-[18px] py-4 text-center text-base font-medium text-nevo-near-black shadow-elevation-1 transition-[transform,border-color] active:scale-[0.98] sm:text-[18px]",
+                    chosen === i ? "border-nevo-navy" : "border-transparent",
+                  )}
                 >
                   {choice}
                 </button>
               ))}
             </div>
+            {chosen != null && (
+              <Button className="mt-3.5 w-full" onClick={commitChoice}>
+                Check my answer
+              </Button>
+            )}
             {!showHint && <HintLink attempts={attempts} onClick={() => setShowHint(true)} />}
           </>
         )}
@@ -270,21 +285,34 @@ export function CalculationSolver({
             {showHint && <HintPill text={hintText} />}
 
             {manip ? (
-              <ManipulativeTray
-                parts={parts}
-                sum={sum}
-                placed={placed}
-                onPlace={placeTile}
-              />
+              <>
+                <ManipulativeTray
+                  parts={parts}
+                  sum={sum}
+                  placed={placed}
+                  onPlace={placeTile}
+                />
+                {placed >= sum && (
+                  <Button className="mt-[18px] w-full" onClick={commitManip}>
+                    That&apos;s the total
+                  </Button>
+                )}
+              </>
             ) : (
-              <div className="mt-[18px] flex justify-center">
+              <div
+                key={`num-${attempts}`}
+                className={cn(
+                  "mt-[18px] flex justify-center rounded-[12px]",
+                  attempts > 0 && "motion-safe:animate-nevo-nudge",
+                )}
+              >
                 <input
                   // A.12: suppress the native OS keyboard on web — the Nevo
                   // Keyboard drives entry on touch; a hardware keyboard still
                   // types normally (desktop), where the on-screen one is hidden.
                   inputMode="none"
                   value={numVal}
-                  onChange={(e) => onNumChange(e.target.value)}
+                  onChange={(e) => setNumVal(e.target.value)}
                   placeholder="-"
                   aria-label={current.prompt}
                   className="h-[52px] w-[120px] rounded-[10px] border-2 border-nevo-near-black/18 bg-nevo-cream-elevated text-center text-[26px] font-semibold text-nevo-navy shadow-elevation-1 outline-none transition-colors focus:border-nevo-navy"
@@ -292,11 +320,17 @@ export function CalculationSolver({
               </div>
             )}
 
+            {!manip && numVal.trim().length > 0 && (
+              <Button className="mt-[18px] w-full" onClick={commitNum}>
+                Check my answer
+              </Button>
+            )}
+
             {!manip && (
               <NevoKeyboard
                 layout="pad"
-                onKey={(d) => onNumChange(numVal + d)}
-                onBackspace={() => onNumChange(numVal.slice(0, -1))}
+                onKey={(d) => setNumVal(numVal + d)}
+                onBackspace={() => setNumVal(numVal.slice(0, -1))}
                 className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
               />
             )}
