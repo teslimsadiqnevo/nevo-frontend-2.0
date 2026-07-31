@@ -94,10 +94,13 @@ export function FrustrationHint({ hint }: { hint: string }) {
   );
 }
 
-/** Anxiety helper: the dim treatment for secondary chrome (40%, 400ms). */
-export function affectDim(anxious: boolean): string {
+/**
+ * Secondary-chrome dim: anxiety softens to 40% (37b); the attention
+ * accommodation simplifies further to 30% (37c). Anxiety wins when both hold.
+ */
+export function affectDim(anxious: boolean, attention = false): string {
   return cn(
     "transition-opacity duration-[400ms]",
-    anxious && "opacity-40",
+    anxious ? "opacity-40" : attention && "opacity-30",
   );
 }

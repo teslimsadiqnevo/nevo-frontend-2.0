@@ -294,6 +294,9 @@ export function LessonPlayer({
   const segPlan = planFor(segment.id);
   const affect = segPlan?.affect ?? AFFECTIVE_STATES.NONE;
   const anxious = affect === AFFECTIVE_STATES.ANXIETY;
+  // UDL accommodations (37c) - cross-session delivery themes from the plan.
+  const readingOn = Boolean(plan?.accommodations?.reading);
+  const attentionOn = Boolean(plan?.accommodations?.attention);
 
   // Break OFFERS (B.7): frustration persisting offers the plan's break type;
   // the 20-minute monitor primes a micro one. One ask on screen at a time -
@@ -625,7 +628,7 @@ export function LessonPlayer({
           />
         </div>
         <div
-          className={cn("flex items-center justify-between gap-3", affectDim(anxious))}
+          className={cn("flex items-center justify-between gap-3", affectDim(anxious, attentionOn))}
         >
           {/* Two-level position line for modular lessons (SCRUM-101.3);
               segment-only lessons read exactly as today. */}
@@ -710,6 +713,8 @@ export function LessonPlayer({
               segment={segment}
               modality={modality}
               density={density}
+              reading={readingOn}
+              attention={attentionOn}
               onReplay={() =>
                 trackEvent(SIGNAL_EVENT_TYPES.REPLAY, { segmentId: segment.id })
               }
@@ -769,7 +774,7 @@ export function LessonPlayer({
       <nav
         className={cn(
           "flex shrink-0 items-center justify-center gap-8 px-4 pt-2 pb-6",
-          affectDim(anxious),
+          affectDim(anxious, attentionOn),
         )}
       >
         <ChevronButton
@@ -797,6 +802,8 @@ function SegmentBody({
   segment,
   modality,
   density,
+  reading,
+  attention,
   onReplay,
   onAudioBusy,
   onCalcSolved,
@@ -805,13 +812,22 @@ function SegmentBody({
   segment: LessonSegment;
   modality: Modality;
   density: Density | null;
+  reading: boolean;
+  attention: boolean;
   onReplay: () => void;
   onAudioBusy: (phase: BusyPhase) => void;
   onCalcSolved: () => void;
   onCalcStep: (correct: boolean) => void;
 }) {
   if (modality === MODALITY.TEXT && segment.text)
-    return <TextSegment content={segment.text} density={density} />;
+    return (
+      <TextSegment
+        content={segment.text}
+        density={density}
+        reading={reading}
+        attention={attention}
+      />
+    );
   if (modality === MODALITY.VISUAL && segment.visual)
     return <VisualSegment content={segment.visual} />;
   if (modality === MODALITY.AUDIO && segment.audio)
