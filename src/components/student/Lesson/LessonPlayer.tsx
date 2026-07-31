@@ -39,6 +39,7 @@ import { ModuleBoundaryScreen } from "./ModuleBoundaryScreen";
 import { OfflineBanner } from "./OfflineBanner";
 import { ScaffoldIndicator } from "./ScaffoldIndicator";
 import { QuickCheckSheet } from "./QuickCheckSheet";
+import { ReviewEntryScreen } from "./ReviewEntryScreen";
 import { type ReviewAnswer, saveReviewAnswers } from "./reviewStore";
 import { TextSegment } from "./TextSegment";
 import { VisualSegment } from "./VisualSegment";
@@ -103,9 +104,17 @@ function openingModality(
 export function LessonPlayer({
   lesson,
   plan,
+  review = false,
 }: {
   lesson: Lesson;
   plan: AdaptationPlan | null;
+  /**
+   * Review session (37d): the same player as a spaced-retrieval variant. Adds
+   * only an entry screen, the REVIEW pill during, and the "You strengthened
+   * this concept" completion; the after-lesson assessment is skipped (the
+   * quick checks are the recall).
+   */
+  review?: boolean;
 }) {
   const router = useRouter();
   const total = lesson.segments.length;
@@ -114,8 +123,11 @@ export function LessonPlayer({
     plan?.segments.find((s) => s.segmentId === segmentId);
 
   // One signal session spans the whole lesson; useSignals batches events and
-  // flushes every 5s, at 20 events, and on unmount (exit/completion).
-  const [sessionId] = useState(() => `lesson-${lesson.id}-${randomId()}`);
+  // flushes every 5s, at 20 events, and on unmount (exit/completion). Review
+  // sessions carry their own prefix so the backend can tell them apart.
+  const [sessionId] = useState(
+    () => `${review ? "review" : "lesson"}-${lesson.id}-${randomId()}`,
+  );
   const { trackEvent } = useSignals(sessionId);
   const { setActiveLesson } = useLesson();
 
@@ -158,9 +170,10 @@ export function LessonPlayer({
   const [checkOpen, setCheckOpen] = useState(false);
   // Segments are the lesson itself; the assessment takes over the screen once
   // the last segment is done (growth framing — never a score), then completion.
-  const [phase, setPhase] = useState<"segments" | "assessment" | "complete">(
-    "segments",
-  );
+  // Review sessions open on their entry screen first (37d).
+  const [phase, setPhase] = useState<
+    "review-entry" | "segments" | "assessment" | "complete"
+  >(review ? "review-entry" : "segments");
   // Exiting mid-lesson goes through the leave dialog, not straight out.
   const [leaveOpen, setLeaveOpen] = useState(false);
   // SCRUM-101: the segment index the player is about to enter across a module
@@ -297,7 +310,9 @@ export function LessonPlayer({
       go(index + 1);
       return;
     }
-    setPhase(lesson.assessment ? "assessment" : "complete");
+    // Review sessions end on the strengthened completion - the quick checks
+    // were the retrieval, so no second assessment (37d).
+    setPhase(lesson.assessment && !review ? "assessment" : "complete");
   };
 
   /**
@@ -379,8 +394,17 @@ export function LessonPlayer({
       !lesson.assessment &&
       !(segment.quickCheck && !passedChecks.has(segment.id)));
 
-  // The assessment and completion each take over the full screen — their own
-  // layout, no player chrome.
+  // The entry, assessment and completion screens each take over the full
+  // screen — their own layout, no player chrome.
+  if (phase === "review-entry") {
+    return (
+      <ReviewEntryScreen
+        lessonTitle={lesson.title}
+        onBegin={() => setPhase("segments")}
+      />
+    );
+  }
+
   if (phase === "assessment") {
     return (
       <AfterLessonAssessment
@@ -407,6 +431,18 @@ export function LessonPlayer({
   }
 
   if (phase === "complete") {
+    // Review sessions close on the strengthened-concept variant (37d) - the
+    // standard completion screen with only the message swapped.
+    if (review) {
+      return (
+        <LessonComplete
+          onDone={() => router.push(HOME_HREF)}
+          heading="You strengthened this concept"
+          note={`${lesson.title} is settling in. We'll bring it back once more before it fully sticks.`}
+          doneLabel="Done"
+        />
+      );
+    }
     return (
       <LessonComplete
         onDone={() => router.push(HOME_HREF)}
@@ -498,6 +534,12 @@ export function LessonPlayer({
           >
             <X className="size-5" strokeWidth={2} />
           </button>
+          {/* 37d: quiet violet marker while a review session runs. */}
+          {review && (
+            <span className="flex h-[26px] shrink-0 items-center rounded-2xl bg-nevo-cream-elevated px-[11px] text-[11px] font-bold tracking-[0.1em] text-nevo-violet">
+              REVIEW
+            </span>
+          )}
           <h1 className="min-w-0 flex-1 truncate text-base font-medium text-nevo-near-black sm:text-lg">
             {lesson.title}
           </h1>
