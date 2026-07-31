@@ -15,6 +15,10 @@ export const SIGNAL_EVENT_TYPES = {
   SIMPLIFY_TRIGGER: "simplify_trigger",
   COMPREHENSION_RESPONSE: "comprehension_response",
   EXIT_ATTEMPT: "exit_attempt",
+  /** Module boundary screen shown (SCRUM-101) — payload { moduleId }. */
+  MODULE_BOUNDARY_REACHED: "module_boundary_reached",
+  /** The student's boundary choice — payload { moduleId, action: continue|break }. */
+  MODULE_BOUNDARY_ACTION: "module_boundary_action",
 } as const;
 
 /**

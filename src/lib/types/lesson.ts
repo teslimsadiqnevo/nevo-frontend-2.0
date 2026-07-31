@@ -169,11 +169,39 @@ export interface CompletionSummary {
   covered: string;
 }
 
+// ── Module structure (SCRUM-101) ────────────────────────────────────────────
+
+/**
+ * An intermediate level between lesson and segment. Lessons of 6+ segments get
+ * modules by default (teacher can override in either direction at upload);
+ * short lessons stay segment-only. Students never see the distinction named -
+ * they see a well-structured lesson.
+ */
+export interface LessonModule {
+  id: string;
+  /** Teacher-named ("Introduction", "Practice"); position label when absent. */
+  title?: string;
+  /** The lesson's segment ids belonging to this module, in lesson order. */
+  segmentIds: string[];
+  /**
+   * Gemini-generated at upload, teacher-edited. Shown on the boundary screen
+   * ("What you just did" / "What's coming next") only under the attention
+   * accommodation; absent text renders no block.
+   */
+  recap?: string;
+  preview?: string;
+}
+
 export interface Lesson {
   id: string;
   title: string;
   subject?: string;
   segments: LessonSegment[];
+  /**
+   * Module structure (SCRUM-101). Absent/empty means segment-only - nothing in
+   * the player assumes modules exist.
+   */
+  modules?: LessonModule[];
   assessment?: Assessment;
   /** Recap shown on the post-lesson summary screen (frame 18). */
   summary?: CompletionSummary;
@@ -195,4 +223,10 @@ export interface SegmentAdaptation {
 export interface AdaptationPlan {
   lessonId: string;
   segments: SegmentAdaptation[];
+  /**
+   * Active accommodations (SCRUM-71, backend-owned). `attention` enriches the
+   * module boundary with recap/preview blocks - supportive, never gating.
+   * TODO(api): source from the ratified accommodation contract.
+   */
+  accommodations?: { attention?: boolean };
 }

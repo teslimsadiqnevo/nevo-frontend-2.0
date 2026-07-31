@@ -16,6 +16,12 @@ interface InProgress {
   /** 0–1 through the lesson. */
   progress: number;
   note: string;
+  /**
+   * Present when the student is mid-module in a modular lesson (SCRUM-101.4):
+   * the card's middle line names the module instead of the segment hint.
+   * `index` is 0-based; `title` falls back to the bare position when absent.
+   */
+  module?: { index: number; count: number; title?: string };
 }
 interface TodayLesson {
   lessonId: string;
@@ -26,9 +32,10 @@ interface TodayLesson {
 
 const CONTINUE: InProgress | null = {
   lessonId: "photosynthesis",
-  title: "Adding Fractions",
+  title: "Photosynthesis",
   progress: 0.55,
   note: "A little over halfway",
+  module: { index: 1, count: 2, title: "Practice" },
 };
 
 const TODAY: TodayLesson[] = [
@@ -154,7 +161,13 @@ function ContinueCard({ lesson }: { lesson: InProgress }) {
             <p className="text-[19px] font-semibold tracking-[-0.01em] text-nevo-near-black">
               {lesson.title}
             </p>
-            <p className="mt-1.5 text-sm text-nevo-near-black/68">{lesson.note}</p>
+            {/* Mid-module, the line names the module (SCRUM-101.4); one line,
+                truncated, so a long title never reflows the card. */}
+            <p className="mt-1.5 truncate text-sm text-nevo-near-black/68">
+              {lesson.module
+                ? `Module ${lesson.module.index + 1} of ${lesson.module.count}${lesson.module.title ? `: ${lesson.module.title}` : ""}`
+                : lesson.note}
+            </p>
           </div>
         </div>
         <span className="mt-5 flex h-[52px] w-full shrink-0 items-center justify-center rounded-[12px] bg-nevo-navy px-8 text-base font-medium text-nevo-cream sm:mt-0 sm:w-auto">

@@ -11,6 +11,25 @@ export const PHOTOSYNTHESIS: Lesson = {
   id: "photosynthesis",
   title: "Photosynthesis",
   subject: "Science",
+  // SCRUM-101: teacher-confirmed module structure (mock stands in for the
+  // upload-step output; the 6+ default would leave a 3-segment lesson flat,
+  // but the teacher can override in either direction).
+  modules: [
+    {
+      id: "m-introduction",
+      title: "Introduction",
+      segmentIds: ["intro"],
+      recap:
+        "You saw how leaves take in light and water, and where photosynthesis happens inside the leaf.",
+    },
+    {
+      id: "m-practice",
+      title: "Practice",
+      segmentIds: ["calc-fractions", "recap"],
+      preview:
+        "Now you'll try it yourself - working through the numbers one small step at a time.",
+    },
+  ],
   segments: [
     {
       id: "intro",
@@ -219,6 +238,8 @@ export const PHOTOSYNTHESIS: Lesson = {
 
 export const PHOTOSYNTHESIS_PLAN: AdaptationPlan = {
   lessonId: "photosynthesis",
+  // Enriches the module boundary with recap/preview blocks (SCRUM-101.2).
+  accommodations: { attention: true },
   segments: [
     { segmentId: "intro", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.VISUAL },
     { segmentId: "calc-fractions", startModality: MODALITY.INTERACTIVE, density: null, suggestModality: null },

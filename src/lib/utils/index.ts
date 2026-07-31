@@ -36,3 +36,11 @@ export function randomId(): string {
 export { sanitizeForDisplay, containsClinicalTerm } from "./zeroTag";
 export { formatProfile } from "./formatProfile";
 export { formatTimeEstimate } from "./formatTime";
+export {
+  lessonModules,
+  modulePositionFor,
+  positionLine,
+  opensLaterModule,
+  moduleName,
+  type ModulePosition,
+} from "./modules";
