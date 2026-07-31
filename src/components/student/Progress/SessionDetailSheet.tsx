@@ -25,14 +25,10 @@ export function SessionDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        showCloseButton={false}
         aria-describedby={undefined}
-        className="gap-0 rounded-t-[20px] border-0! bg-nevo-cream px-6 pt-4 pb-8 text-nevo-near-black shadow-[0_-8px_32px_rgba(0,0,0,0.16)] sm:inset-x-auto! sm:top-1/2 sm:bottom-auto! sm:left-1/2! sm:w-[480px] sm:max-w-[calc(100%-48px)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[20px] sm:p-8 sm:shadow-[0_8px_32px_rgba(0,0,0,0.16)]"
+        className="gap-0 rounded-t-[20px] border-0! bg-nevo-cream px-6 pt-5 pb-8 text-nevo-near-black shadow-[0_-8px_32px_rgba(0,0,0,0.16)] sm:inset-x-auto! sm:top-1/2 sm:bottom-auto! sm:left-1/2! sm:w-[480px] sm:max-w-[calc(100%-48px)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[20px] sm:p-8 sm:shadow-[0_8px_32px_rgba(0,0,0,0.16)]"
       >
-        {/* Drag handle - sheet form only */}
-        <div className="mx-auto mb-5 h-1 w-8 rounded-full bg-nevo-near-black/30 sm:hidden" />
-
-        <span className="font-mono text-xs tracking-[0.1em] text-nevo-near-black/55 uppercase">
+        <span className="pr-12 font-mono text-xs tracking-[0.1em] text-nevo-near-black/55 uppercase">
           {session.date}
         </span>
         <SheetTitle className="mt-2 text-xl font-semibold tracking-[-0.01em] text-nevo-near-black">

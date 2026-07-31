@@ -126,8 +126,11 @@ export function HomeDashboard() {
             )}
           </div>
 
-          {/* Grid on tablet/desktop, horizontal scroll on mobile */}
-          <div className="-mx-5 mt-3.5 flex gap-3.5 overflow-x-auto px-5 pb-1.5 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
+          {/* 2-up grid on mobile, 3-up from tablet. Never a horizontal rail - a
+              nested scroller inside the vertical page is off the gesture set
+              (SCRUM-94 G5), and scroll-snap overrides the student's own
+              deceleration curve. */}
+          <div className="mt-3.5 grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4">
             {TODAY.map((lesson, i) => (
               <LessonCard key={i} lesson={lesson} index={i} />
             ))}
@@ -214,7 +217,7 @@ function LessonCard({ lesson, index }: { lesson: TodayLesson; index: number }) {
   return (
     <Link
       href={`/student/lessons/${lesson.lessonId}`}
-      className="w-[158px] shrink-0 snap-start overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 transition-transform active:scale-[0.98] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-500 sm:w-auto"
+      className="overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 transition-transform active:scale-[0.98] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-500"
       style={{ animationDelay: `${240 + index * 70}ms` }}
     >
       <div className={`flex h-[88px] items-center justify-center text-nevo-navy ${tints[index % tints.length]}`}>

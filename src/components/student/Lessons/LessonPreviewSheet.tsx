@@ -30,14 +30,10 @@ export function LessonPreviewSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        showCloseButton={false}
         aria-describedby={undefined}
-        className="gap-0 rounded-t-[20px] border-0! bg-nevo-cream px-6 pt-3 pb-7 text-nevo-near-black shadow-[0_-8px_32px_rgba(0,0,0,0.16)] sm:inset-x-auto! sm:top-1/2 sm:bottom-auto! sm:left-1/2! sm:w-[480px] sm:max-w-[calc(100%-48px)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[20px] sm:p-8 sm:shadow-[0_8px_32px_rgba(0,0,0,0.16)]"
+        className="gap-0 rounded-t-[20px] border-0! bg-nevo-cream px-6 pt-5 pb-7 text-nevo-near-black shadow-[0_-8px_32px_rgba(0,0,0,0.16)] sm:inset-x-auto! sm:top-1/2 sm:bottom-auto! sm:left-1/2! sm:w-[480px] sm:max-w-[calc(100%-48px)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[20px] sm:p-8 sm:shadow-[0_8px_32px_rgba(0,0,0,0.16)]"
       >
-        {/* Drag handle — sheet form only */}
-        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-nevo-near-black/20 sm:hidden" />
-
-        <SheetTitle className="text-[23px] font-semibold tracking-[-0.01em] text-nevo-near-black sm:text-2xl">
+        <SheetTitle className="pr-12 text-[23px] font-semibold tracking-[-0.01em] text-nevo-near-black sm:text-2xl">
           {lesson.title}
         </SheetTitle>
 

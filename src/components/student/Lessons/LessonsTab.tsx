@@ -109,7 +109,7 @@ export function LessonsTab() {
               onClick={() => setFilter(id)}
               aria-pressed={on}
               className={cn(
-                "shrink-0 cursor-pointer rounded-full border-[1.5px] px-4 py-2 text-[13px] font-medium whitespace-nowrap transition-colors",
+                "inline-flex h-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] px-4 text-[13px] font-medium whitespace-nowrap transition-colors",
                 on
                   ? "border-nevo-navy bg-nevo-navy text-nevo-cream"
                   : "border-nevo-near-black/20 bg-transparent text-nevo-near-black hover:border-nevo-near-black/35",
@@ -148,7 +148,9 @@ export function LessonsTab() {
         <div className="mt-6">
           {groups.map(([subject, lessons]) => (
             <section key={subject} className="mb-7">
-              <h2 className="sticky top-0 z-[1] mb-3 bg-nevo-cream py-1.5 text-lg font-semibold text-nevo-near-black">
+              {/* Not sticky: a pinned header overlays cards (taps land on it)
+                  and perturbs the scroll signal (SCRUM-94). */}
+              <h2 className="mb-3 py-1.5 text-lg font-semibold text-nevo-near-black">
                 {subject}
               </h2>
               <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-3">

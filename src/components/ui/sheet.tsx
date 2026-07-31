@@ -4,7 +4,6 @@ import * as React from "react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
@@ -37,8 +36,9 @@ function SheetOverlay({
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
       className={cn(
-        // Nevo skin: the DS scrim is near-black at 30% (never pure black), no blur.
-        "fixed inset-0 z-50 bg-nevo-near-black/30 duration-300 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        // Nevo skin: the DS scrim is near-black at 55% (SCRUM-94 G1: the backdrop
+        // must read unavailable, never pure black), no blur.
+        "fixed inset-0 z-50 bg-nevo-near-black/55 duration-300 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}
@@ -72,15 +72,15 @@ function SheetContent({
         {children}
         {showCloseButton && (
           <SheetPrimitive.Close data-slot="sheet-close" asChild>
-            <Button
-              variant="ghost"
-              className="absolute top-3 right-3"
-              size="icon-sm"
+            {/* Nevo skin: every overlay carries a visible 44x44 dismiss (SCRUM-94
+                G2) - the drag handle is not one. */}
+            <button
+              type="button"
+              className="absolute top-3 right-3 flex size-11 cursor-pointer items-center justify-center rounded-full bg-nevo-navy/8 text-nevo-navy transition-colors hover:bg-nevo-navy/14"
             >
-              <XIcon
-              />
+              <XIcon className="size-4" strokeWidth={2.4} />
               <span className="sr-only">Close</span>
-            </Button>
+            </button>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Content>
