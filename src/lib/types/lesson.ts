@@ -6,6 +6,7 @@
  * player UI. TODO(api): reconcile with the ratified backend schema.
  */
 import type {
+  AffectiveState,
   BreakType,
   CalcModality,
   Density,
@@ -235,6 +236,22 @@ export interface SegmentAdaptation {
    * "light" when absent.
    */
   scaffold?: ScaffoldLevel;
+  /**
+   * Affective response state (37b) - inferred from interaction rhythm on
+   * confident multi-signal confirmation, server-side. The interface modulates
+   * while it holds and returns to default when it passes.
+   */
+  affect?: AffectiveState;
+  /** Frustration: the unrequested, content-specific hint (Gemini-generated). */
+  affectHint?: string;
+  /** Confusion: the Socratic panel's 2-3 guided questions. */
+  socraticPrompts?: string[];
+  /**
+   * Frustration persisting past two adaptations: the system OFFERS this break
+   * type (accept/decline) rather than delivering one - distinct from
+   * `breakAfter`, which inserts a break on the way out of the segment.
+   */
+  offerBreak?: BreakType | null;
 }
 
 /** The adapted lesson structure returned per student (§4). */
