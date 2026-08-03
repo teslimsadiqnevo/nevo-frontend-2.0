@@ -9,11 +9,6 @@ import { MOCK_STUDENT } from "@/components/student/Shell/studentNav";
 import { useAccessibility } from "@/context/AccessibilityContext";
 import { cn } from "@/lib/utils";
 import { SignOutSheet } from "./SignOutSheet";
-import {
-  MOCK_CHANNEL_CONFIDENCE,
-  NO_CHANNELS_LINE,
-  visibleChannelStatements,
-} from "./learningChannels";
 
 const TEXT_SIZES = [
   { id: "s", label: "S" },
@@ -35,7 +30,6 @@ export function ProfileSettings() {
   const router = useRouter();
   const { signOut } = useAuth();
   const [signOutOpen, setSignOutOpen] = useState(false);
-  const statements = visibleChannelStatements(MOCK_CHANNEL_CONFIDENCE);
 
   // Editable display name (product frame: tap Change → inline input; initials
   // derive from the name). TODO(api): persist via the profile endpoint.
@@ -80,29 +74,14 @@ export function ProfileSettings() {
         Profile &amp; Settings
       </h1>
 
-      {/* How you learn — read-only, observed channels (medium/high only) */}
-      <SectionHeading>How you learn</SectionHeading>
-      {statements.length === 0 ? (
-        <p className="text-[15px] leading-[1.55] text-nevo-near-black/70">
-          {NO_CHANNELS_LINE}
-        </p>
-      ) : (
-        <>
-          <div className="flex flex-col gap-2">
-            {statements.map((statement) => (
-              <div
-                key={statement}
-                className="rounded-[12px] bg-nevo-cream-elevated p-4 text-[15px] leading-[1.5] text-nevo-near-black shadow-elevation-1"
-              >
-                {statement}
-              </div>
-            ))}
-          </div>
-          <p className="mt-4 text-[13px] text-nevo-near-black/50">
-            {NO_CHANNELS_LINE}
-          </p>
-        </>
-      )}
+      {/* VARK retirement (round 3): the product describes what it is DOING for
+          a student, never what kind of learner they are. Fixed copy only - no
+          channel statements, no learning-style attribution. */}
+      <SectionHeading>Your learning space</SectionHeading>
+      <p className="text-[15px] leading-[1.55] text-nevo-near-black/70">
+        Your learning space is set up for you. Nevo adjusts your lessons based
+        on how you&apos;re doing.
+      </p>
 
       {/* Accessibility */}
       <SectionHeading>Accessibility</SectionHeading>

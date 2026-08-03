@@ -682,7 +682,7 @@ export function LessonPlayer({
           className={cn(
             "mx-auto w-full max-w-full px-6 py-8 sm:max-w-[620px] sm:px-8 lg:max-w-[680px] lg:px-10",
             affect === AFFECTIVE_STATES.BOREDOM &&
-              "rounded-[14px] border-2 border-nevo-violet/45",
+              "rounded-[12px] border-2 border-nevo-violet/45",
           )}
         >
           {feedback && <FeedbackStrip message={feedback} />}

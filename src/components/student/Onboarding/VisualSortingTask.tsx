@@ -167,7 +167,7 @@ export function VisualSortingTask({
                 type="button"
                 onClick={() => place(z.key)}
                 className={cn(
-                  "flex min-h-[118px] flex-1 flex-col items-center rounded-[14px] bg-nevo-cream-elevated px-2.5 py-3.5 transition-[box-shadow] duration-150",
+                  "flex min-h-[118px] flex-1 flex-col items-center rounded-[12px] bg-nevo-cream-elevated px-2.5 py-3.5 transition-[box-shadow] duration-150",
                   armed
                     ? "cursor-pointer shadow-[inset_0_0_0_2px_#3b3f6e,0_8px_24px_rgba(0,0,0,0.16)]"
                     : "cursor-default shadow-elevation-1",
