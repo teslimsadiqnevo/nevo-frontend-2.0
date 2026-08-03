@@ -94,6 +94,30 @@ export class BaselineCapture {
  * device; only these aggregates are transmitted.
  * TODO(api): reconcile field names with the ratified baseline contract.
  */
+/**
+ * Reduce a trial-based module's stream (Modules 2-4): counts and mean response
+ * time per activity, from `trial_pick` events carrying `{module, act, rtMs}`.
+ */
+export function reduceTrialModule(capture: BaselineCapture, module: string) {
+  const picks = capture
+    .ofKind("trial_pick")
+    .filter((e) => e.payload?.module === module);
+  const byAct: Record<string, { trials: number; meanRtMs: number | null }> = {};
+  for (const act of new Set(picks.map((p) => String(p.payload?.act)))) {
+    const rts = picks
+      .filter((p) => p.payload?.act === act)
+      .map((p) => Number(p.payload?.rtMs))
+      .filter((n) => Number.isFinite(n) && n > 0 && n < 60_000);
+    byAct[act] = {
+      trials: picks.filter((p) => p.payload?.act === act).length,
+      meanRtMs: rts.length
+        ? Math.round(rts.reduce((a, b) => a + b, 0) / rts.length)
+        : null,
+    };
+  }
+  return { module, acts: byAct };
+}
+
 export function reduceGridSpan(capture: BaselineCapture) {
   const taps = capture.ofKind("tap");
   const correct = taps.filter((t) => t.payload?.correct === true);
