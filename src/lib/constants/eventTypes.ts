@@ -90,6 +90,11 @@ export const ONBOARDING_SIGNAL_TYPES = {
   PATTERN_TAP: "pattern_tap",
   /** Working-Memory Pairs — working-memory load. */
   MEMORY_FLIP: "memory_flip",
+  /** Baseline profiling (SCRUM-104) — module lifecycle in the session stream. */
+  BASELINE_MODULE_START: "baseline_module_start",
+  BASELINE_MODULE_COMPLETE: "baseline_module_complete",
+  /** The reduced feature vector left the device (raw stream purged). */
+  BASELINE_SUBMITTED: "baseline_submitted",
 } as const;
 
 export type SignalEventType =

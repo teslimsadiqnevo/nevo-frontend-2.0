@@ -8,3 +8,4 @@ export { exportApi } from "./export";
 export { askNevoApi } from "./askNevo";
 export { notificationsApi } from "./notifications";
 export { analyticsApi } from "./analytics";
+export { baselineApi } from "./baseline";
