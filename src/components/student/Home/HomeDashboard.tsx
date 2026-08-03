@@ -6,6 +6,8 @@ import { BookOpen, Clock, Play, Shapes } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { EmptyState, IllustrationWrapper } from "@/components/shared";
 import { MOCK_STUDENT } from "@/components/student/Shell/studentNav";
+import { WarmUpCard } from "@/components/student/Profiling/WarmUpCard";
+import { dimensionForToday } from "@/components/student/Profiling/WarmUpRun";
 
 // ── Mock data ───────────────────────────────────────────────────────────────
 // TODO(api): source "continue", "today's lessons" and the encouragement line
@@ -109,6 +111,10 @@ export function HomeDashboard() {
         </div>
       ) : (
         <>
+          {/* The daily warm-up opens the session (SCRUM-104) - a quick
+              calibration presented as a game, never an assessment. */}
+          <WarmUpCard dimension={dimensionForToday()} />
+
           {CONTINUE && <ContinueCard lesson={CONTINUE} />}
 
           <div className="mt-8 flex items-baseline justify-between motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-500 motion-safe:[animation-delay:200ms]">

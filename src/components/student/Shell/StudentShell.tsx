@@ -114,5 +114,7 @@ function isFullScreen(pathname: string): boolean {
   // (Nevo Student App: `feedback` / `changepin`).
   if (pathname === "/student/profile/feedback") return true;
   if (pathname === "/student/profile/pin") return true;
+  // The daily warm-up run (SCRUM-104) has its own quiet header, no nav.
+  if (pathname === "/student/warm-up") return true;
   return false;
 }
