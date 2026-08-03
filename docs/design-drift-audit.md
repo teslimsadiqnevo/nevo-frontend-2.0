@@ -257,3 +257,110 @@ Design fixed these in their frames; our build inherited the old behaviour:
    screen, Home line, rate-limit).
 6. **R2** signal markers alongside Teslim's collection layer (the marker emits
    can land early behind the existing `useSignals` seam).
+
+
+---
+---
+
+# ROUND 3 — mirror re-sync of 3 Aug 2026 (`556627b` → `1f3e530`)
+
+**Method.** Same as rounds 1-2: full diff of the mirror between audited SHAs;
+every new/changed student file read (all 20 `student/onboarding-assessment/`
+files, frame templates + logic in full; `support.js` is the dc-runtime bundle,
+not a contract), governing docs re-read (frontend handoff §13, `30 Student Flow
+Reference`), remaining student diffs read line-by-line, our build then grepped
+for the same defects. Teacher/admin/marketing changes noted for their own
+efforts, not student drift.
+
+**Headline.** This drop is SCRUM-104: the **Baseline Cognitive Profiling
+module** replaces onboarding Phase C, plus a **daily warm-up** on the dashboard,
+the product-wide **VARK/channel-preference retirement**, and a small radius
+sweep. One structural question needs Lydia: the fate of the OIS activities.
+
+## N1 · Baseline Cognitive Profiling (new build — onboarding Phase C)
+
+Numbered slot 08-13 is now: **Profiling Intro → Module 1 Spatial Grid Span →
+Stretch → Module 2 Pattern Match + Flanker → Stretch → Module 3 Sentence Verify
++ Dot Comparison → Stretch → Module 4 Domain Probe → Profiling Complete →
+Consent Gate.** Shared shell on every screen: logo top-left + the four-circle
+**Quest Map** (done navy + check, active violet-outline pulse, upcoming quiet
+outline; connecting line fills). Nevo avatar speech-bubble carries instructions.
+House rules throughout: no back, no skip, no visible timers, no scores, never
+"test"/"wrong"/red; targets ≥48px; tiles radius 12, buttons 10.
+
+- **Age bands** by date of birth: P1-3, P4-6 (primary band shown), JSS, SS —
+  same shells, different content/grid sizes/targets.
+- **M1 Grid Span** (θ_WMC): watch tiles light (soft-violet 1.05×), tap in
+  reverse. Adaptive: span starts 3, +1 per clean recall to max 6; playback slows
+  with struggle (lit 660+300·s ms, gap 280+120·s, s≤3, decays on success). Wrong
+  tap = soft-violet ring + "Try another", grid locks 1500ms, the SAME pattern
+  replays; 3 fails at a length ends the module seamlessly. Settle: navy pop
+  badge "That's it. Saved." Bands: 3×3 len-3 / 4×4 len-4 / 5×5 len-5 / SS 5×5
+  with interleaved true/false math checks (dual task).
+- **M2 Pattern + Flanker** (τ_PS, d′): 2A two icons, "Same, or different?"
+  (band-specific icon sets — navy shapes only, the pasted colour spec was
+  reconciled to the four-colour system); 2B centre-arrow direction with flanker
+  rows (p13 single arrow; SS violet flankers); tapped control gets a violet
+  press, next trial after ~440ms. Per the Jira spec, M2 opens with the
+  **30-second motor tap baseline** — no frame exists for it (open question, see
+  D3 note).
+- **M3 Reading + Dots** (WPM, ANS_w): 3A band-adaptive — p13 hears audio + taps
+  a picture card; p46/JSS mark localized sentences True/False (+ lighter violet
+  "Not sure"); SS reads a passage + comprehension options. 3B: two dot arrays
+  show ~850ms then mask to cream-elevated; answer buttons only arm after the
+  mask ("Which had more dots?"). West-African localized content throughout.
+- **M4 Domain Probe** (K₀ → BKT P(L₀)): adaptive IRT, 3-6 curriculum questions;
+  p13 gets 3 picture options; JSS/SS pick a subject first (2-col grid).
+- **Stretch interstitial**: mandatory 15s reset after every module — breathing
+  figure (break-movement art), "Take a breath", violet ring fills over 15s,
+  auto-advance, no skip on first run; reduced-motion = ring lands partway.
+- **Intro/Complete**: "Let's set up your learning space" / "You'll do four quick
+  activities. No tests, no scores. This just helps Nevo work better for you." /
+  "Let's go" — and "All set. Nevo is ready for you." / "Your learning space has
+  been personalized." / "Start my first lesson" (→ first lesson; flow ref says
+  auto-advance → Consent Gate; the CTA is the design's word — follow the frame).
+- **Frontend data contract** (Lydia on SCRUM-94/104): `performance.now()` on all
+  micro-behavioural captures; IndexedDB for raw streams, reduced to a feature
+  vector before POST `/api/baseline/submit`, raw purged after; recalibration via
+  GET `/api/baseline/recalibrate-prompt/:id`. Pre-backend: same mock-seam
+  pattern as `useSignals`.
+
+## N2 · Daily warm-up (dashboard addition)
+
+One 45-second calibration opens the daily session: the **Warm-Up Card** in the
+dashboard ("DAILY WARM-UP" + rotating chip e.g. "Quick patterns today", 4
+pulsing violet dots teaser, "Begin warm-up" 44px) → **Warm-Up Run** (one round
+of the profiling task for the day's dimension — wmc/ps/reading/ans/attention/
+domain — quest map stripped) → done ("gentle one-shot", "Your progress is
+saved"). Never reads as an assessment.
+
+## D · Drift in built surfaces
+
+| # | Surface | Change |
+|---|---|---|
+| D1 | Profile & Settings | **"How you learn" four-channel section retired** (VARK retirement: the product describes what it DOES for a student, never what kind of learner they are). Replace with heading "Your learning space" + fixed copy "Your learning space is set up for you. Nevo adjusts your lessons based on how you're doing." Remove `learningChannels.ts` usage. The suggestion pill is explicitly exempt. |
+| D2 | Radius sweep | Activity 1 zones and the boredom content frame went 14 → 12 (`VisualSortingTask.tsx:170`, `LessonPlayer.tsx:685`). Our other surfaces already conform. |
+| D3 | OIS fate (question for Lydia) | The old 08-13 boards (Sequence Shell, Activities 1-4, The Close) are **deleted** and the flow reference shows profiling in their place — but Lydia's Aug-1 Jira comment says the four OIS micro-activities "stay as a warm comfort step". The working frames (`Nevo Activity N Frame`) still exist. Default to the newer artefact (design mirror: profiling replaces the OIS in the sequence) but keep our OIS components until she rules; also ask where the M2 motor-tap baseline screen lives. |
+
+## Teacher/admin (for the console effort, not student drift)
+
+Dual-track mastery bars (navy Understanding 8px over violet Reading 6px) on
+C08/C09/D08b with reading-gap lines; C08 "What Nevo has seen" conversation-
+evidence cards (Demonstrated / Developing / Misconception flagged, never
+transcripts); C09 class misconception alert; SENCo "Active Support" replaces
+channel columns. Radius-14 sweep hit C07/C10/C13/C14/Ask Nevo.
+
+## No action
+
+Marketing files moved to `marketing/`; backend handoff additions; screenshot
+cleanup; `.thumbnail`.
+
+## Suggested order
+
+1. **D1 + D2** — small drift PR (profile copy + two radii).
+2. **N1** profiling flow — the feature PR(s): shared shell (quest map, avatar
+   bubble, band resolution from DOB) + intro/stretch/complete + M1 first, then
+   M2-M4; signals per the data contract behind a mock seam.
+3. **N2** daily warm-up (reuses N1 task components).
+4. **D3** — ping Lydia on the OIS question + motor-baseline screen before
+   deleting anything.
