@@ -79,17 +79,9 @@ export type BusyPhase = (typeof BUSY_PHASE)[keyof typeof BUSY_PHASE];
  * Intelligence Framework once the onboarding-signal contract lands.
  */
 export const ONBOARDING_SIGNAL_TYPES = {
-  /** Activity entered / finished — brackets each activity's event stream. */
-  ACTIVITY_START: "onboarding_activity_start",
-  ACTIVITY_COMPLETE: "onboarding_activity_complete",
-  /** Visual Sorting — processing-channel / speed. */
-  SORT_PLACEMENT: "sort_placement",
-  /** Audio Comprehension — audio-channel preference. */
-  AUDIO_RESPONSE: "audio_response",
-  /** Interactive Engagement — attention pattern / light working memory. */
-  PATTERN_TAP: "pattern_tap",
-  /** Working-Memory Pairs — working-memory load. */
-  MEMORY_FLIP: "memory_flip",
+  // The OIS activity events (sort_placement, audio_response, pattern_tap,
+  // memory_flip) retired with the sequence itself — baseline profiling
+  // (SCRUM-104) replaced it as onboarding Phase C.
   /** Baseline profiling (SCRUM-104) — module lifecycle in the session stream. */
   BASELINE_MODULE_START: "baseline_module_start",
   BASELINE_MODULE_COMPLETE: "baseline_module_complete",
