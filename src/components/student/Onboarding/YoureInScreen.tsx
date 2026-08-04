@@ -2,18 +2,24 @@
 
 import { useEffect, useRef } from "react";
 import { IllustrationWrapper, NevoLockup } from "@/components/shared";
+import { BUSY_PHASE, BUSY_REASON, SIGNAL_EVENT_TYPES } from "@/lib/constants";
+import type { TrackEvent } from "@/hooks";
 
 /**
  * "You're In" transition (UI/UX spec) — the final onboarding screen and the
  * hand-off into the app. Passive and celebratory: a welcoming figure, the full
- * Nevo lockup, and a single warm line. No controls; it auto-advances.
+ * Nevo lockup, and a single warm line. No controls; it auto-advances, and the
+ * hold is bracketed as `system_busy` (transition_screen, SCRUM-94 fix 9) so
+ * the stillness never reads as hesitation.
  */
 export function YoureInScreen({
   onDone,
   holdMs = 2400,
+  track,
 }: {
   onDone: () => void;
   holdMs?: number;
+  track?: TrackEvent;
 }) {
   const onDoneRef = useRef(onDone);
   useEffect(() => {
@@ -24,6 +30,20 @@ export function YoureInScreen({
     const t = setTimeout(() => onDoneRef.current(), holdMs);
     return () => clearTimeout(t);
   }, [holdMs]);
+
+  useEffect(() => {
+    track?.(SIGNAL_EVENT_TYPES.SYSTEM_BUSY, {
+      reason: BUSY_REASON.TRANSITION_SCREEN,
+      phase: BUSY_PHASE.START,
+    });
+    return () =>
+      track?.(SIGNAL_EVENT_TYPES.SYSTEM_BUSY, {
+        reason: BUSY_REASON.TRANSITION_SCREEN,
+        phase: BUSY_PHASE.END,
+      });
+    // Mount-scoped bracket; `track` is stable from useSignals.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-nevo-cream px-10 text-nevo-near-black">

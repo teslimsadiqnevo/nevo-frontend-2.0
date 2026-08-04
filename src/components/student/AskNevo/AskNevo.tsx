@@ -9,10 +9,34 @@ import { cn } from "@/lib/utils";
 
 /** How long Nevo "thinks" before a mock reply lands. */
 const THINKING_MS = 1600;
-/** Mic-permission toast lifetime. */
+/** Mic toast lifetime. */
 const TOAST_MS = 3200;
-/** Stand-in transcript until real speech-to-text lands. TODO(api). */
-const MOCK_TRANSCRIPT = "How do I add 1/4 and 2/4?";
+
+/**
+ * Device-native speech recognition (SCRUM-51): v1 delegates entirely to the
+ * OS recogniser via the Web Speech API - no Nevo voice model, no API key, no
+ * audio ever stored. A Nevo-owned model is v2.
+ */
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((e: SpeechResultEventLike) => void) | null;
+  onerror: ((e: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+interface SpeechResultEventLike {
+  resultIndex: number;
+  results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>;
+}
+function speechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
+  const w = window as unknown as {
+    SpeechRecognition?: new () => SpeechRecognitionLike;
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
 
 const PROMPTS = ["Explain this differently", "Give me a hint", "I'm stuck"];
 
@@ -73,12 +97,21 @@ export function AskNevo() {
   const [thinking, setThinking] = useState(false);
   const [input, setInput] = useState("");
   const [recording, setRecording] = useState(false);
-  const [toast, setToast] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const kb = useNevoKeyboardDock();
   const threadRef = useRef<HTMLDivElement | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const recognition = useRef<SpeechRecognitionLike | null>(null);
+  // Text committed before/between utterances; interim results render after it.
+  const transcriptBase = useRef("");
 
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  useEffect(() => {
+    const t = timers.current;
+    return () => {
+      t.forEach(clearTimeout);
+      recognition.current?.stop();
+    };
+  }, []);
 
   const later = (fn: () => void, ms: number) => {
     timers.current.push(setTimeout(fn, ms));
@@ -88,6 +121,7 @@ export function AskNevo() {
     const text = (raw ?? input).trim();
     if (!text || thinking) return; // pressable, not disabled - an empty send just rests
     setInput("");
+    recognition.current?.stop();
     setRecording(false);
     setMessages((m) => [...m, { who: "user", text }]);
     setThinking(true);
@@ -102,20 +136,49 @@ export function AskNevo() {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
   }, [messages, thinking]);
 
-  const toggleMic = async () => {
+  const showToast = (message: string) => {
+    setToast(message);
+    later(() => setToast(null), TOAST_MS);
+  };
+
+  const toggleMic = () => {
     if (recording) {
-      // Stop = transcription complete; the text waits for review before send.
+      // Stop = transcription complete; the text waits for review before send
+      // (never auto-sent - SCRUM-51).
+      recognition.current?.stop();
       setRecording(false);
-      setInput(MOCK_TRANSCRIPT);
       return;
     }
+    const Ctor = speechRecognitionCtor();
+    if (!Ctor) {
+      showToast("Voice input isn't available on this device.");
+      return;
+    }
+    const rec = new Ctor();
+    rec.continuous = true;
+    rec.interimResults = true;
+    transcriptBase.current = input.trim() ? `${input.trim()} ` : "";
+    rec.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) transcriptBase.current += `${r[0].transcript.trim()} `;
+        else interim += r[0].transcript;
+      }
+      setInput((transcriptBase.current + interim).trimStart());
+    };
+    rec.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed")
+        showToast("Microphone access needed. Check your device settings.");
+      setRecording(false);
+    };
+    rec.onend = () => setRecording(false);
+    recognition.current = rec;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((t) => t.stop());
+      rec.start();
       setRecording(true);
     } catch {
-      setToast(true);
-      later(() => setToast(false), TOAST_MS);
+      showToast("Voice input isn't available on this device.");
     }
   };
 
@@ -228,7 +291,7 @@ export function AskNevo() {
               )}
             >
               <input
-                value={recording ? "" : input}
+                value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onFocus={kb.onFocus}
                 onBlur={kb.onBlur}
@@ -271,10 +334,10 @@ export function AskNevo() {
               </button>
             </div>
 
-            {/* Mic permission denied - a calm toast, never an error state. */}
+            {/* Mic denied/unavailable - a calm toast, never an error state. */}
             {toast && (
               <div className="absolute inset-x-4 bottom-[70px] z-10 rounded-[10px] bg-nevo-navy px-3.5 py-3 text-[13px] leading-[1.45] text-nevo-cream shadow-[0_8px_32px_rgba(0,0,0,0.16)] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-200">
-                Microphone access needed. Check your device settings.
+                {toast}
               </div>
             )}
           </div>

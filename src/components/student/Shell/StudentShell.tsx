@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { BottomNav, Sidebar } from "@/components/shared";
 import { AskNevo } from "@/components/student/AskNevo/AskNevo";
 import { TEXT_ZOOM, useAccessibility } from "@/context/AccessibilityContext";
+import { useBehaviouralCapture } from "@/hooks";
 import { NotificationBell } from "./NotificationBell";
 import { OfflineTakeover, useOnline } from "./OfflineTakeover";
 import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
@@ -21,6 +22,9 @@ import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
  */
 export function StudentShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
+  // SCRUM-76: on-device behavioural timing capture for the affective engine -
+  // ephemeral IndexedDB only, purged at session end, never transmitted.
+  useBehaviouralCapture(true);
   const { textSize } = useAccessibility();
   const online = useOnline();
   // Offline takes over network-backed tabs (board 28); Downloads stays
