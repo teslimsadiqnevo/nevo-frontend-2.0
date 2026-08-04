@@ -13,13 +13,12 @@ import { YoureInScreen } from "./YoureInScreen";
 
 /**
  * Onboarding Phase C — one continuous experience: a calm transition, the
- * Baseline Cognitive Profiling flow (SCRUM-104 — it replaced the Observed
- * Interaction Sequence's four activities in the round-3 design drop; the OIS
- * components remain in the repo pending design's final ruling on their
- * "comfort step" role), the Consent Gate, PIN Creation, and the "You're In"
- * hand-off into the app. Manual students arrive from Steps 1–3, SSO students
- * from the callback; only the transition copy and the PIN step differ, driven
- * by the session (`user.method`), never a URL param.
+ * Baseline Cognitive Profiling flow (SCRUM-104 — design retired the Observed
+ * Interaction Sequence's four activities and this flow took their slot), the
+ * Consent Gate, PIN Creation, and the "You're In" hand-off into the app.
+ * Manual students arrive from Steps 1–3, SSO students from the callback; only
+ * the transition copy and the PIN step differ, driven by the session
+ * (`user.method`), never a URL param.
  */
 export function ObservedInteractionSequence() {
   const router = useRouter();
