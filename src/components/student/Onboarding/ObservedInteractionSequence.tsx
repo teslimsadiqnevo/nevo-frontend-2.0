@@ -49,7 +49,7 @@ export function ObservedInteractionSequence() {
   }
 
   if (index === 1) {
-    return <ConsentGate onContinue={advance} />;
+    return <ConsentGate onContinue={advance} track={trackEvent} />;
   }
 
   if (index === 2) {
@@ -63,6 +63,7 @@ export function ObservedInteractionSequence() {
   return (
     <YoureInScreen
       onDone={() => router.push(`/student/lessons/${FIRST_LESSON_ID}`)}
+      track={trackEvent}
     />
   );
 }

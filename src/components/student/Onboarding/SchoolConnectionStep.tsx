@@ -3,6 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button, IllustrationWrapper } from "@/components/shared";
+import { BUSY_PHASE, BUSY_REASON, SIGNAL_EVENT_TYPES } from "@/lib/constants";
+import { useSignals } from "@/hooks";
+import { randomId } from "@/lib/utils";
 import { OnboardingShell } from "./OnboardingShell";
 import { SchoolCodeInput, type CodeStatus } from "./SchoolCodeInput";
 
@@ -15,18 +18,35 @@ const DEMO_VALID_CODE = "7K2M";
 /**
  * Onboarding Step 2 — School Connection (UI/UX spec B.2 Step 2). Identifies the
  * school via code entry. On a full code it validates (brief pending), then either
- * confirms + auto-advances, or shows a warm-toned (non-alarming) error.
+ * confirms + auto-advances, or shows a warm-toned (non-alarming) error. The
+ * validation wait is the system's, bracketed as `system_busy` (SCRUM-94 fix 9)
+ * via a short-lived signal session (no onboarding session exists yet here).
  */
 export function SchoolConnectionStep() {
   const router = useRouter();
   const [code, setCode] = useState(["", "", "", ""]);
   const [status, setStatus] = useState<CodeStatus>("idle");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [signalSession] = useState(() => `onboarding-school-${randomId()}`);
+  const { trackEvent } = useSignals(signalSession);
 
   useEffect(() => {
     const active = timers.current;
     return () => active.forEach(clearTimeout);
   }, []);
+
+  useEffect(() => {
+    if (status !== "pending") return;
+    trackEvent(SIGNAL_EVENT_TYPES.SYSTEM_BUSY, {
+      reason: BUSY_REASON.CONTENT_LOADING,
+      phase: BUSY_PHASE.START,
+    });
+    return () =>
+      trackEvent(SIGNAL_EVENT_TYPES.SYSTEM_BUSY, {
+        reason: BUSY_REASON.CONTENT_LOADING,
+        phase: BUSY_PHASE.END,
+      });
+  }, [status, trackEvent]);
 
   const reset = () => {
     timers.current.forEach(clearTimeout);

@@ -8,6 +8,10 @@ import {
   type ReactNode,
 } from "react";
 import type { UserRole } from "@/lib/constants";
+import {
+  endEphemeralSession,
+  setEphemeralStudent,
+} from "@/lib/signals/ephemeralStore";
 
 /** The authenticated user (Product Arch A.1–A.2). */
 export interface AuthUser {
@@ -45,8 +49,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // TODO(auth): hydrate from the session (authApi.session) once the FastAPI auth
   // contract exists (see proxy.ts). Starts unauthenticated for now.
   const [user, setUser] = useState<AuthUser | null>(null);
-  const signIn = useCallback((next: AuthUser) => setUser(next), []);
-  const signOut = useCallback(() => setUser(null), []);
+  const signIn = useCallback((next: AuthUser) => {
+    setUser(next);
+    // Ephemeral behavioural signals are tagged per student, on-device only.
+    setEphemeralStudent(next.id);
+  }, []);
+  const signOut = useCallback(() => {
+    setUser(null);
+    // NDPA ephemerality (SCRUM-76): sign-out purges the on-device
+    // behavioural-signal store and retires its session id.
+    void endEphemeralSession();
+  }, []);
   const value = useMemo<AuthContextValue>(
     () => ({
       user,

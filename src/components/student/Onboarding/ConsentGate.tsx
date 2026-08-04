@@ -3,21 +3,26 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Button, IllustrationWrapper } from "@/components/shared";
+import { BUSY_PHASE, BUSY_REASON, SIGNAL_EVENT_TYPES } from "@/lib/constants";
+import type { TrackEvent } from "@/hooks";
 
 /**
- * Consent Gate (UI/UX spec) — the first screen after the Observed Interaction
- * Sequence. It opens in a brief pending state ("getting things ready") while
+ * Consent Gate (UI/UX spec) — the first screen after baseline profiling. It
+ * opens in a brief pending state ("getting things ready") while
  * consent/provisioning is confirmed, then reveals a plain-language explanation
  * of what Nevo does with what it learns, and a single Continue on to PIN
- * creation. Calm, one decision, no dense legalese.
+ * creation. Calm, one decision, no dense legalese. The pending spinner is a
+ * design-owned wait, bracketed as `system_busy` (SCRUM-94 fix 9).
  */
 export function ConsentGate({
   onContinue,
   pendingMs = 1400,
+  track,
 }: {
   onContinue: () => void;
   /** How long the pending state holds before revealing the explanation. */
   pendingMs?: number;
+  track?: TrackEvent;
 }) {
   const [pending, setPending] = useState(true);
   useEffect(() => {
@@ -26,6 +31,21 @@ export function ConsentGate({
     const t = setTimeout(() => setPending(false), pendingMs);
     return () => clearTimeout(t);
   }, [pendingMs]);
+
+  useEffect(() => {
+    if (!pending) return;
+    track?.(SIGNAL_EVENT_TYPES.SYSTEM_BUSY, {
+      reason: BUSY_REASON.AUTH_PENDING,
+      phase: BUSY_PHASE.START,
+    });
+    return () =>
+      track?.(SIGNAL_EVENT_TYPES.SYSTEM_BUSY, {
+        reason: BUSY_REASON.AUTH_PENDING,
+        phase: BUSY_PHASE.END,
+      });
+    // Pending-scoped bracket; `track` is stable from useSignals.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending]);
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-nevo-cream text-nevo-near-black">
