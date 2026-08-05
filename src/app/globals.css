@@ -294,14 +294,24 @@
     transform: scale(1.09);
   }
 }
-/* The stretch interstitial's 15s ring. Duration set inline; --nevo-ring-c is
- * the circle circumference. Reduced motion parks the ring partway (no sweep). */
-@keyframes nevo-ring-fill {
+/* The stretch interstitial's 15s water fill: the level rises bottom-to-top
+ * inside the clipped circle while the surface drifts sideways like water.
+ * Durations set inline; reduced motion parks the level partway (no rise,
+ * no drift). */
+@keyframes nevo-water-rise {
   from {
-    stroke-dashoffset: var(--nevo-ring-c);
+    transform: translateY(100%);
   }
   to {
-    stroke-dashoffset: 0;
+    transform: translateY(0%);
+  }
+}
+@keyframes nevo-water-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-56px);
   }
 }
 

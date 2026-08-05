@@ -10,9 +10,10 @@ const STRETCH_MS = 15_000;
 /**
  * Stretch interstitial (BP-INT) - a mandatory 15-second cognitive reset after
  * every profiling module on first run. Breathing figure, "Take a breath", and a
- * soft-violet ring that fills clockwise over 15s before auto-advancing. No skip
- * on first run; reduced motion parks the ring partway with no sweep. The pause
- * is the system's ask, so the flow (not the student) ends it.
+ * circle that slowly fills with "water" bottom-to-top over 15s (drifting wave
+ * surface) before auto-advancing. No skip on first run; reduced motion parks
+ * the level partway with no rise or drift. The pause is the system's ask, so
+ * the flow (not the student) ends it.
  */
 export function StretchInterstitial({
   filled,
@@ -35,7 +36,6 @@ export function StretchInterstitial({
   const size = 56;
   const stroke = 3;
   const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
 
   return (
     <ProfilingShell filled={filled} active={active}>
@@ -56,29 +56,31 @@ export function StretchInterstitial({
           width={size}
           height={size}
           viewBox={`0 0 ${size} ${size}`}
-          className="mt-6 -rotate-90"
+          className="mt-6"
           aria-hidden
         >
+          <defs>
+            <clipPath id="nv-breath-water">
+              <circle cx={size / 2} cy={size / 2} r={r - stroke / 2} />
+            </clipPath>
+          </defs>
           <circle
             cx={size / 2}
             cy={size / 2}
             r={r}
             fill="none"
-            stroke="rgba(154,156,203,0.15)"
+            stroke="rgba(154,156,203,0.3)"
             strokeWidth={stroke}
           />
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            fill="none"
-            stroke="#9a9ccb"
-            strokeWidth={stroke}
-            strokeLinecap="round"
-            strokeDasharray={c}
-            className="motion-safe:[animation:nevo-ring-fill_15s_linear_forwards] motion-reduce:[stroke-dashoffset:calc(var(--nevo-ring-c)*0.45)]"
-            style={{ "--nevo-ring-c": c, strokeDashoffset: c } as React.CSSProperties}
-          />
+          <g clipPath="url(#nv-breath-water)">
+            <g className="[transform:translateY(100%)] motion-safe:[animation:nevo-water-rise_15s_linear_forwards] motion-reduce:[transform:translateY(55%)]">
+              <path
+                d="M0 8 Q14 2 28 8 T56 8 T84 8 T112 8 T140 8 T168 8 V64 H0 Z"
+                fill="rgba(154,156,203,0.55)"
+                className="motion-safe:[animation:nevo-water-drift_3.2s_linear_infinite]"
+              />
+            </g>
+          </g>
         </svg>
       </div>
     </ProfilingShell>
