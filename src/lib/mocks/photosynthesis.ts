@@ -285,8 +285,10 @@ export const PHOTOSYNTHESIS: Lesson = {
 
 export const PHOTOSYNTHESIS_PLAN: AdaptationPlan = {
   lessonId: "photosynthesis",
-  // Enriches the module boundary with recap/preview blocks (SCRUM-101.2).
-  accommodations: { attention: true },
+  // Frame 17 baseline: the default student carries no accommodations - the
+  // attention-segmented flow is the labelled "UDL · attention" variant, driven
+  // per-student once profiling lands (37c). Flip to demo it.
+  accommodations: { attention: false },
   // Scaffold arc (37a): support quietly withdraws as the lesson lands.
   // Affective states (37b) are spread so no segment ever stacks two asks.
   segments: [
