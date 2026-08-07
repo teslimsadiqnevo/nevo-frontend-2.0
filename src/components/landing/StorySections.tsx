@@ -247,7 +247,7 @@ export function LessonSection() {
           >
             <img
               src="/landing/lp-lesson-phone.png"
-              alt="A student's Nevo lesson showing photosynthesis as a leaf diagram, with Simplify, Expand and Slower controls in the top bar"
+              alt="A student's Nevo lesson on photosynthesis, with Simplify, Expand and Slower controls in the top bar"
               style={{ display: "block", width: "100%", height: "auto" }}
             />
           </div>
