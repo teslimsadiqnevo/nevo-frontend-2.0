@@ -155,12 +155,11 @@ export function LessonPlayer({
   const first = lesson.segments[0];
   const firstPlan = planFor(first.id);
 
-  // Active reading density. The plan's density arrives pre-applied and reads as
-  // the chosen option (navy); the violet "system" look is reserved for live
-  // mid-lesson recommendations (Slice 5).
-  const [density, setDensity] = useState<Density | null>(
-    firstPlan?.density ?? null,
-  );
+  // The student's MANUAL density pick (navy chip). Separate from the system's
+  // standing density — the segment plan's, defaulting to Simplify (frame:
+  // `adaptive ?? "Simplify"`) — which renders as the violet chip and supplies
+  // the resting view until the student overrides. Both can show at once.
+  const [density, setDensity] = useState<Density | null>(null);
   const [modality, setModality] = useState<Modality>(
     openingModality(first, firstPlan?.startModality),
   );
@@ -334,7 +333,9 @@ export function LessonPlayer({
     const nextSegment = lesson.segments[next];
     const nextPlan = planFor(nextSegment.id);
     setIndex(next);
-    setDensity(nextPlan?.density ?? null);
+    // Manual picks don't carry across segments; the new segment rests on its
+    // plan's system density (violet), Simplify when the plan is silent.
+    setDensity(null);
     setModality(openingModality(nextSegment, nextPlan?.startModality));
     setSuggestionSpent(false);
     // A plan-applied density on the new segment is a system-driven adaptation.
@@ -426,10 +427,16 @@ export function LessonPlayer({
     }
   };
 
+  // Frame contract: the manual pick is navy; the system's standing density is
+  // violet (glow-once) and KEEPS showing beside a different manual pick. The
+  // sparkle rides the unfollowed system chip (AdaptiveToggleBar).
+  const systemDensity: Density = segPlan?.density ?? DENSITY.SIMPLIFY;
+  const effectiveDensity: Density = density ?? systemDensity;
   const densitySegments: ToggleSegment[] = DENSITIES.map(({ id, label }) => ({
     id,
     label,
-    state: density === id ? "manual" : "default",
+    state:
+      density === id ? "manual" : systemDensity === id ? "system" : "default",
   }));
 
   const acceptSuggestion = useCallback(() => {
@@ -720,7 +727,7 @@ export function LessonPlayer({
             <SegmentBody
               segment={segment}
               modality={modality}
-              density={density}
+              density={effectiveDensity}
               reading={readingOn}
               attention={attentionOn}
               onReplay={() =>
