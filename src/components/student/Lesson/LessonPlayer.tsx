@@ -599,8 +599,14 @@ export function LessonPlayer({
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-nevo-cream text-nevo-near-black">
-      {/* Top bar: exit + title, then the density toggle (present in every modality) */}
-      <header className="flex shrink-0 flex-col gap-2.5 px-4 pt-2.5 pb-3 sm:px-6 lg:px-8">
+      {/* Top bar: exit + title, then the density toggle (present in every modality).
+          Frame: 10/14/12 padding, whole bar carries the secondary affect dim. */}
+      <header
+        className={cn(
+          "flex shrink-0 flex-col gap-2.5 px-3.5 pt-2.5 pb-3",
+          affectDim(anxious, attentionOn),
+        )}
+      >
         <div className="flex items-center gap-2.5">
           <button
             type="button"
@@ -627,23 +633,25 @@ export function LessonPlayer({
             pulse={affect === AFFECTIVE_STATES.BOREDOM}
           />
         </div>
-        <div
-          className={cn("flex items-center justify-between gap-3", affectDim(anxious, attentionOn))}
-        >
-          {/* Two-level position line for modular lessons (SCRUM-101.3);
-              segment-only lessons read exactly as today. */}
-          <span className="min-w-0 truncate font-mono text-[11px] text-nevo-near-black/50">
-            {positionLine(lesson, index)}
-          </span>
+        {/* Frame: the density toggle sits alone on its own right-aligned row. */}
+        <div className="flex justify-end">
           <AdaptiveToggleBar segments={densitySegments} onSelect={pickDensity} />
         </div>
       </header>
+
+      {/* Two-level position line for modular lessons (SCRUM-101.3) - its own
+          full-width row directly above the progress bar (frame: 0 16px 7px). */}
+      <div className={cn("shrink-0 px-4 pb-[7px]", affectDim(anxious, attentionOn))}>
+        <span className="block min-w-0 truncate font-mono text-[11px] tracking-[0.02em] text-nevo-near-black/50">
+          {positionLine(lesson, index)}
+        </span>
+      </div>
 
       {/* Progress line — the bar tracks the whole lesson, continuous across
           module boundaries; the text above carries the module breakdown. */}
       <ProgressBar
         value={(index + 1) / total}
-        className="shrink-0"
+        className={cn("shrink-0", affectDim(anxious, attentionOn))}
         aria-label={positionLine(lesson, index)}
       />
 
