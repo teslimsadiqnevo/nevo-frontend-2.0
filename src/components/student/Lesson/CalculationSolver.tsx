@@ -136,7 +136,9 @@ export function CalculationSolver({
   const hintText = "hint" in current ? current.hint : "";
 
   return (
-    <div>
+    // Frame: the calc column is narrower than the reading column (560/600 vs
+    // the player's 620/680).
+    <div className="mx-auto sm:max-w-[560px] lg:max-w-[600px]">
       {audioAvailable && <NarrationBar onReplay={onReplay} />}
 
       {/* SCAFFOLD — persistent; highlights per step, fills as the answer assembles */}
@@ -161,14 +163,14 @@ export function CalculationSolver({
           />
           {done && (
             <div className="flex items-center gap-3 border-t border-nevo-near-black/10 pt-3 motion-safe:animate-nevo-reveal">
-              <span className="w-[34px] shrink-0 text-sm font-semibold text-nevo-navy">
+              <span className="w-[34px] shrink-0 text-sm font-semibold text-nevo-navy sm:text-[15px]">
                 {sum}/{parts}
               </span>
               <div className="flex flex-1 gap-[5px]">
                 {Array.from({ length: parts }).map((_, i) => (
                   <span
                     key={i}
-                    className="h-7 flex-1 rounded-[5px] bg-nevo-navy origin-left motion-safe:animate-nevo-fill"
+                    className="h-7 flex-1 rounded-[5px] bg-nevo-navy origin-left motion-safe:animate-nevo-fill sm:h-[34px] lg:h-[30px]"
                   />
                 ))}
               </div>
@@ -261,7 +263,10 @@ export function CalculationSolver({
                   aria-pressed={chosen === i}
                   className={cn(
                     "cursor-pointer rounded-[12px] border-2 bg-nevo-cream-elevated px-[18px] py-4 text-center text-base font-medium text-nevo-near-black shadow-elevation-1 transition-[transform,border-color] active:scale-[0.98] sm:text-[18px]",
-                    chosen === i ? "border-nevo-navy" : "border-transparent",
+                    // Frame: selection = 2px border plus a further 2px ring.
+                    chosen === i
+                      ? "border-nevo-navy ring-2 ring-nevo-navy"
+                      : "border-transparent",
                   )}
                 >
                   {choice}
@@ -374,7 +379,7 @@ function BarRow({
     <div className="flex items-center gap-3">
       <span
         className={cn(
-          "w-[34px] shrink-0 text-sm transition-colors",
+          "w-[34px] shrink-0 text-sm transition-colors sm:text-[15px]",
           strong ? "font-semibold text-nevo-navy" : "text-nevo-near-black/60",
         )}
       >
@@ -387,7 +392,8 @@ function BarRow({
             <span
               key={i}
               className={cn(
-                "h-7 flex-1 rounded-[5px] transition-[background-color,outline-color] duration-200",
+                // Frame cell heights per variant: 28 / 34 / 30.
+                "h-7 flex-1 rounded-[5px] transition-[background-color,outline-color] duration-200 sm:h-[34px] lg:h-[30px]",
                 on
                   ? strong
                     ? "bg-nevo-navy"
@@ -487,7 +493,8 @@ function ManipulativeTray({
               <span
                 key={i}
                 className={cn(
-                  "h-[34px] flex-1 rounded-md transition-colors duration-200",
+                  // Frame: barH + 6 per variant (34 / 40 / 36).
+                  "h-[34px] flex-1 rounded-md transition-colors duration-200 sm:h-10 lg:h-9",
                   on
                     ? "bg-nevo-navy"
                     : "border-2 border-dashed border-nevo-navy/30 bg-nevo-near-black/[0.05]",
@@ -551,7 +558,7 @@ function NarrationBar({ onReplay }: { onReplay?: () => void }) {
   const played = pct / 100;
 
   return (
-    <div className="mb-4 flex items-center gap-3 rounded-[12px] bg-nevo-cream-elevated p-2.5 shadow-elevation-1">
+    <div className="mb-4 flex items-center gap-3 rounded-[12px] bg-nevo-cream-elevated px-3 py-2.5 shadow-elevation-1">
       <button
         type="button"
         aria-label={playing ? "Pause narration" : "Play narration"}
@@ -577,7 +584,7 @@ function NarrationBar({ onReplay }: { onReplay?: () => void }) {
           {bars.map((h, i) => (
             <span
               key={i}
-              className="w-[3px] shrink-0 rounded-full bg-nevo-navy transition-opacity duration-150"
+              className="w-[3px] shrink-0 rounded-full bg-nevo-navy transition-opacity duration-[160ms]"
               style={{ height: `${h}px`, opacity: (i + 1) / bars.length <= played ? 0.95 : 0.28 }}
             />
           ))}

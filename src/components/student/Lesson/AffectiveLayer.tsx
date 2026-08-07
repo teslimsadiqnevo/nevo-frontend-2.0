@@ -19,7 +19,7 @@ export function BoredomOfferPill({ onSpent }: { onSpent: () => void }) {
       <button
         type="button"
         onClick={onSpent}
-        className="inline-flex h-11 cursor-pointer items-center rounded-[22px] border-[1.5px] border-nevo-violet/50 bg-nevo-cream-elevated px-[18px] text-[13px] font-medium text-nevo-navy transition-transform active:scale-[0.98]"
+        className="inline-flex h-9 cursor-pointer items-center rounded-[20px] border-[1.5px] border-nevo-violet/50 bg-nevo-cream-elevated px-[18px] text-[13px] font-medium text-nevo-navy transition-transform active:scale-[0.98]"
       >
         Ready for something harder?
       </button>
@@ -42,16 +42,20 @@ export function ConfusionSupport({ prompts }: { prompts: string[] }) {
           type="button"
           aria-expanded={open}
           onClick={() => setOpen(true)}
-          className="inline-flex h-11 cursor-pointer items-center rounded-[22px] bg-nevo-cream-elevated px-[18px] text-[13px] text-nevo-near-black transition-transform active:scale-[0.98]"
+          className="inline-flex h-9 cursor-pointer items-center rounded-[20px] bg-nevo-cream-elevated px-[18px] text-[13px] text-nevo-near-black transition-transform active:scale-[0.98]"
         >
           Which part is unclear?
         </button>
       </div>
       {open && (
-        <div className="fixed inset-x-0 bottom-0 z-30 rounded-t-[16px] bg-[#e5dfd3] px-[22px] pt-2 pb-[22px] shadow-[0_-8px_28px_rgba(43,43,47,0.14)] motion-safe:animate-in motion-safe:slide-in-from-bottom-4 motion-safe:duration-300 motion-safe:ease-nevo-slide">
-          <div className="mx-auto w-full max-w-[560px]">
+        <div className="fixed inset-x-0 bottom-0 z-30 rounded-t-[16px] bg-[#e5dfd3] px-[22px] pt-4 pb-[22px] shadow-[0_-8px_28px_rgba(43,43,47,0.14)] motion-safe:animate-in motion-safe:slide-in-from-bottom-4 motion-safe:duration-300 motion-safe:ease-nevo-slide">
+          {/* Frame: drag handle, then the small violet uppercase label. The 44px
+              dismiss is our audited addition (the panel never blocks, so it
+              needs a visible close) - kept beside the label. */}
+          <div className="mx-auto mb-4 h-1 w-9 rounded-full bg-nevo-near-black/20" />
+          <div className="mx-auto w-full max-w-[620px]">
             <div className="flex items-center justify-between">
-              <span className="text-[15px] font-semibold text-nevo-near-black">
+              <span className="text-[12px] font-semibold tracking-[0.06em] text-nevo-violet uppercase">
                 Let&apos;s think it through
               </span>
               <button
@@ -66,7 +70,7 @@ export function ConfusionSupport({ prompts }: { prompts: string[] }) {
             {/* Guided questions - 40px+ rows. Design specifies them as targets;
                 what a tap leads to is undefined until Ask Nevo integration, so
                 they read as prompts for now. */}
-            <div className="mt-2 flex flex-col gap-2.5">
+            <div className="mt-3 flex flex-col gap-2">
               {prompts.map((prompt) => (
                 <div
                   key={prompt}
@@ -86,10 +90,8 @@ export function ConfusionSupport({ prompts }: { prompts: string[] }) {
 /** Frustration: the unrequested hint - a calm card, never an alarm. */
 export function FrustrationHint({ hint }: { hint: string }) {
   return (
-    <div className="mt-4 rounded-[8px] border-l-[3px] border-nevo-violet bg-[#e5dfd3] p-4">
-      <p className="text-[14px] leading-[1.55] text-nevo-near-black sm:text-[15px]">
-        {hint}
-      </p>
+    <div className="mt-4 rounded-[8px] border-l-[3px] border-nevo-violet bg-[#e5dfd3] px-4 py-3.5">
+      <p className="text-sm leading-[1.5] text-nevo-near-black">{hint}</p>
     </div>
   );
 }
