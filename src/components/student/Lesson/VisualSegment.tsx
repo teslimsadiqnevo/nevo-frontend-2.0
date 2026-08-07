@@ -64,7 +64,7 @@ export function VisualSegment({ content }: { content: VisualContent }) {
               tone="in"
             />
             <ArrowRight
-              className="size-6 shrink-0 text-nevo-violet"
+              className="size-[26px] shrink-0 text-nevo-violet"
               strokeWidth={2}
             />
             <DiagramColumn

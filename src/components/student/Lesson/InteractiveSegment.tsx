@@ -70,7 +70,7 @@ export function InteractiveSegment({ content }: { content: InteractiveContent })
                 <span className="font-mono text-[10px] tracking-[0.06em] text-nevo-near-black/50 uppercase">
                   Step {i + 1}
                 </span>
-                <span className="text-base leading-[1.5] text-nevo-near-black sm:text-[18px]">
+                <span className="text-base leading-[1.5] text-nevo-near-black sm:text-[18px] lg:text-[19px]">
                   {step}
                 </span>
               </span>
@@ -92,7 +92,7 @@ export function InteractiveSegment({ content }: { content: InteractiveContent })
           )}
           <p
             className={cn(
-              "text-base leading-[1.65] sm:text-[18px]",
+              "text-base leading-[1.65] sm:text-[18px] lg:text-[19px]",
               allDone ? "text-nevo-near-black" : "text-nevo-near-black/70",
             )}
           >

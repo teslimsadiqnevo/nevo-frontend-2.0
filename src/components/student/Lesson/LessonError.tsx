@@ -22,10 +22,10 @@ export function LessonError({
         <RotateCcw className="size-9 text-nevo-navy" strokeWidth={2} />
       </span>
 
-      <h2 className="mt-6 text-[22px] font-semibold tracking-[-0.01em] sm:text-[26px]">
+      <h2 className="mt-6 text-[22px] font-semibold tracking-[-0.01em] sm:text-[26px] lg:text-[28px]">
         Something went wrong. We&apos;re on it.
       </h2>
-      <p className="mt-3 max-w-[320px] text-base leading-[1.6] text-nevo-near-black/72 sm:text-[18px]">
+      <p className="mt-3 max-w-[320px] text-base leading-[1.6] text-nevo-near-black/72 sm:text-[18px] lg:text-[19px]">
         This one didn&apos;t load. Nothing you did caused it, and your progress
         is saved.
       </p>

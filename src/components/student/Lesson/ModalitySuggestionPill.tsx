@@ -74,7 +74,7 @@ export function ModalitySuggestionPill({
     "flex h-11 flex-1 cursor-pointer items-center justify-center rounded-[10px] px-3.5 text-sm font-medium whitespace-nowrap transition-[filter,opacity] duration-200 active:scale-[0.98]";
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-4">
+    <div className="pointer-events-none absolute inset-x-0 -top-1 z-10 flex justify-center px-4 sm:top-0.5">
       <div
         role="status"
         className={cn(

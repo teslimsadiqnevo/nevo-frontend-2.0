@@ -695,7 +695,7 @@ export function LessonPlayer({
       <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
         <div
           className={cn(
-            "mx-auto w-full max-w-full px-6 py-8 sm:max-w-[620px] sm:px-8 lg:max-w-[680px] lg:px-10",
+            "mx-auto w-full max-w-full p-6 sm:max-w-[620px] sm:p-8 lg:max-w-[680px] lg:p-10",
             affect === AFFECTIVE_STATES.BOREDOM &&
               "rounded-[12px] border-2 border-nevo-violet/45",
           )}
@@ -788,7 +788,7 @@ export function LessonPlayer({
           control with three quiet glow cycles (never displaces it). */}
       <nav
         className={cn(
-          "flex shrink-0 items-center justify-center gap-8 px-4 pt-2 pb-6",
+          "flex shrink-0 items-center justify-center gap-8 px-3.5 pt-2 pb-6",
           affectDim(anxious, attentionOn),
         )}
       >
