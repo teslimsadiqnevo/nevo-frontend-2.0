@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, type CSSProperties, type FormEvent } from "react";
-import { leadsApi } from "@/lib/api";
+import { INQUIRY_ROLES, partnerInquiriesApi, type InquiryRoleLabel } from "@/lib/api";
 
 /**
  * The single conversion path (SCRUM-43): every CTA on the page scrolls here.
- * Submitting generates a lead for founder-led follow-up via the SCRUM-82 seam
- * (`leadsApi.submit`) - it never creates an account. Until the backend lands,
- * a failed POST still completes the flow so the conversation is never lost on
- * a technicality; the founder-facing success copy is the contract.
+ * Submitting posts a partner inquiry to the live backend (SCRUM-82,
+ * `POST /api/v1/partner-inquiries`) - it never creates an account. The flow
+ * completes optimistically: the POST is fired and the success state shows
+ * immediately (the backend's cold start can take tens of seconds, and a failed
+ * POST must never lose the conversation on a technicality - the founder-facing
+ * success copy is the contract).
  */
 
 const fieldLabel: CSSProperties = {
@@ -34,14 +36,7 @@ const fieldBase: CSSProperties = {
   transition: "border-color 150ms ease, background 150ms ease",
 };
 
-const ROLES = [
-  "School Owner",
-  "Proprietor",
-  "SENCo",
-  "Head of Learning",
-  "Head Teacher",
-  "Other",
-];
+const ROLES = Object.keys(INQUIRY_ROLES) as InquiryRoleLabel[];
 
 /** Decorative dotted connection paths flanking the form card. */
 function ConnectionPaths({ flipped }: { flipped?: boolean }) {
@@ -89,16 +84,17 @@ export function ConversationSection() {
     e.preventDefault();
     if (phase !== "form") return;
     const data = new FormData(e.currentTarget);
-    const lead = {
-      name: String(data.get("name") ?? ""),
-      school: String(data.get("school") ?? ""),
-      role: String(data.get("role") ?? ""),
+    const roleLabel = String(data.get("role") ?? "") as InquiryRoleLabel;
+    const inquiry = {
+      full_name: String(data.get("name") ?? ""),
+      school_name: String(data.get("school") ?? ""),
+      role: INQUIRY_ROLES[roleLabel] ?? "other",
       contact: String(data.get("contact") ?? ""),
       message: String(data.get("message") ?? "") || undefined,
     };
-    // Mock seam (SCRUM-82): fire the lead; the flow completes either way
-    // until the backend exists.
-    void leadsApi.submit(lead).catch(() => {});
+    // Fire-and-forget: the POST lands even through a backend cold start while
+    // the founder-facing flow completes immediately.
+    void partnerInquiriesApi.submit(inquiry).catch(() => {});
     setPhase("fading");
     setTimeout(() => setPhase("success"), 300);
   };
