@@ -360,7 +360,7 @@ export function JoinSection() {
               color: "#9a9ccb",
             }}
           >
-            <span>Founding Partner Cohort</span>
+            <span>Founding Partner</span>
             <span
               style={{
                 flex: "0 0 auto",
