@@ -30,6 +30,7 @@ const CSS = `
 .nv-landing select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
 .nv-dark:hover { color: #2b2b2f !important; }
 .nv-raise:hover { filter: brightness(1.12) !important; transform: translateY(-1px) !important; }
+.nv-demo:hover { background: rgba(59,63,110,0.08) !important; }
 .nv-bright:hover { filter: brightness(1.12) !important; }
 .nv-field:focus { border-color: #3b3f6e !important; background: #f7f1e6 !important; }
 @media (prefers-reduced-motion: reduce) {
@@ -77,7 +78,9 @@ function Logo({ scale = 1 }: { scale?: number }) {
       <img
         src="/brand/nevo-wordmark.png"
         alt=""
-        style={{ display: "block", height: 14 * scale, width: "auto" }}
+        // Reference update (10 Aug): wordmark crop shrank 50x16 -> 45x15; our
+        // substitute keeps its -1px optical calibration against the crop box.
+        style={{ display: "block", height: 13 * scale, width: "auto" }}
       />
     </span>
   );
@@ -406,13 +409,17 @@ export function LandingPage() {
                 {l.label}
               </a>
             ))}
+            {/* Reference update (10 Aug): the nav CTA is now an outlined
+                "Watch demo" that scrolls to the adapt scrub - the form CTAs
+                live in the sections themselves. */}
             <button
-              data-scroll="nv-form-sec"
-              className="nv-raise"
+              data-scroll="nv-adapt-track"
+              className="nv-demo"
               style={{
-                border: "none",
-                background: "#3b3f6e",
-                color: "#f7f1e6",
+                boxSizing: "border-box",
+                border: "1px solid #3b3f6e",
+                background: "transparent",
+                color: "#3b3f6e",
                 fontFamily: "inherit",
                 fontSize: 13,
                 fontWeight: 600,
@@ -420,11 +427,10 @@ export function LandingPage() {
                 height: 34,
                 padding: "0 16px",
                 borderRadius: 6,
-                boxShadow: "0 4px 14px rgba(59,63,110,0.22)",
-                transition: "filter 150ms ease, transform 150ms ease",
+                transition: "background 150ms ease",
               }}
             >
-              Start the conversation
+              Watch demo
             </button>
           </div>
         </div>

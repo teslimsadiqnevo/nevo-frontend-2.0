@@ -202,17 +202,38 @@ export function useLandingMotion() {
     const spineTargets = spineItems
       .map((it) => root.getElementById(it.getAttribute("data-target") || ""))
       .filter(Boolean) as HTMLElement[];
-    if ("IntersectionObserver" in window && spineTargets.length) {
-      const io = new IntersectionObserver(
-        (es) => {
-          es.forEach((e) => {
-            if (e.isIntersecting) setSpine(e.target.id);
-          });
-        },
-        { rootMargin: "-45% 0px -45% 0px", threshold: 0 },
-      );
-      spineTargets.forEach((s) => io.observe(s));
-      observers.push(io);
+    // Reference update (10 Aug): the spine tracks the section nearest the
+    // viewport centre via a rAF'd scroll handler - the old IO band lost the
+    // active state between tall sections.
+    if (spineTargets.length) {
+      let spineRaf = 0;
+      const updateSpine = () => {
+        spineRaf = 0;
+        const c = window.innerHeight * 0.5;
+        let bestId: string | null = null;
+        let bestDist = Infinity;
+        spineTargets.forEach((s) => {
+          const r = s.getBoundingClientRect();
+          if (r.top <= c && r.bottom >= c) {
+            bestId = s.id;
+            bestDist = -1;
+          } else if (bestDist !== -1) {
+            const d = Math.min(Math.abs(r.top - c), Math.abs(r.bottom - c));
+            if (d < bestDist) {
+              bestDist = d;
+              bestId = s.id;
+            }
+          }
+        });
+        if (bestId) setSpine(bestId);
+      };
+      const queueSpine = () => {
+        if (!spineRaf) spineRaf = requestAnimationFrame(updateSpine);
+      };
+      listen(window, "scroll", queueSpine, { passive: true });
+      listen(window, "resize", queueSpine);
+      cleanups.push(() => cancelAnimationFrame(spineRaf));
+      updateSpine();
     }
 
     // ---- Progress + nav + hero parallax ----
