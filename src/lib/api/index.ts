@@ -9,4 +9,10 @@ export { askNevoApi } from "./askNevo";
 export { notificationsApi } from "./notifications";
 export { analyticsApi } from "./analytics";
 export { baselineApi } from "./baseline";
-export { leadsApi, type LeadSubmission } from "./leads";
+export {
+  partnerInquiriesApi,
+  INQUIRY_ROLES,
+  type PartnerInquiry,
+  type PartnerInquiryReceipt,
+  type InquiryRoleLabel,
+} from "./partner-inquiries";

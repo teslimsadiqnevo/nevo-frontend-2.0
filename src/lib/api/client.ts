@@ -54,10 +54,16 @@ export interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
   /** Query-string params. */
   params?: Record<string, QueryValue>;
+  /** Override the environment base URL (e.g. a public endpoint on a different host). */
+  baseUrl?: string;
 }
 
-function buildUrl(path: string, params?: Record<string, QueryValue>): string {
-  const url = new URL(`${BASE_URL}${path.startsWith("/") ? path : `/${path}`}`);
+function buildUrl(
+  path: string,
+  params?: Record<string, QueryValue>,
+  baseUrl: string = BASE_URL,
+): string {
+  const url = new URL(`${baseUrl}${path.startsWith("/") ? path : `/${path}`}`);
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== null) {
@@ -72,13 +78,15 @@ export async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { body, params, headers, ...rest } = options;
-  const url = buildUrl(path, params);
+  const { body, params, headers, baseUrl, ...rest } = options;
+  const url = buildUrl(path, params, baseUrl);
   const token = await getAuthToken();
 
   const init: RequestInit = {
     ...rest,
-    credentials: "include",
+    // Cookie auth by default; overridable for public cross-origin endpoints
+    // (credentialed requests break under a wildcard CORS policy).
+    credentials: rest.credentials ?? "include",
     headers: {
       Accept: "application/json",
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
