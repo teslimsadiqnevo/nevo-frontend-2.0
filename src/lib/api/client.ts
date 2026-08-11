@@ -11,8 +11,17 @@
  * Gemini is NEVER called from here — all AI goes through the backend gateway.
  */
 
+import { getToken } from "@/lib/auth/session";
+
+// Default: the same-origin catch-all proxy (`app/api/backend/[...path]`),
+// which forwards to the FastAPI backend - the backend has no CORS headers, so
+// browsers cannot call it directly. Set `NEXT_PUBLIC_API_DIRECT=1` alongside
+// `NEXT_PUBLIC_API_URL` to bypass the proxy once CORS lands.
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_DIRECT === "1"
+    ? (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
+      "https://nevo-backend-2-0.onrender.com")
+    : "/api/backend";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -40,11 +49,10 @@ function friendlyMessage(status: number): string {
   return "Something went wrong. Please try again.";
 }
 
-// TODO(auth): source the token from the real session mechanism (httpOnly cookie
-// / JWT) once the FastAPI auth contract is defined — see proxy.ts. Cookie-based
-// auth already works via `credentials: "include"` below.
+// The backend issues Bearer access tokens on login (no cookies); the token
+// lives in the client session store and rides every request from here.
 async function getAuthToken(): Promise<string | undefined> {
-  return undefined;
+  return getToken();
 }
 
 type QueryValue = string | number | boolean | null | undefined;
@@ -63,7 +71,15 @@ function buildUrl(
   params?: Record<string, QueryValue>,
   baseUrl: string = BASE_URL,
 ): string {
-  const url = new URL(`${baseUrl}${path.startsWith("/") ? path : `/${path}`}`);
+  const joined = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  // A relative base (the same-origin proxy) resolves against the current
+  // origin in the browser; seams only run client-side, localhost is the
+  // SSR-safety fallback.
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "http://localhost:3000";
+  const url = new URL(joined, origin);
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== null) {
