@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, useSignals } from "@/hooks";
+import { rememberOnboardedStudent } from "@/lib/auth/onboarding";
 import { FIRST_LESSON_ID } from "@/lib/mocks";
 import { randomId } from "@/lib/utils";
 import { ProfilingFlow } from "@/components/student/Profiling/ProfilingFlow";
@@ -53,7 +54,18 @@ export function ObservedInteractionSequence() {
   }
 
   if (index === 2) {
-    return <PinCreationScreen sso={isSso} onComplete={advance} />;
+    return (
+      <PinCreationScreen
+        sso={isSso}
+        onComplete={() => {
+          // The device now belongs to this student: fold the onboarding draft
+          // into the remembered profile the PIN login unlocks against. SSO
+          // students re-enter through their provider, not a PIN.
+          if (!isSso) rememberOnboardedStudent();
+          advance();
+        }}
+      />
+    );
   }
 
   // "You're In" — the hand-off out of onboarding straight into the first lesson

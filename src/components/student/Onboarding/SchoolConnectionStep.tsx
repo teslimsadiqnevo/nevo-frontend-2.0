@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button, IllustrationWrapper } from "@/components/shared";
 import { BUSY_PHASE, BUSY_REASON, SIGNAL_EVENT_TYPES } from "@/lib/constants";
 import { useSignals } from "@/hooks";
+import { mergeOnboardingDraft } from "@/lib/auth/onboarding";
 import { randomId } from "@/lib/utils";
 import { OnboardingShell } from "./OnboardingShell";
 import { SchoolCodeInput, type CodeStatus } from "./SchoolCodeInput";
@@ -65,6 +66,10 @@ export function SchoolConnectionStep() {
       setTimeout(() => {
         if (entered === DEMO_VALID_CODE) {
           setStatus("success");
+          // Remember which school this device joined (folded into the
+          // remembered profile at PIN creation - the live login needs it).
+          // Canonical form: the UI's fixed prefix + the four typed characters.
+          mergeOnboardingDraft({ schoolCode: `NEVO-${entered}` });
           timers.current.push(setTimeout(() => router.push(NEXT_STEP), 900));
         } else {
           setStatus("error");
