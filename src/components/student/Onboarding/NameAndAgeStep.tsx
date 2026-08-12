@@ -9,6 +9,7 @@ import {
   NevoKeyboard,
   useNevoKeyboardDock,
 } from "@/components/shared";
+import { mergeOnboardingDraft } from "@/lib/auth/onboarding";
 import { OnboardingShell } from "./OnboardingShell";
 import { AgeStepper, isAgeInRange } from "./AgeStepper";
 
@@ -30,8 +31,10 @@ export function NameAndAgeStep() {
   const valid = name.trim().length > 0 && isAgeInRange(ageText);
 
   const submit = () => {
-    // TODO: persist name/age to onboarding state before advancing.
-    if (valid) router.push(NEXT_STEP);
+    if (!valid) return;
+    // The draft folds into the device's remembered profile at PIN creation.
+    mergeOnboardingDraft({ name: name.trim(), age: Number(ageText) });
+    router.push(NEXT_STEP);
   };
 
   return (
