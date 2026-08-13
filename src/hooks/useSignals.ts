@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { signalsApi, type SignalEvent } from "@/lib/api";
+import { ApiError, signalsApi, type SignalEvent } from "@/lib/api";
 import {
   SIGNAL_BATCH,
   SIGNAL_EVENT_TYPES,
@@ -29,26 +29,51 @@ export type TrackEvent = (
  * 20 events, and on unmount (lesson exit/completion). On network failure the
  * batch is re-queued rather than lost (offline resilience).
  *
- *   const { trackEvent } = useSignals(sessionId);
+ *   const { trackEvent } = useSignals(sessionId, lessonId);
  *   trackEvent("time_on_segment", { segmentId, duration });
+ *
+ * `lessonId` scopes the ingest envelope; non-lesson streams (onboarding,
+ * profiling) omit it and the sessionId doubles as the flow tag.
+ * TODO(api): flagged to backend - a non-lesson session shape for the ingest
+ * contract, which today models lesson sessions only.
  */
-export function useSignals(sessionId: string) {
+export function useSignals(sessionId: string, lessonId?: string) {
   const queue = useRef<SignalEvent[]>([]);
   const sessionRef = useRef(sessionId);
+  const lessonRef = useRef(lessonId);
+  // The envelope's startedAt: when this session began capturing (reset per id).
+  const startedAtRef = useRef<string>(new Date().toISOString());
 
-  // Keep the latest sessionId in a ref without mutating it during render.
+  // Keep the latest ids in refs without mutating them during render.
   useEffect(() => {
+    if (sessionRef.current !== sessionId) {
+      startedAtRef.current = new Date().toISOString();
+    }
     sessionRef.current = sessionId;
-  }, [sessionId]);
+    lessonRef.current = lessonId;
+  }, [sessionId, lessonId]);
 
   const flush = useCallback(() => {
     if (queue.current.length === 0) return;
     const batch = queue.current;
     queue.current = [];
-    signalsApi.submitBatch(sessionRef.current, batch).catch(() => {
-      // Re-queue on failure so events are never lost silently.
-      queue.current = [...batch, ...queue.current];
-    });
+    signalsApi
+      .submitBatch(
+        {
+          sessionId: sessionRef.current,
+          lessonId: lessonRef.current ?? sessionRef.current,
+          startedAt: startedAtRef.current,
+        },
+        batch,
+      )
+      .catch((cause) => {
+        // Re-queue only what can heal: network failures and server errors.
+        // A 4xx (no session yet, contract rejection) would fail identically
+        // every 5s forever - drop those batches instead of hammering.
+        const status = cause instanceof ApiError ? cause.status : 0;
+        if (status >= 400 && status < 500) return;
+        queue.current = [...batch, ...queue.current];
+      });
   }, []);
 
   // Every session opens with its interpretation context (G6): the form factor

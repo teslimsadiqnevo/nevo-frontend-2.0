@@ -13,6 +13,9 @@ export const SIGNAL_EVENT_TYPES = {
   REPLAY: "replay",
   SCROLL: "scroll",
   SIMPLIFY_TRIGGER: "simplify_trigger",
+  /** Density triggers are distinct event types in the backend contract. */
+  EXPAND_TRIGGER: "expand_trigger",
+  SLOWER_TRIGGER: "slower_trigger",
   COMPREHENSION_RESPONSE: "comprehension_response",
   EXIT_ATTEMPT: "exit_attempt",
   /** Module boundary screen shown (SCRUM-101) — payload { moduleId }. */
