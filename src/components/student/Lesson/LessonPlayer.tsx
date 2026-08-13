@@ -18,6 +18,7 @@ import {
   type BusyReason,
   type Density,
   type Modality,
+  type SignalEventType,
 } from "@/lib/constants";
 import { useBreakMonitor, useLesson, useSignals } from "@/hooks";
 import type { AdaptationPlan, Lesson, LessonSegment } from "@/lib/types";
@@ -62,6 +63,13 @@ const DENSITIES: { id: Density; label: string }[] = [
   { id: DENSITY.EXPAND, label: "Expand" },
   { id: DENSITY.SLOWER, label: "Slower" },
 ];
+
+// Each density is its own event type in the backend ingest contract.
+const DENSITY_TRIGGER: Record<Density, SignalEventType> = {
+  [DENSITY.SIMPLIFY]: SIGNAL_EVENT_TYPES.SIMPLIFY_TRIGGER,
+  [DENSITY.EXPAND]: SIGNAL_EVENT_TYPES.EXPAND_TRIGGER,
+  [DENSITY.SLOWER]: SIGNAL_EVENT_TYPES.SLOWER_TRIGGER,
+};
 
 /** Scroll-depth marks (%) that each emit one `scroll` signal per segment. */
 const SCROLL_MILESTONES = [25, 50, 75, 100];
@@ -137,7 +145,7 @@ export function LessonPlayer({
   const [sessionId] = useState(
     () => `${review ? "review" : "lesson"}-${lesson.id}-${randomId()}`,
   );
-  const { trackEvent } = useSignals(sessionId);
+  const { trackEvent } = useSignals(sessionId, lesson.id);
   const { setActiveLesson } = useLesson();
 
   // Assessment picks, captured for the Review Answers screen (a separate route).
@@ -340,9 +348,8 @@ export function LessonPlayer({
     setSuggestionSpent(false);
     // A plan-applied density on the new segment is a system-driven adaptation.
     if (nextPlan?.density) {
-      trackEvent(SIGNAL_EVENT_TYPES.SIMPLIFY_TRIGGER, {
+      trackEvent(DENSITY_TRIGGER[nextPlan.density], {
         segmentId: nextSegment.id,
-        density: nextPlan.density,
         source: TRIGGER_SOURCE.SYSTEM,
       });
     }
@@ -419,9 +426,8 @@ export function LessonPlayer({
     setDensity(next);
     // A tap that sets (not clears) a density is a manual adaptation.
     if (next) {
-      trackEvent(SIGNAL_EVENT_TYPES.SIMPLIFY_TRIGGER, {
+      trackEvent(DENSITY_TRIGGER[next], {
         segmentId: segment.id,
-        density: next,
         source: TRIGGER_SOURCE.MANUAL,
       });
     }
