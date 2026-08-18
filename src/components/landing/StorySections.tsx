@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element */
+import Image from "next/image";
 import type { CSSProperties } from "react";
 
 /**
@@ -16,15 +16,14 @@ const wordMask: CSSProperties = {
   margin: "-0.04em -0.14em -0.26em",
 };
 
-/** One masked hero word; `useLandingMotion` slides it up at `delay` ms. */
+/** One masked hero word; `useLandingMotion` slides it up at `delay` ms.
+ *  SSR paints it VISIBLE (the headline is the page's LCP element - hiding it
+ *  in markup deferred LCP behind hydration); the hook applies the masked
+ *  start position and animates, matching the data-reveal pattern. */
 function Word({ text, delay }: { text: string; delay: number }) {
   return (
     <span style={wordMask}>
-      <span
-        data-word
-        data-delay={delay}
-        style={{ display: "inline-block", transform: "translateY(115%)" }}
-      >
+      <span data-word data-delay={delay} style={{ display: "inline-block" }}>
         {text}
       </span>
     </span>
@@ -245,9 +244,12 @@ export function LessonSection() {
               background: "#f7f1e6",
             }}
           >
-            <img
+            <Image
               src="/landing/lp-lesson-phone.png"
               alt="A student's Nevo lesson on photosynthesis, with Simplify, Expand and Slower controls in the top bar"
+              width={1500}
+              height={1948}
+              sizes="(max-width: 640px) 100vw, 400px"
               style={{ display: "block", width: "100%", height: "auto" }}
             />
           </div>
