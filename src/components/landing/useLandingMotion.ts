@@ -103,6 +103,11 @@ export function useLandingMotion() {
         el.style.transform = "none";
       });
     } else {
+      // Words SSR visible (LCP); mask them here, reflow, then slide up.
+      words.forEach((el) => {
+        el.style.transform = "translateY(115%)";
+      });
+      void root.body?.offsetHeight;
       words.forEach((el) =>
         later(() => {
           el.style.transition = `transform 720ms ${EASE}`;

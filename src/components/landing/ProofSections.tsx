@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import Image from "next/image";
 import type { CSSProperties } from "react";
 
 /**
@@ -59,9 +60,14 @@ function BrowserFrame({ src, alt }: { src: string; alt: string }) {
           />
         ))}
       </div>
-      <img
+      {/* next/image: the source shots are 2880x1800 - responsive srcset +
+          modern formats + lazy (both sit below the fold). */}
+      <Image
         src={src}
         alt={alt}
+        width={2880}
+        height={1800}
+        sizes="(max-width: 1080px) 100vw, 640px"
         style={{ display: "block", width: "100%", height: "auto" }}
       />
     </div>
