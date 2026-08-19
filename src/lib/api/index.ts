@@ -6,6 +6,7 @@ export { intelligenceApi } from "./intelligence";
 export { contentApi } from "./content";
 export { exportApi } from "./export";
 export { askNevoApi } from "./askNevo";
+export { consentsApi, type ConsentGateStatus } from "./consents";
 export { notificationsApi } from "./notifications";
 export { analyticsApi } from "./analytics";
 export { baselineApi } from "./baseline";
