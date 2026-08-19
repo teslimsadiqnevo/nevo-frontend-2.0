@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Button, IllustrationWrapper } from "@/components/shared";
+import { consentsApi } from "@/lib/api";
 import { BUSY_PHASE, BUSY_REASON, SIGNAL_EVENT_TYPES } from "@/lib/constants";
 import type { TrackEvent } from "@/hooks";
 
@@ -26,10 +27,29 @@ export function ConsentGate({
 }) {
   const [pending, setPending] = useState(true);
   useEffect(() => {
-    // TODO(api): replace the simulated wait with the real consent/provisioning
-    // check once the FastAPI contract lands.
-    const t = setTimeout(() => setPending(false), pendingMs);
-    return () => clearTimeout(t);
+    // The pending state is the live consent/provisioning check
+    // (GET /students/me/consent-gate), held at least the design-owned beat.
+    // The gate never blocks: the school warrants consent via the DSA before a
+    // student is invited, and frame 14 has no blocked state - so a failed
+    // check (no session yet, offline) or an explicit not-granted both reveal.
+    // An unconfirmed gate is dev-logged; a designed holding state is flagged
+    // to design if the product ever wants one.
+    let cancelled = false;
+    const beat = new Promise<void>((r) => setTimeout(r, pendingMs));
+    const check = consentsApi
+      .myConsentGate()
+      .then((gate) => {
+        if (!gate.granted && process.env.NODE_ENV === "development") {
+          console.debug("[consent-gate] backend reports not granted:", gate);
+        }
+      })
+      .catch(() => {});
+    void Promise.all([beat, check]).then(() => {
+      if (!cancelled) setPending(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [pendingMs]);
 
   useEffect(() => {
