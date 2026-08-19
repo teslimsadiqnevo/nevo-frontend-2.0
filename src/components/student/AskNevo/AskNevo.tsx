@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useContext, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Mic, MessageCircle, Send } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { NevoKeyboard, useNevoKeyboardDock } from "@/components/shared";
-import { cn } from "@/lib/utils";
+import { askNevoApi } from "@/lib/api";
+import { LessonContext } from "@/context/LessonContext";
+import { useAuth } from "@/hooks";
+import { cn, randomId } from "@/lib/utils";
 
-/** How long Nevo "thinks" before a mock reply lands. */
+/** The minimum "Nevo is thinking" beat - real answers never land jarringly
+ *  fast, and the mock fallback keeps its original calm pacing. */
 const THINKING_MS = 1600;
 /** Mic toast lifetime. */
 const TOAST_MS = 3200;
@@ -45,12 +49,16 @@ interface Message {
   text: string;
   /** The hands-to-teacher reply carries its action (frame's cannot-help state). */
   teacherAction?: boolean;
+  /** Backend interaction id - carried for the helpfulness vote once the
+   *  frame set gains that control (endpoint is live, UI is flagged to design). */
+  interactionId?: string;
 }
 
 /**
- * Mock reply engine - calm, canned, and honest about its limits. The real
- * assistant is backend-owned (TODO(api): assistant contract); the rule that
- * matters now is the cannot-help boundary: anything for the teacher is handed
+ * Mock reply engine - calm, canned, and honest about its limits. Now the
+ * FALLBACK: the live assistant answers first (`askNevoApi.ask`); without a
+ * session (or on any failure) the drawer answers from here so it never goes
+ * silent. The cannot-help boundary stays: anything for the teacher is handed
  * to the teacher, never absorbed.
  */
 function replyFor(text: string): Message {
@@ -92,6 +100,15 @@ function replyFor(text: string): Message {
  */
 export function AskNevo() {
   const router = useRouter();
+  const pathname = usePathname();
+  const { user } = useAuth();
+  // Tolerant read: the drawer lives in the tab shell, OUTSIDE the lesson
+  // route's LessonProvider - the strict useLesson() would throw there. When a
+  // provider is present (future in-player drawer), the active lesson scopes
+  // the question.
+  const lessonId = useContext(LessonContext)?.lessonId ?? null;
+  // One conversation thread per mount - continuity for the backend assistant.
+  const threadId = useRef(`thread-${randomId()}`);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [thinking, setThinking] = useState(false);
@@ -105,9 +122,13 @@ export function AskNevo() {
   // Text committed before/between utterances; interim results render after it.
   const transcriptBase = useRef("");
 
+  const alive = useRef(true);
+
   useEffect(() => {
     const t = timers.current;
+    alive.current = true;
     return () => {
+      alive.current = false;
       t.forEach(clearTimeout);
       recognition.current?.stop();
     };
@@ -125,10 +146,33 @@ export function AskNevo() {
     setRecording(false);
     setMessages((m) => [...m, { who: "user", text }]);
     setThinking(true);
-    later(() => {
-      setMessages((m) => [...m, replyFor(text)]);
+
+    // Live assistant first; the mock engine answers when the backend can't
+    // (no session yet, offline). The answer lands no earlier than the
+    // thinking beat, so a fast response never arrives jarringly.
+    const beat = new Promise<void>((resolve) => later(resolve, THINKING_MS));
+    const answer = askNevoApi
+      .ask({
+        role: "student",
+        currentPage: pathname,
+        contextIds: {
+          ...(user ? { studentId: user.id } : {}),
+          ...(lessonId ? { lessonId } : {}),
+          threadId: threadId.current,
+        },
+        question: text,
+      })
+      .catch(() => null);
+    void Promise.all([answer, beat]).then(([res]) => {
+      if (!alive.current) return;
+      setMessages((m) => [
+        ...m,
+        res
+          ? { who: "nevo", text: res.answer, interactionId: res.interaction_id }
+          : replyFor(text),
+      ]);
       setThinking(false);
-    }, THINKING_MS);
+    });
   };
 
   // Scroll the newest message into view.
