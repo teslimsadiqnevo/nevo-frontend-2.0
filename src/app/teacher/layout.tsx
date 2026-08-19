@@ -1,10 +1,14 @@
+import { TeacherSidebar } from "@/components/teacher/Shell/TeacherSidebar";
+
 /**
- * Teacher Console context layout (Product Arch A.1 — responsive across desktop
+ * Teacher Console context layout (Product Arch A.1 - responsive across desktop
  * and tablet, every screen fully functional on both).
  *
- * Will host, along the way:
- * - Layout-level auth check backing up proxy.ts (teacher role — FE Arch §2)
- * - Sidebar navigation (C.4) — collapses to bottom nav on tablet (FE Arch §7)
+ * The nav rail is the same at every size (`Nevo Teacher Sidebar`): desktop
+ * opens expanded, tablet collapsed - never a bottom nav (the C-screen docs'
+ * tablet variants render the collapsed rail).
+ *
+ * TODO(auth): layout-level teacher-role check once accounts exist (FE Arch §2).
  */
 export default function TeacherLayout({
   children,
@@ -12,8 +16,11 @@ export default function TeacherLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-nevo-cream text-nevo-near-black">
-      {children}
+    <div className="flex h-dvh flex-row overflow-hidden bg-nevo-cream text-nevo-near-black">
+      <TeacherSidebar />
+      <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+        {children}
+      </main>
     </div>
   );
 }
