@@ -33,6 +33,13 @@ const CSS = `
 .nv-demo:hover { background: rgba(59,63,110,0.08) !important; }
 .nv-bright:hover { filter: brightness(1.12) !important; }
 .nv-field:focus { border-color: #3b3f6e !important; background: #f7f1e6 !important; }
+/* Mobile adaptations, in the frame's fluid spirit (the frame stops at hiding
+   the nav links <720px; these carry the same intent down to phones). */
+@supports (height: 100svh) { .nv-landing #nv-open { height: 100svh !important; } }
+@media (pointer: coarse) { .nv-landing .nv-field { font-size: 16px !important; } }
+@media (max-width: 479px) { #nv-nav .nv-demo { display: none !important; } }
+@media (max-width: 519px) { .nv-landing .nv-rail-note { display: none !important; } }
+@media (max-width: 339px) { #nv-nav img { display: none !important; } }
 @media (prefers-reduced-motion: reduce) {
   .nv-landing *, .nv-landing *::before, .nv-landing *::after { animation: none !important; transition: none !important; }
 }
@@ -429,6 +436,8 @@ export function LandingPage() {
                   height: 34,
                   padding: "0 16px",
                   borderRadius: 6,
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
                   transition: "background 150ms ease",
                 }}
               >
@@ -448,6 +457,8 @@ export function LandingPage() {
                   height: 34,
                   padding: "0 16px",
                   borderRadius: 6,
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
                   boxShadow: "0 4px 14px rgba(59,63,110,0.22)",
                   transition: "filter 150ms ease, transform 150ms ease",
                 }}

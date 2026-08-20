@@ -485,6 +485,9 @@ export function useLandingMotion() {
     const rails = Array.from(root.querySelectorAll<HTMLElement>(".nv-rail"));
     const thumb = root.getElementById("nv-railthumb");
     let curPhase = -1;
+    // On viewports too short for the pinned scrub (small phones), the section
+    // falls back to normal flow and the rail buttons switch panels directly.
+    let adaptStatic = false;
     const sizeStage = () => {
       if (!stage || !panels.length) return;
       let mh = 0;
@@ -514,8 +517,38 @@ export function useLandingMotion() {
       });
       curPhase = idx;
     };
+    const applyAdaptMode = () => {
+      if (!track || !pin) return;
+      const cs = getComputedStyle(pin);
+      const need = Array.from(pin.children).reduce(
+        (sum, kid) => {
+          const m = getComputedStyle(kid);
+          return (
+            sum +
+            (kid as HTMLElement).offsetHeight +
+            parseFloat(m.marginTop) +
+            parseFloat(m.marginBottom)
+          );
+        },
+        parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom),
+      );
+      const wantStatic = need > window.innerHeight + 2;
+      if (wantStatic === adaptStatic) return;
+      adaptStatic = wantStatic;
+      if (wantStatic) {
+        track.style.height = "auto";
+        pin.style.position = "relative";
+        pin.style.top = "";
+        pin.style.height = "auto";
+      } else {
+        track.style.height = "300vh";
+        pin.style.position = "absolute";
+        pin.style.top = "0";
+        pin.style.height = "100vh";
+      }
+    };
     const scrubDemo = (y: number, vh: number) => {
-      if (!track || !panels.length) return;
+      if (!track || !panels.length || adaptStatic) return;
       const rect = track.getBoundingClientRect();
       const range = Math.max(1, track.offsetHeight - vh);
       if (pin) {
@@ -540,17 +573,21 @@ export function useLandingMotion() {
         p.style.opacity = i === 0 ? "1" : "0";
         p.style.pointerEvents = i === 0 ? "auto" : "none";
       });
-      later(sizeStage, 60);
-      later(sizeStage, 500);
+      const fitStage = () => {
+        sizeStage();
+        applyAdaptMode();
+      };
+      later(fitStage, 60);
+      later(fitStage, 500);
       if ("fonts" in document && document.fonts?.ready)
         document.fonts.ready.then(() => {
-          if (alive) sizeStage();
+          if (alive) fitStage();
         });
       let rs: ReturnType<typeof setTimeout> | undefined;
       listen(window, "resize", () => {
         if (rs) clearTimeout(rs);
         rs = setTimeout(() => {
-          if (alive) sizeStage();
+          if (alive) fitStage();
         }, 120);
       });
       cleanups.push(() => {
@@ -562,6 +599,11 @@ export function useLandingMotion() {
         listen(r, "click", () => {
           if (!track) return;
           const ph = parseInt(r.getAttribute("data-phase") || "0", 10);
+          if (adaptStatic) {
+            setPhase(ph);
+            if (thumb) thumb.style.left = (ph / 2) * 100 + "%";
+            return;
+          }
           const range = track.offsetHeight - window.innerHeight;
           const top =
             track.getBoundingClientRect().top +
@@ -663,6 +705,7 @@ export function useLandingMotion() {
         if (spine)
           spine.style.display = window.innerWidth >= 1080 ? "flex" : "none";
         sizeStage();
+        applyAdaptMode();
         onScroll();
       },
       { passive: true },

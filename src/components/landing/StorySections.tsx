@@ -295,6 +295,9 @@ const panelHead: CSSProperties = {
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 12,
+  // On narrow phones the nowrap badge would crush the title to a word per
+  // line; wrapping drops the badge to its own row instead.
+  flexWrap: "wrap",
 };
 
 function FlowNode({ label }: { label: string }) {
@@ -866,6 +869,7 @@ export function AdaptSection() {
                   {r.name}
                 </span>
                 <span
+                  className="nv-rail-note"
                   style={{
                     display: "block",
                     marginTop: 2,
