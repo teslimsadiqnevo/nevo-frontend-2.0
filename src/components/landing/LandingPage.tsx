@@ -409,29 +409,52 @@ export function LandingPage() {
                 {l.label}
               </a>
             ))}
-            {/* Reference update (10 Aug): the nav CTA is now an outlined
-                "Watch demo" that scrolls to the adapt scrub - the form CTAs
-                live in the sections themselves. */}
-            <button
-              data-scroll="nv-adapt-track"
-              className="nv-demo"
-              style={{
-                boxSizing: "border-box",
-                border: "1px solid #3b3f6e",
-                background: "transparent",
-                color: "#3b3f6e",
-                fontFamily: "inherit",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-                height: 34,
-                padding: "0 16px",
-                borderRadius: 6,
-                transition: "background 150ms ease",
-              }}
-            >
-              Watch demo
-            </button>
+            {/* Reference (20 Aug sync): BOTH nav CTAs, grouped - the outlined
+                "Watch demo" (-> adapt scrub) beside the navy "Start the
+                conversation" (-> form). The 10 Aug port dropped the navy one
+                off a truncated diff; restored. */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                data-scroll="nv-adapt-track"
+                className="nv-demo"
+                style={{
+                  boxSizing: "border-box",
+                  border: "1px solid #3b3f6e",
+                  background: "transparent",
+                  color: "#3b3f6e",
+                  fontFamily: "inherit",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  height: 34,
+                  padding: "0 16px",
+                  borderRadius: 6,
+                  transition: "background 150ms ease",
+                }}
+              >
+                Watch demo
+              </button>
+              <button
+                data-scroll="nv-form-sec"
+                className="nv-raise"
+                style={{
+                  border: "none",
+                  background: "#3b3f6e",
+                  color: "#f7f1e6",
+                  fontFamily: "inherit",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  height: 34,
+                  padding: "0 16px",
+                  borderRadius: 6,
+                  boxShadow: "0 4px 14px rgba(59,63,110,0.22)",
+                  transition: "filter 150ms ease, transform 150ms ease",
+                }}
+              >
+                Start the conversation
+              </button>
+            </div>
           </div>
         </div>
       </nav>
