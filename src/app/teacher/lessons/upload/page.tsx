@@ -1,9 +1,12 @@
-export default function TeacherLessonUploadPage() {
-  return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-2">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Teacher</p>
-      <h1 className="text-xl font-medium text-nevo-navy">Lesson upload</h1>
-      <p className="text-sm text-nevo-near-black/60">Placeholder - built per the UI/UX spec.</p>
-    </main>
-  );
+import type { Metadata } from "next";
+import { UploadWizard } from "@/components/teacher/Upload/UploadWizard";
+
+export const metadata: Metadata = {
+  title: "Upload a lesson - Nevo",
+};
+
+// C07 Lesson Upload (SCRUM-102.6 reconciled flow) - scope first, then the
+// path the teacher chose: light for a single lesson, staged for a block.
+export default function TeacherUploadPage() {
+  return <UploadWizard />;
 }
