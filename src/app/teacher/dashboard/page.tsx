@@ -1,9 +1,11 @@
+import type { Metadata } from "next";
+import { TeacherHome } from "@/components/teacher/Home/TeacherHome";
+
+export const metadata: Metadata = {
+  title: "Home - Nevo",
+};
+
+// C03 Home Dashboard - the teacher's 10-second morning scan.
 export default function TeacherDashboardPage() {
-  return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-2">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Teacher</p>
-      <h1 className="text-xl font-medium text-nevo-navy">Home dashboard</h1>
-      <p className="text-sm text-nevo-near-black/60">Placeholder - built per the UI/UX spec.</p>
-    </main>
-  );
+  return <TeacherHome />;
 }
