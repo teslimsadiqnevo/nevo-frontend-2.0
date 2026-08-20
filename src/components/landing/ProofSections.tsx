@@ -316,9 +316,10 @@ export function SchoolSection() {
 }
 
 export function JoinSection() {
+  // Reference update (20 Aug, "fp updated"): benefit rows top-align and wrap.
   const seatRow: CSSProperties = {
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 18,
     padding: "20px 0",
     borderTop: "1px solid rgba(59,63,110,0.14)",
@@ -389,7 +390,7 @@ export function JoinSection() {
               textWrap: "balance",
             }}
           >
-            We are choosing three schools to build this with.
+            Be among the first schools to build this with us.
           </h2>
           <p
             data-reveal="scroll"
@@ -403,9 +404,11 @@ export function JoinSection() {
               textWrap: "pretty",
             }}
           >
-            Founding Partners lock in rates 37% below commercial pricing for
-            three years. No risk, just early access to something that changes
-            how your students experience learning.
+            Every school that joins Nevo this first year becomes a Founding
+            Partner. You secure a significantly reduced rate, locked for three
+            years, and always pay below our standard rate for as long as you
+            stay with Nevo. Founding Partner status is the lasting reward for
+            being early.
           </p>
           <button
             data-scroll="nv-form-sec"
@@ -427,7 +430,7 @@ export function JoinSection() {
               transition: "filter 150ms ease, transform 150ms ease",
             }}
           >
-            Request your private introduction
+            Request a private walkthrough
           </button>
         </div>
         <div
@@ -446,14 +449,19 @@ export function JoinSection() {
               color: "rgba(43,43,47,0.5)",
             }}
           >
-            The three seats
+            What Founding Partners receive
           </div>
           <div style={{ marginTop: 10 }}>
-            {["01", "02", "03"].map((num, i) => (
+            {[
+              "First access to Nevo",
+              "A significantly reduced rate, locked for three years",
+              "Preferential pricing below our standard rate, permanently",
+              "A direct hand in shaping the product",
+            ].map((benefit, i, all) => (
               <div
-                key={num}
+                key={benefit}
                 style={
-                  i === 2
+                  i === all.length - 1
                     ? {
                         ...seatRow,
                         borderBottom: "1px solid rgba(59,63,110,0.14)",
@@ -470,29 +478,18 @@ export function JoinSection() {
                     fontVariantNumeric: "tabular-nums",
                   }}
                 >
-                  {num}
+                  {String(i + 1).padStart(2, "0")}
                 </span>
                 <span
                   style={{
                     flex: "1 1 auto",
                     fontSize: 16,
                     fontWeight: 500,
+                    lineHeight: 1.5,
                     color: "#2b2b2f",
                   }}
                 >
-                  A founding school
-                </span>
-                <span
-                  style={{
-                    flex: "0 0 auto",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    letterSpacing: "1px",
-                    textTransform: "uppercase",
-                    color: "rgba(43,43,47,0.55)",
-                  }}
-                >
-                  Open
+                  {benefit}
                 </span>
               </div>
             ))}
@@ -506,11 +503,10 @@ export function JoinSection() {
             }}
           >
             <span style={{ color: "#2b2b2f", fontWeight: 600 }}>
-              Three schools. Three partnerships.
+              Founding pricing is only for schools joining this first year.
             </span>{" "}
-            Founding Partners are the first to put Nevo in front of their
-            students, on the best terms we will ever offer. Once the three are
-            chosen, the cohort closes.
+            Join now and those terms stay with you for as long as you stay with
+            Nevo.
           </div>
         </div>
       </div>
