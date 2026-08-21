@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { SectionReview } from "./SectionReview";
 
 /**
  * Lesson Upload wizard (SCRUM-102.6 reconciled flow, C07g): one flow, two
@@ -18,14 +19,18 @@ import { cn } from "@/lib/utils";
  * is the one honest disabled case - nothing chosen yet - with the live
  * outstanding line beside it.
  *
- * TODO(slice): the single path's section review (SCRUM-101 module step)
- * inserts before "done"; the block path's parse-progress and structure-tree
- * screens (C07e/C07d) replace the mock timer + stub route.
+ * The single path's Step 3 is the SCRUM-101 section review (SectionReview) -
+ * per C07g it replaces the straight-to-done demo of the component frame. Its
+ * "STEP 3 OF 4 / 75%" chrome predates the reconciliation; here it reads
+ * 3 OF 3 at 85% (between processing's 70% and done's 100%).
+ *
+ * TODO(slice): the block path's parse-progress and structure-tree screens
+ * (C07e/C07d) replace the mock timer + stub route.
  * TODO(api): content parse seam (`POST /api/content/parse`).
  */
 
 type ScopeId = "single" | "unit" | "term";
-type Phase = "scope" | "file" | "processing" | "done" | "blockParsed";
+type Phase = "scope" | "file" | "processing" | "review" | "done" | "blockParsed";
 
 const SCOPES: {
   id: ScopeId;
@@ -105,13 +110,19 @@ export function UploadWizard() {
 
   const isBlock = scope !== null && scope !== "single";
   const stepTotal = scope === null ? "N" : scope === "single" ? 3 : 5;
-  const stepNum = { scope: 1, file: 2, processing: 3, done: 3, blockParsed: 4 }[
-    phase
-  ];
+  const stepNum = {
+    scope: 1,
+    file: 2,
+    processing: 3,
+    review: 3,
+    done: 3,
+    blockParsed: 4,
+  }[phase];
   const progress = {
     scope: scope ? (scope === "single" ? "33%" : "20%") : "8%",
     file: scope === "single" ? "40%" : "24%",
     processing: scope === "single" ? "70%" : "50%",
+    review: "85%",
     done: "100%",
     blockParsed: "80%",
   }[phase];
@@ -120,6 +131,7 @@ export function UploadWizard() {
     scope: "What are you uploading?",
     file: "Choose a file",
     processing: isBlock ? "While we read your block" : "Getting it ready",
+    review: "How should this lesson be split up?",
     done: "Added to your library",
     blockParsed: "Here's how we've broken it up",
   }[phase];
@@ -129,7 +141,7 @@ export function UploadWizard() {
     setPhase("processing");
     // TODO(api): contentApi.parse - the mock beat stands in for the parse.
     timer.current = setTimeout(
-      () => setPhase(isBlock ? "blockParsed" : "done"),
+      () => setPhase(isBlock ? "blockParsed" : "review"),
       PROCESS_MS,
     );
   };
@@ -165,9 +177,23 @@ export function UploadWizard() {
             it later.
           </p>
         )}
+        {phase === "review" && (
+          <p className="mt-1.5 max-w-[560px] text-sm leading-[1.55] text-nevo-near-black/62">
+            We&rsquo;ve broken this lesson into modules that flow well. Adjust
+            anything, rename a section, or keep it as one continuous flow.
+          </p>
+        )}
       </div>
 
+      {phase === "review" && (
+        <SectionReview
+          onBack={() => setPhase("file")}
+          onDone={() => setPhase("done")}
+        />
+      )}
+
       {/* Body */}
+      {phase !== "review" && (
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-[22px] xl:px-8 xl:py-7">
         {phase === "scope" && (
           <div className="flex max-w-[640px] flex-col gap-3.5">
@@ -381,9 +407,11 @@ export function UploadWizard() {
           </div>
         )}
       </div>
+      )}
 
       {/* Foot - Back / route line / Continue (C07c). Only the choosing steps
-          carry the foot; working and terminal states own their actions. */}
+          carry the foot; working and terminal states own their actions -
+          the review step brings its own (inside SectionReview). */}
       {(phase === "scope" || phase === "file") && (
         <div className="flex shrink-0 items-center gap-3.5 border-t border-nevo-near-black/10 px-6 py-3.5 xl:px-8 xl:py-4">
           <button
