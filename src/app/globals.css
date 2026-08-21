@@ -103,6 +103,7 @@
   /* Baseline profiling (SCRUM-104) */
   --animate-nevo-quest-pulse: nevo-quest-pulse 2.4s ease-in-out infinite;
   --animate-nevo-stage-pulse: nevo-stage-pulse 1600ms ease-in-out infinite;
+  --animate-nevo-rise: nevo-rise 240ms ease-out;
   --animate-nevo-tile-hi: nevo-tile-hi 1.6s ease-in-out infinite;
 }
 
@@ -277,6 +278,18 @@
 /* Baseline profiling (SCRUM-104): the quest map's active circle breathes a
  * soft-violet ring; a playing-back grid tile lifts gently. Both are gated by
  * motion-safe at the point of use. */
+/* C07d confirmation sheet: rises gently from the commit bar. */
+@keyframes nevo-rise {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 /* C07e staged-parse ladder: the active rung's calm working pulse. */
 @keyframes nevo-stage-pulse {
   0%,
