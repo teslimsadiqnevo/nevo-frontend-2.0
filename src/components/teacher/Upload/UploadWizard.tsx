@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import {
+  FALLBACK_HEADINGS,
+  ParseFallback,
+  type FallbackKind,
+} from "./ParseFallback";
+import { PARSE_STAGES, ParseProgress } from "./ParseProgress";
 import { SectionReview } from "./SectionReview";
 
 /**
@@ -24,13 +30,26 @@ import { SectionReview } from "./SectionReview";
  * "STEP 3 OF 4 / 75%" chrome predates the reconciliation; here it reads
  * 3 OF 3 at 85% (between processing's 70% and done's 100%).
  *
- * TODO(slice): the block path's parse-progress and structure-tree screens
- * (C07e/C07d) replace the mock timer + stub route.
+ * The block path's processing is the C07e staged parse (ParseProgress), and
+ * its three calm failure shapes are C07f (ParseFallback). Until the parse
+ * seam lands the outcome is mocked from the file: an extension outside the
+ * accepted set reads as unreadable (real validation - drag-and-drop bypasses
+ * the picker's accept filter), and for demos a filename containing
+ * "partial" or "continuous" walks the matching fallback.
+ *
+ * TODO(slice): the C07d structure tree replaces the stub route.
  * TODO(api): content parse seam (`POST /api/content/parse`).
  */
 
 type ScopeId = "single" | "unit" | "term";
-type Phase = "scope" | "file" | "processing" | "review" | "done" | "blockParsed";
+type Phase =
+  | "scope"
+  | "file"
+  | "processing"
+  | "review"
+  | "done"
+  | "blockParsed"
+  | "fallback";
 
 const SCOPES: {
   id: ScopeId;
@@ -89,14 +108,26 @@ const SCOPE_CHIP: Record<ScopeId, string> = {
   term: "A term or chapter",
 };
 
-/** Mock parse beat until the C07e staged parse + content seam land. */
+/** Mock parse beats until the content seam lands. */
 const PROCESS_MS = 2400;
+const BLOCK_STAGE_MS = 1150;
+const ACCEPTED = /\.(pdf|docx?|pptx?)$/i;
+
+/** Mock outcome of the block parse, read from the file (see header note). */
+function mockBlockOutcome(name: string): FallbackKind | "parsed" {
+  if (!ACCEPTED.test(name)) return "unreadable";
+  if (/partial/i.test(name)) return "partial";
+  if (/continuous/i.test(name)) return "noBoundary";
+  return "parsed";
+}
 
 export function UploadWizard() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("scope");
   const [scope, setScope] = useState<ScopeId | null>(null);
   const [fileName, setFileName] = useState("");
+  const [parseStage, setParseStage] = useState(0);
+  const [fallbackKind, setFallbackKind] = useState<FallbackKind>("unreadable");
   const [dragOver, setDragOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -117,6 +148,7 @@ export function UploadWizard() {
     review: 3,
     done: 3,
     blockParsed: 4,
+    fallback: 3,
   }[phase];
   const progress = {
     scope: scope ? (scope === "single" ? "33%" : "20%") : "8%",
@@ -125,25 +157,54 @@ export function UploadWizard() {
     review: "85%",
     done: "100%",
     blockParsed: "80%",
+    fallback: "55%",
   }[phase];
 
+  const blockName = fileName.replace(/\.[^.]+$/, "");
   const heading = {
     scope: "What are you uploading?",
+    // C07e's dedicated screen: "Breaking down '<block>'" supersedes the
+    // component frame's generic "While we read your block" head.
+    processing: isBlock ? `Breaking down '${blockName}'` : "Getting it ready",
     file: "Choose a file",
-    processing: isBlock ? "While we read your block" : "Getting it ready",
     review: "How should this lesson be split up?",
     done: "Added to your library",
     blockParsed: "Here's how we've broken it up",
+    fallback: FALLBACK_HEADINGS[fallbackKind],
   }[phase];
 
   const startFile = (name: string) => {
     setFileName(name);
     setPhase("processing");
-    // TODO(api): contentApi.parse - the mock beat stands in for the parse.
-    timer.current = setTimeout(
-      () => setPhase(isBlock ? "blockParsed" : "review"),
-      PROCESS_MS,
-    );
+    // TODO(api): contentApi.parse - the mock beats stand in for the parse.
+    if (!isBlock) {
+      timer.current = setTimeout(() => setPhase("review"), PROCESS_MS);
+      return;
+    }
+    setParseStage(0);
+    const outcome = mockBlockOutcome(name);
+    if (outcome === "unreadable") {
+      // An unreadable file fails on the first rung, not after the ladder.
+      timer.current = setTimeout(() => {
+        setFallbackKind("unreadable");
+        setPhase("fallback");
+      }, BLOCK_STAGE_MS);
+      return;
+    }
+    let stage = 0;
+    const tick = () => {
+      stage += 1;
+      if (stage < PARSE_STAGES.length) {
+        setParseStage(stage);
+        timer.current = setTimeout(tick, BLOCK_STAGE_MS);
+      } else if (outcome === "parsed") {
+        setPhase("blockParsed");
+      } else {
+        setFallbackKind(outcome);
+        setPhase("fallback");
+      }
+    };
+    timer.current = setTimeout(tick, BLOCK_STAGE_MS);
   };
 
   const reset = () => {
@@ -192,8 +253,17 @@ export function UploadWizard() {
         />
       )}
 
+      {phase === "fallback" && (
+        <ParseFallback
+          kind={fallbackKind}
+          blockName={blockName}
+          onBack={() => setPhase("file")}
+          onTryAnother={() => setPhase("file")}
+        />
+      )}
+
       {/* Body */}
-      {phase !== "review" && (
+      {phase !== "review" && phase !== "fallback" && (
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-[22px] xl:px-8 xl:py-7">
         {phase === "scope" && (
           <div className="flex max-w-[640px] flex-col gap-3.5">
@@ -318,17 +388,18 @@ export function UploadWizard() {
           </div>
         )}
 
-        {phase === "processing" && (
+        {phase === "processing" && isBlock && <ParseProgress stage={parseStage} />}
+
+        {phase === "processing" && !isBlock && (
           <div className="flex max-w-[720px] items-center gap-5 rounded-[16px] bg-nevo-cream-elevated p-9 shadow-elevation-1">
             <span className="size-11 shrink-0 rounded-full border-4 border-nevo-navy/20 border-t-nevo-navy motion-safe:animate-spin motion-safe:[animation-duration:800ms]" />
             <div>
               <h3 className="text-lg font-semibold text-nevo-near-black">
-                {isBlock ? "Reading your block" : `Getting "${fileName}" ready`}
+                {`Getting "${fileName}" ready`}
               </h3>
               <p className="mt-1.5 text-[14.5px] leading-[1.5] text-nevo-near-black/66">
-                {isBlock
-                  ? "Finding the lessons, then the sections and segments. You can leave this - we'll keep going and save a draft."
-                  : "Reading the content and building the read, listen and watch versions. This usually takes under a minute."}
+                Reading the content and building the read, listen and watch
+                versions. This usually takes under a minute.
               </p>
             </div>
           </div>
