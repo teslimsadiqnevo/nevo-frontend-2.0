@@ -76,7 +76,7 @@ export function LessonDetail({
               {detail.metaLine}
             </span>
           </div>
-          <LessonDetailActions />
+          <LessonDetailActions lessonId={lesson.id} />
         </div>
 
         {assigned && detail.stats && (
