@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
+import { InsightsView } from "@/components/teacher/Insights/InsightsView";
+
+export const metadata: Metadata = {
+  title: "Insights - Nevo",
+};
+
+// C09 Insights - class + learner signals, with the C14 A2 quiet-week and
+// A3 no-class-selected states.
 export default function TeacherInsightsPage() {
-  return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-2">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Teacher</p>
-      <h1 className="text-xl font-medium text-nevo-navy">Insights</h1>
-      <p className="text-sm text-nevo-near-black/60">Placeholder - built per the UI/UX spec.</p>
-    </main>
-  );
+  return <InsightsView />;
 }
