@@ -32,7 +32,11 @@ type ScanPhase = "scanning" | "connecting" | "connected";
  */
 export function TeacherJoin() {
   const router = useRouter();
-  const initialMode = useSearchParams().get("mode") === "code" ? "code" : "scan";
+  const params = useSearchParams();
+  // A scanned class QR (C12) carries the code, so open straight into it.
+  const scannedCode = params.get("code") ?? "";
+  const initialMode =
+    params.get("mode") === "code" || scannedCode ? "code" : "scan";
   const [mode, setMode] = useState<Mode>(initialMode);
 
   return (
@@ -60,7 +64,7 @@ export function TeacherJoin() {
         {mode === "scan" ? (
           <ScanMode onSwitch={() => setMode("code")} onJoined={() => router.push(NEXT_STEP)} />
         ) : (
-          <CodeMode onSwitch={() => setMode("scan")} onJoined={() => router.push(NEXT_STEP)} />
+          <CodeMode initial={scannedCode} onSwitch={() => setMode("scan")} onJoined={() => router.push(NEXT_STEP)} />
         )}
       </div>
     </div>
@@ -151,9 +155,26 @@ function ScanMode({ onSwitch, onJoined }: { onSwitch: () => void; onJoined: () =
 }
 
 /** Six underline boxes, auto-advancing, validating quietly once full. */
-function CodeMode({ onSwitch, onJoined }: { onSwitch: () => void; onJoined: () => void }) {
-  const [code, setCode] = useState<string[]>(Array(6).fill(""));
-  const [status, setStatus] = useState<CodeStatus>("idle");
+function CodeMode({
+  initial = "",
+  onSwitch,
+  onJoined,
+}: {
+  /** Prefilled when the student arrived by scanning the class QR. */
+  initial?: string;
+  onSwitch: () => void;
+  onJoined: () => void;
+}) {
+  const prefilled = initial.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  const scannedComplete = prefilled.length === 6;
+  const [code, setCode] = useState<string[]>(() =>
+    Array.from({ length: 6 }, (_, i) => prefilled[i] ?? ""),
+  );
+  // Seeded here rather than set inside the effect, so the effect body stays
+  // free of synchronous setState.
+  const [status, setStatus] = useState<CodeStatus>(
+    scannedComplete ? "pending" : "idle",
+  );
   const boxRefs = useRef<(HTMLInputElement | null)[]>([]);
   const focusedIndex = useRef(0);
   const validateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -171,6 +192,17 @@ function CodeMode({ onSwitch, onJoined }: { onSwitch: () => void; onJoined: () =
       setStatus(next.join("") === VALID_CODE ? "success" : "error");
     }, VALIDATE_MS);
   };
+
+  // A scanned code arrives complete, so resolve it without making the student
+  // retype a character to wake the check up.
+  useEffect(() => {
+    if (!scannedComplete) return;
+    // TODO(api): roster lookup replaces the mock class code.
+    const t = setTimeout(() => {
+      setStatus(prefilled === VALID_CODE ? "success" : "error");
+    }, VALIDATE_MS);
+    return () => clearTimeout(t);
+  }, [scannedComplete, prefilled]);
 
   const setChar = (i: number, raw: string) => {
     const ch = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(-1);

@@ -8,6 +8,7 @@ import {
   type TeacherClass,
 } from "@/lib/mocks/teacherClasses";
 import { cn } from "@/lib/utils";
+import { ClassQrDialog, ClassQrScreen } from "./ClassQr";
 
 /**
  * Class detail (C05 / `Nevo Teacher Classes` frame): back link, class header
@@ -55,6 +56,8 @@ function studentHref(name: string): string {
 
 export function ClassDetail({ klass }: { klass: TeacherClass }) {
   const [tab, setTab] = useState<Tab>("Roster");
+  // C12: the dialog is the entry point; projection is the same code, room-sized.
+  const [qr, setQr] = useState<"none" | "dialog" | "screen">("none");
 
   const glanceCount = klass.roster.filter((r) => r.status === "glance").length;
   const flagCount = klass.roster.filter((r) => r.status === "flag").length;
@@ -78,9 +81,22 @@ export function ClassDetail({ klass }: { klass: TeacherClass }) {
               {klass.name}
             </h2>
             <span className="mt-[5px] block text-[14.5px] text-nevo-near-black/60">
-              {klass.subjects} · {klass.count} students
+              {`${klass.subjects} · ${klass.count} students`}
             </span>
           </div>
+          <button
+            type="button"
+            onClick={() => setQr("dialog")}
+            className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-[10px] border-[1.5px] border-nevo-navy/35 px-4 text-sm font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <rect x="3" y="3" width="7" height="7" rx="1.5" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" />
+              <path d="M14 14h3v3h-3zM20 14h1M14 20h3M20 20h1" />
+            </svg>
+            Class code
+          </button>
           {(glanceCount > 0 || flagCount > 0) && (
             <div className="flex gap-4">
               {glanceCount > 0 && (
@@ -202,6 +218,22 @@ export function ClassDetail({ klass }: { klass: TeacherClass }) {
           </div>
         )}
       </div>
+
+      {qr === "dialog" && (
+        <ClassQrDialog
+          className={klass.name}
+          code={klass.joinCode}
+          onClose={() => setQr("none")}
+          onProject={() => setQr("screen")}
+        />
+      )}
+      {qr === "screen" && (
+        <ClassQrScreen
+          className={klass.name}
+          code={klass.joinCode}
+          onClose={() => setQr("none")}
+        />
+      )}
     </div>
   );
 }
