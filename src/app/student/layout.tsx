@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import { RotatePrompt } from "@/components/student/Shell/RotatePrompt";
 import { StudentShell } from "@/components/student/Shell/StudentShell";
+
+// Signed-in product surface - never indexed.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
+
 
 /**
  * Student App context layout (Product Arch A.1 — tablet-first, calm, low
