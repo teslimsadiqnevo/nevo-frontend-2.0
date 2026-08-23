@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
+import { ConnectView } from "@/components/teacher/Connect/ConnectView";
+
+export const metadata: Metadata = {
+  title: "Connect - Nevo",
+};
+
+// C10 Connect - teacher-student threads with optional parent inclusion, plus
+// the C10b compose modal and the C14 A4 empty state.
 export default function TeacherConnectPage() {
-  return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-2">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Teacher</p>
-      <h1 className="text-xl font-medium text-nevo-navy">Connect</h1>
-      <p className="text-sm text-nevo-near-black/60">Placeholder - built per the UI/UX spec.</p>
-    </main>
-  );
+  return <ConnectView />;
 }
