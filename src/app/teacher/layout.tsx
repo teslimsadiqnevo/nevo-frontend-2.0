@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { TeacherSidebar } from "@/components/teacher/Shell/TeacherSidebar";
+
+// Signed-in product surface - never indexed.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
+
 
 /**
  * Teacher Console context layout (Product Arch A.1 - responsive across desktop

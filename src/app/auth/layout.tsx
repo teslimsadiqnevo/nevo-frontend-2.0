@@ -1,3 +1,10 @@
+import type { Metadata } from "next";
+
+// Signed-in product surface - never indexed.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
+
 /**
  * Shared auth context layout (FE Arch §1 — login, sso-callback,
  * forgot-password, forgot-pin).

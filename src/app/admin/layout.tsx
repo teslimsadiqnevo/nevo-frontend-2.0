@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 /**
  * School Admin Layer context layout (Product Arch A.1 — desktop-first,
  * permission-scoped, multiple admins with different roles in one dashboard).
@@ -9,6 +10,12 @@
  * - Dynamic navigation per scopes held (D.3)
  */
 import { PermissionProvider } from "@/context/PermissionContext";
+
+// Signed-in product surface - never indexed.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
+
 
 export default function AdminLayout({
   children,
