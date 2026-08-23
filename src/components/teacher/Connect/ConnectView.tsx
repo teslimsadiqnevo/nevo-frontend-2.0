@@ -9,7 +9,8 @@ import {
   type Thread,
 } from "@/lib/mocks/teacherConnect";
 import { cn } from "@/lib/utils";
-import { ComposeModal, Toggle } from "./ComposeModal";
+import { Toggle } from "@/components/teacher/shared/Toggle";
+import { ComposeModal } from "./ComposeModal";
 
 /**
  * C10 Connect - individual threads with students, and the teacher's control

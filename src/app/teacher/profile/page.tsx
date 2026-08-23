@@ -1,9 +1,11 @@
+import type { Metadata } from "next";
+import { ProfileSettings } from "@/components/teacher/Profile/ProfileSettings";
+
+export const metadata: Metadata = {
+  title: "Profile & account - Nevo",
+};
+
+// C11 Profile and Settings, with the C14 B6 save model.
 export default function TeacherProfilePage() {
-  return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-2">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Teacher</p>
-      <h1 className="text-xl font-medium text-nevo-navy">Profile and settings</h1>
-      <p className="text-sm text-nevo-near-black/60">Placeholder - built per the UI/UX spec.</p>
-    </main>
-  );
+  return <ProfileSettings />;
 }
