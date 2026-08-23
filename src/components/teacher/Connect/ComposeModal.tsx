@@ -7,6 +7,7 @@ import {
   type ComposeStudent,
 } from "@/lib/mocks/teacherConnect";
 import { cn } from "@/lib/utils";
+import { Toggle } from "@/components/teacher/shared/Toggle";
 
 /**
  * C10b Compose Message - a modal over Connect. Two steps in one card: choose
@@ -22,37 +23,6 @@ const PersonGlyph = ({ size = 12 }: { size?: number }) => (
     <path d="M4 20a8 8 0 0 1 16 0" />
   </svg>
 );
-
-export function Toggle({
-  on,
-  onChange,
-  label,
-}: {
-  on: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onClick={() => onChange(!on)}
-      className={cn(
-        "relative h-[26px] w-11 shrink-0 cursor-pointer rounded-full transition-colors",
-        on ? "bg-nevo-navy" : "bg-nevo-navy/25",
-      )}
-    >
-      <span
-        className={cn(
-          "absolute top-[3px] size-5 rounded-full bg-nevo-cream transition-[left]",
-          on ? "left-[21px]" : "left-[3px]",
-        )}
-      />
-    </button>
-  );
-}
 
 export function ComposeModal({
   presetStudent,

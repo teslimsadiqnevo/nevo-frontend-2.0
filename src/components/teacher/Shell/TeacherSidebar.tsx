@@ -80,6 +80,77 @@ function rowClass(expanded: boolean, extra?: string) {
   );
 }
 
+
+const GLYPH = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.9,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  viewBox: "0 0 24 24",
+  width: 18,
+  height: 18,
+} as const;
+
+/** C11 avatar menu. Sign out is set apart by a divider, not by colour. */
+const ACCOUNT_MENU: {
+  label: string;
+  href?: string;
+  divider?: boolean;
+  icon: React.ReactNode;
+}[] = [
+  {
+    label: "View profile",
+    href: "/teacher/profile",
+    icon: (
+      <svg {...GLYPH} aria-hidden>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 20a8 8 0 0 1 16 0" />
+      </svg>
+    ),
+  },
+  {
+    label: "Settings",
+    href: "/teacher/profile",
+    icon: (
+      <svg {...GLYPH} aria-hidden>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 2h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 22h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6A7 7 0 0 0 19 12z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Help & support",
+    icon: (
+      <svg {...GLYPH} aria-hidden>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9.5 9a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3" />
+        <path d="M12 17h.01" />
+      </svg>
+    ),
+  },
+  {
+    label: "Share feedback",
+    icon: (
+      <svg {...GLYPH} aria-hidden>
+        <path d="M21 11.5a8.4 8.4 0 0 1-11.9 7.6L3 21l1.9-5.6A8.4 8.4 0 1 1 21 11.5z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Sign out",
+    href: "/teacher/profile",
+    divider: true,
+    icon: (
+      <svg {...GLYPH} aria-hidden>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <path d="M16 17l5-5-5-5" />
+        <path d="M21 12H9" />
+      </svg>
+    ),
+  },
+];
+
 export function TeacherSidebar({
   hasNotifications = true,
 }: {
@@ -89,6 +160,7 @@ export function TeacherSidebar({
   const pathname = usePathname();
   // Desktop opens expanded, tablet collapsed (frame: tablet variants are
   // `collapsed`); the breakpoint re-asserts the default, the chevron is free.
+  const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(true);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1280px)");
@@ -219,29 +291,90 @@ export function TeacherSidebar({
 
       <div className="mx-1 mt-2.5 h-px shrink-0 bg-nevo-near-black/8" />
 
-      {/* Teacher identity - opens Profile & Settings */}
-      <Link
-        href="/teacher/profile"
-        title="Profile and settings"
-        className={cn(
-          "mt-2.5 flex cursor-pointer items-center gap-3 rounded-[10px] py-2 transition-colors duration-[130ms] hover:bg-nevo-navy/5",
-          expanded ? "px-2.5" : "justify-center px-0",
-        )}
-      >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-nevo-navy text-[13px] font-semibold tracking-[0.02em] text-nevo-cream">
-          {MOCK_TEACHER.initials}
-        </span>
-        {expanded && (
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-semibold text-nevo-near-black">
-              {MOCK_TEACHER.name}
-            </span>
-            <span className="text-xs whitespace-nowrap text-nevo-near-black/55">
-              {MOCK_TEACHER.role}
-            </span>
+      {/* Teacher identity - opens the avatar menu (C11) */}
+      <div className="relative mt-2.5 shrink-0">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          title="Account menu"
+          onClick={() => setMenuOpen((v) => !v)}
+          className={cn(
+            "flex w-full cursor-pointer items-center gap-3 rounded-[10px] py-2 transition-colors duration-[130ms] hover:bg-nevo-navy/5",
+            expanded ? "px-2.5" : "justify-center px-0",
+            menuOpen && "bg-nevo-navy/5",
+          )}
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-nevo-navy text-[13px] font-semibold tracking-[0.02em] text-nevo-cream">
+            {MOCK_TEACHER.initials}
           </span>
+          {expanded && (
+            <span className="flex min-w-0 flex-col text-left">
+              <span className="truncate text-sm font-semibold text-nevo-near-black">
+                {MOCK_TEACHER.name}
+              </span>
+              <span className="text-xs whitespace-nowrap text-nevo-near-black/55">
+                {MOCK_TEACHER.role}
+              </span>
+            </span>
+          )}
+        </button>
+
+        {menuOpen && (
+          <>
+            <div
+              aria-hidden
+              className="fixed inset-0 z-30"
+              onClick={() => setMenuOpen(false)}
+            />
+            <div
+              role="menu"
+              className="absolute bottom-[calc(100%+8px)] left-0 z-40 w-[232px] rounded-xl bg-nevo-cream p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.16)] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:duration-150"
+            >
+              {ACCOUNT_MENU.map((m) => {
+                const body = (
+                  <>
+                    <span className="shrink-0 text-nevo-near-black/70">
+                      {m.icon}
+                    </span>
+                    <span className="text-sm text-nevo-near-black/80">
+                      {m.label}
+                    </span>
+                  </>
+                );
+                const rowCls = cn(
+                  "flex w-full cursor-pointer items-center gap-3 rounded-[9px] px-3 py-[11px] text-left transition-colors hover:bg-nevo-navy/8",
+                  m.divider &&
+                    "mt-1 border-t border-nevo-near-black/8 pt-[13px]",
+                );
+                return m.href ? (
+                  <Link
+                    key={m.label}
+                    role="menuitem"
+                    href={m.href}
+                    onClick={() => setMenuOpen(false)}
+                    className={rowCls}
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  // TODO(screen): Help & support, Share feedback and the
+                  // sign-out confirm live outside C11's frames.
+                  <button
+                    key={m.label}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => setMenuOpen(false)}
+                    className={rowCls}
+                  >
+                    {body}
+                  </button>
+                );
+              })}
+            </div>
+          </>
         )}
-      </Link>
+      </div>
     </aside>
   );
 }
