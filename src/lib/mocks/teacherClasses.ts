@@ -19,6 +19,8 @@ export interface TeacherClass {
   name: string;
   subjects: string;
   count: number;
+  /** Six-character code students type, or scan via the C12 QR. */
+  joinCode: string;
   /** List-card summary line + dot tone. */
   summary: string;
   summaryTone: "glance" | "ok";
@@ -39,6 +41,7 @@ export const TEACHER_CLASSES: TeacherClass[] = [
     name: "JSS 2A",
     subjects: "Mathematics · English",
     count: 28,
+    joinCode: "MAP4KZ",
     summary: "2 worth a glance, 1 flagged",
     summaryTone: "glance",
     roster: [
@@ -72,6 +75,7 @@ export const TEACHER_CLASSES: TeacherClass[] = [
     name: "JSS 2B",
     subjects: "Mathematics · English",
     count: 30,
+    joinCode: "TQ7RN2",
     summary: "Everyone on track",
     summaryTone: "ok",
     roster: [
@@ -100,6 +104,7 @@ export const TEACHER_CLASSES: TeacherClass[] = [
     name: "SSS 1 Sciences",
     subjects: "Biology · Chemistry · Physics",
     count: 31,
+    joinCode: "VH3KD9",
     summary: "Everyone on track",
     summaryTone: "ok",
     roster: [
