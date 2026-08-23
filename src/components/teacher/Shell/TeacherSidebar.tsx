@@ -5,6 +5,11 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { MOCK_TEACHER, TEACHER_NAV, type TeacherNavItem } from "./teacherNav";
+import {
+  TEACHER_NOTIFICATIONS,
+  type TeacherNotification,
+} from "@/lib/mocks/teacherNotifications";
+import { NotificationsPanel } from "./NotificationsPanel";
 
 /**
  * Teacher nav rail (`Nevo Teacher Sidebar` frame) - 240px expanded, 64px
@@ -151,13 +156,15 @@ const ACCOUNT_MENU: {
   },
 ];
 
-export function TeacherSidebar({
-  hasNotifications = true,
-}: {
-  /** Quiet violet dot on the bell. TODO(api): from the notifications seam. */
-  hasNotifications?: boolean;
-}) {
+export function TeacherSidebar() {
   const pathname = usePathname();
+  // C13: the bell opens a popover; the dot is a badge, never a count, and it
+  // reflects live unread state. TODO(api): from the notifications seam.
+  const [notes, setNotes] = useState<TeacherNotification[]>(
+    TEACHER_NOTIFICATIONS,
+  );
+  const [notifOpen, setNotifOpen] = useState(false);
+  const hasNotifications = notes.some((n) => n.unread);
   // Desktop opens expanded, tablet collapsed (frame: tablet variants are
   // `collapsed`); the breakpoint re-asserts the default, the chevron is free.
   const [menuOpen, setMenuOpen] = useState(false);
@@ -245,11 +252,14 @@ export function TeacherSidebar({
         })}
       </nav>
 
-      {/* Notifications */}
-      <Link
-        href="/teacher/notifications"
+      {/* Notifications - opens the C13 popover */}
+      <button
+        type="button"
         title="Notifications"
-        className={cn(rowClass(expanded), "hover:bg-nevo-navy/5")}
+        aria-haspopup="dialog"
+        aria-expanded={notifOpen}
+        onClick={() => setNotifOpen((v) => !v)}
+        className={cn(rowClass(expanded), "cursor-pointer hover:bg-nevo-navy/5", notifOpen && "bg-nevo-navy/5")}
       >
         <span className="relative flex size-10 shrink-0 items-center justify-center rounded-[10px] text-nevo-near-black/72">
           {BELL_ICON}
@@ -267,7 +277,17 @@ export function TeacherSidebar({
             Notifications
           </span>
         )}
-      </Link>
+      </button>
+
+      {notifOpen && (
+        <NotificationsPanel
+          notes={notes}
+          onMarkAllRead={() =>
+            setNotes((ns) => ns.map((n) => ({ ...n, unread: false })))
+          }
+          onClose={() => setNotifOpen(false)}
+        />
+      )}
 
       {/* Collapse toggle */}
       <button
