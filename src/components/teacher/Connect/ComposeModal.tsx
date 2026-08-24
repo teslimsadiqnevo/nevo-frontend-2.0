@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import {
   COMPOSE_CLASS_FILTERS,
   COMPOSE_STUDENTS,
@@ -34,6 +35,12 @@ export function ComposeModal({
   onSend: (student: ComposeStudent, text: string, includeParent: boolean) => void;
 }) {
   const [query, setQuery] = useState("");
+  // Filter chips follow the teacher's real classes; "All classes" leads.
+  const { classes } = useTeacherClasses();
+  const classFilters = [
+    COMPOSE_CLASS_FILTERS[0],
+    ...classes.map((c) => c.name),
+  ];
   const [filter, setFilter] = useState(COMPOSE_CLASS_FILTERS[0]);
   const [picked, setPicked] = useState<ComposeStudent | null>(
     () => COMPOSE_STUDENTS.find((s) => s.name === presetStudent) ?? null,
@@ -107,7 +114,7 @@ export function ComposeModal({
             </div>
 
             <div className="mt-2 flex flex-wrap gap-[7px]">
-              {COMPOSE_CLASS_FILTERS.map((f) => {
+              {classFilters.map((f) => {
                 const on = f === filter;
                 return (
                   <button

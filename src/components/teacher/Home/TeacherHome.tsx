@@ -3,11 +3,11 @@ import { MOCK_TEACHER } from "@/components/teacher/Shell/teacherNav";
 import {
   GOOD_TO_KNOW,
   HOME_ACTIVITY,
-  HOME_CLASSES,
   HOME_FLAGS,
 } from "@/lib/mocks/teacherHome";
 import { cn } from "@/lib/utils";
 import { ClassPulse } from "./ClassPulse";
+import { HomeClasses } from "./HomeClasses";
 import { FlagCard } from "./FlagCard";
 
 /**
@@ -104,34 +104,7 @@ export function TeacherHome() {
         )}
 
         <h3 className={cn(SECTION_H, "mt-[30px] xl:mt-10")}>My classes</h3>
-        <div className="mt-3.5 flex gap-3 xl:mt-4 xl:gap-3.5">
-          {HOME_CLASSES.map((c) => (
-            <Link
-              key={c.name}
-              href={c.href}
-              className="flex-1 cursor-pointer rounded-[12px] bg-nevo-cream-elevated px-[18px] py-4 shadow-elevation-1 transition-[filter] hover:brightness-[0.985] xl:px-[22px] xl:py-5"
-            >
-              <span className="text-[15.5px] font-semibold text-nevo-near-black xl:text-[17px]">
-                {c.name}
-              </span>
-              <div className="mt-[3px] text-[12px] text-nevo-near-black/55 xl:mt-1 xl:text-[13px]">
-                {c.subjects}
-              </div>
-              <div className="mt-3 flex items-center gap-2 xl:mt-3.5 xl:gap-[9px]">
-                <span
-                  className={cn(
-                    "size-[9px] shrink-0 rounded-full",
-                    c.glance ? "bg-nevo-violet" : "bg-nevo-navy/30",
-                  )}
-                />
-                <span className="text-[12.5px] text-nevo-near-black/70 xl:text-[13.5px]">
-                  <span className="xl:hidden">{c.statusShort}</span>
-                  <span className="hidden xl:inline">{c.status}</span>
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <HomeClasses />
 
         <h3 className={cn(SECTION_H, "mt-[30px] xl:mt-9")}>Recent activity</h3>
         <div className="mt-3.5 overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 xl:mt-4">

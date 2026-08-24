@@ -4,11 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { IllustrationWrapper } from "@/components/shared/IllustrationWrapper";
 import { MasteryDualTrack } from "@/components/teacher/Student/MasteryDualTrack";
-import {
-  getClassInsights,
-  hasGap,
-  INSIGHT_CLASSES,
-} from "@/lib/mocks/teacherInsights";
+import { useTeacherClasses } from "@/hooks/useTeacherClasses";
+import { getClassInsights, hasGap } from "@/lib/mocks/teacherInsights";
 import { cn } from "@/lib/utils";
 
 /**
@@ -40,11 +37,13 @@ const CHEVRON = (
 export function InsightsView() {
   // C14 A3: nothing is selected on arrival, so this is nullable by contract.
   const [classId, setClassId] = useState<string | null>(null);
+  // The selector offers the teacher's real classes, not the fixture three.
+  const { classes } = useTeacherClasses();
   const data = classId ? getClassInsights(classId) : null;
 
   const pills = (
     <div className="flex gap-2">
-      {INSIGHT_CLASSES.map((c) => {
+      {classes.map((c) => {
         const on = c.id === classId;
         return (
           <button
