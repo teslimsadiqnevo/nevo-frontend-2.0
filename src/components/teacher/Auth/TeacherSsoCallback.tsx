@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MOCK_TEACHER } from "@/components/teacher/Shell/teacherNav";
 import { useAuth } from "@/hooks";
+import { setSession } from "@/lib/auth/session";
 import { TEACHER_INVITE } from "@/lib/mocks/teacherOnboarding";
 import { USER_ROLES } from "@/lib/constants";
 
@@ -63,6 +64,18 @@ export function TeacherSsoCallback() {
           setPhase("error");
           return;
         }
+        // The deployed callback returns access_token / expires_at / role, so
+        // the real wiring lands here as a setSession call. Standing in for it
+        // with a token-less session keeps the flow honest: the route guard
+        // sees a teacher, but no Bearer goes out, so live data stays absent
+        // rather than being faked.
+        // TODO(api): swap for the real callback once school SSO slugs exist.
+        setSession({
+          token: "",
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+          userId: "teacher-sso-demo",
+          role: USER_ROLES.TEACHER,
+        });
         signIn({
           id: "teacher-sso-demo",
           role: USER_ROLES.TEACHER,

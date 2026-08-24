@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { authApi } from "@/lib/api";
+import { useAuth } from "@/hooks";
 
 /**
  * C11 sign-out confirm. The violet glyph and the reassurance line keep it a
@@ -11,6 +11,7 @@ import { authApi } from "@/lib/api";
  */
 export function SignOutModal({ onStay }: { onStay: () => void }) {
   const router = useRouter();
+  const auth = useAuth();
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -21,12 +22,15 @@ export function SignOutModal({ onStay }: { onStay: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onStay, busy]);
 
-  const signOut = async () => {
+  const signOut = () => {
     if (busy) return;
     setBusy(true);
-    // Clears the local session even if the server call fails.
-    await authApi.logout().catch(() => {});
-    // Teachers land on their own door (C02), not the student PIN unlock.
+    // Goes through AuthContext, not authApi directly: it revokes server-side,
+    // clears the local session, and purges the on-device behavioural-signal
+    // store (NDPA ephemerality, SCRUM-76) - calling logout() alone left both
+    // the in-memory user and that store behind.
+    auth.signOut();
+    // Teachers land on their own door, not the student PIN unlock.
     router.push("/auth/teacher");
   };
 

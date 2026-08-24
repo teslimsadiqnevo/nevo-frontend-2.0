@@ -11,7 +11,7 @@
  * Gemini is NEVER called from here — all AI goes through the backend gateway.
  */
 
-import { getToken } from "@/lib/auth/session";
+import { clearSession, getSession, getToken } from "@/lib/auth/session";
 
 // Default: the same-origin catch-all proxy (`app/api/backend/[...path]`),
 // which forwards to the FastAPI backend - the backend has no CORS headers, so
@@ -53,6 +53,29 @@ function friendlyMessage(status: number): string {
 // lives in the client session store and rides every request from here.
 async function getAuthToken(): Promise<string | undefined> {
   return getToken();
+}
+
+/**
+ * A 401/403 on a request we DID send a token with means the session died
+ * mid-use. Clear it and send the person to their door - otherwise the
+ * console quietly degrades to sample data while they still believe they're
+ * signed in.
+ *
+ * Two exemptions matter. Auth endpoints handle their own failures: a wrong
+ * password must surface the sign-in screen's own message, never bounce the
+ * visitor. And a request sent WITHOUT a token was never authenticated, so
+ * its 401 is expected, not a death.
+ */
+function handleAuthFailure(path: string, sentToken: boolean): void {
+  if (typeof window === "undefined" || !sentToken) return;
+  if (path.includes("/auth/")) return;
+  const role = getSession()?.role;
+  clearSession();
+  window.location.assign(
+    // No teacher-side "session expired" screen is designed (flagged); their
+    // door carries the same reassurance.
+    role === "teacher" ? "/auth/teacher" : "/auth/session-expired",
+  );
 }
 
 type QueryValue = string | number | boolean | null | undefined;
@@ -130,6 +153,9 @@ export async function request<T>(
       detail = await response.text().catch(() => undefined);
     }
     if (isDev) console.error(`[api] ${response.status} ${url}`, detail);
+    if (response.status === 401 || response.status === 403) {
+      handleAuthFailure(path, Boolean(token));
+    }
     throw new ApiError(response.status, friendlyMessage(response.status), detail);
   }
 

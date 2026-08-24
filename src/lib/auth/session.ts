@@ -14,6 +14,35 @@
 const SESSION_KEY = "nevo.auth.session";
 const PROFILE_KEY = "nevo.auth.profile";
 
+/**
+ * Role mirror for the route guard (`src/proxy.ts`). localStorage is never
+ * sent to the server, so a server-side guard cannot see the session at all -
+ * this cookie carries the ROLE and its expiry only, never the token, so the
+ * guard can cheaply tell "plausibly a signed-in teacher" before rendering a
+ * single byte of console.
+ *
+ * It is client-written and therefore forgeable. It is an optimistic routing
+ * hint, never an authorization boundary: the backend's Bearer check is the
+ * only thing that actually protects data.
+ */
+export const ROLE_COOKIE = "nevo.role";
+
+function writeRoleCookie(role: string, expiresAt: string): void {
+  if (typeof document === "undefined") return;
+  const expires = new Date(expiresAt);
+  const stamp = Number.isNaN(expires.getTime())
+    ? ""
+    : `; Expires=${expires.toUTCString()}`;
+  // Secure would drop the cookie on plain-http local dev.
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${ROLE_COOKIE}=${encodeURIComponent(role)}; Path=/; SameSite=Lax${stamp}${secure}`;
+}
+
+function deleteRoleCookie(): void {
+  if (typeof document === "undefined") return;
+  document.cookie = `${ROLE_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
+
 export interface StoredSession {
   token: string;
   /** ISO timestamp from the backend's `expires_at`. */
@@ -58,6 +87,7 @@ export function getToken(): string | undefined {
 export function setSession(next: StoredSession): void {
   hydrated = true;
   session = next;
+  writeRoleCookie(next.role, next.expiresAt);
   try {
     window.localStorage.setItem(SESSION_KEY, JSON.stringify(next));
   } catch {
@@ -68,6 +98,7 @@ export function setSession(next: StoredSession): void {
 export function clearSession(): void {
   hydrated = true;
   session = null;
+  deleteRoleCookie();
   try {
     window.localStorage.removeItem(SESSION_KEY);
   } catch {
