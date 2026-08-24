@@ -1,7 +1,7 @@
 /**
  * Static mock lesson for building the Lesson Player before the backend content +
  * adaptation contracts exist. Shapes match `@/lib/types`, so wiring the real
- * `contentApi.getLesson` / `intelligenceApi.getAdaptation` later is a data-source
+ * the lesson-detail endpoint / `intelligenceApi.getAdaptation` later is a data-source
  * swap, not a UI change. Content here is illustrative, not curriculum-reviewed.
  */
 import { AFFECTIVE_STATES, BREAK_TYPES, MODALITY, DENSITY, SCAFFOLD_LEVELS } from "@/lib/constants";

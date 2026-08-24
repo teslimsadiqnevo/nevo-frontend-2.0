@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
-import { SCHOOL_LINE, TEACHER_CLASSES } from "@/lib/mocks/teacherClasses";
+import { useTeacherClasses } from "@/hooks/useTeacherClasses";
+import { SCHOOL_LINE } from "@/lib/mocks/teacherClasses";
 import { cn } from "@/lib/utils";
 
 /**
@@ -8,6 +11,11 @@ import { cn } from "@/lib/utils";
  * stack to one column as horizontal rows (name + meta left, summary right).
  * No classes yet renders the calm empty state - assignment is the admin's job,
  * never a dead end.
+ *
+ * Data is live-first via useTeacherClasses: real assignments enrich the
+ * fixtures by name; live classes without a fixture render as quiet cards
+ * (name + class code) with no detail link, since the backend serves no
+ * roster/lesson detail for them yet.
  */
 
 function SummaryDot({ tone }: { tone: "glance" | "ok" }) {
@@ -24,9 +32,9 @@ function SummaryDot({ tone }: { tone: "glance" | "ok" }) {
 }
 
 export function ClassesList() {
-  const classes = TEACHER_CLASSES;
+  const { classes, liveExtras } = useTeacherClasses();
 
-  if (classes.length === 0) {
+  if (classes.length === 0 && liveExtras.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center p-12">
         <div className="flex max-w-[400px] flex-col items-center text-center">
@@ -85,6 +93,24 @@ export function ClassesList() {
               </div>
             </Link>
           ))}
+          {liveExtras.map((a) => (
+            <div
+              key={a.assignment_id}
+              className="flex flex-col rounded-[12px] bg-nevo-cream-elevated p-6 shadow-elevation-1"
+            >
+              <span className="text-[19px] font-semibold tracking-[-0.01em] text-nevo-near-black">
+                {a.class_name}
+              </span>
+              {a.class_code && (
+                <span className="mt-[5px] text-[13.5px] text-nevo-near-black/60">
+                  {`Class code ${a.class_code}`}
+                </span>
+              )}
+              <span className="mt-0.5 text-[13.5px] text-nevo-near-black/50">
+                Synced from your school
+              </span>
+            </div>
+          ))}
         </div>
 
         {/* Tablet: stacked horizontal cards */}
@@ -110,6 +136,24 @@ export function ClassesList() {
                 </span>
               </div>
             </Link>
+          ))}
+          {liveExtras.map((a) => (
+            <div
+              key={a.assignment_id}
+              className="flex items-center justify-between gap-4 rounded-[12px] bg-nevo-cream-elevated px-[22px] py-5 shadow-elevation-1"
+            >
+              <div className="min-w-0">
+                <span className="text-[17px] font-semibold text-nevo-near-black">
+                  {a.class_name}
+                </span>
+                <div className="mt-1 text-[13px] text-nevo-near-black/60">
+                  {a.class_code ? `Class code ${a.class_code}` : "Assigned to you"}
+                </div>
+              </div>
+              <span className="shrink-0 text-[13.5px] text-nevo-near-black/50">
+                Synced from your school
+              </span>
+            </div>
           ))}
         </div>
       </div>

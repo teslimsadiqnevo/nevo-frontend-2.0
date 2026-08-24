@@ -1,6 +1,7 @@
 /**
- * Mock lesson registry — the pre-backend stand-in for `contentApi.getLesson` and
- * `intelligenceApi.getAdaptation`. Each lesson lives in its own file; this maps
+ * Mock lesson registry — the pre-backend stand-in for the lesson-detail
+ * endpoint (not deployed yet) and `intelligenceApi.getAdaptation`. Each lesson
+ * lives in its own file; this maps
  * ids → content/plan. TODO(api): replace with the real fetches.
  */
 import type { AdaptationPlan, Lesson } from "@/lib/types";
@@ -17,7 +18,7 @@ const PLANS: Record<string, AdaptationPlan> = {
   [ADDING_FRACTIONS_PLAN.lessonId]: ADDING_FRACTIONS_PLAN,
 };
 
-/** Mock stand-in for `contentApi.getLesson`. */
+/** Mock stand-in for the lesson-detail endpoint (not deployed yet). */
 export function getMockLesson(lessonId: string): Lesson | null {
   return LESSONS[lessonId] ?? null;
 }
