@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Toggle } from "@/components/teacher/shared/Toggle";
+import { useAccessibility } from "@/context/AccessibilityContext";
 import {
   ACCESSIBILITY_SETTINGS,
   DEFAULT_SETTINGS,
@@ -22,9 +23,16 @@ import { SignOutModal } from "./SignOutModal";
  * actually dirty, and on save a toast confirms while the page stays exactly
  * where it was. Flagged - C11's header is a bare heading.
  *
- * "Larger text" applies the frame's own `zoom: 1.15` to this page's content,
- * which is the scope the frame gives it. Driving it console-wide needs an
- * app-level provider; noted as a follow-up rather than invented here.
+ * The Accessibility rows drive the app-wide AccessibilityContext, so they do
+ * what their own sub-copy promises - "across Nevo", "across the console" -
+ * and persist. They apply on tap and stay out of the dirty/Save cycle:
+ * preferences that live on this device take effect now, while the
+ * Notifications rows (server-persisted) keep the C14 B6 save model.
+ *
+ * Two flagged divergences from C11: the frame draws "Reduce motion" ON by
+ * default, but the toggle now reflects the real stored preference, which
+ * starts OFF and is shared with the student app; and "Larger text" uses the
+ * shared text-size scale (1.1) rather than the frame's one-off zoom 1.15.
  */
 
 const SECTION_H3 =
@@ -36,6 +44,7 @@ const CARD =
 const TOAST_MS = 3000;
 
 export function ProfileSettings() {
+  const a11y = useAccessibility();
   const [profile, setProfile] = useState<TeacherProfile>(TEACHER_PROFILE);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [dirty, setDirty] = useState(false);
@@ -54,6 +63,26 @@ export function ProfileSettings() {
   const flip = (id: string) => {
     setSettings((s) => ({ ...s, [id]: !s[id] }));
     setDirty(true);
+  };
+
+  // Accessibility rows read and write the global preference directly.
+  const valueOf = (id: string): boolean =>
+    id === "reduceMotion"
+      ? a11y.reducedMotion
+      : id === "largerText"
+        ? a11y.textSize !== "m"
+        : settings[id];
+
+  const toggle = (id: string) => {
+    if (id === "reduceMotion") {
+      a11y.setReducedMotion(!a11y.reducedMotion);
+      return;
+    }
+    if (id === "largerText") {
+      a11y.setTextSize(a11y.textSize === "m" ? "l" : "m");
+      return;
+    }
+    flip(id);
   };
 
   const save = () => {
@@ -83,8 +112,8 @@ export function ProfileSettings() {
           </div>
         </div>
         <Toggle
-          on={settings[r.id]}
-          onChange={() => flip(r.id)}
+          on={valueOf(r.id)}
+          onChange={() => toggle(r.id)}
           label={r.label}
         />
       </div>
@@ -92,11 +121,7 @@ export function ProfileSettings() {
 
   return (
     <div className="relative mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
-      {/* The frame scopes Larger text to this page's content via zoom. */}
-      <div
-        className="mx-auto max-w-[680px] transition-[zoom] duration-200"
-        style={settings.largerText ? { zoom: 1.15 } : undefined}
-      >
+      <div className="mx-auto max-w-[680px]">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
             Profile &amp; account
