@@ -3,8 +3,8 @@ import { LessonPlayer } from "@/components/student/Lesson/LessonPlayer";
 import { getMockAdaptation, getMockLesson } from "@/lib/mocks";
 
 // Next.js 16: `params` is a Promise and must be awaited.
-// TODO(api): replace the mock getters with contentApi.getLesson +
-// intelligenceApi.getAdaptation once the backend contracts land.
+// TODO(api): replace the mock getters with the lesson-detail endpoint
+// (not deployed yet) + intelligenceApi.getAdaptation once the contracts land.
 export default async function StudentLessonPlayerPage({
   params,
 }: {

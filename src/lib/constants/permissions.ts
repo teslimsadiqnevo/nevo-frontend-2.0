@@ -4,7 +4,9 @@
  * Authoritative source: Product Architecture A.2 ("Role-based permission
  * system"). Every account holds one or more roles; one person can hold multiple.
  * These are the seven defined scopes surfaced by the admin ScopeSelector
- * (FE Architecture Section 1).
+ * (FE Architecture Section 1). The string values mirror the deployed
+ * backend's PermissionScope enum verbatim (openapi 2.0.0) so
+ * /api/v1/permissions/me responses need no mapping.
  *
  * Route-guard mapping (FE Architecture Section 2):
  *   /admin/senco/*          → SENCO
@@ -25,9 +27,9 @@ export const PERMISSION_SCOPES = {
   /** SENCo / Learning Support — includes the IEP exporter (D.8). */
   SENCO: "senco",
   /** IT / SSO configuration (D.10). */
-  IT: "it",
+  IT: "it_sso",
   /** General oversight — school-wide dashboards & reports. */
-  GENERAL_OVERSIGHT: "general_oversight",
+  GENERAL_OVERSIGHT: "oversight",
   /** Teacher access (Teacher Console). */
   TEACHER: "teacher",
 } as const;

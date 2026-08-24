@@ -31,7 +31,7 @@ export const SUBJECT_ICON: Record<string, LucideIcon> = {
 
 /**
  * Mock lesson catalogue (Lessons Tab). TODO(api): replace with
- * `contentApi.getLessons()` — subject grouping, status and adaptive estimates
+ * the lesson-list endpoint (not deployed yet) — subject grouping, status and adaptive estimates
  * all come from the backend + learner profile.
  */
 export const LESSON_CATALOG: LessonSummary[] = [

@@ -3,8 +3,10 @@ export { api, request, ApiError, BASE_URL, type RequestOptions } from "./client"
 export { authApi } from "./auth";
 export { signalsApi, type SignalEvent } from "./signals";
 export { intelligenceApi } from "./intelligence";
-export { contentApi } from "./content";
-export { exportApi } from "./export";
+export { contentApi, type ParseContentRequest, type ParseContentResponse } from "./content";
+export { exportApi, type IepExport, type IepExportShare } from "./export";
+export { classesApi, type AssignedClass, type AssignedTeacher } from "./classes";
+export { permissionsApi, type PermissionsMe } from "./permissions";
 export { askNevoApi } from "./askNevo";
 export { consentsApi, type ConsentGateStatus } from "./consents";
 export { notificationsApi } from "./notifications";
