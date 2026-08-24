@@ -8,7 +8,6 @@ import {
 } from "@/lib/mocks/teacherHome";
 import { cn } from "@/lib/utils";
 import { FlagCard } from "./FlagCard";
-import { TeacherAskNevo } from "./TeacherAskNevo";
 
 /**
  * Teacher Home (C03 / `Nevo Teacher Home` frame) - the 10-second scan: date +
@@ -166,7 +165,6 @@ export function TeacherHome() {
         </div>
       </div>
 
-      <TeacherAskNevo schoolName="Corona Secondary School" />
     </div>
   );
 }

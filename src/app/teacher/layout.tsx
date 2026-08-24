@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AskNevo } from "@/components/teacher/Shell/AskNevo";
 import { TeacherSidebar } from "@/components/teacher/Shell/TeacherSidebar";
 
 // Signed-in product surface - never indexed.
@@ -28,6 +29,8 @@ export default function TeacherLayout({
       <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         {children}
       </main>
+      {/* C15: Ask Nevo floats on every console surface. */}
+      <AskNevo />
     </div>
   );
 }
