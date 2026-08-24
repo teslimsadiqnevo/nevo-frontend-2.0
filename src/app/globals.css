@@ -60,6 +60,8 @@
   --color-nevo-cream-elevated: #ede8dc;
   --color-nevo-cream-sidebar: #e8e3d7;
   --color-nevo-cream-shimmer: #ded7c6;
+  /* Card-on-card surface (C16 pulse tiles, observation chips) */
+  --color-nevo-cream-inset: #e5dfd3;
   --color-nevo-violet: #9a9ccb;
   --color-nevo-near-black: #2b2b2f;
 

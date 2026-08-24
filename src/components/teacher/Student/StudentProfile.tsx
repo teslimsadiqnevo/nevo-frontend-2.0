@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
+  ADAPTATIONS_FOOTNOTE_DESKTOP_TAIL,
+  ADAPTATIONS_FOOTNOTE_MAIN,
+  ADAPTATIONS_LABEL,
+  STUDENT_ADAPTATIONS,
+} from "@/lib/mocks/teacherIntelligence";
+import {
   CONFIDENCE_LABEL,
   type SessionRow,
   type StudentProfileData,
@@ -385,6 +391,47 @@ export function StudentProfile({
               ))}
             </div>
           </div>
+        )}
+
+        {/* C16c Adaptation Insights - what Nevo quietly adjusted, and why.
+            Only students with history carry entries; early profiles get no
+            section at all (the no-empty-cards rule). */}
+        {(STUDENT_ADAPTATIONS[student.id] ?? []).length > 0 && (
+          <>
+            <h3 className="mt-6 block text-[11px] font-bold tracking-[0.14em] text-nevo-violet uppercase xl:mt-7">
+              {ADAPTATIONS_LABEL}
+            </h3>
+            <p className="mt-2 text-[13px] text-nevo-near-black/60">
+              {`Nevo quietly adjusts lessons based on how each student learns. Here is what has happened for ${student.name.split(" ")[0]} recently.`}
+            </p>
+            <div className="mt-3.5 flex flex-col gap-2 xl:mt-4">
+              {(STUDENT_ADAPTATIONS[student.id] ?? []).map((entry) => (
+                <div
+                  key={`${entry.date}-${entry.lesson}`}
+                  className="flex items-start gap-3.5 rounded-[8px] bg-nevo-cream-elevated px-[18px] py-4 xl:gap-4"
+                >
+                  <span className="w-[46px] shrink-0 pt-px text-[12px] text-nevo-near-black/55">
+                    {entry.date}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-semibold text-nevo-near-black">
+                      {entry.lesson}
+                    </span>
+                    <p className="mt-1 text-[13px] leading-[1.55] text-nevo-near-black/72">
+                      {entry.desc}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-[12px] leading-[1.55] text-nevo-near-black/55 italic">
+              {ADAPTATIONS_FOOTNOTE_MAIN}
+              <span className="hidden xl:inline">
+                {" "}
+                {ADAPTATIONS_FOOTNOTE_DESKTOP_TAIL}
+              </span>
+            </p>
+          </>
         )}
       </div>
 
