@@ -14,8 +14,8 @@ import { cn } from "@/lib/utils";
  *
  * Data is live-first via useTeacherClasses: real assignments enrich the
  * fixtures by name; live classes without a fixture render as quiet cards
- * (name + class code) with no detail link, since the backend serves no
- * roster/lesson detail for them yet.
+ * (name + class code) that open the minimal live detail, since the backend
+ * serves no roster or lessons for them yet.
  */
 
 function SummaryDot({ tone }: { tone: "glance" | "ok" }) {
@@ -112,9 +112,10 @@ export function ClassesList() {
             </Link>
           ))}
           {liveExtras.map((a) => (
-            <div
+            <Link
               key={a.assignment_id}
-              className="flex flex-col rounded-[12px] bg-nevo-cream-elevated p-6 shadow-elevation-1"
+              href={`/teacher/classes/${a.class_id}`}
+              className="flex cursor-pointer flex-col rounded-[12px] bg-nevo-cream-elevated p-6 shadow-elevation-1 transition-[filter,transform] hover:brightness-[0.985] active:scale-[0.99]"
             >
               <span className="text-[19px] font-semibold tracking-[-0.01em] text-nevo-near-black">
                 {a.class_name}
@@ -127,7 +128,7 @@ export function ClassesList() {
               <span className="mt-0.5 text-[13.5px] text-nevo-near-black/50">
                 Synced from your school
               </span>
-            </div>
+            </Link>
           ))}
         </div>
 
@@ -156,9 +157,10 @@ export function ClassesList() {
             </Link>
           ))}
           {liveExtras.map((a) => (
-            <div
+            <Link
               key={a.assignment_id}
-              className="flex items-center justify-between gap-4 rounded-[12px] bg-nevo-cream-elevated px-[22px] py-5 shadow-elevation-1"
+              href={`/teacher/classes/${a.class_id}`}
+              className="flex cursor-pointer items-center justify-between gap-4 rounded-[12px] bg-nevo-cream-elevated px-[22px] py-5 shadow-elevation-1 transition-[filter,transform] hover:brightness-[0.985] active:scale-[0.99]"
             >
               <div className="min-w-0">
                 <span className="text-[17px] font-semibold text-nevo-near-black">
@@ -171,7 +173,7 @@ export function ClassesList() {
               <span className="shrink-0 text-[13.5px] text-nevo-near-black/50">
                 Synced from your school
               </span>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

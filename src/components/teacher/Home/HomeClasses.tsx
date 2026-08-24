@@ -54,9 +54,10 @@ export function HomeClasses() {
       })}
 
       {liveExtras.map((a) => (
-        <div
+        <Link
           key={a.assignment_id}
-          className="min-w-[180px] flex-1 rounded-[12px] bg-nevo-cream-elevated px-[18px] py-4 shadow-elevation-1 xl:px-[22px] xl:py-5"
+          href={`/teacher/classes/${a.class_id}`}
+          className="min-w-[180px] flex-1 cursor-pointer rounded-[12px] bg-nevo-cream-elevated px-[18px] py-4 shadow-elevation-1 transition-[filter] hover:brightness-[0.985] xl:px-[22px] xl:py-5"
         >
           <span className="text-[15.5px] font-semibold text-nevo-near-black xl:text-[17px]">
             {a.class_name}
@@ -67,7 +68,7 @@ export function HomeClasses() {
           <div className="mt-3 text-[12.5px] text-nevo-near-black/50 xl:mt-3.5 xl:text-[13.5px]">
             Synced from your school
           </div>
-        </div>
+        </Link>
       ))}
     </div>
   );
