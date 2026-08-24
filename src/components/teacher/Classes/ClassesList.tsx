@@ -32,7 +32,7 @@ function SummaryDot({ tone }: { tone: "glance" | "ok" }) {
 }
 
 export function ClassesList() {
-  const { classes, liveExtras } = useTeacherClasses();
+  const { classes, liveExtras, sample } = useTeacherClasses();
 
   if (classes.length === 0 && liveExtras.length === 0) {
     return (
@@ -67,6 +67,24 @@ export function ClassesList() {
         <p className="mt-[7px] text-sm text-nevo-near-black/60 xl:mt-2 xl:text-[15px]">
           {SCHOOL_LINE}
         </p>
+
+        {/* Sample data must never pass for a roster: if the live list didn't
+            arrive, say so plainly rather than letting fixtures stand in
+            silently. */}
+        {sample && (
+          <div className="mt-3.5 flex max-w-[560px] items-start gap-2.5 rounded-[10px] bg-nevo-violet/14 px-[14px] py-3">
+            <span className="mt-px shrink-0 text-nevo-navy">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8h.01M11 12h1v4h1" />
+              </svg>
+            </span>
+            <span className="text-[13.5px] leading-[1.5] text-nevo-near-black/78">
+              We couldn&rsquo;t reach your school just now, so these are sample
+              classes.
+            </span>
+          </div>
+        )}
 
         {/* Desktop grid */}
         <div className="mt-6 hidden grid-cols-3 gap-4 xl:grid">

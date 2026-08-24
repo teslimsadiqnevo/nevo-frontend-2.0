@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { TEACHER_CLASSES } from "@/lib/mocks/teacherClasses";
+import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import { cn } from "@/lib/utils";
 
 /**
@@ -128,6 +128,8 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
   );
   const [who, setWho] = useState<"left" | "right">("left"); // left = whole class
   const [classes, setClasses] = useState<Set<string>>(new Set());
+  // Recipients are the teacher's real assignments when a session has them.
+  const { classes: myClasses } = useTeacherClasses();
   const [students, setStudents] = useState<Set<string>>(new Set());
   const [when, setWhen] = useState<"left" | "right">("left"); // left = available now
   const [date, setDate] = useState("2026-07-11");
@@ -154,9 +156,9 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
   const lessonsText = fmtList(LESSONS.filter((l) => chosen.has(l.id)).map((l) => l.title));
   const whoText =
     who === "left"
-      ? fmtList(TEACHER_CLASSES.filter((c) => classes.has(c.id)).map((c) => c.name))
+      ? fmtList(myClasses.filter((c) => classes.has(c.id)).map((c) => c.name))
       : (() => {
-          const classNames = TEACHER_CLASSES.filter((c) =>
+          const classNames = myClasses.filter((c) =>
             [...students].some((s) => s.startsWith(c.id + ":")),
           ).map((c) => c.name);
           return `${students.size} ${students.size === 1 ? "student" : "students"} in ${fmtList(classNames)}`;
@@ -264,7 +266,7 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                 <Toggle left="Whole class" right="Specific students" value={who} onChange={setWho} />
                 {who === "left" ? (
                   <div className="mt-4 flex flex-col gap-2.5 xl:mt-[18px] xl:gap-[11px]">
-                    {TEACHER_CLASSES.map((c) => (
+                    {myClasses.map((c) => (
                       <CheckCard
                         key={c.id}
                         on={classes.has(c.id)}
@@ -276,7 +278,7 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                   </div>
                 ) : (
                   <div className="mt-4 flex flex-col gap-4 xl:mt-[18px]">
-                    {TEACHER_CLASSES.map((c) => (
+                    {myClasses.map((c) => (
                       <div key={c.id}>
                         <div className="font-mono text-[10.5px] font-bold tracking-[0.1em] text-nevo-violet">
                           {c.name.toUpperCase()}
