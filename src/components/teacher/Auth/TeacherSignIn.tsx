@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, authApi } from "@/lib/api";
 import { useAuth } from "@/hooks";
@@ -70,7 +70,15 @@ function Spinner({ onNavy = false, size = 18 }: { onNavy?: boolean; size?: numbe
 
 export function TeacherSignIn() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn } = useAuth();
+  // The route guard appends ?next= when it turns someone away; send them
+  // back where they were headed. Only same-app paths, never an open redirect.
+  const nextParam = searchParams.get("next");
+  const destination =
+    nextParam && nextParam.startsWith("/teacher/")
+      ? nextParam
+      : "/teacher/dashboard";
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -113,7 +121,7 @@ export function TeacherSignIn() {
         });
         setPhase("success");
         timers.current.push(
-          setTimeout(() => router.push("/teacher/dashboard"), SUCCESS_HOLD_MS),
+          setTimeout(() => router.push(destination), SUCCESS_HOLD_MS),
         );
       })
       .catch((err: unknown) => {

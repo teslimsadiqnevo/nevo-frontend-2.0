@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { setSession } from "@/lib/auth/session";
+import { USER_ROLES } from "@/lib/constants";
 import { TEACHER_CLASSES } from "@/lib/mocks/teacherClasses";
 import {
   classCountLine,
@@ -44,6 +46,18 @@ export function TeacherOnboarding() {
 
   useEffect(() => {
     if (step !== "complete") return;
+    // Onboarding ends signed in - the invite is how a teacher gets a session.
+    // The real flow accepts the invitation and signs in with the password the
+    // teacher just set; standing in for it with a token-less session keeps
+    // the route guard satisfied without faking live data.
+    // TODO(api): POST /api/v1/admin/team/invitations/accept once design adds
+    // the password step the backend's accept contract requires.
+    setSession({
+      token: "",
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      userId: "teacher-invite-demo",
+      role: USER_ROLES.TEACHER,
+    });
     const t = setTimeout(() => router.push("/teacher/dashboard"), COMPLETE_HOLD_MS);
     timers.current.push(t);
     return () => clearTimeout(t);
