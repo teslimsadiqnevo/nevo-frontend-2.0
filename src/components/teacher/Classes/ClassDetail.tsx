@@ -3,19 +3,25 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  STATUS_LABEL,
   type StudentStatus,
   type TeacherClass,
 } from "@/lib/mocks/teacherClasses";
+import {
+  CLASS_OBSERVATIONS,
+  OBSERVATIONS_LABEL,
+  OBSERVATIONS_SUBTITLE,
+} from "@/lib/mocks/teacherIntelligence";
 import { cn } from "@/lib/utils";
 import { ClassQrDialog, ClassQrScreen } from "./ClassQr";
 
 /**
  * Class detail (C05 / `Nevo Teacher Classes` frame): back link, class header
  * with the glance/flag legend, and the Roster / Lessons / Activity pill tabs.
- * Roster rows open the student profile; a sudden change carries the navy drop
- * glyph. Status dots: violet = worth a glance, navy ring = flagged, muted =
- * on track.
+ * The Roster tab renders the C16b Student Observations rows in place of the
+ * old plain list: name + seat, plain-language observation chips, and a
+ * profile link. Worth a glance = violet dot + violet rail; a sudden change =
+ * the navy triangle glyph + navy rail (C16b draws the triangle, not the C05
+ * drop - flagged to design).
  */
 
 const TABS = ["Roster", "Lessons", "Activity"] as const;
@@ -34,18 +40,11 @@ function statusDotClass(status: StudentStatus, small = false): string {
   );
 }
 
-function initialsOf(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("");
-}
-
-const DROP_GLYPH = (
-  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M12 5v9" />
-    <path d="M8 11l4 4 4-4" />
+/** C16b sudden-change mark - the frame's triangle, paths verbatim. */
+const SUDDEN_GLYPH = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 3v6M12 15h.01" />
+    <path d="M4.5 20h15L12 5z" />
   </svg>
 );
 
@@ -138,48 +137,87 @@ export function ClassDetail({ klass }: { klass: TeacherClass }) {
         </div>
 
         {tab === "Roster" && (
-          <div className="mt-4 overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1">
-            {klass.roster.map((student, i) => (
-              <Link
-                key={student.name}
-                href={studentHref(student.name)}
-                className={cn(
-                  "flex cursor-pointer items-center justify-between gap-3.5 px-5 py-3.5 transition-[filter] hover:brightness-[0.985] xl:gap-4 xl:px-[22px] xl:py-[15px]",
-                  i < klass.roster.length - 1 &&
-                    "border-b border-nevo-near-black/7",
-                )}
-              >
-                <div className="flex min-w-0 items-center gap-3.5">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-nevo-navy/10 text-[12.5px] font-semibold text-nevo-navy">
-                    {initialsOf(student.name)}
-                  </span>
-                  <div className="flex min-w-0 items-center gap-2">
-                    {student.isSudden && (
-                      <span className="flex size-[18px] shrink-0 items-center justify-center rounded-full bg-nevo-navy text-nevo-cream">
-                        {DROP_GLYPH}
-                      </span>
-                    )}
-                    <span className="text-[15.5px] font-medium text-nevo-near-black">
-                      {student.name}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2.5">
-                  <span
+          <>
+            <h3 className="mt-[22px] block text-[11px] font-bold tracking-[0.14em] text-nevo-violet uppercase xl:mt-[26px]">
+              {OBSERVATIONS_LABEL}
+            </h3>
+            <p className="mt-2 text-[13px] text-nevo-near-black/60">
+              {OBSERVATIONS_SUBTITLE}
+            </p>
+            <div className="mt-3.5 flex flex-col gap-2 xl:mt-4">
+              {klass.roster.map((student) => {
+                const obs = CLASS_OBSERVATIONS[klass.id]?.[student.name];
+                return (
+                  <Link
+                    key={student.name}
+                    href={studentHref(student.name)}
                     className={cn(
-                      "text-[13.5px]",
-                      student.status === "ok"
-                        ? "text-nevo-near-black/50"
-                        : "text-nevo-navy",
+                      "flex cursor-pointer flex-col rounded-[12px] bg-nevo-cream-elevated px-[18px] py-4 shadow-elevation-1 transition-[filter] hover:brightness-[0.985] xl:flex-row xl:items-center xl:gap-4 xl:p-5",
+                      student.status === "glance" &&
+                        "border-l-[3px] border-nevo-violet",
+                      student.status === "flag" &&
+                        "border-l-[3px] border-nevo-navy",
                     )}
                   >
-                    {STATUS_LABEL[student.status]}
+                    <div className="flex items-center gap-2 xl:w-[26%] xl:shrink-0">
+                      {student.status === "glance" && (
+                        <span className="size-2 shrink-0 rounded-full bg-nevo-violet" />
+                      )}
+                      {student.status === "flag" && (
+                        <span className="shrink-0 text-nevo-navy">
+                          {SUDDEN_GLYPH}
+                        </span>
+                      )}
+                      <div className="flex min-w-0 flex-1 items-baseline gap-1.5 xl:flex-col xl:gap-0">
+                        <span className="truncate text-[15px] font-semibold text-nevo-navy">
+                          {student.name}
+                        </span>
+                        {obs && (
+                          <span className="shrink-0 text-[12px] text-nevo-near-black/55 xl:mt-0.5">
+                            <span className="xl:hidden">{"· "}</span>
+                            {`Seat ${obs.seat}`}
+                          </span>
+                        )}
+                      </div>
+                      <span className="shrink-0 text-[13px] whitespace-nowrap text-nevo-violet xl:hidden">
+                        View profile
+                      </span>
+                    </div>
+                    {obs && obs.chips.length > 0 && (
+                      <div className="mt-2.5 flex min-w-0 flex-wrap gap-2 xl:mt-0 xl:flex-1">
+                        {obs.chips.map((chip) => (
+                          <span
+                            key={chip}
+                            className="inline-flex min-h-7 items-center rounded-[20px] bg-nevo-cream-inset px-3 py-[5px] text-[12px] text-nevo-near-black"
+                          >
+                            {chip}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <span className="hidden shrink-0 text-[13px] whitespace-nowrap text-nevo-violet xl:inline">
+                      View profile
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="mt-4 flex gap-5 text-[12px] text-nevo-near-black/55">
+              <span className="flex items-center gap-[7px]">
+                <span className="size-2 shrink-0 rounded-full bg-nevo-violet" />
+                Worth a glance
+              </span>
+              <span className="flex items-center gap-[7px]">
+                <span className="shrink-0 text-nevo-navy">{SUDDEN_GLYPH}</span>
+                <span>
+                  Sudden change
+                  <span className="hidden xl:inline">
+                    {" - read the profile"}
                   </span>
-                  <span className={statusDotClass(student.status)} />
-                </div>
-              </Link>
-            ))}
-          </div>
+                </span>
+              </span>
+            </div>
+          </>
         )}
 
         {tab === "Lessons" && (

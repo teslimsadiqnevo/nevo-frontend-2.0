@@ -7,6 +7,7 @@ import {
   HOME_FLAGS,
 } from "@/lib/mocks/teacherHome";
 import { cn } from "@/lib/utils";
+import { ClassPulse } from "./ClassPulse";
 import { FlagCard } from "./FlagCard";
 
 /**
@@ -48,6 +49,9 @@ export function TeacherHome() {
             else is running smoothly.
           </p>
         )}
+
+        {/* C16a: the pulse leads - class weather first, specifics below. */}
+        <ClassPulse />
 
         {hasFlags ? (
           <>
