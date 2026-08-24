@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { askNevoApi } from "@/lib/api";
+import { askNevoApi, asUuid } from "@/lib/api";
+import { getToken } from "@/lib/auth/session";
 import {
   ASK_NEVO_CONTEXTS,
   CANNOT_HELP_LINE,
@@ -19,11 +20,19 @@ const THINKING_MS = 900;
 /** How long the live assistant may take before the canned turn answers -
  *  the backend's cold start can run to a minute, and the drawer must never
  *  sit on "thinking" that long. */
-const LIVE_TIMEOUT_MS = 4000;
+// A cold backend can take tens of seconds; 4s meant the drawer served a
+// canned answer as if it were real on nearly every cold start.
+const LIVE_TIMEOUT_MS = 15000;
 
 type Turn =
   | { kind: "question"; text: string }
-  | { kind: "answer"; text: string; actions: { label: string; href: string }[] }
+  | {
+      kind: "answer";
+      text: string;
+      actions: { label: string; href: string }[];
+      /** Canned stand-in shown after a live attempt failed. */
+      sample?: boolean;
+    }
   | { kind: "cannothelp" };
 
 function Sparkle({ size }: { size: number }) {
@@ -51,7 +60,7 @@ function Sparkle({ size }: { size: number }) {
  */
 export function AskNevo() {
   const pathname = usePathname();
-  const threadId = useRef(`thread-${randomId()}`);
+  const threadId = useRef(randomId());
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -105,7 +114,7 @@ export function AskNevo() {
         .ask({
           role: "teacher",
           currentPage: pathname,
-          contextIds: { threadId: threadId.current },
+          contextIds: { threadId: asUuid(threadId.current) },
           question,
         })
         .catch(() => null),
@@ -119,7 +128,9 @@ export function AskNevo() {
         ...ts,
         res
           ? { kind: "answer", text: res.answer, actions: [] }
-          : cannedFor(question),
+          : // A stand-in answer says so when we actually tried to reach the
+            // assistant - it must never read as Nevo's own judgement.
+            { ...cannedFor(question), sample: Boolean(getToken()) },
       ]);
       setThinking(false);
       requestAnimationFrame(() =>
@@ -223,6 +234,12 @@ export function AskNevo() {
                           <p className="text-[14.5px] leading-[1.6] text-nevo-near-black">
                             {t.text}
                           </p>
+                          {t.sample && (
+                            <p className="mt-2.5 text-[12px] leading-[1.45] text-nevo-near-black/55 italic">
+                              We couldn&rsquo;t reach Nevo just now, so this is
+                              a sample answer.
+                            </p>
+                          )}
                           {t.actions.length > 0 && (
                             <div className="mt-3 flex flex-wrap gap-[9px]">
                               {t.actions.map((a) => (

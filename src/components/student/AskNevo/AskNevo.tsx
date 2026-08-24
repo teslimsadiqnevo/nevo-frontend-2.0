@@ -5,13 +5,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { Mic, MessageCircle, Send } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { NevoKeyboard, useNevoKeyboardDock } from "@/components/shared";
-import { askNevoApi } from "@/lib/api";
+import { askNevoApi, asUuid } from "@/lib/api";
 import { LessonContext } from "@/context/LessonContext";
 import { useAuth } from "@/hooks";
 import { cn, randomId } from "@/lib/utils";
 
 /** The minimum "Nevo is thinking" beat - real answers never land jarringly
  *  fast, and the mock fallback keeps its original calm pacing. */
+const LIVE_TIMEOUT_MS = 15000;
 const THINKING_MS = 1600;
 /** Mic toast lifetime. */
 const TOAST_MS = 3200;
@@ -108,7 +109,7 @@ export function AskNevo() {
   // the question.
   const lessonId = useContext(LessonContext)?.lessonId ?? null;
   // One conversation thread per mount - continuity for the backend assistant.
-  const threadId = useRef(`thread-${randomId()}`);
+  const threadId = useRef(randomId());
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [thinking, setThinking] = useState(false);
@@ -151,18 +152,24 @@ export function AskNevo() {
     // (no session yet, offline). The answer lands no earlier than the
     // thinking beat, so a fast response never arrives jarringly.
     const beat = new Promise<void>((resolve) => later(resolve, THINKING_MS));
-    const answer = askNevoApi
+    // Capped: a cold backend must never leave the dots spinning forever -
+    // the mock engine answers instead.
+    const live = askNevoApi
       .ask({
         role: "student",
         currentPage: pathname,
         contextIds: {
-          ...(user ? { studentId: user.id } : {}),
-          ...(lessonId ? { lessonId } : {}),
-          threadId: threadId.current,
+          studentId: asUuid(user?.id),
+          lessonId: asUuid(lessonId),
+          threadId: asUuid(threadId.current),
         },
         question: text,
       })
       .catch(() => null);
+    const answer = Promise.race([
+      live,
+      new Promise<null>((resolve) => later(() => resolve(null), LIVE_TIMEOUT_MS)),
+    ]);
     void Promise.all([answer, beat]).then(([res]) => {
       if (!alive.current) return;
       setMessages((m) => [
