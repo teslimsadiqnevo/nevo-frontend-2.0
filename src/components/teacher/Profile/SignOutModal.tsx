@@ -26,7 +26,8 @@ export function SignOutModal({ onStay }: { onStay: () => void }) {
     setBusy(true);
     // Clears the local session even if the server call fails.
     await authApi.logout().catch(() => {});
-    router.push("/auth/login");
+    // Teachers land on their own door (C02), not the student PIN unlock.
+    router.push("/auth/teacher");
   };
 
   return (

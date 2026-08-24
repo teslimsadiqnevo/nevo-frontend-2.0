@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
+import { TeacherOnboarding } from "@/components/teacher/Onboarding/TeacherOnboarding";
+
+export const metadata: Metadata = {
+  title: "Welcome - Nevo",
+};
+
+// C01 Teacher Onboarding - invite link to verified account, standalone
+// (TeacherShell renders this route bare, no console chrome).
 export default function TeacherOnboardingPage() {
-  return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-2">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Teacher</p>
-      <h1 className="text-xl font-medium text-nevo-navy">Onboarding</h1>
-      <p className="text-sm text-nevo-near-black/60">Placeholder - built per the UI/UX spec.</p>
-    </main>
-  );
+  return <TeacherOnboarding />;
 }
