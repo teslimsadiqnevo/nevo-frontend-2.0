@@ -53,6 +53,8 @@ interface Message {
   /** Backend interaction id - carried for the helpfulness vote once the
    *  frame set gains that control (endpoint is live, UI is flagged to design). */
   interactionId?: string;
+  /** A canned stand-in shown because the live assistant didn't answer. */
+  sample?: boolean;
 }
 
 /**
@@ -176,7 +178,9 @@ export function AskNevo() {
         ...m,
         res
           ? { who: "nevo", text: res.answer, interactionId: res.interaction_id }
-          : replyFor(text),
+          : // Say so. A student cannot tell a canned reply from real tutoring,
+            // and they are the last person who should have to.
+            { ...replyFor(text), sample: true },
       ]);
       setThinking(false);
     });
@@ -298,6 +302,12 @@ export function AskNevo() {
                   <div key={i} className="flex justify-start">
                     <div className="flex max-w-[88%] flex-col gap-3 rounded-2xl rounded-bl-[5px] bg-nevo-violet/22 px-3.5 py-3 text-[15px] leading-[1.5]">
                       {message.text}
+                      {message.sample && (
+                        <span className="text-[12.5px] leading-[1.4] text-nevo-near-black/60 italic">
+                          I couldn&rsquo;t connect just now, so this is a
+                          sample answer.
+                        </span>
+                      )}
                       {message.teacherAction && (
                         <button
                           type="button"

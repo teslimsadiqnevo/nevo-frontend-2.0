@@ -41,7 +41,14 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
     setCollapsed(!window.matchMedia("(min-width: 1024px)").matches);
   }, []);
 
-  if (isFullScreen(pathname)) return <>{children}</>;
+  if (isFullScreen(pathname)) {
+    // Text Size is a reading preference, and the player is where the reading
+    // happens - it applies there too, not just in the shell. Onboarding is
+    // deliberately excluded: the baseline activities are spatially
+    // calibrated, and scaling them would distort what they measure.
+    if (pathname.startsWith("/student/onboarding")) return <>{children}</>;
+    return <div style={{ zoom: TEXT_ZOOM[textSize] }}>{children}</div>;
+  }
 
   const activeHref = STUDENT_NAV.find(
     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
