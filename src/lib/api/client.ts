@@ -61,14 +61,18 @@ async function getAuthToken(): Promise<string | undefined> {
  * console quietly degrades to sample data while they still believe they're
  * signed in.
  *
- * Two exemptions matter. Auth endpoints handle their own failures: a wrong
+ * Two exemptions matter. Sign-in and sign-out own their failures: a wrong
  * password must surface the sign-in screen's own message, never bounce the
  * visitor. And a request sent WITHOUT a token was never authenticated, so
  * its 401 is expected, not a death.
  */
 function handleAuthFailure(path: string, sentToken: boolean): void {
   if (typeof window === "undefined" || !sentToken) return;
-  if (path.includes("/auth/")) return;
+  // Only the sign-in and sign-out calls own their failures. The session
+  // check must NOT be exempt: it is the one call that discovers a dead
+  // token, and exempting it left the student browsing an app that still
+  // looked signed in.
+  if (path.includes("/auth/login") || path.includes("/auth/logout")) return;
   const role = getSession()?.role;
   clearSession();
   window.location.assign(

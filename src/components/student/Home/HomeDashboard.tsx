@@ -5,7 +5,7 @@ import Link from "next/link";
 import { BookOpen, Clock, Play, Shapes } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { EmptyState, IllustrationWrapper } from "@/components/shared";
-import { MOCK_STUDENT } from "@/components/student/Shell/studentNav";
+import { useDisplayName } from "@/components/student/Shell/useDisplayName";
 import { WarmUpCard } from "@/components/student/Profiling/WarmUpCard";
 import { dimensionForToday } from "@/components/student/Profiling/WarmUpRun";
 
@@ -78,6 +78,7 @@ function useLocalDate() {
  * aware; a settled empty state when there's nothing queued.
  */
 export function HomeDashboard() {
+  const { name: displayName } = useDisplayName();
   const date = useLocalDate();
   const nothingQueued = !CONTINUE && TODAY.length === 0;
 
@@ -89,7 +90,7 @@ export function HomeDashboard() {
           {date ?? ""}
         </span>
         <h1 className="mt-2 text-[28px] font-semibold leading-[1.12] tracking-[-0.02em] text-nevo-near-black sm:text-[34px]">
-          Welcome back, {MOCK_STUDENT.name}
+          Welcome back, {displayName}
         </h1>
       </div>
 

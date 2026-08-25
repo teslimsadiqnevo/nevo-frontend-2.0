@@ -6,6 +6,11 @@ import { Check, ChevronRight, LogOut, MessageCircle } from "lucide-react";
 import { NevoKeyboard, Switch } from "@/components/shared";
 import { useAuth } from "@/hooks";
 import { MOCK_STUDENT } from "@/components/student/Shell/studentNav";
+import { useDisplayName } from "@/components/student/Shell/useDisplayName";
+import {
+  getRememberedProfile,
+  setStoredDisplayName,
+} from "@/lib/auth/session";
 import { useAccessibility } from "@/context/AccessibilityContext";
 import { cn } from "@/lib/utils";
 import { SignOutSheet } from "./SignOutSheet";
@@ -33,7 +38,8 @@ export function ProfileSettings() {
 
   // Editable display name (product frame: tap Change → inline input; initials
   // derive from the name). TODO(api): persist via the profile endpoint.
-  const [name, setName] = useState(MOCK_STUDENT.name);
+  const stored = useDisplayName();
+  const [name, setName] = useState(stored.name);
   const [editingName, setEditingName] = useState(false);
   const [nameKbOpen, setNameKbOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
@@ -54,7 +60,9 @@ export function ProfileSettings() {
     setHighContrast,
     setTextSize,
   } = useAccessibility();
-  const [suggestBreaks, setSuggestBreaks] = useState(true);
+  // Was local, unpersisted state that nothing read - flipping it off left
+  // the 20-minute prompt firing exactly as before.
+  const { suggestBreaks, setSuggestBreaks } = useAccessibility();
 
   // Transient "Saved" confirmation.
   const [saved, setSaved] = useState(false);
@@ -172,8 +180,14 @@ export function ProfileSettings() {
             onBlur={() => {
               setNameKbOpen(false);
               setEditingName(false);
-              if (!name.trim()) setName(MOCK_STUDENT.name);
-              else flashSaved();
+              if (!name.trim()) {
+                setName(stored.name);
+                return;
+              }
+              // "Saved" now means it: the name persists to the device and
+              // the rest of the app follows it.
+              setStoredDisplayName(name, initials);
+              flashSaved();
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -245,7 +259,12 @@ export function ProfileSettings() {
         onSignOut={() => {
           setSignOutOpen(false);
           signOut();
-          router.push("/student/onboarding");
+          // The sheet promises "you can come back anytime with your PIN" -
+          // onboarding has no route to the PIN unlock, so a remembered
+          // device would have stranded them in the full setup flow.
+          router.push(
+            getRememberedProfile() ? "/auth/login" : "/student/onboarding",
+          );
         }}
       />
 

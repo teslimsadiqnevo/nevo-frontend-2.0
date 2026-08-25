@@ -20,6 +20,7 @@ import {
   type Modality,
   type SignalEventType,
 } from "@/lib/constants";
+import { useAccessibility } from "@/context/AccessibilityContext";
 import { useBreakMonitor, useLesson, useSignals } from "@/hooks";
 import type { AdaptationPlan, Lesson, LessonSegment } from "@/lib/types";
 import { cn, randomId } from "@/lib/utils";
@@ -215,7 +216,12 @@ export function LessonPlayer({
   const [spentEscalations, setSpentEscalations] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const { approachingThreshold } = useBreakMonitor(phase === "segments");
+  // The student's own preference gates the prompt - turning it off used to
+  // change nothing at all.
+  const { suggestBreaks } = useAccessibility();
+  const { approachingThreshold } = useBreakMonitor(
+    phase === "segments" && suggestBreaks,
+  );
   // Transient post-answer note that greets the next segment, then fades.
   const [feedback, setFeedback] = useState<string | null>(null);
   // Calculation segments the student has co-constructed to completion — the
