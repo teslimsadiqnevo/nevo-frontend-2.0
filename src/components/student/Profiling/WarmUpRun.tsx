@@ -28,8 +28,12 @@ export function dimensionForToday(): BaselineDimension {
  * Daily warm-up run (`Nevo Warm-Up Run Frame`, SCRUM-104): one round of the
  * day's baseline task, stripped of the onboarding quest map - a quiet
  * "DAILY WARM-UP" header with a small ring, the activity, and the gentle
- * one-shot done state ("Your progress is saved"). Never reads as an assessment;
- * nothing is marked right or wrong.
+ * one-shot done state. Never reads as an assessment; nothing is marked
+ * right or wrong.
+ *
+ * The done state only claims the run was saved if the write actually
+ * landed - the endpoint is not deployed today, so telling a child their
+ * progress was saved would be false every single time.
  * TODO(api): dimension comes from GET /api/baseline/recalibrate-prompt.
  */
 export function WarmUpRun({
@@ -39,6 +43,8 @@ export function WarmUpRun({
 }) {
   const router = useRouter();
   const [done, setDone] = useState(false);
+  // null until the write settles; false means it never reached Nevo.
+  const [saved, setSaved] = useState<boolean | null>(null);
   const [capture] = useState(() => new BaselineCapture(`warmup-${randomId()}`));
   const startedAt = useRef(0);
   const submitted = useRef(false);
@@ -54,7 +60,10 @@ export function WarmUpRun({
       const durationMs = Math.round(performance.now() - startedAt.current);
       baselineApi
         .submit(capture.sessionId, [{ module: "warmup", dimension, durationMs }])
-        .catch(() => {})
+        .then(() => setSaved(true))
+        .catch(() => setSaved(false))
+        // The raw stream is purged either way - only the reduced vector ever
+        // travels, and it must not linger on the device.
         .finally(() => void capture.purge());
     }
     setDone(true);
@@ -94,8 +103,9 @@ export function WarmUpRun({
               That&apos;s it for today
             </h3>
             <p className="mt-2.5 max-w-[320px] text-[15.5px] leading-[1.55] text-nevo-near-black">
-              Nevo is tuned to how you&apos;re doing today. Your progress is
-              saved.
+              {saved === false
+                ? "Thanks for doing that. We couldn't save it just now - that's on us, not you."
+                : "Nevo is tuned to how you're doing today. Your progress is saved."}
             </p>
           </div>
           <button
