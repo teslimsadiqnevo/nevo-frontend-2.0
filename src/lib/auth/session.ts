@@ -13,6 +13,8 @@
 
 const SESSION_KEY = "nevo.auth.session";
 const PROFILE_KEY = "nevo.auth.profile";
+/** Set when the student renames themselves and no remembered profile exists. */
+const DISPLAY_NAME_KEY = "nevo.auth.displayName";
 
 /**
  * Role mirror for the route guard (`src/proxy.ts`). localStorage is never
@@ -122,5 +124,40 @@ export function rememberProfile(profile: RememberedProfile): void {
     window.localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
   } catch {
     // ignore
+  }
+}
+
+/**
+ * The name the student is shown as. There is no profile endpoint, so the
+ * edit on the profile screen persists to the device: it updates the
+ * remembered profile when the device has one, and falls back to its own key
+ * otherwise. Without this the screen flashed "Saved" and forgot the name on
+ * the next load.
+ *
+ * TODO(api): replace with the profile endpoint once it exists.
+ */
+export function getStoredDisplayName(): string | null {
+  if (typeof window === "undefined") return null;
+  const remembered = getRememberedProfile();
+  if (remembered?.displayName) return remembered.displayName;
+  try {
+    return window.localStorage.getItem(DISPLAY_NAME_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredDisplayName(name: string, initials: string): void {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const remembered = getRememberedProfile();
+  if (remembered) {
+    rememberProfile({ ...remembered, displayName: trimmed, initials });
+    return;
+  }
+  try {
+    window.localStorage.setItem(DISPLAY_NAME_KEY, trimmed);
+  } catch {
+    // Private mode - the name simply will not survive this session.
   }
 }

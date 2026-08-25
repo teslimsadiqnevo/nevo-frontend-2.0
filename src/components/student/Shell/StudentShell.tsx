@@ -10,6 +10,7 @@ import { useBehaviouralCapture } from "@/hooks";
 import { NotificationBell } from "./NotificationBell";
 import { OfflineTakeover, useOnline } from "./OfflineTakeover";
 import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
+import { useDisplayName } from "./useDisplayName";
 
 /**
  * Student App shell (Product Arch B.5). Wraps the daily-experience tabs in the
@@ -26,6 +27,8 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   // ephemeral IndexedDB only, purged at session end, never transmitted.
   useBehaviouralCapture(true);
   const { textSize } = useAccessibility();
+  // The chrome calls the student by their own name, not the fixture's.
+  const student = useDisplayName();
   const online = useOnline();
   // Offline takes over network-backed tabs (board 28); Downloads stays
   // reachable - it is where "See saved lessons" points.
@@ -61,7 +64,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
         <Sidebar
           items={STUDENT_NAV}
           activeHref={activeHref}
-          user={MOCK_STUDENT}
+          user={{ ...MOCK_STUDENT, ...student }}
           collapsed={collapsed}
           onToggle={setCollapsed}
         />
@@ -81,7 +84,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-1">
             <NotificationBell />
             <span className="flex size-10 items-center justify-center rounded-full bg-nevo-navy text-sm font-semibold text-nevo-cream">
-              {MOCK_STUDENT.initials}
+              {student.initials}
             </span>
           </div>
         </header>

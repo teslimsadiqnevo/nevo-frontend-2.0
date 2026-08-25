@@ -16,18 +16,22 @@ export interface AccessibilityPrefs {
   reducedMotion: boolean;
   highContrast: boolean;
   textSize: TextSize;
+  /** Learning-support preference (B.11): the 20-minute break prompt. */
+  suggestBreaks: boolean;
 }
 
 export interface AccessibilityValue extends AccessibilityPrefs {
   setReducedMotion: (v: boolean) => void;
   setHighContrast: (v: boolean) => void;
   setTextSize: (v: TextSize) => void;
+  setSuggestBreaks: (v: boolean) => void;
 }
 
 const DEFAULTS: AccessibilityPrefs = {
   reducedMotion: false,
   highContrast: false,
   textSize: "m",
+  suggestBreaks: true,
 };
 
 const STORAGE_KEY = "nevo:a11y";
@@ -100,10 +104,20 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
     (v: TextSize) => setPrefs((p) => ({ ...p, textSize: v })),
     [],
   );
+  const setSuggestBreaks = useCallback(
+    (v: boolean) => setPrefs((p) => ({ ...p, suggestBreaks: v })),
+    [],
+  );
 
   const value = useMemo<AccessibilityValue>(
-    () => ({ ...prefs, setReducedMotion, setHighContrast, setTextSize }),
-    [prefs, setReducedMotion, setHighContrast, setTextSize],
+    () => ({
+      ...prefs,
+      setReducedMotion,
+      setHighContrast,
+      setTextSize,
+      setSuggestBreaks,
+    }),
+    [prefs, setReducedMotion, setHighContrast, setTextSize, setSuggestBreaks],
   );
 
   return (
