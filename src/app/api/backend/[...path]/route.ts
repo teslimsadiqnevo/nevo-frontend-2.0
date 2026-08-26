@@ -13,12 +13,27 @@ const UPSTREAM =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
   "https://nevo-backend-2-0.onrender.com";
 
+/**
+ * Upstream routes declared with a trailing slash. FastAPI answers the
+ * slashless form with a 307 to the canonical one; `fetch` follows it, so calls
+ * work either way - at the cost of an extra upstream round trip on a
+ * cold-start-prone host. Next normalises the trailing slash out of the request
+ * before this handler runs (`trailingSlash: false`), so the client cannot
+ * express the intent and the canonical form has to be restored here.
+ */
+const SLASH_REQUIRED = new Set(["api/v1/ask-nevo", "api/signals"]);
+
+function upstreamPath(segments: string[]): string {
+  const joined = segments.join("/");
+  return SLASH_REQUIRED.has(joined) ? `${joined}/` : joined;
+}
+
 async function forward(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
 ): Promise<Response> {
   const { path } = await params;
-  const url = new URL(`${UPSTREAM}/${path.join("/")}`);
+  const url = new URL(`${UPSTREAM}/${upstreamPath(path)}`);
   request.nextUrl.searchParams.forEach((value, key) =>
     url.searchParams.set(key, value),
   );
