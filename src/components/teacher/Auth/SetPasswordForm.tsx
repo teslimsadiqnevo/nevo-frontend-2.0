@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { authApi, teamApi } from "@/lib/api";
 
 /**
  * Set Password (`Nevo Set Password`) - one component behind two flows:
@@ -17,10 +18,16 @@ import { cn } from "@/lib/utils";
  * rejection - so the error branch here is ours, written in the house voice
  * and flagged to design.
  *
- * TODO(api): POST /api/v1/admin/team/invitations/accept takes
- * {invitation_token, password} but returns no access token, so activation
- * cannot honour its own "Taking you to your console" beat without chaining a
- * password login. Flagged; the flow stands in until that is settled.
+ * Activation is live against POST /api/v1/admin/team/invitations/accept, with
+ * the invitation token read off the link. That endpoint returns no access
+ * token, so the screen chains a password login to honour its own "Taking you
+ * to your console" beat - and when only that second hop fails the account is
+ * still active, so the screen says so and routes to sign-in instead of
+ * reporting an activation failure.
+ *
+ * Reset has no deployed endpoint and still runs on the simulated beat.
+ *
+ * TODO(api): a password-reset endpoint, so the reset half stops pretending.
  */
 
 const SUBMIT_MS = 1100;
@@ -123,6 +130,7 @@ export function SetPasswordForm({
   const [consent, setConsent] = useState(false);
   const [phase, setPhase] = useState<"form" | "saving" | "done">("form");
   const [error, setError] = useState("");
+  const [landing, setLanding] = useState<"console" | "signin">("console");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -130,6 +138,12 @@ export function SetPasswordForm({
     return () => pending.forEach(clearTimeout);
   }, []);
 
+  const params = useSearchParams();
+  /** The invite link is the credential; without it there is nothing to accept. */
+  const token = params.get("token");
+  /** The accept response carries no email, so the link has to. The prop is the
+   *  fallback that keeps the designed screen viewable on its own. */
+  const inviteEmail = params.get("email") ?? email;
   const activation = mode === "activation";
   const met = REQUIREMENTS.map((r) => r.test(password));
   const allMet = met.every(Boolean);
@@ -137,23 +151,60 @@ export function SetPasswordForm({
   const canSubmit = allMet && matches && (!activation || consent);
   const s = strength(password);
 
-  const submit = () => {
+  /** Where the success screen is heading - the console needs a live session. */
+  const finish = (next: "console" | "signin") => {
+    setLanding(next);
+    setPhase("done");
+    timers.current.push(
+      setTimeout(
+        () =>
+          router.push(next === "console" ? "/teacher/dashboard" : "/auth/teacher"),
+        SUCCESS_HOLD_MS,
+      ),
+    );
+  };
+
+  const submit = async () => {
     if (!canSubmit || phase !== "form") return;
     setError("");
     setPhase("saving");
-    // TODO(api): accept the invitation / reset token here. The endpoint
-    // returns no session, so activation will need a login hop.
-    timers.current.push(
-      setTimeout(() => {
-        setPhase("done");
-        timers.current.push(
-          setTimeout(
-            () => router.push(activation ? "/teacher/dashboard" : "/auth/teacher"),
-            SUCCESS_HOLD_MS,
-          ),
-        );
-      }, SUBMIT_MS),
-    );
+
+    // Reset has no endpoint yet; the simulated beat stands in for it alone.
+    if (!activation) {
+      timers.current.push(setTimeout(() => finish("signin"), SUBMIT_MS));
+      return;
+    }
+
+    if (!token) {
+      setPhase("form");
+      setError(
+        "This activation link is missing its code. Ask your school admin to send a fresh invite.",
+      );
+      return;
+    }
+
+    try {
+      await teamApi.acceptInvitation({
+        invitation_token: token,
+        password,
+      });
+    } catch {
+      setPhase("form");
+      setError(
+        "We couldn't activate your account with this link. It may have expired - your school admin can send a new one.",
+      );
+      return;
+    }
+
+    // The account is active from here on. Accepting returns no session, so
+    // sign in to reach the console; if that hop fails it is not an activation
+    // failure and must not read like one.
+    try {
+      await authApi.loginPassword({ email: inviteEmail, password });
+      finish("console");
+    } catch {
+      finish("signin");
+    }
   };
 
   if (phase === "done") {
@@ -168,9 +219,11 @@ export function SetPasswordForm({
           {activation ? "You're all set" : "Password updated"}
         </h2>
         <p className="mt-3 text-[16px] leading-[1.55] text-nevo-near-black/70">
-          {activation
-            ? "Your teacher account is active."
-            : "You can now sign in with your new password."}
+          {!activation
+            ? "You can now sign in with your new password."
+            : landing === "console"
+              ? "Your teacher account is active."
+              : "Your teacher account is active. Sign in to get started."}
         </p>
         <span className="mt-[26px] flex items-center gap-2.5 text-[13.5px] text-nevo-near-black/55">
           <span
@@ -178,7 +231,9 @@ export function SetPasswordForm({
             aria-label="Working"
             className="size-4 rounded-full border-[2.4px] border-nevo-navy/25 border-t-nevo-navy motion-safe:animate-spin motion-safe:[animation-duration:900ms]"
           />
-          {activation ? "Taking you to your console…" : "Taking you to sign in…"}
+          {landing === "console"
+            ? "Taking you to your console…"
+            : "Taking you to sign in…"}
         </span>
       </div>
     );
@@ -207,7 +262,7 @@ export function SetPasswordForm({
           <rect x="5" y="11" width="14" height="9" rx="2" />
           <path d="M8 11V8a4 4 0 0 1 8 0v3" />
         </svg>
-        <span className="truncate">{email}</span>
+        <span className="truncate">{inviteEmail}</span>
       </div>
 
       <PasswordField
@@ -340,7 +395,7 @@ export function SetPasswordForm({
 
       <button
         type="button"
-        onClick={submit}
+        onClick={() => void submit()}
         disabled={!canSubmit}
         className={cn(
           "mt-7 flex h-[54px] w-full items-center justify-center gap-2.5 rounded-[10px] text-[16px] font-semibold transition-[filter] duration-150",
