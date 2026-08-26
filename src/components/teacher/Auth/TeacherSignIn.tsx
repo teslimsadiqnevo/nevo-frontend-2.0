@@ -10,8 +10,8 @@ import { cn } from "@/lib/utils";
 /**
  * C02 Teacher Sign-In - the returning teacher's door. Email + password or
  * school SSO, never PIN (that's the students'). Wrong credentials own the
- * failure in soft violet - never red. Three views: the form, the "Check your
- * inbox" reset confirmation, and the "You're in" success bridge.
+ * failure in soft violet - never red. Two views now: the form and the
+ * "You're in" success bridge - reset moved to its own screen (C02d).
  *
  * Password sign-in is LIVE against POST /api/v1/auth/login/password (the
  * deployed contract); the session token is stored by authApi and the success
@@ -23,8 +23,6 @@ import { cn } from "@/lib/utils";
 const SUCCESS_HOLD_MS = 1400;
 const SSO_HOP_MS = 1400;
 const LIVE_TIMEOUT_MS = 20000;
-/** The reset spinner settles instead of spinning forever (beyond-frame). */
-const SENT_SETTLE_MS = 1600;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -34,7 +32,6 @@ const UNREACHABLE_MSG =
   "We couldn't reach your school's sign-in right now. Nothing on your end - try again in a moment.";
 
 type Phase = "idle" | "signing" | "sso" | "error" | "success";
-type View = "signin" | "sent";
 
 const EYE_OPEN = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -83,9 +80,7 @@ export function TeacherSignIn() {
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
-  const [view, setView] = useState<View>("signin");
   const [errMsg, setErrMsg] = useState("");
-  const [sentSettled, setSentSettled] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -142,16 +137,11 @@ export function TeacherSignIn() {
     );
   };
 
-  const forgot = () => {
-    setView("sent");
-    setSentSettled(false);
-    timers.current.push(setTimeout(() => setSentSettled(true), SENT_SETTLE_MS));
-  };
+  // The design moved reset onto its own screen - navigate, don't swap views.
+  const forgot = () => router.push("/auth/teacher/reset");
 
-  const emailShown = email.trim() || "that address";
   const isSuccess = phase === "success";
-  const isSent = view === "sent" && !isSuccess;
-  const isForm = !isSuccess && !isSent;
+  const isForm = !isSuccess;
 
   return (
     <div className="relative flex min-h-full w-full flex-1 items-center justify-center px-6 py-[88px]">
@@ -319,41 +309,6 @@ export function TeacherSignIn() {
                   Continue with school SSO
                 </>
               )}
-            </button>
-          </div>
-        )}
-
-        {isSent && (
-          <div className="flex flex-col items-start motion-safe:animate-nevo-reveal">
-            <span className="flex size-14 items-center justify-center rounded-full bg-nevo-violet/20">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3b3f6e" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M4 6h16v12H4z" />
-                <path d="M4 7l8 6 8-6" />
-              </svg>
-            </span>
-            <h2 className="mt-[22px] text-[28px] leading-[1.15] font-semibold tracking-[-0.02em]">
-              Check your inbox
-            </h2>
-            <p className="mt-3 text-[16px] leading-[1.55] text-nevo-near-black/70">
-              {"If an account exists for "}
-              <b className="font-semibold text-nevo-near-black">{emailShown}</b>
-              {", a reset link is on its way. It expires in 30 minutes."}
-            </p>
-            {!sentSettled && (
-              <span className="mt-7 flex items-center gap-[9px] text-[14px] text-nevo-near-black/55">
-                <Spinner size={16} />
-                {"Sending the link…"}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                setView("signin");
-                setPhase("idle");
-              }}
-              className="mt-6 cursor-pointer text-[14.5px] font-medium text-nevo-navy"
-            >
-              {"← Back to sign in"}
             </button>
           </div>
         )}
