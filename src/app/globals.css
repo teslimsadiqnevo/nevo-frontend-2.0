@@ -87,6 +87,7 @@
   --animate-nevo-sway: nevo-sway 4s ease-in-out infinite;
   --animate-nevo-ring: nevo-ring 460ms ease-out forwards;
   --animate-nevo-reveal: nevo-reveal 220ms ease-out;
+  --animate-nevo-sheet-r: nevo-sheet-r 300ms cubic-bezier(0.33, 1, 0.68, 1) both;
   --animate-nevo-pop: nevo-pop 300ms ease-out;
   --animate-nevo-kb-up: nevo-kb-up 220ms cubic-bezier(0.33, 1, 0.68, 1) both;
   --animate-nevo-kb-caret: nevo-kb-caret 1000ms step-end infinite;
@@ -174,6 +175,16 @@
   100% {
     transform: rotateY(0deg);
     opacity: 1;
+  }
+}
+
+/* Ask Nevo's right-edge drawer (`Nevo Teacher Ask`). */
+@keyframes nevo-sheet-r {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(0);
   }
 }
 
