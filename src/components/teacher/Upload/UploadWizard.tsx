@@ -11,6 +11,9 @@ import {
 } from "./ParseFallback";
 import { PARSE_STAGES, ParseProgress } from "./ParseProgress";
 import { SectionReview } from "./SectionReview";
+import { contentApi, type ParseContentResponse } from "@/lib/api/content";
+import { extractText } from "@/lib/content/pdfText";
+import { suggestModules, toReviewSegments } from "@/lib/content/parsedSegments";
 
 /**
  * Lesson Upload wizard (SCRUM-102.6 reconciled flow, C07g): one flow, two
@@ -37,8 +40,15 @@ import { SectionReview } from "./SectionReview";
  * the picker's accept filter), and for demos a filename containing
  * "partial" or "continuous" walks the matching fallback.
  *
+ * The parse seam is live: a PDF is read page by page in the browser (the
+ * endpoint takes text, never a file) and sent to `POST /api/content/parse`,
+ * and the response drives the review step. Word and PowerPoint have no
+ * extractor yet, and an unreachable backend is not a dead end - both keep the
+ * designed demo beat, marked in the UI so canonical fixture content is never
+ * mistaken for the teacher's own file.
+ *
  * TODO(slice): the C07d structure tree replaces the stub route.
- * TODO(api): content parse seam (`POST /api/content/parse`).
+ * TODO(api): Word/PowerPoint extraction, so those formats reach the parse.
  */
 
 type ScopeId = "single" | "unit" | "term";
@@ -110,6 +120,8 @@ const SCOPE_CHIP: Record<ScopeId, string> = {
 
 /** Mock parse beats until the content seam lands. */
 const PROCESS_MS = 2400;
+/** Render cold-starts; past this the demo beat stands in rather than hanging. */
+const PARSE_TIMEOUT_MS = 25_000;
 const BLOCK_STAGE_MS = 1150;
 const ACCEPTED = /\.(pdf|docx?|pptx?)$/i;
 
@@ -129,8 +141,13 @@ export function UploadWizard() {
   const [parseStage, setParseStage] = useState(0);
   const [fallbackKind, setFallbackKind] = useState<FallbackKind>("unreadable");
   const [dragOver, setDragOver] = useState(false);
+  const [parsed, setParsed] = useState<ParseContentResponse | null>(null);
+  /** The screen is showing canonical fixture content, not the upload. */
+  const [sample, setSample] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Guards against a slow parse landing after the teacher picked again. */
+  const runId = useRef(0);
 
   useEffect(
     () => () => {
@@ -173,10 +190,80 @@ export function UploadWizard() {
     fallback: FALLBACK_HEADINGS[fallbackKind],
   }[phase];
 
-  const startFile = (name: string) => {
-    setFileName(name);
+  const stopTimer = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+
+  /** Walk the C07e rungs while the real parse is in flight. */
+  const startStageTicker = () => {
+    setParseStage(0);
+    let stage = 0;
+    const tick = () => {
+      stage = Math.min(stage + 1, PARSE_STAGES.length - 1);
+      setParseStage(stage);
+      timer.current = setTimeout(tick, BLOCK_STAGE_MS);
+    };
+    timer.current = setTimeout(tick, BLOCK_STAGE_MS);
+  };
+
+  const startFile = async (file: File) => {
+    const run = runId.current + 1;
+    runId.current = run;
+    stopTimer();
+    setFileName(file.name);
+    setParsed(null);
+    setSample(false);
     setPhase("processing");
-    // TODO(api): contentApi.parse - the mock beats stand in for the parse.
+    if (isBlock) startStageTicker();
+
+    const extracted = await extractText(file);
+    if (run !== runId.current) return;
+
+    if (extracted.kind === "empty") {
+      // A readable file with no text in it - a scan. Not a crash, and the
+      // fallback already says so kindly.
+      stopTimer();
+      setFallbackKind("unreadable");
+      setPhase("fallback");
+      return;
+    }
+
+    if (extracted.kind === "pages") {
+      const live = await Promise.race([
+        contentApi
+          .parse({
+            title: file.name.replace(/\.[^.]+$/, ""),
+            sourceType: extracted.sourceType,
+            pages: extracted.pages,
+          })
+          .catch(() => null),
+        new Promise<null>((resolve) =>
+          setTimeout(() => resolve(null), PARSE_TIMEOUT_MS),
+        ),
+      ]);
+      if (run !== runId.current) return;
+
+      if (live) {
+        stopTimer();
+        if (live.status === "failed") {
+          setFallbackKind("unreadable");
+          setPhase("fallback");
+          return;
+        }
+        setParsed(live);
+        setPhase(isBlock ? "blockParsed" : "review");
+        return;
+      }
+    }
+
+    // No extractor for the format, or the backend was out of reach.
+    stopTimer();
+    runMockBeats(file.name);
+  };
+
+  const runMockBeats = (name: string) => {
+    setSample(true);
     if (!isBlock) {
       timer.current = setTimeout(() => setPhase("review"), PROCESS_MS);
       return;
@@ -208,10 +295,13 @@ export function UploadWizard() {
   };
 
   const reset = () => {
-    if (timer.current) clearTimeout(timer.current);
+    runId.current += 1;
+    stopTimer();
     setPhase("scope");
     setScope(null);
     setFileName("");
+    setParsed(null);
+    setSample(false);
   };
 
   return (
@@ -244,12 +334,20 @@ export function UploadWizard() {
             anything, rename a section, or keep it as one continuous flow.
           </p>
         )}
+        {sample && (phase === "review" || phase === "blockParsed") && (
+          <p className="mt-1.5 max-w-[560px] text-[13px] leading-[1.5] text-nevo-near-black/55 italic">
+            We couldn&rsquo;t parse your file just now, so this is a sample
+            lesson.
+          </p>
+        )}
       </div>
 
       {phase === "review" && (
         <SectionReview
           onBack={() => setPhase("file")}
           onDone={() => setPhase("done")}
+          segments={parsed ? toReviewSegments(parsed.segments) : undefined}
+          suggestedModules={parsed ? suggestModules(parsed.segments) : undefined}
         />
       )}
 
@@ -347,7 +445,7 @@ export function UploadWizard() {
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) startFile(f.name);
+                if (f) void startFile(f);
               }}
             />
             <button
@@ -362,7 +460,7 @@ export function UploadWizard() {
                 e.preventDefault();
                 setDragOver(false);
                 const f = e.dataTransfer.files?.[0];
-                if (f) startFile(f.name);
+                if (f) void startFile(f);
               }}
               className={cn(
                 "mt-5 w-full cursor-pointer rounded-[16px] border-2 border-dashed bg-nevo-cream-elevated px-8 py-[52px] text-center transition-[filter,border-color] hover:brightness-[0.985]",
