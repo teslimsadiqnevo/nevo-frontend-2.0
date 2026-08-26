@@ -40,14 +40,20 @@ import { suggestModules, toReviewSegments } from "@/lib/content/parsedSegments";
  * the picker's accept filter), and for demos a filename containing
  * "partial" or "continuous" walks the matching fallback.
  *
- * The parse seam is live: a PDF is read page by page in the browser (the
- * endpoint takes text, never a file) and sent to `POST /api/content/parse`,
- * and the response drives the review step. Word and PowerPoint have no
- * extractor yet, and an unreachable backend is not a dead end - both keep the
- * designed demo beat, marked in the UI so canonical fixture content is never
- * mistaken for the teacher's own file.
+ * The parse seam is live for the single-lesson path only: a PDF is read page
+ * by page in the browser (the endpoint takes text, never a file), sent to
+ * `POST /api/content/parse`, and the response drives the review step.
  *
- * TODO(slice): the C07d structure tree replaces the stub route.
+ * The unit and term paths do NOT reach it. Those scopes promise several
+ * lessons, each split into sections; the endpoint answers with one lesson and
+ * a flat segment list and cannot express that shape at all. They keep the
+ * designed demo beat, marked as a sample so fixture content is never mistaken
+ * for the teacher's own upload. Word and PowerPoint have no extractor yet and
+ * are marked the same way, as is an unreachable backend.
+ *
+ * TODO(api): block-level parsing, so the unit/term scopes have something real
+ * behind them - raised with backend. Until then those two scopes are a
+ * designed flow with no endpoint.
  * TODO(api): Word/PowerPoint extraction, so those formats reach the parse.
  */
 
@@ -142,8 +148,8 @@ export function UploadWizard() {
   const [fallbackKind, setFallbackKind] = useState<FallbackKind>("unreadable");
   const [dragOver, setDragOver] = useState(false);
   const [parsed, setParsed] = useState<ParseContentResponse | null>(null);
-  /** The screen is showing canonical fixture content, not the upload. */
-  const [sample, setSample] = useState(false);
+  /** Why the screen is showing fixture content instead of the upload. */
+  const [sample, setSample] = useState<"" | "parse" | "scope">("");
   const fileInput = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Guards against a slow parse landing after the teacher picked again. */
@@ -195,27 +201,23 @@ export function UploadWizard() {
     timer.current = null;
   };
 
-  /** Walk the C07e rungs while the real parse is in flight. */
-  const startStageTicker = () => {
-    setParseStage(0);
-    let stage = 0;
-    const tick = () => {
-      stage = Math.min(stage + 1, PARSE_STAGES.length - 1);
-      setParseStage(stage);
-      timer.current = setTimeout(tick, BLOCK_STAGE_MS);
-    };
-    timer.current = setTimeout(tick, BLOCK_STAGE_MS);
-  };
-
   const startFile = async (file: File) => {
     const run = runId.current + 1;
     runId.current = run;
     stopTimer();
     setFileName(file.name);
     setParsed(null);
-    setSample(false);
+    setSample("");
     setPhase("processing");
-    if (isBlock) startStageTicker();
+
+    if (isBlock) {
+      // A unit or term promises several lessons, each split into sections.
+      // `/api/content/parse` answers with one lesson and a flat segment list,
+      // so there is nothing here for it to return - calling it would only
+      // discard the answer. Mock beats, marked as a sample.
+      runMockBeats(file.name, "scope");
+      return;
+    }
 
     const extracted = await extractText(file);
     if (run !== runId.current) return;
@@ -262,8 +264,8 @@ export function UploadWizard() {
     runMockBeats(file.name);
   };
 
-  const runMockBeats = (name: string) => {
-    setSample(true);
+  const runMockBeats = (name: string, why: "parse" | "scope" = "parse") => {
+    setSample(why);
     if (!isBlock) {
       timer.current = setTimeout(() => setPhase("review"), PROCESS_MS);
       return;
@@ -301,7 +303,7 @@ export function UploadWizard() {
     setScope(null);
     setFileName("");
     setParsed(null);
-    setSample(false);
+    setSample("");
   };
 
   return (
@@ -336,8 +338,9 @@ export function UploadWizard() {
         )}
         {sample && (phase === "review" || phase === "blockParsed") && (
           <p className="mt-1.5 max-w-[560px] text-[13px] leading-[1.5] text-nevo-near-black/55 italic">
-            We couldn&rsquo;t parse your file just now, so this is a sample
-            lesson.
+            {sample === "scope"
+              ? "We can’t break a unit into separate lessons yet, so the structure below is a sample - not your upload."
+              : "We couldn’t parse your file just now, so this is a sample lesson."}
           </p>
         )}
       </div>

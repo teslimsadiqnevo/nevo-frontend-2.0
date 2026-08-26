@@ -20,7 +20,9 @@ import { cn } from "@/lib/utils";
  * title (cream background + cream text) made the title invisible - focus
  * here keeps the text readable. Flagged to design.
  *
- * TODO(api): the tree arrives from the parse; the frame's canonical
+ * TODO(api): block-level parsing. `/api/content/parse` returns one lesson and
+ * a flat segment list, so it cannot fill this three-level tree - the page
+ * carries a standing sample banner until that exists. The frame's canonical
  * P5 Science block stands in, and commit posts nothing yet.
  */
 
@@ -371,6 +373,23 @@ export function StructureTree() {
             </button>
           </div>
         )}
+
+        {/* Every tree on this page is the canonical fixture: `/api/content/parse`
+            returns one lesson and a flat segment list, so nothing it sends back
+            can fill a three-level block. Said plainly, because the card below
+            is headed "THE BLOCK YOU UPLOADED". */}
+        <div className="mb-3.5 flex items-start gap-3 rounded-[10px] bg-nevo-violet/16 px-[15px] py-[11px]">
+          <span className="mt-px shrink-0 text-nevo-navy" aria-hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 11v5M12 7.5v.5" />
+            </svg>
+          </span>
+          <span className="min-w-0 flex-1 text-[13px] leading-[1.5] text-nevo-near-black/78">
+            This is a sample structure, not your upload. We can&rsquo;t break a
+            unit into separate lessons yet - you can still try the controls.
+          </span>
+        </div>
 
         {/* L1: the block */}
         <div className="mb-3.5 flex items-center gap-3 rounded-xl bg-nevo-navy px-[18px] py-[15px]">
