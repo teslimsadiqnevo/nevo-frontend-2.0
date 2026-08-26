@@ -9,18 +9,17 @@ import {
   type Thread,
 } from "@/lib/mocks/teacherConnect";
 import { cn } from "@/lib/utils";
-import { Toggle } from "@/components/teacher/shared/Toggle";
 import { ComposeModal } from "./ComposeModal";
 
 /**
  * C10 Connect - individual threads with students, and the teacher's control
- * over whether a parent is looped in. Parent messages carry a distinct
+ * with their students.
  * soft-violet label so it is always obvious who is in the room. No class-wide
  * broadcast in v1.
  *
- * Three states: a thread with the parent included, a thread where no parent
- * contact is on file (a calm note replaces the toggle - never framed as the
- * teacher's or the parent's fault), and the empty state.
+ * Two states: a thread, and the empty state. Parents moved to their own
+ * portal in the 25 Aug drop, so the include toggle, the violet parent bubble
+ * and the no-parent-contact note are all gone from here.
  *
  * EMPTY STATE: C10 draws its own ("No conversations yet") but C14 A4 draws a
  * different one for the same state - illustration, warmer heading and a New
@@ -31,13 +30,6 @@ import { ComposeModal } from "./ComposeModal";
  */
 
 const TOAST_MS = 3000;
-
-const PersonGlyph = ({ size = 12 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <circle cx="12" cy="8" r="4" />
-    <path d="M4 20a8 8 0 0 1 16 0" />
-  </svg>
-);
 
 const PlusIcon = ({ size = 18 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -73,25 +65,11 @@ function Bubble({ m, isNew }: { m: Message; isNew?: boolean }) {
     );
   }
 
-  const isParent = m.from === "parent";
   return (
     <div className="flex justify-start">
-      <div
-        className={cn(
-          "max-w-[62%] rounded-[12px_12px_12px_4px] px-4 py-3",
-          isParent
-            ? "border border-nevo-violet/40 bg-nevo-violet/18"
-            : "bg-nevo-cream-elevated",
-        )}
-      >
+      <div className="max-w-[62%] rounded-[12px_12px_12px_4px] bg-nevo-cream-elevated px-4 py-3">
         {m.label && (
-          <span
-            className={cn(
-              "inline-flex items-center gap-[5px] text-[11.5px] font-semibold",
-              isParent ? "text-nevo-navy" : "text-nevo-near-black/50",
-            )}
-          >
-            {isParent && <PersonGlyph />}
+          <span className="inline-flex items-center gap-[5px] text-[11.5px] font-semibold text-nevo-near-black/50">
             {m.label}
           </span>
         )}
@@ -135,8 +113,12 @@ export function ConnectView() {
     timer.current = setTimeout(() => setToast(""), TOAST_MS);
   };
 
-  /** C14 B4: the bubble lands, a toast confirms, the thread stays open. */
-  const appendMessage = (threadId: string, text: string) => {
+  /**
+   * C14 B4: the bubble lands, a toast confirms, the thread stays open. Compose
+   * passes `toast: false` - its modal owns the confirmation, and firing both
+   * would confirm the same send twice.
+   */
+  const appendMessage = (threadId: string, text: string, toast = true) => {
     const id = nextId();
     setThreads((ts) =>
       ts.map((t) =>
@@ -154,7 +136,7 @@ export function ConnectView() {
       ),
     );
     setNewestId(id);
-    flashToast("Message sent");
+    if (toast) flashToast("Message sent");
     requestAnimationFrame(() =>
       endRef.current?.scrollIntoView({ block: "end" }),
     );
@@ -168,24 +150,12 @@ export function ConnectView() {
     appendMessage(active.id, text);
   };
 
-  const sendFromCompose = (
-    student: ComposeStudent,
-    text: string,
-    includeParent: boolean,
-  ) => {
-    setComposeOpen(false);
+  const sendFromCompose = (student: ComposeStudent, text: string) => {
     setPresetStudent(undefined);
     const existing = threads.find((t) => t.studentName === student.name);
     if (existing) {
       setActiveId(existing.id);
-      if (includeParent) {
-        setThreads((ts) =>
-          ts.map((t) =>
-            t.id === existing.id ? { ...t, parentIncluded: true } : t,
-          ),
-        );
-      }
-      appendMessage(existing.id, text);
+      appendMessage(existing.id, text, false);
       return;
     }
     const id = student.name.toLowerCase().replace(/\s+/g, "-");
@@ -198,15 +168,12 @@ export function ConnectView() {
         className: student.className,
         preview: `You: ${text}`,
         time: "now",
-        parentName: student.hasParent ? "Parent" : null,
-        parentIncluded: student.hasParent && includeParent,
         messages: [{ id: msgId, from: "teacher", text, time: "Just now" }],
       },
       ...ts,
     ]);
     setActiveId(id);
     setNewestId(msgId);
-    flashToast("Message sent");
   };
 
   const newMessageButton = (compact?: boolean) => (
@@ -323,40 +290,6 @@ export function ConnectView() {
                     </div>
                   </div>
                 </div>
-                {active.parentName ? (
-                  <div className="flex items-center gap-2.5">
-                    <span className="hidden text-[13.5px] text-nevo-near-black/70 sm:inline">
-                      Include parent/guardian
-                    </span>
-                    <Toggle
-                      on={active.parentIncluded}
-                      label="Include parent/guardian"
-                      onChange={(v) =>
-                        setThreads((ts) =>
-                          ts.map((t) =>
-                            t.id === active.id
-                              ? { ...t, parentIncluded: v }
-                              : t,
-                          ),
-                        )
-                      }
-                    />
-                  </div>
-                ) : (
-                  <div className="flex max-w-[340px] items-center gap-2 rounded-[10px] bg-nevo-near-black/5 px-[13px] py-[9px]">
-                    <span className="shrink-0 text-nevo-near-black/50">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <circle cx="12" cy="12" r="9" />
-                        <path d="M12 16v-4" />
-                        <path d="M12 8h.01" />
-                      </svg>
-                    </span>
-                    <span className="text-[12.5px] leading-[1.4] text-nevo-near-black/60">
-                      No parent contact on file - your school admin can update
-                      enrolment records.
-                    </span>
-                  </div>
-                )}
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col justify-end gap-3.5 overflow-y-auto px-6 py-6 xl:px-7">

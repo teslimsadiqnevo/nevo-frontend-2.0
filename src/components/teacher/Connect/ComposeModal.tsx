@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import {
   COMPOSE_CLASS_FILTERS,
@@ -8,22 +8,30 @@ import {
   type ComposeStudent,
 } from "@/lib/mocks/teacherConnect";
 import { cn } from "@/lib/utils";
-import { Toggle } from "@/components/teacher/shared/Toggle";
 
 /**
- * C10b Compose Message - a modal over Connect. Two steps in one card: choose
- * a student (search + class filter, each row showing whether a parent is
- * linked), then write, with the option to include that student's parent.
+ * Compose (C10b / `Nevo Teacher Compose`) - choose a student, then write.
+ * Parents were removed from the teacher side in the 25 Aug drop, so the
+ * include-parent toggle, the "Parent linked" badge and the no-parent-contact
+ * note are all gone.
  *
- * Send stays pressable and honest-disabled only while the message is empty.
+ * Sending is now a real lifecycle rather than a toast: the form is REPLACED
+ * by a full-pane sending state, then by a terminal sent or failed state.
+ * Neither terminal state auto-dismisses - the teacher chooses what happens
+ * next - and a failure keeps the draft, because the copy promises it does.
+ *
+ * Flagged to design: the component frame draws this as a full screen with the
+ * rail mounted, while C10b draws a modal. Built inside the modal we already
+ * have, since that is the smaller change and matches C10b; the phase states
+ * still replace the form rather than overlaying it.
+ *
+ * TODO(api): no messaging endpoint is deployed - `onSend` resolves the phase.
  */
 
-const PersonGlyph = ({ size = 12 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <circle cx="12" cy="8" r="4" />
-    <path d="M4 20a8 8 0 0 1 16 0" />
-  </svg>
-);
+type Phase = "form" | "sending" | "sent" | "failed";
+
+/** Prototype-only in the frame; here it stands in for the real request. */
+const SEND_MS = 750;
 
 export function ComposeModal({
   presetStudent,
@@ -32,7 +40,8 @@ export function ComposeModal({
 }: {
   presetStudent?: string;
   onClose: () => void;
-  onSend: (student: ComposeStudent, text: string, includeParent: boolean) => void;
+  /** May be async; a rejection is what puts the flow in its failed state. */
+  onSend: (student: ComposeStudent, text: string) => void | Promise<void>;
 }) {
   const [query, setQuery] = useState("");
   // Filter chips follow the teacher's real classes; "All classes" leads.
@@ -45,16 +54,23 @@ export function ComposeModal({
   const [picked, setPicked] = useState<ComposeStudent | null>(
     () => COMPOSE_STUDENTS.find((s) => s.name === presetStudent) ?? null,
   );
-  const [includeParent, setIncludeParent] = useState(false);
   const [text, setText] = useState("");
+  const [phase, setPhase] = useState<Phase>("form");
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    const pending = timers.current;
+    return () => pending.forEach(clearTimeout);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      // Escape belongs to the form; a send in flight owns the screen.
+      if (e.key === "Escape" && phase === "form") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, phase]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -65,13 +81,44 @@ export function ComposeModal({
     );
   }, [query, filter]);
 
-  const firstName = picked?.name.split(" ")[0] ?? "";
-  const canSend = Boolean(picked) && text.trim().length > 0;
+  const firstName = picked?.name.split(" ")[0] ?? "the student";
+  const ready = Boolean(picked) && text.trim().length > 0;
+  // Advisory from first paint, never a post-click scold. Recipient first.
+  const outstanding = !picked
+    ? "Choose who this is going to."
+    : !text.trim()
+      ? "Add a short message."
+      : "";
+
+  const attempt = () => {
+    if (!picked) return;
+    setPhase("sending");
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    timers.current.push(
+      setTimeout(() => {
+        // The draft survives either way - the failure copy promises it, and
+        // nothing here clears `picked` or `text`.
+        void Promise.resolve()
+          .then(() => onSend(picked, text.trim()))
+          .then(() => setPhase("sent"))
+          .catch(() => setPhase("failed"));
+      }, reduced ? 0 : SEND_MS),
+    );
+  };
+
+  const sendAnother = () => {
+    setPicked(null);
+    setText("");
+    setPhase("form");
+  };
+
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-nevo-near-black/28 p-6 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200"
-      onClick={onClose}
+      onClick={() => phase === "form" && onClose()}
     >
       <div
         role="dialog"
@@ -80,196 +127,257 @@ export function ComposeModal({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-[480px] rounded-2xl bg-nevo-cream p-7 shadow-[0_8px_32px_rgba(0,0,0,0.16)] motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-200 xl:max-w-[520px] xl:p-[30px]"
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold tracking-[-0.01em] text-nevo-near-black xl:text-[22px]">
-            New message
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex size-8 cursor-pointer items-center justify-center rounded-[9px] text-nevo-near-black/50 transition-colors hover:bg-nevo-near-black/5 xl:size-[34px]"
-          >
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="xl:size-5">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        </div>
+        {phase === "sending" && (
+          <div className="flex flex-col items-center py-10 text-center">
+            <span
+              role="status"
+              aria-label="Sending"
+              className="size-11 rounded-full border-[3px] border-nevo-navy/20 border-t-nevo-navy motion-safe:animate-spin motion-safe:[animation-duration:700ms]"
+            />
+            <p className="mt-5 text-[16px] text-nevo-near-black/70">
+              {"Sending your message…"}
+            </p>
+          </div>
+        )}
 
-        {!picked ? (
-          <>
-            <div className="relative mt-4 xl:mt-[18px]">
-              <span className="absolute top-1/2 left-[15px] -translate-y-1/2 text-nevo-near-black/45">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="M21 21l-4-4" />
-                </svg>
-              </span>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search your students"
-                className="h-12 w-full rounded-[10px] border-[1.5px] border-nevo-near-black/14 bg-nevo-cream-elevated pr-4 pl-[42px] text-[15px] text-nevo-near-black outline-none transition-colors focus:border-nevo-navy"
-              />
-            </div>
-
-            <div className="mt-2 flex flex-wrap gap-[7px]">
-              {classFilters.map((f) => {
-                const on = f === filter;
-                return (
-                  <button
-                    key={f}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => setFilter(f)}
-                    className={cn(
-                      "cursor-pointer rounded-full px-[13px] py-1.5 text-[12.5px] font-medium transition-[filter]",
-                      on
-                        ? "bg-nevo-navy text-nevo-cream"
-                        : "border border-nevo-near-black/8 bg-nevo-cream-elevated text-nevo-near-black/70 hover:brightness-[0.985]",
-                    )}
-                  >
-                    {f}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-3.5 max-h-[300px] overflow-y-auto">
-              {shown.map((s) => (
-                <button
-                  key={s.name}
-                  type="button"
-                  onClick={() => setPicked(s)}
-                  className="flex w-full cursor-pointer items-center gap-[13px] rounded-[10px] px-2 py-[11px] text-left transition-colors hover:bg-nevo-navy/6"
-                >
-                  <span className="flex size-[38px] shrink-0 items-center justify-center rounded-full bg-nevo-navy/10 text-[12.5px] font-semibold text-nevo-navy">
-                    {s.initials}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-medium text-nevo-near-black">
-                      {s.name}
-                    </span>
-                    <span className="mt-px block text-[12.5px] text-nevo-near-black/55">
-                      {s.className}
-                    </span>
-                  </span>
-                  {s.hasParent && (
-                    <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-nevo-near-black/50">
-                      <PersonGlyph />
-                      Parent linked
-                    </span>
-                  )}
-                </button>
-              ))}
-              {shown.length === 0 && (
-                <p className="px-2 py-4 text-[13px] text-nevo-near-black/50">
-                  {`No students match “${query.trim()}”.`}
-                </p>
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            <span className="mt-4 block text-[13px] font-semibold text-nevo-near-black/70 xl:mt-[18px]">
-              To
+        {phase === "sent" && (
+          <div className="mx-auto flex max-w-[440px] flex-col items-center py-6 text-center">
+            <span className="flex size-[72px] items-center justify-center rounded-full bg-nevo-navy motion-safe:animate-nevo-pop">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#f7f1e6" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M5 12.5l4.5 4.5L19 7" />
+              </svg>
             </span>
-            <div className="mt-2 flex items-center gap-[11px] rounded-[10px] bg-nevo-cream-elevated px-3.5 py-2.5">
-              <span className="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-nevo-navy text-xs font-semibold text-nevo-cream">
-                {picked.initials}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="text-[14.5px] font-semibold text-nevo-near-black">
-                  {picked.name}
-                </span>
-                <span className="ml-2 text-[12.5px] text-nevo-near-black/55">
-                  {picked.className}
-                </span>
-              </span>
+            <h2 className="mt-[26px] text-[26px] font-semibold tracking-[-0.015em] text-nevo-near-black">
+              Message sent
+            </h2>
+            <p className="mt-3 text-[16px] leading-[1.6] text-nevo-near-black/70">
+              {`Your note to ${firstName} is on its way.`}
+            </p>
+            <p className="mt-2 text-[14.5px] leading-[1.55] text-nevo-near-black/55">
+              {"It's saved to the conversation in Connect."}
+            </p>
+            <div className="mt-7 flex gap-3">
               <button
                 type="button"
-                aria-label="Choose a different student"
-                onClick={() => {
-                  setPicked(null);
-                  setIncludeParent(false);
-                }}
-                className="shrink-0 cursor-pointer text-nevo-near-black/45 transition-colors hover:text-nevo-near-black/70"
+                onClick={onClose}
+                className="inline-flex h-12 cursor-pointer items-center rounded-[10px] bg-nevo-navy px-6 text-[15px] font-semibold text-nevo-cream transition-[filter,transform] duration-150 hover:brightness-93 active:scale-[0.98]"
               >
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                Back to Connect
+              </button>
+              <button
+                type="button"
+                onClick={sendAnother}
+                className="inline-flex h-12 cursor-pointer items-center rounded-[10px] border-[1.5px] border-nevo-navy/30 px-[22px] text-[15px] font-medium text-nevo-navy transition-[background-color,transform] duration-150 hover:bg-nevo-navy/6 active:scale-[0.98]"
+              >
+                Send another
+              </button>
+            </div>
+          </div>
+        )}
+
+        {phase === "failed" && (
+          <div className="mx-auto flex max-w-[460px] flex-col items-center py-6 text-center">
+            {/* Soft violet, never red - a failure is ours, not an alarm. */}
+            <span className="flex size-[72px] items-center justify-center rounded-full bg-nevo-violet/20 text-nevo-navy motion-safe:animate-nevo-pop">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M4 4v6h6" />
+                <path d="M20 20v-6h-6" />
+                <path d="M20 8a8 8 0 0 0-14.9-2M4 16a8 8 0 0 0 14.9 2" />
+              </svg>
+            </span>
+            <h2 className="mt-[26px] text-[26px] font-semibold tracking-[-0.015em] text-nevo-near-black">
+              {"We couldn't send that just now"}
+            </h2>
+            <p className="mt-3 text-[16px] leading-[1.6] text-nevo-near-black/70">
+              Something went wrong on our side. Your message is saved as a
+              draft, so nothing is lost.
+            </p>
+            <div className="mt-7 flex gap-3">
+              <button
+                type="button"
+                onClick={attempt}
+                className="inline-flex h-12 cursor-pointer items-center rounded-[10px] bg-nevo-navy px-6 text-[15px] font-semibold text-nevo-cream transition-[filter,transform] duration-150 hover:brightness-93 active:scale-[0.98]"
+              >
+                Try again
+              </button>
+              <button
+                type="button"
+                onClick={() => setPhase("form")}
+                className="inline-flex h-12 cursor-pointer items-center rounded-[10px] border-[1.5px] border-nevo-navy/30 px-[22px] text-[15px] font-medium text-nevo-navy transition-[background-color,transform] duration-150 hover:bg-nevo-navy/6 active:scale-[0.98]"
+              >
+                Go back to editing
+              </button>
+            </div>
+            <p className="mt-[18px] text-[14px] leading-[1.55] text-nevo-near-black/55">
+              If it keeps happening, your school admin can help.
+            </p>
+          </div>
+        )}
+
+        {phase === "form" && (
+          <>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold tracking-[-0.01em] text-nevo-near-black xl:text-[22px]">
+                New message
+              </h2>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="flex size-8 cursor-pointer items-center justify-center rounded-[9px] text-nevo-near-black/50 transition-colors hover:bg-nevo-near-black/5 xl:size-[34px]"
+              >
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="xl:size-5">
                   <path d="M6 6l12 12M18 6L6 18" />
                 </svg>
               </button>
             </div>
 
-            {/* Parent inclusion is only offerable when a contact exists. */}
-            {picked.hasParent ? (
-              <div className="mt-4 flex items-center justify-between rounded-[10px] bg-nevo-violet/14 px-[15px] py-3">
-                <span className="flex items-center gap-[9px]">
-                  <span className="text-nevo-navy">
-                    <PersonGlyph size={16} />
+            {!picked ? (
+              <>
+                <div className="relative mt-4 xl:mt-[18px]">
+                  <span className="absolute top-1/2 left-[15px] -translate-y-1/2 text-nevo-near-black/45">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="M21 21l-4-4" />
+                    </svg>
                   </span>
-                  <span className="text-sm text-nevo-near-black/78">
-                    {`Include ${firstName}'s parent`}
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search your students"
+                    className="h-12 w-full rounded-[10px] border-[1.5px] border-nevo-near-black/14 bg-nevo-cream-elevated pr-4 pl-[42px] text-[15px] text-nevo-near-black outline-none transition-colors focus:border-nevo-navy"
+                  />
+                </div>
+
+                <div className="mt-2 flex flex-wrap gap-[7px]">
+                  {classFilters.map((f) => {
+                    const on = f === filter;
+                    return (
+                      <button
+                        key={f}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setFilter(f)}
+                        className={cn(
+                          "cursor-pointer rounded-full px-[13px] py-1.5 text-[12.5px] font-medium transition-[filter]",
+                          on
+                            ? "bg-nevo-navy text-nevo-cream"
+                            : "border border-nevo-near-black/8 bg-nevo-cream-elevated text-nevo-near-black/70 hover:brightness-[0.985]",
+                        )}
+                      >
+                        {f}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-3.5 max-h-[300px] overflow-y-auto">
+                  {shown.map((s) => (
+                    <button
+                      key={s.name}
+                      type="button"
+                      onClick={() => setPicked(s)}
+                      className="flex w-full cursor-pointer items-center gap-[13px] rounded-[10px] px-2 py-[11px] text-left transition-colors hover:bg-nevo-navy/6"
+                    >
+                      <span className="flex size-[38px] shrink-0 items-center justify-center rounded-full bg-nevo-navy/10 text-[12.5px] font-semibold text-nevo-navy">
+                        {s.initials}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[15px] font-medium text-nevo-near-black">
+                          {s.name}
+                        </span>
+                        <span className="mt-px block text-[12.5px] text-nevo-near-black/55">
+                          {s.className}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                  {shown.length === 0 && (
+                    <p className="px-2 py-4 text-[13px] text-nevo-near-black/50">
+                      {`No students match “${query.trim()}”.`}
+                    </p>
+                  )}
+                </div>
+
+                {/* The frame keeps one advisory for the whole form; our picker
+                    is the step where the recipient is still missing. */}
+                {outstanding && (
+                  <span className="mt-3 block text-[13.5px] text-nevo-violet">
+                    {outstanding}
                   </span>
-                </span>
-                <Toggle
-                  on={includeParent}
-                  onChange={setIncludeParent}
-                  label={`Include ${firstName}'s parent`}
-                />
-              </div>
-            ) : (
-              <div className="mt-4 flex items-center gap-2 rounded-[10px] bg-nevo-near-black/5 px-[13px] py-[9px]">
-                <span className="shrink-0 text-nevo-near-black/50">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M12 16v-4" />
-                    <path d="M12 8h.01" />
-                  </svg>
-                </span>
-                <span className="text-[12.5px] leading-[1.4] text-nevo-near-black/60">
-                  No parent contact on file - your school admin can update
-                  enrolment records.
-                </span>
-              </div>
-            )}
-
-            <label className="mt-4 block text-[13px] font-semibold text-nevo-near-black/70">
-              Message
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Write your message…"
-                className="mt-2 h-[110px] w-full resize-none rounded-[10px] border-[1.5px] border-nevo-near-black/16 bg-nevo-cream-elevated px-3.5 py-3 text-[14.5px] leading-[1.5] font-normal text-nevo-near-black outline-none transition-colors focus:border-nevo-navy"
-              />
-            </label>
-
-            <div className="mt-[18px] flex gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex h-[50px] flex-1 cursor-pointer items-center justify-center rounded-[10px] border-[1.5px] border-nevo-navy/30 text-[15px] font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!canSend}
-                onClick={() => canSend && onSend(picked, text.trim(), includeParent)}
-                className={cn(
-                  "flex h-[50px] flex-[2] items-center justify-center gap-2 rounded-[10px] text-[15px] font-semibold",
-                  canSend
-                    ? "cursor-pointer bg-nevo-navy text-nevo-cream transition-[filter] hover:brightness-93"
-                    : "cursor-not-allowed bg-nevo-navy/18 text-nevo-near-black/40",
                 )}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M22 2L11 13" />
-                  <path d="M22 2l-7 20-4-9-9-4z" />
-                </svg>
-                Send
-              </button>
-            </div>
+              </>
+            ) : (
+              <>
+                <span className="mt-4 block text-[13px] font-semibold text-nevo-near-black/70 xl:mt-[18px]">
+                  To
+                </span>
+                <div className="mt-2 flex items-center gap-[11px] rounded-[10px] bg-nevo-cream-elevated px-3.5 py-2.5">
+                  <span className="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-nevo-navy text-xs font-semibold text-nevo-cream">
+                    {picked.initials}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="text-[14.5px] font-semibold text-nevo-near-black">
+                      {picked.name}
+                    </span>
+                    <span className="ml-2 text-[12.5px] text-nevo-near-black/55">
+                      {picked.className}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Choose a different student"
+                    onClick={() => setPicked(null)}
+                    className="shrink-0 cursor-pointer text-nevo-near-black/45 transition-colors hover:text-nevo-near-black/70"
+                  >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                  </button>
+                </div>
+
+                <label className="mt-4 block text-[13px] font-semibold text-nevo-near-black/70">
+                  Message
+                  <textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    placeholder="Write your message…"
+                    className="mt-2 h-[110px] w-full resize-none rounded-[10px] border-[1.5px] border-nevo-near-black/16 bg-nevo-cream-elevated px-3.5 py-3 text-[14.5px] leading-[1.5] font-normal text-nevo-near-black outline-none transition-colors focus:border-nevo-navy"
+                  />
+                </label>
+
+                <div className="mt-[18px] flex items-center gap-3.5">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="flex h-[50px] cursor-pointer items-center justify-center rounded-[10px] border-[1.5px] border-nevo-navy/30 px-5 text-[15px] font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => ready && attempt()}
+                    className={cn(
+                      "flex h-[50px] items-center justify-center gap-2 rounded-[10px] bg-nevo-navy px-6 text-[15px] font-semibold text-nevo-cream transition-[filter]",
+                      ready
+                        ? "cursor-pointer hover:brightness-93"
+                        : "cursor-default opacity-50",
+                    )}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M22 2L11 13" />
+                      <path d="M22 2l-7 20-4-9-9-4z" />
+                    </svg>
+                    Send message
+                  </button>
+                  {outstanding && (
+                    <span className="text-[13.5px] text-nevo-violet">
+                      {outstanding}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
