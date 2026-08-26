@@ -37,7 +37,7 @@ export const NOTIFICATION_SETTINGS: SettingRow[] = [
   },
   {
     id: "messages",
-    label: "Messages from students & parents",
+    label: "Messages from students",
     sub: "New replies in your threads",
   },
   {

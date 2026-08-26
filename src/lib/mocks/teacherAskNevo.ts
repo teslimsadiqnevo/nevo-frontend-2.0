@@ -130,20 +130,25 @@ export const ASK_NEVO_CONTEXTS: Record<AskNevoContext, AskNevoContextData> = {
     action: { label: "Find a hands-on lesson", href: "/teacher/lessons" },
   },
   connect: {
-    // The frame still names a parent thread here even though parents were
-    // removed from teacher Connect in the same commit - built verbatim and
-    // flagged to design rather than quietly reworded.
-    strip: "You're viewing: Amara's parent thread",
+    // The 25 Aug drop moved parents to their own portal and rewrote the Connect
+    // frames without them, but this overlay - added in the same commit - still
+    // named a parent thread. Reworded rather than built verbatim, and sent back
+    // to design. The strip stays thread-agnostic on purpose: Connect
+    // threads are local state with no route segment, so naming a student here
+    // would read "Amara" while the teacher is looking at Tunde's thread.
+    strip: "You're on: Connect",
     lead: "Let's shape this message.",
     sub: "I can help you frame progress, tone, and where to start.",
     chips: [
       "How should I frame this message?",
-      "What should I tell the parent about progress?",
+      "How should I talk about her progress?",
       "What's the best way to approach this conversation?",
     ],
     question: "How should I frame this message?",
+    // The draft is addressed to the student now, so the register moves with it -
+    // "her comprehension is holding strong" is adult-to-adult language.
     answer:
-      "Keep it progress-focused rather than concern-focused. Something like: “Amara has been putting in real effort this week and her comprehension is holding strong. She takes her time with written work, which is a sign she's being careful, not that she's struggling.”",
+      "Keep it progress-focused rather than concern-focused. Something like: “You've put in real effort this week, Amara, and it's showing in how well you're following things. You take your time with written work - that's care, not struggle.”",
     action: { label: "Use this as a draft", href: "/teacher/connect" },
   },
 };
