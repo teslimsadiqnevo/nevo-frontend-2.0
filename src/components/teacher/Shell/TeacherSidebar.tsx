@@ -9,6 +9,7 @@ import {
   TEACHER_NOTIFICATIONS,
   type TeacherNotification,
 } from "@/lib/mocks/teacherNotifications";
+import { FeedbackPanel } from "./FeedbackPanel";
 import { NotificationsPanel } from "./NotificationsPanel";
 
 /**
@@ -101,6 +102,8 @@ const GLYPH = {
 const ACCOUNT_MENU: {
   label: string;
   href?: string;
+  /** Opens a panel instead of navigating. */
+  opens?: "feedback";
   divider?: boolean;
   icon: React.ReactNode;
 }[] = [
@@ -136,6 +139,7 @@ const ACCOUNT_MENU: {
   },
   {
     label: "Share feedback",
+    opens: "feedback",
     icon: (
       <svg {...GLYPH} aria-hidden>
         <path d="M21 11.5a8.4 8.4 0 0 1-11.9 7.6L3 21l1.9-5.6A8.4 8.4 0 1 1 21 11.5z" />
@@ -168,6 +172,7 @@ export function TeacherSidebar() {
   // Desktop opens expanded, tablet collapsed (frame: tablet variants are
   // `collapsed`); the breakpoint re-asserts the default, the chevron is free.
   const [menuOpen, setMenuOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [expanded, setExpanded] = useState(true);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1280px)");
@@ -279,6 +284,8 @@ export function TeacherSidebar() {
         )}
       </button>
 
+      {feedbackOpen && <FeedbackPanel onClose={() => setFeedbackOpen(false)} />}
+
       {notifOpen && (
         <NotificationsPanel
           notes={notes}
@@ -378,13 +385,16 @@ export function TeacherSidebar() {
                     {body}
                   </Link>
                 ) : (
-                  // TODO(screen): Help & support, Share feedback and the
-                  // sign-out confirm live outside C11's frames.
+                  // TODO(screen): Help & support and the sign-out confirm
+                  // still live outside C11's frames.
                   <button
                     key={m.label}
                     type="button"
                     role="menuitem"
-                    onClick={() => setMenuOpen(false)}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      if (m.opens === "feedback") setFeedbackOpen(true);
+                    }}
                     className={rowCls}
                   >
                     {body}
