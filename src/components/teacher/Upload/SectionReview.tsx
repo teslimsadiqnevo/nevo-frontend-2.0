@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import type { ReviewModule, ReviewSegment } from "@/lib/content/parsedSegments";
 
 /**
  * Single-path Step 3: the SCRUM-101 module review (`Nevo Upload Module Step`),
@@ -48,8 +49,6 @@ const suggested = (): Module[] => [
   { title: "Wrap-up", recap: "You pulled the whole idea together in a quick recap.", preview: "", segIds: [6] },
 ];
 
-const seg = (id: number) => SEGMENTS.find((s) => s.id === id)!;
-const totalMin = SEGMENTS.reduce((a, s) => a + (parseInt(s.mins, 10) || 0), 0);
 
 const ghostBtn =
   "inline-flex cursor-pointer items-center gap-[7px] rounded-[10px] border-[1.5px] border-nevo-near-black/18 px-[15px] py-[9px] text-[13.5px] font-semibold text-nevo-near-black transition-colors hover:bg-nevo-near-black/5";
@@ -60,7 +59,7 @@ function SegRow({ s }: { s: Segment }) {
   return (
     <>
       <span className="flex size-6 shrink-0 items-center justify-center rounded-[7px] bg-nevo-navy/10 text-xs font-semibold text-nevo-navy">
-        {SEGMENTS.findIndex((b) => b.id === s.id) + 1}
+        {s.id}
       </span>
       <span className="min-w-0 flex-1 text-sm text-nevo-near-black">{s.title}</span>
       <span className="text-xs whitespace-nowrap text-nevo-near-black/50">{s.mins}</span>
@@ -71,14 +70,29 @@ function SegRow({ s }: { s: Segment }) {
 export function SectionReview({
   onBack,
   onDone,
+  segments,
+  suggestedModules,
 }: {
   onBack: () => void;
   onDone: () => void;
+  /** A live parse's segments; the canonical fixture stands in without one. */
+  segments?: ReviewSegment[];
+  /** Boundaries derived from the parse, empty when it offered none. */
+  suggestedModules?: ReviewModule[];
 }) {
+  const allSegments: Segment[] = segments ?? SEGMENTS;
+  const seg = (id: number) => allSegments.find((x) => x.id === id)!;
+  const totalMin = allSegments.reduce(
+    (a, x) => a + (parseInt(x.mins, 10) || 0),
+    0,
+  );
+  const proposed = () => suggestedModules ?? suggested();
   // Per the default flip: lessons of 6+ segments arrive with the proposed
   // modules; 5 or fewer arrive flat with no suggestion.
-  const noSuggestionLesson = SEGMENTS.length <= 5;
-  const [modules, setModules] = useState<Module[]>(noSuggestionLesson ? [] : suggested());
+  const noSuggestionLesson = allSegments.length <= 5 || proposed().length === 0;
+  const [modules, setModules] = useState<Module[]>(
+    noSuggestionLesson ? [] : proposed(),
+  );
   const [flat, setFlat] = useState(false);
   const [over, setOver] = useState<string | null>(null);
   const [overCard, setOverCard] = useState<number | null>(null);
@@ -147,7 +161,7 @@ export function SectionReview({
 
   const reset = () => {
     setFlat(false);
-    setModules(noSuggestionLesson ? [] : suggested());
+    setModules(noSuggestionLesson ? [] : proposed());
   };
 
   const footNote = flat
@@ -156,7 +170,7 @@ export function SectionReview({
       ? "Staying as one flow."
       : `${modules.length} modules ready.`;
 
-  const flatRows = SEGMENTS.map((s) => (
+  const flatRows = allSegments.map((s) => (
     <div
       key={s.id}
       className="flex items-center gap-3 rounded-[10px] bg-nevo-cream-elevated px-4 py-[13px]"
@@ -177,7 +191,7 @@ export function SectionReview({
                 </svg>
               </span>
               <span className="min-w-0 flex-1 text-[13.5px] leading-[1.5] text-nevo-near-black/78">
-                {`This lesson will play as one continuous flow, with no module boundaries. ${SEGMENTS.length} segments, about ${totalMin} minutes.`}
+                {`This lesson will play as one continuous flow, with no module boundaries. ${allSegments.length} segments, about ${totalMin} minutes.`}
               </span>
               <button type="button" onClick={() => setFlat(false)} className={ghostBtn}>
                 Add sections back
@@ -202,7 +216,7 @@ export function SectionReview({
                 type="button"
                 onClick={() =>
                   setModules([
-                    { title: "", recap: "", preview: "", segIds: SEGMENTS.map((s) => s.id) },
+                    { title: "", recap: "", preview: "", segIds: allSegments.map((s) => s.id) },
                   ])
                 }
                 className="mt-3.5 inline-flex cursor-pointer items-center gap-[7px] rounded-[10px] bg-nevo-navy px-[15px] py-[9px] text-[13.5px] font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
@@ -221,7 +235,7 @@ export function SectionReview({
           <div className="flex max-w-[720px] flex-col gap-3.5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="text-[13px] text-nevo-near-black/60">
-                {`${modules.length} sections · ${SEGMENTS.length} segments · about ${totalMin} minutes`}
+                {`${modules.length} sections · ${allSegments.length} segments · about ${totalMin} minutes`}
               </span>
               <div className="flex flex-col items-end gap-1">
                 <button type="button" onClick={() => setFlat(true)} className={ghostBtn}>
