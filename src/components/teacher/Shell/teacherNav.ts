@@ -23,4 +23,6 @@ export const MOCK_TEACHER = {
   name: "Ms. Adeyemi",
   role: "Teacher",
   initials: "MA",
+  /** Ask Nevo's header carries the school, hardcoded in the frame. */
+  school: "Corona Secondary School",
 };

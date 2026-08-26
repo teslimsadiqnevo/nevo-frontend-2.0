@@ -1,36 +1,46 @@
+import { getLibraryLesson } from "./teacherLibrary";
 import { getStudentProfile } from "./teacherStudents";
 
 /**
- * Ask Nevo, teacher side (C15 / `Nevo Teacher Ask Nevo`). The drawer is
- * context-aware: what it greets with, suggests and answers follows the
- * surface it was opened from. Five contexts, frame-verbatim.
+ * Ask Nevo, teacher side - rebuilt against the rewritten `Nevo Teacher Ask`
+ * component (the previous `Nevo Teacher Ask Nevo` frame was deleted; git
+ * scores the replacement 19% similar, so this is a new contract, not an
+ * edit). Seven contexts now, keyed off the route, each with its own context
+ * strip line, lead, chips and canned turn.
+ *
+ * Copy is frame-verbatim, apostrophes included: the frame is pure ASCII
+ * apart from the curly quotes inside the connect answer, so these straight
+ * quotes are deliberate - do not "upgrade" them.
  *
  * TODO(api): the live assistant answers first; these canned turns are the
- * demo fallback so the drawer never goes silent.
+ * fallback so the drawer never goes silent.
  */
 
 export type AskNevoContext =
   | "home"
+  | "classes"
   | "student"
+  | "library"
+  | "lesson"
   | "insights"
-  | "connect"
-  | "library";
+  | "connect";
 
 export interface AskNevoContextData {
-  contextLine: string;
+  /** Context-strip copy. "on" = a screen you stand in, "viewing" = a record you have open. */
+  strip: string;
   lead: string;
   sub: string;
-  chips: string[];
+  chips: [string, string, string];
   /** The canned turn this context demos. */
   question: string;
   answer: string;
-  /** Navy action pills under the answer, with honest destinations. */
-  actions: { label: string; href: string }[];
+  /** Exactly one action pill per context, per the frame. */
+  action: { label: string; href: string };
 }
 
 export const ASK_NEVO_CONTEXTS: Record<AskNevoContext, AskNevoContextData> = {
   home: {
-    contextLine: "Corona Secondary School",
+    strip: "You're on: Home",
     lead: "What can I help you see today?",
     sub: "Ask about your morning, a flagged student, or where to start.",
     chips: [
@@ -38,63 +48,61 @@ export const ASK_NEVO_CONTEXTS: Record<AskNevoContext, AskNevoContextData> = {
       "Why is this student flagged?",
       "What should I prioritise first?",
     ],
-    question: "Why is Amara flagged this week?",
+    question: "What needs my attention today?",
     answer:
-      "Amara has been spending significantly longer on written segments over the last three sessions, though she's still understanding the material just as well. It's worth checking in - she may be working harder than usual to keep up, which isn't always visible from her answers alone.",
-    actions: [
-      { label: "Open Amara's profile", href: "/teacher/students/amara-okafor" },
+      "Three things are worth your eye: Tunde stalled on Tuesday and it's worth a quiet word, Amara's taking longer on written parts so listen-first may help, and eight in JSS 2A slowed on the same fractions step. Everything else is steady.",
+    action: {
+      label: "Open Tunde's profile",
+      href: "/teacher/students/tunde-adeyemi",
+    },
+  },
+  classes: {
+    strip: "You're on: My Classes",
+    lead: "Ask me about your classes.",
+    sub: "How a class is doing, who needs a look, and the pattern underneath.",
+    chips: [
+      "How is this class doing overall?",
+      "Which students need attention?",
+      "What's the engagement pattern for this class?",
     ],
+    question: "How is this class doing overall?",
+    answer:
+      "JSS 2A is mostly settled, with three students worth a glance - Amara, Tunde, and Chisom. The pattern is a slow-down on written segments rather than understanding; the class handles audio-led material comfortably.",
+    action: { label: "See the roster", href: "/teacher/classes" },
   },
   student: {
-    contextLine: "Amara Okafor · JSS 2A",
+    strip: "You're viewing: Amara Okafor",
     lead: "Ask me about Amara.",
     sub: "Her recent sessions, what suits her now, how her confidence is tracking.",
     chips: [
-      "What's going on with Amara this week?",
+      "What's going on with Amara?",
       "What kind of lesson suits her now?",
       "How is her confidence building?",
     ],
-    question: "What's going on with Amara this week?",
+    question: "What's going on with Amara?",
     answer:
-      "Amara's audio engagement has been strong - she replays segments less often than before, which usually means the content is landing. Her written segment pace is still slower than her class average but her comprehension scores after those segments are solid. She's working through it, not struggling.",
-    actions: [
-      {
-        label: "Recommend a lesson",
-        href: "/teacher/students/amara-okafor/recommend",
-      },
-      { label: "Message her parent", href: "/teacher/connect" },
-    ],
-  },
-  insights: {
-    contextLine: "JSS 2A · Mathematics",
-    lead: "Ask me about this class.",
-    sub: "Where to focus, what a pattern means, and what I'd suggest doing.",
-    chips: [
-      "What should I prioritise for JSS 2A?",
-      "What does this pattern mean?",
-      "What would you recommend I do?",
-    ],
-    question: "What should I prioritise for JSS 2A?",
-    answer:
-      "Three students in JSS 2A slowed significantly on the algebraic fractions segment - Tunde, Chisom, and Bello. It's worth revisiting that concept before moving forward. A hands-on lesson tends to work better than text for this topic with this class.",
-    actions: [{ label: "Find a hands-on lesson", href: "/teacher/lessons" }],
-  },
-  connect: {
-    contextLine: "Draft to Amara's parent",
-    lead: "Let's shape this message.",
-    sub: "I can help you frame progress, tone, and where to start.",
-    chips: [
-      "How should I frame this message?",
-      "What should I tell the parent about progress?",
-      "What's the best way to approach this conversation?",
-    ],
-    question: "How should I message Amara's parent?",
-    answer:
-      "Keep it progress-focused rather than concern-focused. Something like: “Amara has been putting in real effort this week and her comprehension is holding strong. She takes her time with written work, which is actually a sign she's being careful, not that she's struggling.”",
-    actions: [{ label: "Use this as a draft", href: "/teacher/connect" }],
+      "Amara's audio engagement has been strong - she replays segments less than before, which usually means the content is landing. Her written pace is still slower than the class average, but her comprehension after those segments is solid. She's working through it, not struggling.",
+    action: {
+      label: "Recommend a lesson",
+      href: "/teacher/students/amara-okafor/recommend",
+    },
   },
   library: {
-    contextLine: "Fractions in Everyday Life · JSS 2",
+    strip: "You're on: Lesson Library",
+    lead: "Ask me about a lesson.",
+    sub: "Whether it fits your class, how I'll adapt it, and who might need support.",
+    chips: [
+      "Is this lesson right for my class?",
+      "How will Nevo adapt this lesson?",
+      "Which students might struggle with this?",
+    ],
+    question: "Is this lesson right for my class?",
+    answer:
+      "It's a good fit. The concept lines up with where JSS 2A is now, and the lesson leads with a real-world framing that tends to land with this group. I'll offer Chisom the listen-first version, since audio has been working for her.",
+    action: { label: "Preview lesson", href: "/teacher/lessons" },
+  },
+  lesson: {
+    strip: "You're viewing: Fractions in Everyday Life",
     lead: "Ask me about this lesson.",
     sub: "Whether it fits your class, how I'll adapt it, and who might need support.",
     chips: [
@@ -102,40 +110,75 @@ export const ASK_NEVO_CONTEXTS: Record<AskNevoContext, AskNevoContextData> = {
       "How will Nevo adapt this lesson?",
       "Which students might struggle with this?",
     ],
-    question: "Is this lesson right for JSS 2A?",
+    question: "Is this lesson right for my class?",
     answer:
-      "It's a good fit. The concept lines up with where JSS 2A is now, and the lesson leads with a real-world framing that tends to land well with this group. I'll offer Chisom the listen-first version, since audio has been working for her.",
-    actions: [
-      { label: "Preview lesson", href: "/teacher/lessons" },
-      { label: "Assign to JSS 2A", href: "/teacher/lessons/assign" },
+      "It's a good fit for JSS 2A. The concept matches where they are, and it opens with a real-world framing they respond to. I'll adapt the written-heavy middle section into an audio-led path for the students who've been slowing there.",
+    action: { label: "Assign to JSS 2A", href: "/teacher/lessons/assign" },
+  },
+  insights: {
+    strip: "You're on: Insights, JSS 2A",
+    lead: "Ask me about this class.",
+    sub: "Where to focus, what a pattern means, and what I'd suggest doing.",
+    chips: [
+      "What should I prioritise for this class?",
+      "What does this pattern mean?",
+      "What would you recommend I do?",
     ],
+    question: "What should I prioritise for this class?",
+    answer:
+      "Three students slowed significantly on the algebraic fractions segment - Tunde, Chisom, and Bello. It's worth revisiting that concept before moving on. A hands-on lesson tends to work better than text for this topic with this class.",
+    action: { label: "Find a hands-on lesson", href: "/teacher/lessons" },
+  },
+  connect: {
+    // The frame still names a parent thread here even though parents were
+    // removed from teacher Connect in the same commit - built verbatim and
+    // flagged to design rather than quietly reworded.
+    strip: "You're viewing: Amara's parent thread",
+    lead: "Let's shape this message.",
+    sub: "I can help you frame progress, tone, and where to start.",
+    chips: [
+      "How should I frame this message?",
+      "What should I tell the parent about progress?",
+      "What's the best way to approach this conversation?",
+    ],
+    question: "How should I frame this message?",
+    answer:
+      "Keep it progress-focused rather than concern-focused. Something like: “Amara has been putting in real effort this week and her comprehension is holding strong. She takes her time with written work, which is a sign she's being careful, not that she's struggling.”",
+    action: { label: "Use this as a draft", href: "/teacher/connect" },
   },
 };
 
 /** The surface the teacher opened the drawer from, read off the route. */
 export function contextForPath(pathname: string): AskNevoContext {
   if (/^\/teacher\/students\/[^/]+/.test(pathname)) return "student";
+  if (pathname.startsWith("/teacher/classes")) return "classes";
+  if (/^\/teacher\/lessons\/[^/]+/.test(pathname)) return "lesson";
+  if (pathname.startsWith("/teacher/lessons")) return "library";
   if (pathname.startsWith("/teacher/insights")) return "insights";
   if (pathname.startsWith("/teacher/connect")) return "connect";
-  if (pathname.startsWith("/teacher/lessons")) return "library";
   return "home";
 }
 
-/** Student pages carry the real student in the context line. */
-export function contextLineForPath(
+/** Record contexts name the real thing on screen, not the frame's fixture. */
+export function stripForPath(
   context: AskNevoContext,
   pathname: string,
 ): string {
+  const slug = pathname.split("/")[3] ?? "";
   if (context === "student") {
-    const slug = pathname.split("/")[3] ?? "";
     const student = getStudentProfile(slug);
-    if (student) return `${student.name} · ${student.className}`;
+    if (student) return `You're viewing: ${student.name}`;
   }
-  return ASK_NEVO_CONTEXTS[context].contextLine;
+  if (context === "lesson") {
+    const lesson = getLibraryLesson(slug);
+    if (lesson) return `You're viewing: ${lesson.title}`;
+  }
+  return ASK_NEVO_CONTEXTS[context].strip;
 }
 
-/** Requests outside the assistant's remit get the gentle recovery. */
-export const OUT_OF_SCOPE = /approve|allowance|billing|payment|invoice|salary|password reset|admin access/i;
+/** Requests outside the assistant's remit get the admin hand-off, verbatim. */
+export const OUT_OF_SCOPE =
+  /\b(allowance|approve|billing|invoice|pay|password|reset|account|admin|seat|permission|refund|sso|delete)\b/i;
 
 export const CANNOT_HELP_LINE =
-  "That's outside what I can help with right now.";
+  "That's outside what I can help with here. Your school admin looks after that side of things.";
