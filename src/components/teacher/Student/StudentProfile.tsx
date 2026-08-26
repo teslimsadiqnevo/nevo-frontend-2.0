@@ -49,7 +49,7 @@ const CHEVRON_LEFT = (
 );
 
 const MENU_ITEMS = [
-  "Message parent",
+  "Message this student",
   "Print this profile",
   "Move to another class",
   // The destructive slot is navy, deliberately not red.
