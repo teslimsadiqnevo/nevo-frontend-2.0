@@ -12,6 +12,8 @@ export function usePermissions() {
   }
   return {
     scopes: ctx.scopes,
+    /** False until `permissions/me` has answered - scope-filtered UI waits. */
+    resolved: ctx.resolved,
     hasScope: (scope: PermissionScope) => ctx.scopes.includes(scope),
   };
 }

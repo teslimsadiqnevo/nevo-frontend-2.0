@@ -9,6 +9,7 @@ import type { Metadata } from "next";
  * - PermissionContext provider — Admin Layer only (FE Arch §8)
  * - Dynamic navigation per scopes held (D.3)
  */
+import { AdminShell } from "@/components/admin/Shell/AdminShell";
 import { PermissionProvider } from "@/context/PermissionContext";
 
 // Signed-in product surface - never indexed.
@@ -24,9 +25,7 @@ export default function AdminLayout({
 }>) {
   return (
     <PermissionProvider>
-      <div className="flex min-h-full flex-1 flex-col bg-nevo-cream text-nevo-near-black">
-        {children}
-      </div>
+      <AdminShell>{children}</AdminShell>
     </PermissionProvider>
   );
 }
