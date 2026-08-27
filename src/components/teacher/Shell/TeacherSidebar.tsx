@@ -9,6 +9,7 @@ import {
   TEACHER_NOTIFICATIONS,
   type TeacherNotification,
 } from "@/lib/mocks/teacherNotifications";
+import { useHasSession } from "@/hooks/useHasSession";
 import { FeedbackPanel } from "./FeedbackPanel";
 import { NotificationsPanel } from "./NotificationsPanel";
 
@@ -85,7 +86,6 @@ function rowClass(expanded: boolean, extra?: string) {
     extra,
   );
 }
-
 
 const GLYPH = {
   fill: "none",
@@ -173,6 +173,8 @@ export function TeacherSidebar() {
   // `collapsed`); the breakpoint re-asserts the default, the chevron is free.
   const [menuOpen, setMenuOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // Signed in, so the fixture persona is not who this is.
+  const signedIn = useHasSession();
   const [expanded, setExpanded] = useState(true);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1280px)");
@@ -192,7 +194,12 @@ export function TeacherSidebar() {
       )}
     >
       {/* Logo - wordmark crop expanded, icon crop collapsed (padded 1080² files) */}
-      <div className={cn("flex items-center", expanded ? "px-2" : "justify-center")}>
+      <div
+        className={cn(
+          "flex items-center",
+          expanded ? "px-2" : "justify-center",
+        )}
+      >
         {expanded ? (
           <span className="relative block h-[17px] w-[58px] overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -235,7 +242,9 @@ export function TeacherSidebar() {
               <span
                 className={cn(
                   "flex size-10 shrink-0 items-center justify-center rounded-[10px]",
-                  on ? "bg-nevo-navy text-nevo-cream" : "text-nevo-near-black/72",
+                  on
+                    ? "bg-nevo-navy text-nevo-cream"
+                    : "text-nevo-near-black/72",
                 )}
               >
                 {ICONS[item.name]}
@@ -264,7 +273,11 @@ export function TeacherSidebar() {
         aria-haspopup="dialog"
         aria-expanded={notifOpen}
         onClick={() => setNotifOpen((v) => !v)}
-        className={cn(rowClass(expanded), "cursor-pointer hover:bg-nevo-navy/5", notifOpen && "bg-nevo-navy/5")}
+        className={cn(
+          rowClass(expanded),
+          "cursor-pointer hover:bg-nevo-navy/5",
+          notifOpen && "bg-nevo-navy/5",
+        )}
       >
         <span className="relative flex size-10 shrink-0 items-center justify-center rounded-[10px] text-nevo-near-black/72">
           {BELL_ICON}
@@ -333,14 +346,40 @@ export function TeacherSidebar() {
           )}
         >
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-nevo-navy text-[13px] font-semibold tracking-[0.02em] text-nevo-cream">
-            {MOCK_TEACHER.initials}
+            {signedIn ? (
+              // No name means no initials; a neutral glyph beats a blank disc.
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20a8 8 0 0 1 16 0" />
+              </svg>
+            ) : (
+              MOCK_TEACHER.initials
+            )}
           </span>
           {expanded && (
             <span className="flex min-w-0 flex-col text-left">
-              <span className="truncate text-sm font-semibold text-nevo-near-black">
-                {MOCK_TEACHER.name}
-              </span>
-              <span className="text-xs whitespace-nowrap text-nevo-near-black/55">
+              {!signedIn && (
+                <span className="truncate text-sm font-semibold text-nevo-near-black">
+                  {MOCK_TEACHER.name}
+                </span>
+              )}
+              <span
+                className={
+                  signedIn
+                    ? "text-sm font-semibold whitespace-nowrap text-nevo-near-black"
+                    : "text-xs whitespace-nowrap text-nevo-near-black/55"
+                }
+              >
                 {MOCK_TEACHER.role}
               </span>
             </span>
