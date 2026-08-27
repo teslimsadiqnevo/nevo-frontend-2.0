@@ -1,7 +1,14 @@
 /** Barrel for the API client + endpoint modules (FE Architecture §1 & §9). */
 export { api, request, ApiError, BASE_URL, type RequestOptions } from "./client";
 export { authApi } from "./auth";
-export { teamApi, type AcceptInvitationResponse } from "./team";
+export {
+  teamApi,
+  roleForScopes,
+  type AcceptInvitationResponse,
+  type BackendUserRole,
+  type InvitedTeamMember,
+  type TeamMember,
+} from "./team";
 export { signalsApi, type SignalEvent } from "./signals";
 export { intelligenceApi } from "./intelligence";
 export { contentApi, type ParseContentRequest, type ParseContentResponse } from "./content";
