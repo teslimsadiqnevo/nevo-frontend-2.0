@@ -2,7 +2,6 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MOCK_TEACHER } from "@/components/teacher/Shell/teacherNav";
 import { useAuth } from "@/hooks";
 import { setSession } from "@/lib/auth/session";
 import { TEACHER_INVITE } from "@/lib/mocks/teacherOnboarding";
@@ -80,7 +79,8 @@ export function TeacherSsoCallback() {
           id: "teacher-sso-demo",
           role: USER_ROLES.TEACHER,
           schoolId: "school-demo",
-          name: MOCK_TEACHER.name,
+          // No name: the real callback will not know one either, and seeding
+          // the fixture persona here would put a borrowed name into session.
           method: "sso",
         });
         setPhase("success");
@@ -130,7 +130,7 @@ export function TeacherSsoCallback() {
             </svg>
           </span>
           <h2 className="mt-6 text-[24px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:mt-[26px] xl:text-[26px]">
-            {`You're in, ${MOCK_TEACHER.name}`}
+            {"You're in"}
           </h2>
           <p className="mt-[11px] max-w-[380px] text-[16px] leading-[1.55] text-nevo-near-black/65 xl:mt-3 xl:max-w-[420px] xl:text-[16.5px]">
             {"Taking you to your dashboard…"}

@@ -13,6 +13,7 @@ import {
   stripForPath,
 } from "@/lib/mocks/teacherAskNevo";
 import { randomId } from "@/lib/utils";
+import { useHasSession } from "@/hooks/useHasSession";
 import { MOCK_TEACHER } from "./teacherNav";
 
 /**
@@ -56,6 +57,7 @@ export function AskNevo() {
   const pathname = usePathname() ?? "";
   const threadId = useRef(randomId());
   const [open, setOpen] = useState(false);
+  const signedIn = useHasSession();
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [thinking, setThinking] = useState(false);
@@ -171,9 +173,13 @@ export function AskNevo() {
                   <span className="text-[18px] leading-[1.1] font-medium tracking-[-0.01em] text-nevo-near-black">
                     Ask Nevo
                   </span>
-                  <span className="mt-0.5 text-[12.5px] text-nevo-near-black/68">
-                    {MOCK_TEACHER.school}
-                  </span>
+                  {/* The school name is a fixture; a real session gives us a
+                      school_id uuid and nothing that resolves it. */}
+                  {!signedIn && (
+                    <span className="mt-0.5 text-[12.5px] text-nevo-near-black/68">
+                      {MOCK_TEACHER.school}
+                    </span>
+                  )}
                 </div>
               </div>
               <button
