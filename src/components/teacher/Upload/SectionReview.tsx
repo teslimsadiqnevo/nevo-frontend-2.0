@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import type { ReviewModule, ReviewSegment } from "@/lib/content/parsedSegments";
 
 /**
  * Single-path Step 3: the SCRUM-101 module review (`Nevo Upload Module Step`),
@@ -22,7 +21,12 @@ import type { ReviewModule, ReviewSegment } from "@/lib/content/parsedSegments";
  */
 
 type Segment = { id: number; title: string; mins: string };
-type Module = { title: string; recap: string; preview: string; segIds: number[] };
+type Module = {
+  title: string;
+  recap: string;
+  preview: string;
+  segIds: number[];
+};
 
 const SEGMENTS: Segment[] = [
   { id: 1, title: "What plants need to live", mins: "3 min" },
@@ -46,9 +50,13 @@ const suggested = (): Module[] => [
     preview: "Finally, a short recap to lock it in.",
     segIds: [4, 5],
   },
-  { title: "Wrap-up", recap: "You pulled the whole idea together in a quick recap.", preview: "", segIds: [6] },
+  {
+    title: "Wrap-up",
+    recap: "You pulled the whole idea together in a quick recap.",
+    preview: "",
+    segIds: [6],
+  },
 ];
-
 
 const ghostBtn =
   "inline-flex cursor-pointer items-center gap-[7px] rounded-[10px] border-[1.5px] border-nevo-near-black/18 px-[15px] py-[9px] text-[13.5px] font-semibold text-nevo-near-black transition-colors hover:bg-nevo-near-black/5";
@@ -61,8 +69,12 @@ function SegRow({ s }: { s: Segment }) {
       <span className="flex size-6 shrink-0 items-center justify-center rounded-[7px] bg-nevo-navy/10 text-xs font-semibold text-nevo-navy">
         {s.id}
       </span>
-      <span className="min-w-0 flex-1 text-sm text-nevo-near-black">{s.title}</span>
-      <span className="text-xs whitespace-nowrap text-nevo-near-black/50">{s.mins}</span>
+      <span className="min-w-0 flex-1 text-sm text-nevo-near-black">
+        {s.title}
+      </span>
+      <span className="text-xs whitespace-nowrap text-nevo-near-black/50">
+        {s.mins}
+      </span>
     </>
   );
 }
@@ -70,23 +82,18 @@ function SegRow({ s }: { s: Segment }) {
 export function SectionReview({
   onBack,
   onDone,
-  segments,
-  suggestedModules,
 }: {
   onBack: () => void;
   onDone: () => void;
-  /** A live parse's segments; the canonical fixture stands in without one. */
-  segments?: ReviewSegment[];
-  /** Boundaries derived from the parse, empty when it offered none. */
-  suggestedModules?: ReviewModule[];
 }) {
-  const allSegments: Segment[] = segments ?? SEGMENTS;
+  // The canonical fixture throughout: no endpoint delivers parsed segments.
+  const allSegments: Segment[] = SEGMENTS;
   const seg = (id: number) => allSegments.find((x) => x.id === id)!;
   const totalMin = allSegments.reduce(
     (a, x) => a + (parseInt(x.mins, 10) || 0),
     0,
   );
-  const proposed = () => suggestedModules ?? suggested();
+  const proposed = suggested;
   // Per the default flip: lessons of 6+ segments arrive with the proposed
   // modules; 5 or fewer arrive flat with no suggestion.
   const noSuggestionLesson = allSegments.length <= 5 || proposed().length === 0;
@@ -112,7 +119,12 @@ export function SectionReview({
       const moved = mods[mi].segIds.slice(posInModule + 1);
       if (!moved.length) return ms;
       mods[mi].segIds = mods[mi].segIds.slice(0, posInModule + 1);
-      mods.splice(mi + 1, 0, { title: "", recap: "", preview: "", segIds: moved });
+      mods.splice(mi + 1, 0, {
+        title: "",
+        recap: "",
+        preview: "",
+        segIds: moved,
+      });
       return mods;
     });
 
@@ -186,14 +198,28 @@ export function SectionReview({
           <div className="flex max-w-[720px] flex-col gap-2.5">
             <div className="flex items-center gap-3 rounded-xl bg-nevo-violet/14 px-4 py-3.5">
               <span className="shrink-0 text-nevo-navy">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
                   <path d="M4 7h16M4 12h16M4 17h16" />
                 </svg>
               </span>
               <span className="min-w-0 flex-1 text-[13.5px] leading-[1.5] text-nevo-near-black/78">
                 {`This lesson will play as one continuous flow, with no module boundaries. ${allSegments.length} segments, about ${totalMin} minutes.`}
               </span>
-              <button type="button" onClick={() => setFlat(false)} className={ghostBtn}>
+              <button
+                type="button"
+                onClick={() => setFlat(false)}
+                className={ghostBtn}
+              >
                 Add sections back
               </button>
             </div>
@@ -205,7 +231,8 @@ export function SectionReview({
           <div className="flex max-w-[720px] flex-col gap-2.5">
             <div className="rounded-xl bg-nevo-cream-elevated px-5 py-[18px]">
               <div className="text-[15px] font-semibold text-nevo-near-black">
-                This lesson is short - 5 segments or fewer - so it stays as one flow.
+                This lesson is short - 5 segments or fewer - so it stays as one
+                flow.
               </div>
               <p className="mt-1.5 text-[13.5px] leading-[1.55] text-nevo-near-black/66">
                 Longer lessons are split into modules by default; short ones
@@ -216,12 +243,27 @@ export function SectionReview({
                 type="button"
                 onClick={() =>
                   setModules([
-                    { title: "", recap: "", preview: "", segIds: allSegments.map((s) => s.id) },
+                    {
+                      title: "",
+                      recap: "",
+                      preview: "",
+                      segIds: allSegments.map((s) => s.id),
+                    },
                   ])
                 }
                 className="mt-3.5 inline-flex cursor-pointer items-center gap-[7px] rounded-[10px] bg-nevo-navy px-[15px] py-[9px] text-[13.5px] font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
                   <path d="M12 5v14M5 12h14" />
                 </svg>
                 Add modules myself
@@ -238,12 +280,16 @@ export function SectionReview({
                 {`${modules.length} sections · ${allSegments.length} segments · about ${totalMin} minutes`}
               </span>
               <div className="flex flex-col items-end gap-1">
-                <button type="button" onClick={() => setFlat(true)} className={ghostBtn}>
+                <button
+                  type="button"
+                  onClick={() => setFlat(true)}
+                  className={ghostBtn}
+                >
                   Keep as one flow
                 </button>
                 <span className="max-w-[280px] text-right text-[11.5px] leading-[1.4] text-nevo-near-black/50">
-                  A deliberate opt-out: students will see one continuous
-                  lesson, with no module breaks.
+                  A deliberate opt-out: students will see one continuous lesson,
+                  with no module breaks.
                 </span>
               </div>
             </div>
@@ -255,7 +301,8 @@ export function SectionReview({
                   key={mi}
                   className={cn(
                     "overflow-hidden rounded-[14px] bg-nevo-cream-elevated shadow-[0_2px_10px_rgba(0,0,0,0.05)]",
-                    overCard === mi && "outline-2 -outline-offset-2 outline-nevo-violet",
+                    overCard === mi &&
+                      "outline-2 -outline-offset-2 outline-nevo-violet",
                   )}
                 >
                   <div className="border-b border-nevo-near-black/8 px-[18px] pt-4 pb-3.5">
@@ -267,7 +314,10 @@ export function SectionReview({
                         value={m.title}
                         onChange={(e) => update(mi, { title: e.target.value })}
                         placeholder={`Module ${mi + 1}`}
-                        className={cn(inputBase, "min-w-0 flex-1 px-3 py-[9px] text-[15.5px] font-semibold")}
+                        className={cn(
+                          inputBase,
+                          "min-w-0 flex-1 px-3 py-[9px] text-[15.5px] font-semibold",
+                        )}
                       />
                       <span className="text-xs whitespace-nowrap text-nevo-near-black/50">
                         {`${segs.length} ${segs.length === 1 ? "segment" : "segments"}`}
@@ -276,16 +326,31 @@ export function SectionReview({
                     {segs.length === 1 && (
                       <div className="mt-[11px] flex items-center gap-2.5 rounded-[9px] bg-nevo-violet/14 px-[13px] py-2.5">
                         <span className="shrink-0 text-nevo-navy">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.9"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                          >
                             <circle cx="12" cy="12" r="9" />
                             <path d="M12 11v5" />
-                            <circle cx="12" cy="7.6" r="0.6" fill="currentColor" />
+                            <circle
+                              cx="12"
+                              cy="7.6"
+                              r="0.6"
+                              fill="currentColor"
+                            />
                           </svg>
                         </span>
                         <span className="min-w-0 flex-1 text-[12.5px] leading-[1.45] text-nevo-near-black/72">
                           A section with just one segment usually reads better
-                          merged into the next. You can leave it if it&rsquo;s
-                          a deliberate wrap-up.
+                          merged into the next. You can leave it if it&rsquo;s a
+                          deliberate wrap-up.
                         </span>
                       </div>
                     )}
@@ -327,8 +392,16 @@ export function SectionReview({
                           <div className="mx-1 mb-1.5 h-[2.5px] rounded-full bg-nevo-violet" />
                         )}
                         <div className="flex items-center gap-[11px] rounded-[9px] bg-nevo-cream/55 px-[13px] py-[11px]">
-                          <span className="shrink-0 cursor-grab text-nevo-near-black/30" aria-hidden>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                          <span
+                            className="shrink-0 cursor-grab text-nevo-near-black/30"
+                            aria-hidden
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
                               <circle cx="9" cy="6" r="1.6" />
                               <circle cx="15" cy="6" r="1.6" />
                               <circle cx="9" cy="12" r="1.6" />
@@ -346,7 +419,17 @@ export function SectionReview({
                               onClick={() => split(mi, pi)}
                               className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border-[1.5px] border-nevo-navy/35 px-[11px] py-1.5 text-xs font-semibold text-nevo-navy transition-colors hover:bg-nevo-navy/6"
                             >
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <svg
+                                width="13"
+                                height="13"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden
+                              >
                                 <path d="M8 3v18M3 8h10M3 16h10M21 8l-3 4 3 4" />
                               </svg>
                               Split here
@@ -361,42 +444,67 @@ export function SectionReview({
                   </div>
 
                   <div className="flex flex-col gap-2.5 px-[18px] pt-1 pb-4">
-                    {(
-                      [
-                        {
-                          key: "recap" as const,
-                          label: "What you just did - shown at the boundary",
-                          glyph: (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                              <path d="M9 11l3 3L22 4" />
-                              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                            </svg>
-                          ),
-                        },
-                        {
-                          key: "preview" as const,
-                          label: "What's coming next",
-                          glyph: (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                              <circle cx="12" cy="12" r="9" />
-                              <path d="M10 8l4 4-4 4" />
-                            </svg>
-                          ),
-                        },
-                      ]
-                    ).map((f) => (
+                    {[
+                      {
+                        key: "recap" as const,
+                        label: "What you just did - shown at the boundary",
+                        glyph: (
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                          >
+                            <path d="M9 11l3 3L22 4" />
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                          </svg>
+                        ),
+                      },
+                      {
+                        key: "preview" as const,
+                        label: "What's coming next",
+                        glyph: (
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                          >
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M10 8l4 4-4 4" />
+                          </svg>
+                        ),
+                      },
+                    ].map((f) => (
                       <div key={f.key}>
                         <div className="mb-[5px] flex items-center gap-[7px]">
-                          <span className="inline-flex text-nevo-violet">{f.glyph}</span>
+                          <span className="inline-flex text-nevo-violet">
+                            {f.glyph}
+                          </span>
                           <span className="text-[11px] font-semibold tracking-[0.05em] text-nevo-near-black/48 uppercase">
                             {f.label}
                           </span>
                         </div>
                         <textarea
                           value={m[f.key]}
-                          onChange={(e) => update(mi, { [f.key]: e.target.value })}
+                          onChange={(e) =>
+                            update(mi, { [f.key]: e.target.value })
+                          }
                           rows={2}
-                          className={cn(inputBase, "w-full resize-none px-3 py-[9px] text-[13.5px] leading-[1.5]")}
+                          className={cn(
+                            inputBase,
+                            "w-full resize-none px-3 py-[9px] text-[13.5px] leading-[1.5]",
+                          )}
                         />
                       </div>
                     ))}
@@ -409,7 +517,17 @@ export function SectionReview({
                         onClick={() => merge(mi)}
                         className="inline-flex cursor-pointer items-center gap-[7px] rounded-[9px] border-[1.5px] border-dashed border-nevo-navy/35 px-[13px] py-2 text-[12.5px] font-semibold text-nevo-navy transition-colors hover:bg-nevo-navy/6"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
                           <path d="M7 4l5 5 5-5M12 9v11" />
                         </svg>
                         Merge into Module {mi}
@@ -428,7 +546,9 @@ export function SectionReview({
         <button type="button" onClick={onBack} className={ghostBtn}>
           Back
         </button>
-        <span className="flex-1 text-[12.5px] text-nevo-near-black/55">{footNote}</span>
+        <span className="flex-1 text-[12.5px] text-nevo-near-black/55">
+          {footNote}
+        </span>
         <button
           type="button"
           onClick={reset}
