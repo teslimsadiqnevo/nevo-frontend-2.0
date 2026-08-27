@@ -10,6 +10,8 @@ import {
   type TeacherNotification,
 } from "@/lib/mocks/teacherNotifications";
 import { useHasSession } from "@/hooks/useHasSession";
+// Lives under Profile/ because that page owned it first; it is generic.
+import { SignOutModal } from "@/components/teacher/Profile/SignOutModal";
 import { FeedbackPanel } from "./FeedbackPanel";
 import { NotificationsPanel } from "./NotificationsPanel";
 
@@ -102,8 +104,8 @@ const GLYPH = {
 const ACCOUNT_MENU: {
   label: string;
   href?: string;
-  /** Opens a panel instead of navigating. */
-  opens?: "feedback";
+  /** Opens a panel or modal instead of navigating. */
+  opens?: "feedback" | "signout";
   divider?: boolean;
   icon: React.ReactNode;
 }[] = [
@@ -148,7 +150,7 @@ const ACCOUNT_MENU: {
   },
   {
     label: "Sign out",
-    href: "/teacher/profile",
+    opens: "signout",
     divider: true,
     icon: (
       <svg {...GLYPH} aria-hidden>
@@ -173,6 +175,7 @@ export function TeacherSidebar() {
   // `collapsed`); the breakpoint re-asserts the default, the chevron is free.
   const [menuOpen, setMenuOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
   // Signed in, so the fixture persona is not who this is.
   const signedIn = useHasSession();
   const [expanded, setExpanded] = useState(true);
@@ -299,6 +302,8 @@ export function TeacherSidebar() {
 
       {feedbackOpen && <FeedbackPanel onClose={() => setFeedbackOpen(false)} />}
 
+      {signOutOpen && <SignOutModal onStay={() => setSignOutOpen(false)} />}
+
       {notifOpen && (
         <NotificationsPanel
           notes={notes}
@@ -424,8 +429,9 @@ export function TeacherSidebar() {
                     {body}
                   </Link>
                 ) : (
-                  // TODO(screen): Help & support and the sign-out confirm
-                  // still live outside C11's frames.
+                  // TODO(screen): Help & support is the last item here with
+                  // nowhere to go - C11 does not draw it and no other frame
+                  // does either, so it needs design before it needs building.
                   <button
                     key={m.label}
                     type="button"
@@ -433,6 +439,7 @@ export function TeacherSidebar() {
                     onClick={() => {
                       setMenuOpen(false);
                       if (m.opens === "feedback") setFeedbackOpen(true);
+                      if (m.opens === "signout") setSignOutOpen(true);
                     }}
                     className={rowCls}
                   >
