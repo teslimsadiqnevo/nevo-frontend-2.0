@@ -1,21 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { IllustrationWrapper } from "@/components/shared/IllustrationWrapper";
 import {
+  COMPOSE_STUDENTS,
   THREADS,
   type ComposeStudent,
   type Message,
   type Thread,
 } from "@/lib/mocks/teacherConnect";
+import { studentSlug } from "@/lib/mocks/teacherStudents";
 import { cn } from "@/lib/utils";
 import { ComposeModal } from "./ComposeModal";
 
 /**
- * C10 Connect - individual threads with students, and the teacher's control
- * with their students.
- * soft-violet label so it is always obvious who is in the room. No class-wide
- * broadcast in v1.
+ * C10 Connect - individual threads between a teacher and their students, and
+ * the compose flow for starting a new one. No class-wide broadcast in v1.
  *
  * Two states: a thread, and the empty state. Parents moved to their own
  * portal in the 25 Aug drop, so the include toggle, the violet parent bubble
@@ -88,8 +89,22 @@ export function ConnectView() {
     THREADS[0]?.id ?? null,
   );
   const [draft, setDraft] = useState("");
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [presetStudent, setPresetStudent] = useState<string | undefined>();
+  // "Message <name>" on a student profile or session panel lands here with a
+  // slug. Seeded in the initialiser rather than an effect: the link is always a
+  // fresh mount from another route, and this keeps the modal open on first
+  // paint instead of flashing the thread list first.
+  const params = useSearchParams();
+  const linkedStudent = COMPOSE_STUDENTS.find(
+    (s) => studentSlug(s.name) === params.get("student"),
+  )?.name;
+  // An unknown slug still opens compose - the teacher can search - rather than
+  // swallowing the click and looking broken.
+  const [composeOpen, setComposeOpen] = useState(
+    Boolean(params.get("student")),
+  );
+  const [presetStudent, setPresetStudent] = useState<string | undefined>(
+    linkedStudent,
+  );
   const [toast, setToast] = useState("");
   const [newestId, setNewestId] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
