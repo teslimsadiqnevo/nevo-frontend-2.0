@@ -6,12 +6,12 @@ export default async function AdminSencoStudentPage({
 }) {
   const { studentId } = await params;
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-2">
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 py-24">
       <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Admin</p>
       <h1 className="text-xl font-medium text-nevo-navy">Learner support profile</h1>
       <p className="text-sm text-nevo-near-black/60">
         Placeholder for <span className="font-mono">{studentId}</span> - built per the UI/UX spec.
       </p>
-    </main>
+    </div>
   );
 }
