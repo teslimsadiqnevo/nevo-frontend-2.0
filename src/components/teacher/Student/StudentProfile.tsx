@@ -48,12 +48,12 @@ const CHEVRON_LEFT = (
   </svg>
 );
 
-const MENU_ITEMS = [
-  "Message this student",
-  "Print this profile",
-  "Move to another class",
+const MENU_ITEMS: { label: string; opens?: "message" }[] = [
+  { label: "Message this student", opens: "message" },
+  { label: "Print this profile" },
+  { label: "Move to another class" },
   // The destructive slot is navy, deliberately not red.
-  "Remove from class",
+  { label: "Remove from class" },
 ];
 
 function Dots({ level }: { level: 1 | 2 | 3 }) {
@@ -98,6 +98,8 @@ export function StudentProfile({
   const early = !student.chip && student.concepts.length === 0;
   const firstName = student.name.split(" ")[0];
   const recommendHref = `/teacher/students/${student.id}/recommend`;
+  // Connect owns compose; the slug tells it who this is addressed to.
+  const messageHref = `/teacher/connect?student=${student.id}`;
 
   const send = () => {
     setShareOpen(false);
@@ -207,14 +209,19 @@ export function StudentProfile({
                       onClick={() => setMenuOpen(false)}
                     />
                     <div className="absolute top-[52px] right-0 z-[31] w-[238px] rounded-xl bg-nevo-cream p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.16)]">
-                      {MENU_ITEMS.map((label) => (
+                      {MENU_ITEMS.map((item) => (
                         <button
-                          key={label}
+                          key={item.label}
                           type="button"
-                          onClick={() => setMenuOpen(false)}
+                          onClick={() => {
+                            setMenuOpen(false);
+                            if (item.opens === "message") {
+                              router.push(messageHref);
+                            }
+                          }}
                           className="block w-full cursor-pointer rounded-lg px-[13px] py-[11px] text-left text-[14.5px] text-nevo-near-black transition-colors hover:bg-nevo-navy/8"
                         >
-                          {label}
+                          {item.label}
                         </button>
                       ))}
                     </div>
@@ -456,6 +463,7 @@ export function StudentProfile({
           studentName={student.name}
           onClose={() => setSession(null)}
           onRecommend={() => router.push(recommendHref)}
+          onMessage={() => router.push(messageHref)}
         />
       )}
 

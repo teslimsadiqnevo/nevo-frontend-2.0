@@ -36,11 +36,14 @@ export function SessionPanel({
   studentName,
   onClose,
   onRecommend,
+  onMessage,
 }: {
   session: SessionRow;
   studentName: string;
   onClose: () => void;
   onRecommend: () => void;
+  /** Opens compose in Connect, addressed to this student. */
+  onMessage: () => void;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -148,9 +151,9 @@ export function SessionPanel({
           >
             Recommend a follow-up
           </button>
-          {/* TODO(screen): C10b Compose Message. */}
           <button
             type="button"
+            onClick={onMessage}
             className="flex h-[46px] cursor-pointer items-center rounded-[10px] border-[1.5px] border-nevo-navy/30 px-4 text-sm font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6 xl:h-12 xl:px-[18px] xl:text-[14.5px]"
           >
             <span className="xl:hidden">Message</span>
