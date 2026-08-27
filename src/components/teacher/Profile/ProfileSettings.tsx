@@ -11,6 +11,7 @@ import {
   type TeacherProfile,
 } from "@/lib/mocks/teacherProfile";
 import { cn } from "@/lib/utils";
+import { useHasSession } from "@/hooks/useHasSession";
 import { EditProfileModal } from "./EditProfileModal";
 import { SignOutModal } from "./SignOutModal";
 
@@ -49,6 +50,11 @@ export function ProfileSettings() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [dirty, setDirty] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  // The session carries a user_id and a role. Name, email, school and subjects
+  // are all fixture values, and this is the page where a teacher would most
+  // reasonably read them as their own account details - a fabricated email
+  // worst of all, since it looks like where their notifications go.
+  const signedIn = useHasSession();
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [toast, setToast] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -145,29 +151,49 @@ export function ProfileSettings() {
         {/* Identity */}
         <div className="mt-5 flex items-center gap-4 rounded-xl bg-nevo-cream-elevated px-[22px] py-5 shadow-[0_2px_8px_rgba(0,0,0,0.06)] xl:mt-6 xl:gap-[18px] xl:px-[26px] xl:py-6">
           <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-nevo-navy text-xl font-semibold text-nevo-cream xl:size-16 xl:text-[22px]">
-            {profile.initials}
+            {signedIn ? (
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20a8 8 0 0 1 16 0" />
+              </svg>
+            ) : (
+              profile.initials
+            )}
           </span>
           <div className="min-w-0 flex-1">
             <span className="text-[17px] font-semibold text-nevo-near-black xl:text-[19px]">
-              {profile.name}
+              {signedIn ? "Teacher" : profile.name}
             </span>
-            <div className="mt-[3px] text-sm text-nevo-near-black/60">
-              <span className="xl:hidden">{profile.subjects}</span>
-              <span className="hidden xl:inline">
-                {`${profile.subjects} · ${profile.school}`}
-              </span>
-            </div>
-            <div className="mt-0.5 truncate text-[13.5px] text-nevo-near-black/50">
-              {profile.email}
-            </div>
+            {signedIn ? (
+              <div className="mt-[3px] max-w-[420px] text-sm leading-[1.5] text-nevo-near-black/60">
+                Your details aren&rsquo;t connected yet &ndash; your name and
+                contact details come from your school.
+              </div>
+            ) : (
+              <>
+                <div className="mt-[3px] text-sm text-nevo-near-black/60">
+                  <span className="xl:hidden">{profile.subjects}</span>
+                  <span className="hidden xl:inline">
+                    {`${profile.subjects} · ${profile.school}`}
+                  </span>
+                </div>
+                <div className="mt-0.5 truncate text-[13.5px] text-nevo-near-black/50">
+                  {profile.email}
+                </div>
+              </>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={() => setEditOpen(true)}
-            className="inline-flex h-10 shrink-0 cursor-pointer items-center rounded-[10px] border-[1.5px] border-nevo-navy/35 px-4 text-sm font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6"
-          >
-            Edit
-          </button>
+          {/* Nothing to edit while there is nothing to show, and no endpoint
+              to persist it to either. */}
+          {!signedIn && (
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              className="inline-flex h-10 shrink-0 cursor-pointer items-center rounded-[10px] border-[1.5px] border-nevo-navy/35 px-4 text-sm font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6"
+            >
+              Edit
+            </button>
+          )}
         </div>
 
         <h3 className={SECTION_H3}>Notifications</h3>
