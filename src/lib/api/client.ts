@@ -75,11 +75,15 @@ function handleAuthFailure(path: string, sentToken: boolean): void {
   if (path.includes("/auth/login") || path.includes("/auth/logout")) return;
   const role = getSession()?.role;
   clearSession();
-  window.location.assign(
-    // No teacher-side "session expired" screen is designed (flagged); their
-    // door carries the same reassurance.
-    role === "teacher" ? "/auth/teacher" : "/auth/session-expired",
-  );
+  // No teacher- or admin-side "session expired" screen is designed (flagged);
+  // each door carries the same reassurance. The backend's admin roles are
+  // `senco_admin` and `other_admin`, never a plain "admin".
+  const door = role === "teacher"
+    ? "/auth/teacher"
+    : role?.endsWith("admin")
+      ? "/auth/admin"
+      : "/auth/session-expired";
+  window.location.assign(door);
 }
 
 type QueryValue = string | number | boolean | null | undefined;
