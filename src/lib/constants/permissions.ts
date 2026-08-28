@@ -48,8 +48,22 @@ export const ALL_PERMISSION_SCOPES = Object.values(
 export const USER_ROLES = {
   STUDENT: "student",
   TEACHER: "teacher",
-  ADMIN: "admin",
-  PARENT: "parent",
+  /**
+   * There is no plain "admin". The backend splits it, and a signed-in
+   * proprietor really does come back as `senco_admin` - confirmed against a
+   * live account on 28 Aug 2026, not inferred from the schema.
+   */
+  SENCO_ADMIN: "senco_admin",
+  OTHER_ADMIN: "other_admin",
+  PARENT_GUARDIAN: "parent_guardian",
 } as const;
 
 export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
+
+/**
+ * Both admin roles, and the only safe way to ask "is this an admin?" - a
+ * `role === "admin"` check would never match anything the API returns.
+ */
+export function isAdminRole(role: string | undefined | null): boolean {
+  return role === USER_ROLES.SENCO_ADMIN || role === USER_ROLES.OTHER_ADMIN;
+}
