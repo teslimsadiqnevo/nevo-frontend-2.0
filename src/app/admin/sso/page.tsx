@@ -1,9 +1,11 @@
-export default function AdminSettingsSsoPage() {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-2 py-24">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Admin</p>
-      <h1 className="text-xl font-medium text-nevo-navy">IT &amp; SSO</h1>
-      <p className="text-sm text-nevo-near-black/60">Placeholder - built per the UI/UX spec.</p>
-    </div>
-  );
+import type { Metadata } from "next";
+import { SsoView } from "@/components/admin/Sso/SsoView";
+
+export const metadata: Metadata = {
+  title: "IT & SSO - Nevo",
+};
+
+// D10 IT & SSO Setup, with D10b's management sections stacked into it.
+export default function AdminSsoPage() {
+  return <SsoView />;
 }
