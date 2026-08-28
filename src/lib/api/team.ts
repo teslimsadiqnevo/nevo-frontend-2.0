@@ -1,4 +1,4 @@
-import type { PermissionScope } from "@/lib/constants/permissions";
+import type { PermissionScope, UserRole } from "@/lib/constants/permissions";
 import { api } from "./client";
 
 /**
@@ -11,23 +11,6 @@ import { api } from "./client";
  * signing anyone in, and no email, which is why the invite link has to carry
  * one.
  */
-
-/**
- * The backend's own `UserRole` enum, which is NOT the same vocabulary as our
- * `USER_ROLES` constant: it has no plain "admin", splitting it into
- * `senco_admin` and `other_admin`, and calls a parent `parent_guardian`.
- * Typed separately here so an invite cannot be sent with a role the API will
- * reject.
- *
- * TODO(api): reconcile the two vocabularies - our constants say `admin` and
- * `parent`, which the backend would refuse.
- */
-export type BackendUserRole =
-  | "student"
-  | "teacher"
-  | "senco_admin"
-  | "other_admin"
-  | "parent_guardian";
 
 export interface TeamMember {
   user_id: string;
@@ -42,7 +25,7 @@ export interface TeamMember {
 
 export interface InviteTeamMemberRequest {
   email: string;
-  role: BackendUserRole;
+  role: UserRole;
   scopes: PermissionScope[];
 }
 
@@ -77,7 +60,7 @@ export interface AcceptInvitationResponse {
  * TODO(api): confirm this is the intended derivation, or give the invite
  * endpoint a default so the client does not have to guess.
  */
-export function roleForScopes(scopes: PermissionScope[]): BackendUserRole {
+export function roleForScopes(scopes: PermissionScope[]): UserRole {
   return scopes.includes("senco") ? "senco_admin" : "other_admin";
 }
 

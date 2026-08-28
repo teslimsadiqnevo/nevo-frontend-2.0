@@ -5,7 +5,6 @@ export {
   teamApi,
   roleForScopes,
   type AcceptInvitationResponse,
-  type BackendUserRole,
   type InvitedTeamMember,
   type TeamMember,
 } from "./team";

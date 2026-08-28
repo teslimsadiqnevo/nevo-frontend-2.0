@@ -12,6 +12,7 @@
  */
 
 import { clearSession, getSession, getToken } from "@/lib/auth/session";
+import { isAdminRole } from "@/lib/constants/permissions";
 
 // Default: the same-origin catch-all proxy (`app/api/backend/[...path]`),
 // which forwards to the FastAPI backend - the backend has no CORS headers, so
@@ -80,7 +81,7 @@ function handleAuthFailure(path: string, sentToken: boolean): void {
   // `senco_admin` and `other_admin`, never a plain "admin".
   const door = role === "teacher"
     ? "/auth/teacher"
-    : role?.endsWith("admin")
+    : isAdminRole(role)
       ? "/auth/admin"
       : "/auth/session-expired";
   window.location.assign(door);
