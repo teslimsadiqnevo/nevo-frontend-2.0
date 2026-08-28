@@ -62,7 +62,20 @@ export function navForScopes(scopes: PermissionScope[]): AdminNavItem[] {
  * The longest matching href wins, so `/admin/settings` does not light up while
  * the reader is on a deeper route that merely starts the same way.
  */
+/**
+ * Routes that are not nav items but belong to one. D21 and D22 are drill-downs
+ * from the Overview, and their frames set the rail's active item to Overview.
+ */
+const OWNED_BY: Record<string, string> = {
+  "/admin/compliance": "Overview",
+  "/admin/adaptations": "Overview",
+};
+
 export function activeNavLabel(pathname: string): string | null {
+  const owner = Object.entries(OWNED_BY).find(
+    ([p]) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+  if (owner) return owner[1];
   const hit = [...ADMIN_NAV]
     .filter((i) => pathname === i.href || pathname.startsWith(`${i.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0];
