@@ -34,8 +34,8 @@ import { NARRATIVE_SAMPLE, WORTH_A_GLANCE } from "./overviewSample";
  *
  * TODO(api): a narrative/summary endpoint, a roll-up of things needing a
  * decision, and class/teacher activity counts.
- * TODO(screen): D22 compliance audit and D21 adaptation log are the drill-downs
- * these cards lead to. Neither exists yet, so neither card links anywhere.
+ * Both cards open their drill-down: the compliance card to D22, and the
+ * adaptations figure to D21.
  */
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
@@ -185,6 +185,12 @@ export function OverviewView() {
                   ? ` · ${audit.findings.length} finding${audit.findings.length === 1 ? "" : "s"} to review`
                   : ""}
               </p>
+              <Link
+                href="/admin/compliance"
+                className="mt-4 inline-block text-[13.5px] font-semibold text-nevo-navy hover:underline"
+              >
+                What we store &rarr;
+              </Link>
             </div>
 
             <h3 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
@@ -214,6 +220,12 @@ export function OverviewView() {
                 <p className="mt-px text-[13px] text-nevo-near-black/58">
                   across all students so far
                 </p>
+                <Link
+                  href="/admin/adaptations"
+                  className="mt-3 inline-block text-[13.5px] font-semibold text-nevo-navy hover:underline"
+                >
+                  See the log &rarr;
+                </Link>
               </div>
             </div>
 
