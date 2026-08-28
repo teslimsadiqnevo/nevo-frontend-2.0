@@ -15,6 +15,12 @@ export { exportApi, type IepExport, type IepExportShare } from "./export";
 export { classesApi, type AssignedClass, type AssignedTeacher } from "./classes";
 export { permissionsApi, type PermissionsMe } from "./permissions";
 export {
+  schoolIntelligenceApi,
+  type ComplianceAudit,
+  type AdaptationLog,
+  type AdaptationEventRow,
+} from "./schoolIntelligence";
+export {
   ssoApi,
   PROVIDER_LABELS,
   type SsoStatus,
