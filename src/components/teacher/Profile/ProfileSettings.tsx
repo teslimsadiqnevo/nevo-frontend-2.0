@@ -12,6 +12,7 @@ import {
 } from "@/lib/mocks/teacherProfile";
 import { cn } from "@/lib/utils";
 import { useHasSession } from "@/hooks/useHasSession";
+import { useTeacherIdentity } from "@/hooks/useTeacherIdentity";
 import { EditProfileModal } from "./EditProfileModal";
 import { SignOutModal } from "./SignOutModal";
 
@@ -55,6 +56,9 @@ export function ProfileSettings() {
   // reasonably read them as their own account details - a fabricated email
   // worst of all, since it looks like where their notifications go.
   const signedIn = useHasSession();
+  // Name and email come back from the class roster when they can - school and
+  // subjects still have no source anywhere.
+  const identity = useTeacherIdentity();
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [toast, setToast] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -151,7 +155,9 @@ export function ProfileSettings() {
         {/* Identity */}
         <div className="mt-5 flex items-center gap-4 rounded-xl bg-nevo-cream-elevated px-[22px] py-5 shadow-[0_2px_8px_rgba(0,0,0,0.06)] xl:mt-6 xl:gap-[18px] xl:px-[26px] xl:py-6">
           <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-nevo-navy text-xl font-semibold text-nevo-cream xl:size-16 xl:text-[22px]">
-            {signedIn ? (
+            {signedIn && identity?.initials ? (
+              identity.initials
+            ) : signedIn ? (
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <circle cx="12" cy="8" r="4" />
                 <path d="M4 20a8 8 0 0 1 16 0" />
@@ -162,13 +168,21 @@ export function ProfileSettings() {
           </span>
           <div className="min-w-0 flex-1">
             <span className="text-[17px] font-semibold text-nevo-near-black xl:text-[19px]">
-              {signedIn ? "Teacher" : profile.name}
+              {signedIn ? (identity?.name ?? "Teacher") : profile.name}
             </span>
             {signedIn ? (
-              <div className="mt-[3px] max-w-[420px] text-sm leading-[1.5] text-nevo-near-black/60">
-                Your details aren&rsquo;t connected yet &ndash; your name and
-                contact details come from your school.
-              </div>
+              <>
+                {identity?.email && (
+                  <div className="mt-[3px] truncate text-[13.5px] text-nevo-near-black/50">
+                    {identity.email}
+                  </div>
+                )}
+                <div className="mt-[3px] max-w-[420px] text-sm leading-[1.5] text-nevo-near-black/60">
+                  {identity?.name
+                    ? "Your school holds these details. Subjects and school name aren’t connected here yet."
+                    : "Your details aren’t connected yet – your name and contact details come from your school."}
+                </div>
+              </>
             ) : (
               <>
                 <div className="mt-[3px] text-sm text-nevo-near-black/60">

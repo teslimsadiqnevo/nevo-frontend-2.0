@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api, type RequestOptions } from "./client";
 
 /**
  * Teacher-class assignment endpoints, typed against the deployed backend
@@ -36,9 +36,13 @@ export const classesApi = {
   teacherClasses: (teacherId: string) =>
     api.get<AssignedClass[]>(`/api/v1/teachers/${teacherId}/classes`),
 
-  /** Teachers assigned to a class (admin). */
-  classTeachers: (classId: string) =>
-    api.get<AssignedTeacher[]>(`/api/v1/classes/${classId}/teachers`),
+  /**
+   * Teachers assigned to a class. Documented as an admin read, so a teacher
+   * calling it speculatively should pass `tolerateAuthFailure` - otherwise a
+   * scope-related 403 would clear their session.
+   */
+  classTeachers: (classId: string, options?: RequestOptions) =>
+    api.get<AssignedTeacher[]>(`/api/v1/classes/${classId}/teachers`, options),
 
   /** Assign a teacher to a class (admin seam). */
   createAssignment: (payload: {
