@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { MOCK_TEACHER } from "@/components/teacher/Shell/teacherNav";
 import { useHasSession } from "@/hooks/useHasSession";
+import { useTeacherIdentity } from "@/hooks/useTeacherIdentity";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import {
   GOOD_TO_KNOW,
@@ -56,7 +57,10 @@ export function TeacherHome() {
   // The session carries a user_id and a role, never a name - and a teacher
   // whose classes failed to load is still not the fixture persona.
   const signedIn = useHasSession();
-  const greetName = signedIn ? null : MOCK_TEACHER.name;
+  // Recovered from the class roster when it can be; null when it cannot, which
+  // is the same nameless greeting as before.
+  const identity = useTeacherIdentity();
+  const greetName = signedIn ? identity?.name : MOCK_TEACHER.name;
   const flags = noClasses ? [] : HOME_FLAGS;
   const hasFlags = flags.length > 0;
 

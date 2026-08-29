@@ -10,6 +10,7 @@ import {
   type TeacherNotification,
 } from "@/lib/mocks/teacherNotifications";
 import { useHasSession } from "@/hooks/useHasSession";
+import { useTeacherIdentity } from "@/hooks/useTeacherIdentity";
 // Lives under Profile/ because that page owned it first; it is generic.
 import { SignOutModal } from "@/components/teacher/Profile/SignOutModal";
 import { FeedbackPanel } from "./FeedbackPanel";
@@ -178,6 +179,7 @@ export function TeacherSidebar() {
   const [signOutOpen, setSignOutOpen] = useState(false);
   // Signed in, so the fixture persona is not who this is.
   const signedIn = useHasSession();
+  const identity = useTeacherIdentity();
   const [expanded, setExpanded] = useState(true);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1280px)");
@@ -351,7 +353,9 @@ export function TeacherSidebar() {
           )}
         >
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-nevo-navy text-[13px] font-semibold tracking-[0.02em] text-nevo-cream">
-            {signedIn ? (
+            {signedIn && identity?.initials ? (
+              identity.initials
+            ) : signedIn ? (
               // No name means no initials; a neutral glyph beats a blank disc.
               <svg
                 width="17"
@@ -373,14 +377,14 @@ export function TeacherSidebar() {
           </span>
           {expanded && (
             <span className="flex min-w-0 flex-col text-left">
-              {!signedIn && (
+              {(!signedIn || identity?.name) && (
                 <span className="truncate text-sm font-semibold text-nevo-near-black">
-                  {MOCK_TEACHER.name}
+                  {signedIn ? identity?.name : MOCK_TEACHER.name}
                 </span>
               )}
               <span
                 className={
-                  signedIn
+                  signedIn && !identity?.name
                     ? "text-sm font-semibold whitespace-nowrap text-nevo-near-black"
                     : "text-xs whitespace-nowrap text-nevo-near-black/55"
                 }
