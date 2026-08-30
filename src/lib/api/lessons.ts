@@ -69,6 +69,27 @@ export interface LessonDetailResponse extends LessonSummary {
   segments: LessonSegment[];
 }
 
+/**
+ * How the parser grouped the segments. Only `/api/v1/lessons/{id}` carries
+ * these - and that endpoint's segments, confusingly, DROP `needsReview` and
+ * `reviewReasons`. So the two are not interchangeable and neither is a
+ * superset: the content route has the review flags, the v1 route has the
+ * modules, and a screen wanting both has to ask twice.
+ *
+ * TODO(api): one lesson-detail response carrying both.
+ */
+export interface LessonModule {
+  id: string;
+  title: string;
+  /** Shown after the module; null when the parser wrote none. */
+  recap: string | null;
+  /** Shown before it. */
+  preview: string | null;
+  sequenceOrder: number;
+  /** Which segments belong to it, by segment id. */
+  segmentIds: string[];
+}
+
 export const lessonsApi = {
   /** The parsed lesson library. GET /api/content/lessons */
   list: (options?: { limit?: number }) =>
@@ -76,7 +97,16 @@ export const lessonsApi = {
       params: options?.limit ? { limit: options.limit } : undefined,
     }),
 
-  /** One lesson with its ordered segments. */
+  /**
+   * One lesson with its ordered segments AND its review flags. Deliberately
+   * the content route, not the v1 alias - see `LessonModule`.
+   */
   detail: (lessonId: string) =>
     api.get<LessonDetailResponse>(`/api/content/lessons/${lessonId}`),
+
+  /** The module grouping, which only the v1 alias returns. */
+  modules: (lessonId: string) =>
+    api
+      .get<{ modules?: LessonModule[] }>(`/api/v1/lessons/${lessonId}`)
+      .then((r) => r.modules ?? []),
 };
