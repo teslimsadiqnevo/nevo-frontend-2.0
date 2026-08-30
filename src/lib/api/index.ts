@@ -12,7 +12,13 @@ export { signalsApi, type SignalEvent } from "./signals";
 export { intelligenceApi } from "./intelligence";
 export { contentApi, type ParseContentRequest, type ParseContentResponse } from "./content";
 export { exportApi, type IepExport, type IepExportShare } from "./export";
-export { classesApi, type AssignedClass, type AssignedTeacher } from "./classes";
+export {
+  classesApi,
+  type AssignedClass,
+  type AssignedTeacher,
+  type ClassStudent,
+  type ProfileStatus,
+} from "./classes";
 export {
   lessonsApi,
   type LessonSummary,
