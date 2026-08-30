@@ -25,7 +25,28 @@ export interface Assignment {
   assignedAt: string;
 }
 
+export interface CreateAssignmentsResult {
+  assignmentIds: string[];
+  createdCount: number;
+}
+
 export const assignmentsApi = {
+  /**
+   * Assign lessons. One call per class: the payload takes many `lessonIds`
+   * but a single `classId`, which expands to that class's current enrolment
+   * server-side.
+   *
+   * `dueAt` is a DUE date. The wizard's step 3 asks when a lesson should
+   * become AVAILABLE, which is a different thing and has no field, so
+   * nothing is sent for it - see the note in `AssignWizard`.
+   */
+  create: (payload: {
+    lessonIds: string[];
+    classId?: string | null;
+    studentIds?: string[];
+    dueAt?: string | null;
+  }) => api.post<CreateAssignmentsResult>("/api/v1/assignments", payload),
+
   /** Every assignment the teacher can see, optionally narrowed. */
   list: (filter?: { studentId?: string; classId?: string }) =>
     api.get<Assignment[]>("/api/v1/assignments", {

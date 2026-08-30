@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { assignmentsApi } from "@/lib/api/assignments";
+import { useLessonLibrary } from "@/hooks/useLessonLibrary";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +19,20 @@ import { cn } from "@/lib/utils";
  * sanctioned incomplete-form case); the "Available now" confirm sentence and
  * the post-confirm route (Library) are undesigned.
  *
- * TODO(api): assignment submit; selections are mock-only.
+ * Submit is live against POST /api/v1/assignments - one call per selected
+ * class, since the payload takes many lessons but a single class, which the
+ * backend expands to that class's current enrolment.
+ *
+ * Step 1 offers the teacher's real library when there is one. Step 2's
+ * "Specific students" stays fixture-only: the class list carries no roster,
+ * and inventing names to tick on the screen that assigns work would be the
+ * worst place for it.
+ *
+ * SCHEDULING IS NOT SENT. Step 3 asks when a lesson becomes AVAILABLE; the
+ * API has only `dueAt`, which is when it is DUE. Mapping one onto the other
+ * would show a lesson scheduled to open on Friday as due on Friday, so a live
+ * assignment sends no date and the step says so. Flagged: either the API needs
+ * an available-from field, or the step needs to become a due date.
  */
 
 type Step = 1 | 2 | 3 | 4;
@@ -124,7 +139,7 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
   const [chosen, setChosen] = useState<Set<string>>(
-    () => new Set(LESSONS.some((l) => l.id === preselect) ? [preselect!] : []),
+    () => new Set(preselect ? [preselect] : []),
   );
   const [who, setWho] = useState<"left" | "right">("left"); // left = whole class
   const [classes, setClasses] = useState<Set<string>>(new Set());
@@ -134,6 +149,13 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
   const [when, setWhen] = useState<"left" | "right">("left"); // left = available now
   const [date, setDate] = useState("2026-07-11");
   const [time, setTime] = useState("08:00");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  // The teacher's real library when there is one; the frame's four otherwise.
+  const { cards, live } = useLessonLibrary();
+  const lessons = live
+    ? cards.map((c) => ({ id: c.id, title: c.title, meta: c.meta }))
+    : LESSONS;
 
   const togIn = <T,>(set: Set<T>, v: T) => {
     const n = new Set(set);
@@ -153,7 +175,43 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
 
   const close = () => router.push("/teacher/lessons");
 
-  const lessonsText = fmtList(LESSONS.filter((l) => chosen.has(l.id)).map((l) => l.title));
+  /**
+   * One call per class. Nothing is claimed until every call has landed: a
+   * partial failure says so rather than reporting an assignment that only
+   * half happened.
+   */
+  const confirm = async () => {
+    if (!live) {
+      close();
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    const lessonIds = [...chosen];
+    try {
+      const results = await Promise.all(
+        [...classes].map((classId) =>
+          assignmentsApi.create({ lessonIds, classId }),
+        ),
+      );
+      const created = results.reduce((n, r) => n + r.createdCount, 0);
+      if (created === 0) {
+        setSubmitting(false);
+        setError(
+          "Nothing was assigned - those classes may have no students enrolled yet.",
+        );
+        return;
+      }
+      close();
+    } catch {
+      setSubmitting(false);
+      setError("We couldn’t assign that just now. Nothing has been sent - try again.");
+    }
+  };
+
+  const lessonsText = fmtList(
+    lessons.filter((l) => chosen.has(l.id)).map((l) => l.title),
+  );
   const whoText =
     who === "left"
       ? fmtList(myClasses.filter((c) => classes.has(c.id)).map((c) => c.name))
@@ -249,7 +307,7 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
 
             {step === 1 && (
               <div className="mt-[18px] flex flex-col gap-2.5 xl:mt-5 xl:gap-[11px]">
-                {LESSONS.map((l) => (
+                {lessons.map((l) => (
                   <CheckCard
                     key={l.id}
                     on={chosen.has(l.id)}
@@ -322,6 +380,23 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
 
             {step === 3 && (
               <>
+                {/* Scheduling has no field on the API - only a due date, which
+                    is a different thing - so a live assignment opens now and
+                    the step says so rather than offering a date that would be
+                    silently dropped. */}
+                {live ? (
+                  <div className="mt-[22px] max-w-[560px] rounded-[12px] bg-nevo-cream-elevated px-[22px] py-5 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+                    <h3 className="text-[15.5px] font-semibold text-nevo-near-black">
+                      This opens as soon as you assign it
+                    </h3>
+                    <p className="mt-1.5 text-sm leading-[1.55] text-nevo-near-black/68">
+                      Scheduling a later start isn&rsquo;t connected yet.
+                      Everything you&rsquo;ve chosen will be available to your
+                      students straight away.
+                    </p>
+                  </div>
+                ) : (
+                <>
                 <Toggle left="Available now" right="Schedule for later" value={when} onChange={setWhen} />
                 {when === "right" && (
                   <div className="mt-4 flex gap-3.5 xl:mt-[18px]">
@@ -362,9 +437,21 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                     </div>
                   </div>
                 )}
+                </>
+                )}
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {/* A failed assignment owns the footer: the teacher must not leave this
+          screen believing work was sent when it was not. */}
+      {error && (
+        <div className="shrink-0 px-7 pb-3 xl:px-8">
+          <p className="mx-auto max-w-[560px] rounded-[10px] bg-nevo-violet/14 px-[14px] py-3 text-[13.5px] leading-[1.5] text-nevo-near-black/78">
+            {error}
+          </p>
         </div>
       )}
 
@@ -387,10 +474,9 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
           type="button"
           disabled={!canContinue}
           onClick={() => {
-            if (!canContinue) return;
+            if (!canContinue || submitting) return;
             if (step < 4) setStep((s) => (s + 1) as Step);
-            // TODO(api): submit the assignment on confirm.
-            else close();
+            else void confirm();
           }}
           className={cn(
             "flex h-[46px] items-center rounded-[10px] px-[26px] text-[15px] font-semibold xl:h-12 xl:px-[30px] xl:text-[15.5px]",
@@ -399,7 +485,11 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
               : "cursor-not-allowed bg-nevo-navy/18 text-nevo-near-black/40",
           )}
         >
-          {step === 4 ? "Confirm assignment" : "Continue"}
+          {step === 4
+            ? submitting
+              ? "Assigning…"
+              : "Confirm assignment"
+            : "Continue"}
         </button>
       </div>
     </div>
