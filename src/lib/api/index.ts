@@ -13,6 +13,14 @@ export { intelligenceApi } from "./intelligence";
 export { contentApi, type ParseContentRequest, type ParseContentResponse } from "./content";
 export { exportApi, type IepExport, type IepExportShare } from "./export";
 export { classesApi, type AssignedClass, type AssignedTeacher } from "./classes";
+export {
+  lessonsApi,
+  type LessonSummary,
+  type LessonDetailResponse,
+  type LessonSegment,
+  type LessonParseStatus,
+  type LessonSourceType,
+} from "./lessons";
 export { usersApi, type CurrentUser, type SchoolSummary } from "./users";
 export { permissionsApi, type PermissionsMe } from "./permissions";
 export {

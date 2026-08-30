@@ -6,22 +6,22 @@ import { getToken } from "@/lib/auth/session";
 /**
  * Whether a real signed-in session exists on this device.
  *
- * The teacher console ships with a fixture persona - Ms. Adeyemi - which is
- * right for the designed screens and wrong the moment somebody actually signs
- * in, because the session payload carries a `user_id` and a role and no name
- * at all. So the rule is: with a session, we do not know who this is, and the
- * UI says nothing rather than saying the wrong thing.
+ * The console ships with fixture personas and fixture content, which are right
+ * for the designed screens and wrong the moment somebody actually signs in. So
+ * the rule is: with a session, the screens show what the API returned, and say
+ * nothing rather than saying the fixture's thing.
  *
- * Deliberately not derived from the class fetch: a teacher whose classes fail
- * to load is still not Ms. Adeyemi.
+ * Who that person is comes from `useCurrentUser` now that `users/me` exists;
+ * this hook answers only "is anyone signed in", which every screen still needs
+ * before it decides between live and fixture content.
+ *
+ * Deliberately not derived from any fetch: a teacher whose classes or lessons
+ * fail to load is still not Ms. Adeyemi.
  *
  * The token lives in localStorage, which the server cannot see. Reading it
  * through `useSyncExternalStore` keeps the server snapshot false and lets the
  * client settle on the truth without a hydration mismatch - and the `storage`
  * subscription means signing out in another tab updates this one.
- *
- * TODO(api): a teacher profile endpoint, after which this becomes a name
- * rather than the absence of one.
  */
 function subscribe(onChange: () => void): () => void {
   window.addEventListener("storage", onChange);
