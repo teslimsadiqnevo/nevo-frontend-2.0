@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import type { StudentProfileState } from "@/hooks/useStudentProfile";
+import {
+  ADAPTATIONS_FOOTNOTE_DESKTOP_TAIL,
+  ADAPTATIONS_FOOTNOTE_MAIN,
+  ADAPTATIONS_LABEL,
+} from "@/lib/mocks/teacherIntelligence";
 import { cn } from "@/lib/utils";
 import { MasteryDualTrack } from "./MasteryDualTrack";
 
@@ -21,8 +26,12 @@ import { MasteryDualTrack } from "./MasteryDualTrack";
  * Nevo holds no diagnostic label about anyone. They are fetched, typed, and
  * left off the page pending a product decision.
  *
- * ALSO ABSENT, for want of an endpoint: the "what Nevo has seen" evidence
- * list, recent sessions, the noticing banner, and the confidence dimensions.
+ * The C16c adaptation insights are live, from `/api/adaptations/student/{id}`,
+ * with suppressed entries excluded - the section is what actually happened.
+ *
+ * ALSO ABSENT, for want of an endpoint: recent sessions, the noticing banner,
+ * and the confidence dimensions. The "what Nevo has seen" evidence list has
+ * an endpoint that does not fit it - see `students.ts`.
  * The early state is real: `status: not_observed_yet` is precisely the
  * student the frame's calm early profile was drawn for.
  */
@@ -43,7 +52,7 @@ export function LiveStudentProfile({
   state: StudentProfileState;
   classHref?: string;
 }) {
-  const { profile, concepts, recommendations, observed } = state;
+  const { profile, concepts, recommendations, adaptations, observed } = state;
   if (!profile) return null;
 
   const { student, openFlagCount } = profile;
@@ -155,6 +164,53 @@ export function LiveStudentProfile({
                 </p>
               ))}
             </div>
+          </>
+        )}
+
+        {/* C16c - what Nevo quietly adjusted, and why. */}
+        {adaptations.length > 0 && (
+          <>
+            <h3 className="mt-8 block text-[11px] font-bold tracking-[0.14em] text-nevo-violet uppercase">
+              {ADAPTATIONS_LABEL}
+            </h3>
+            <p className="mt-2 text-[13px] text-nevo-near-black/60">
+              {`Nevo quietly adjusts lessons based on how each student learns. Here is what has happened for ${name.split(" ")[0] || "them"} recently.`}
+            </p>
+            <div className="mt-3.5 flex flex-col gap-2 xl:mt-4">
+              {adaptations.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-start gap-3.5 rounded-[8px] bg-nevo-cream-elevated px-[18px] py-4 xl:gap-4"
+                >
+                  <span className="w-[46px] shrink-0 pt-px text-[12px] text-nevo-near-black/55">
+                    {new Date(entry.timestamp).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-semibold text-nevo-near-black">
+                      {entry.lessonTitle}
+                    </span>
+                    <p className="mt-1 text-[13px] leading-[1.55] text-nevo-near-black/72">
+                      {entry.adaptation}
+                    </p>
+                    {entry.trigger && (
+                      <p className="mt-1 text-[12.5px] leading-[1.5] text-nevo-near-black/55">
+                        {`After noticing: ${entry.trigger}`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-[12px] leading-[1.55] text-nevo-near-black/55 italic">
+              {ADAPTATIONS_FOOTNOTE_MAIN}
+              <span className="hidden xl:inline">
+                {" "}
+                {ADAPTATIONS_FOOTNOTE_DESKTOP_TAIL}
+              </span>
+            </p>
           </>
         )}
 

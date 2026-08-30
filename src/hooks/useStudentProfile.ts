@@ -6,6 +6,7 @@ import {
   studentsApi,
   type ConceptMasteryRow,
   type Recommendation,
+  type StudentAdaptation,
   type StudentProfileResponse,
 } from "@/lib/api/students";
 import { getToken } from "@/lib/auth/session";
@@ -42,6 +43,8 @@ export interface StudentProfileState {
   profile: StudentProfileResponse | null;
   concepts: MasteryConcept[];
   recommendations: Recommendation[];
+  /** What Nevo adjusted, newest first, suppressed ones excluded. */
+  adaptations: StudentAdaptation[];
   /** `observed` once Nevo has watched enough to adapt. */
   observed: boolean;
   loading: boolean;
@@ -56,6 +59,7 @@ export function useStudentProfile(studentId: string): StudentProfileState {
   const [mastery, setMastery] = useState<ConceptMasteryRow[]>([]);
   const [names, setNames] = useState<Map<string, string>>(new Map());
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [adaptations, setAdaptations] = useState<StudentAdaptation[]>([]);
   const [observed, setObserved] = useState(false);
   const [missing, setMissing] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -98,6 +102,14 @@ export function useStudentProfile(studentId: string): StudentProfileState {
       })
       .catch(() => {});
     void studentsApi
+      .adaptations(studentId)
+      .then((rows) => {
+        // A suppressed adaptation is one Nevo considered and withheld; the
+        // section is what actually happened for this student.
+        if (!cancelled) setAdaptations(rows.filter((a) => !a.suppressed));
+      })
+      .catch(() => {});
+    void studentsApi
       .learnerProfile(studentId)
       .then((p) => {
         if (!cancelled) setObserved(p.status === "observed");
@@ -119,6 +131,7 @@ export function useStudentProfile(studentId: string): StudentProfileState {
       practiceCount: m.practiceCount,
     })),
     recommendations,
+    adaptations,
     observed,
     loading,
     missing,
