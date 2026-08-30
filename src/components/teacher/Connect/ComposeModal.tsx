@@ -45,7 +45,7 @@ export function ComposeModal({
 }) {
   const [query, setQuery] = useState("");
   // Filter chips follow the teacher's real classes; "All classes" leads.
-  const { classes } = useTeacherClasses();
+  const { options: classes } = useTeacherClasses();
   const classFilters = [
     COMPOSE_CLASS_FILTERS[0],
     ...classes.map((c) => c.name),

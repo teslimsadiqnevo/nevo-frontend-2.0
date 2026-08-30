@@ -38,8 +38,19 @@ export function InsightsView() {
   // C14 A3: nothing is selected on arrival, so this is nullable by contract.
   const [classId, setClassId] = useState<string | null>(null);
   // The selector offers the teacher's real classes, not the fixture three.
-  const { classes } = useTeacherClasses();
-  const data = classId ? getClassInsights(classId) : null;
+  const { options: classes, live } = useTeacherClasses();
+  // Insights are fixture-only - no endpoint serves them. A live class has no
+  // fixture behind it, so rather than show another class's week under its
+  // name, it gets C09's own sparse card, which happens to be exactly true of
+  // a class Nevo has not analysed yet.
+  const picked = classId ? classes.find((c) => c.id === classId) : null;
+  const data = classId
+    ? live
+      ? picked
+        ? { classId, className: picked.name, sparse: true as const }
+        : null
+      : getClassInsights(classId)
+    : null;
 
   const pills = (
     <div className="flex gap-2">

@@ -50,9 +50,9 @@ function todayLine(): string {
 }
 
 export function TeacherHome() {
-  const { classes, liveExtras, live, sample } = useTeacherClasses();
+  const { classes, liveClasses, live, sample } = useTeacherClasses();
   // Live and genuinely empty - not merely "the fixtures did not match".
-  const noClasses = live && classes.length === 0 && liveExtras.length === 0;
+  const noClasses = live && classes.length === 0 && liveClasses.length === 0;
   // A teacher whose classes failed to load is still not the fixture persona.
   const signedIn = useHasSession();
   // Null while it loads, and if the profile call fails - both greet without a

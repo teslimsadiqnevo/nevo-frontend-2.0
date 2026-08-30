@@ -129,7 +129,7 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
   const [who, setWho] = useState<"left" | "right">("left"); // left = whole class
   const [classes, setClasses] = useState<Set<string>>(new Set());
   // Recipients are the teacher's real assignments when a session has them.
-  const { classes: myClasses } = useTeacherClasses();
+  const { options: myClasses } = useTeacherClasses();
   const [students, setStudents] = useState<Set<string>>(new Set());
   const [when, setWhen] = useState<"left" | "right">("left"); // left = available now
   const [date, setDate] = useState("2026-07-11");
@@ -272,7 +272,11 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                         on={classes.has(c.id)}
                         onClick={() => setClasses((s) => togIn(s, c.id))}
                         title={c.name}
-                        sub={`${c.count} students`}
+                        sub={
+                          c.studentCount != null
+                            ? `${c.studentCount} students`
+                            : undefined
+                        }
                       />
                     ))}
                   </div>
@@ -284,18 +288,30 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                           {c.name.toUpperCase()}
                         </div>
                         <div className="mt-2 flex flex-col gap-2">
-                          {c.roster.map((s) => {
-                            const key = `${c.id}:${s.name}`;
-                            return (
-                              <CheckCard
-                                key={key}
-                                on={students.has(key)}
-                                onClick={() => setStudents((v) => togIn(v, key))}
-                                title={s.name}
-                                compactTitle
-                              />
-                            );
-                          })}
+                          {c.roster ? (
+                            c.roster.map((s) => {
+                              const key = `${c.id}:${s.name}`;
+                              return (
+                                <CheckCard
+                                  key={key}
+                                  on={students.has(key)}
+                                  onClick={() =>
+                                    setStudents((v) => togIn(v, key))
+                                  }
+                                  title={s.name}
+                                  compactTitle
+                                />
+                              );
+                            })
+                          ) : (
+                            // The live class list carries no roster, and
+                            // inventing names to tick would be the worst
+                            // possible thing on a screen that assigns work.
+                            <p className="text-[13.5px] leading-[1.5] text-nevo-near-black/60">
+                              Picking individual students isn&rsquo;t connected
+                              yet &ndash; assign to the whole class for now.
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}

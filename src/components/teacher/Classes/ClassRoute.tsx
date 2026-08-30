@@ -24,12 +24,15 @@ export function ClassRoute({
   fixture: TeacherClass | null;
   classId: string;
 }) {
-  const { liveExtras, live, sample } = useTeacherClasses();
+  const { liveClasses, live, sample } = useTeacherClasses();
 
-  if (fixture) return <ClassDetail klass={fixture} />;
-
-  const assigned = liveExtras.find((c) => c.class_id === classId);
+  // A real class is only ever itself. This is checked before the fixtures so
+  // that a live class can never be answered with a fixture of the same name.
+  const assigned = liveClasses.find((c) => c.class_id === classId);
   if (assigned) return <LiveClassDetail klass={assigned} />;
+
+  // Fixtures back the designed screens only while there is no live data.
+  if (!live && fixture) return <ClassDetail klass={fixture} />;
 
   // Resolved (or nothing to resolve with) and still unknown - it is a 404.
   if (live || sample || !getToken()) notFound();
