@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { IllustrationWrapper } from "@/components/shared/IllustrationWrapper";
+import { useConnectThreads } from "@/hooks/useConnectThreads";
 import {
   COMPOSE_STUDENTS,
-  THREADS,
   type ComposeStudent,
   type Message,
-  type Thread,
 } from "@/lib/mocks/teacherConnect";
 import { studentSlug } from "@/lib/mocks/teacherStudents";
 import { cn } from "@/lib/utils";
@@ -28,6 +27,13 @@ import { ComposeModal } from "./ComposeModal";
  *
  * Sending follows C14 B4: the bubble lands in the thread with a pop, a toast
  * confirms, and the thread stays open.
+ *
+ * Live from `/api/messages/*` - see `useConnectThreads`. The thread list has
+ * no message bodies, so opening a thread fetches it; sending posts and shows
+ * the message the backend stored rather than an optimistic copy. Recipients
+ * in compose are the teacher's real students, gathered from their class
+ * rosters, because a compose list of invented children on a screen that sends
+ * messages is the worst possible place for one.
  */
 
 const TOAST_MS = 3000;
@@ -84,10 +90,9 @@ function Bubble({ m, isNew }: { m: Message; isNew?: boolean }) {
 }
 
 export function ConnectView() {
-  const [threads, setThreads] = useState<Thread[]>(THREADS);
-  const [activeId, setActiveId] = useState<string | null>(
-    THREADS[0]?.id ?? null,
-  );
+  const { threads, sample, loading, openThread, send: sendLive } =
+    useConnectThreads();
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   // "Message <name>" on a student profile or session panel lands here with a
   // slug. Seeded in the initialiser rather than an effect: the link is always a
@@ -120,7 +125,20 @@ export function ConnectView() {
     [],
   );
 
-  const active = threads.find((t) => t.id === activeId) ?? null;
+  // The list arrives asynchronously, so "the first thread" is derived rather
+  // than assigned - setting it from an effect would be a setState during
+  // render's shadow, which this codebase rules out.
+  const active = threads.find((t) => t.id === activeId) ?? threads[0] ?? null;
+
+  // The list endpoint carries no message bodies, so opening one fetches it.
+  useEffect(() => {
+    if (active) openThread(active.id);
+  }, [active, openThread]);
+
+  const selectThread = (id: string) => {
+    setActiveId(id);
+    openThread(id);
+  };
 
   const flashToast = (text: string) => {
     setToast(text);
@@ -129,28 +147,24 @@ export function ConnectView() {
   };
 
   /**
-   * C14 B4: the bubble lands, a toast confirms, the thread stays open. Compose
-   * passes `toast: false` - its modal owns the confirmation, and firing both
-   * would confirm the same send twice.
+   * C14 B4: the bubble lands, a toast confirms, the thread stays open.
+   *
+   * The bubble shown is the message the backend stored, not an optimistic
+   * copy - a send that fails says so rather than leaving a message on screen
+   * that does not exist.
    */
-  const appendMessage = (threadId: string, text: string, toast = true) => {
-    const id = nextId();
-    setThreads((ts) =>
-      ts.map((t) =>
-        t.id === threadId
-          ? {
-              ...t,
-              preview: `You: ${text}`,
-              time: "now",
-              messages: [
-                ...t.messages,
-                { id, from: "teacher" as const, text, time: "Just now" },
-              ],
-            }
-          : t,
-      ),
-    );
-    setNewestId(id);
+  const deliver = async (
+    to: { recipientId: string; recipientType: "student" | "class" },
+    text: string,
+    toast = true,
+  ) => {
+    const threadId = await sendLive(to, text);
+    if (!threadId) {
+      flashToast("That didn’t send – try again");
+      return;
+    }
+    setActiveId(threadId);
+    setNewestId(nextId());
     if (toast) flashToast("Message sent");
     requestAnimationFrame(() =>
       endRef.current?.scrollIntoView({ block: "end" }),
@@ -159,36 +173,25 @@ export function ConnectView() {
 
   const send = () => {
     const text = draft.trim();
-    if (!text || !active) return;
+    if (!text || !active?.recipientId) return;
     setDraft("");
-    // TODO(api): post the message.
-    appendMessage(active.id, text);
+    void deliver(
+      {
+        recipientId: active.recipientId,
+        recipientType: active.recipientType === "class" ? "class" : "student",
+      },
+      text,
+    );
   };
 
   const sendFromCompose = (student: ComposeStudent, text: string) => {
     setPresetStudent(undefined);
-    const existing = threads.find((t) => t.studentName === student.name);
-    if (existing) {
-      setActiveId(existing.id);
-      appendMessage(existing.id, text, false);
-      return;
-    }
-    const id = student.name.toLowerCase().replace(/\s+/g, "-");
-    const msgId = nextId();
-    setThreads((ts) => [
-      {
-        id,
-        studentName: student.name,
-        initials: student.initials,
-        className: student.className,
-        preview: `You: ${text}`,
-        time: "now",
-        messages: [{ id: msgId, from: "teacher", text, time: "Just now" }],
-      },
-      ...ts,
-    ]);
-    setActiveId(id);
-    setNewestId(msgId);
+    if (!student.studentId) return;
+    void deliver(
+      { recipientId: student.studentId, recipientType: "student" },
+      text,
+      false,
+    );
   };
 
   const newMessageButton = (compact?: boolean) => (
@@ -218,13 +221,32 @@ export function ConnectView() {
     <div className="relative flex min-h-full flex-1 flex-col">
       {/* Page head */}
       <div className="flex shrink-0 items-center justify-between px-7 pt-[22px] pb-4 xl:px-8 xl:pt-7 xl:pb-5">
-        <h2 className="text-[21px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-2xl">
-          Connect
-        </h2>
+        <div className="min-w-0">
+          <h2 className="text-[21px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-2xl">
+            Connect
+          </h2>
+          {sample && (
+            <p className="mt-1 text-[13px] leading-[1.5] text-nevo-near-black/55 italic">
+              We couldn&rsquo;t reach your messages, so these are samples.
+            </p>
+          )}
+        </div>
         {newMessageButton(true)}
       </div>
 
-      {threads.length === 0 ? (
+      {loading ? (
+        <div className="flex min-h-0 flex-1 border-t border-nevo-near-black/8">
+          <div className="w-[260px] shrink-0 space-y-2 border-r border-nevo-near-black/8 p-3 xl:w-[330px]">
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-[58px] animate-pulse rounded-[10px] bg-nevo-cream-elevated"
+              />
+            ))}
+          </div>
+          <div className="flex-1" />
+        </div>
+      ) : threads.length === 0 ? (
         /* C14 A4 - the governing empty state. */
         <div className="flex flex-1 items-center justify-center border-t border-nevo-near-black/8 p-10 xl:p-12">
           <div className="flex max-w-[380px] flex-col items-center text-center xl:max-w-[420px]">
@@ -259,7 +281,7 @@ export function ConnectView() {
               <button
                 key={t.id}
                 type="button"
-                onClick={() => setActiveId(t.id)}
+                onClick={() => selectThread(t.id)}
                 aria-current={t.id === activeId}
                 className={cn(
                   "mb-0.5 flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-left transition-colors xl:gap-3 xl:px-3.5 xl:py-3",
@@ -314,6 +336,16 @@ export function ConnectView() {
                 <div ref={endRef} />
               </div>
 
+              {/* A fixture thread has nobody to send to. Rather than a send
+                  button that quietly does nothing, the composer says so. */}
+              {!active.recipientId ? (
+                <div className="shrink-0 border-t border-nevo-near-black/8 px-6 py-4 xl:px-7">
+                  <p className="text-[13.5px] leading-[1.5] text-nevo-near-black/60">
+                    This is a sample conversation. Replying will work once we
+                    can reach your messages again.
+                  </p>
+                </div>
+              ) : (
               <div className="flex shrink-0 items-center gap-3 border-t border-nevo-near-black/8 px-6 py-4 xl:px-7">
                 <input
                   value={draft}
@@ -346,6 +378,7 @@ export function ConnectView() {
                   </svg>
                 </button>
               </div>
+              )}
             </div>
           )}
         </div>

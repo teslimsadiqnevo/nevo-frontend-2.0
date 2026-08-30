@@ -130,6 +130,8 @@ export interface ComposeStudent {
   name: string;
   className: string;
   initials: string;
+  /** Present for real students; absent on the fixtures, which cannot be sent to. */
+  studentId?: string;
 }
 
 export const COMPOSE_STUDENTS: ComposeStudent[] = [
