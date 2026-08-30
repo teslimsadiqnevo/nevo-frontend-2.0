@@ -11,7 +11,7 @@ import type { NextRequest } from "next/server";
 
 const UPSTREAM =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
-  "https://nevo-backend-2-0.onrender.com";
+  "https://api.nevolearning.com";
 
 /**
  * Upstream routes declared with a trailing slash. FastAPI answers the

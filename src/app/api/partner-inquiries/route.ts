@@ -8,7 +8,7 @@
  */
 const UPSTREAM =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
-  "https://nevo-backend-2-0.onrender.com";
+  "https://api.nevolearning.com";
 
 export async function POST(request: Request) {
   let body: unknown;

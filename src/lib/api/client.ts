@@ -21,7 +21,7 @@ import { isAdminRole } from "@/lib/constants/permissions";
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_DIRECT === "1"
     ? (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
-      "https://nevo-backend-2-0.onrender.com")
+      "https://api.nevolearning.com")
     : "/api/backend";
 
 const isDev = process.env.NODE_ENV === "development";
