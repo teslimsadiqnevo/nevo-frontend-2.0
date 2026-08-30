@@ -6,6 +6,7 @@ import { IllustrationWrapper } from "@/components/shared/IllustrationWrapper";
 import { MasteryDualTrack } from "@/components/teacher/Student/MasteryDualTrack";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import { getClassInsights, hasGap } from "@/lib/mocks/teacherInsights";
+import { LiveClassInsights } from "./LiveClassInsights";
 import { cn } from "@/lib/utils";
 
 /**
@@ -39,18 +40,11 @@ export function InsightsView() {
   const [classId, setClassId] = useState<string | null>(null);
   // The selector offers the teacher's real classes, not the fixture three.
   const { options: classes, live } = useTeacherClasses();
-  // Insights are fixture-only - no endpoint serves them. A live class has no
-  // fixture behind it, so rather than show another class's week under its
-  // name, it gets C09's own sparse card, which happens to be exactly true of
-  // a class Nevo has not analysed yet.
+  // A live class reads from the intelligence endpoints (see
+  // `LiveClassInsights`); the fixtures back the designed screens only.
   const picked = classId ? classes.find((c) => c.id === classId) : null;
-  const data = classId
-    ? live
-      ? picked
-        ? { classId, className: picked.name, sparse: true as const }
-        : null
-      : getClassInsights(classId)
-    : null;
+  const data = classId && !live ? getClassInsights(classId) : null;
+  const liveClass = live && picked ? picked : null;
 
   const pills = (
     <div className="flex gap-2">
@@ -87,7 +81,7 @@ export function InsightsView() {
 
   // ---- C14 A3: no class selected. The shell itself changes shape - the
   // header stops scrolling and the body centres in the viewport. ----
-  if (!data) {
+  if (!data && !liveClass) {
     return (
       <div className="flex min-h-full flex-1 flex-col">
         <div className="shrink-0 px-[38px] pt-[34px] xl:px-[52px] xl:pt-11">
@@ -123,8 +117,17 @@ export function InsightsView() {
       <div className="xl:mx-auto xl:max-w-[920px]">
         {heading}
 
+        {liveClass && (
+          <LiveClassInsights
+            key={liveClass.id}
+            classId={liveClass.id}
+            className={liveClass.name}
+          />
+        )}
+
         {/* ---- C09 sparse: one calm card, nothing else ---- */}
-        {data.sparse ? (
+        {data &&
+          (data.sparse ? (
           <div className="mt-8 flex max-w-[640px] items-start gap-4 rounded-xl bg-nevo-cream-elevated p-7 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
             <span className="mt-px size-[22px] shrink-0 text-nevo-violet xl:size-6">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="size-full">
@@ -328,8 +331,8 @@ export function InsightsView() {
                 </div>
               </>
             )}
-          </>
-        )}
+            </>
+          ))}
       </div>
     </div>
   );
