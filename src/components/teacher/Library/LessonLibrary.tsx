@@ -3,19 +3,23 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  LIBRARY_FILTERS,
-  LIBRARY_LESSONS,
-  type LessonStatus,
-  type LibraryFilter,
-} from "@/lib/mocks/teacherLibrary";
+  useLessonLibrary,
+  type CardStatus,
+} from "@/hooks/useLessonLibrary";
+import { LIBRARY_FILTERS, type LibraryFilter } from "@/lib/mocks/teacherLibrary";
 import { cn } from "@/lib/utils";
 
 /**
  * Lesson Library (C06 / `Nevo Teacher Library` frame). Upload sits level with
  * search - for a new teacher, uploading is the first move, not searching an
  * empty shelf. Desktop: search + upload in one row, 3-column grid; tablet:
- * upload full-width below search, 2-column grid. Simple subject pills, no
- * filter modal. Empty shelf and no-results are distinct calm states.
+ * upload full-width below search, 2-column grid. Empty shelf and no-results
+ * are distinct calm states.
+ *
+ * Live-first from `GET /api/content/lessons` - see `useLessonLibrary` for what
+ * that endpoint does and does not carry. The subject pills are the visible
+ * consequence: a real lesson has no subject, so rather than leave five inert
+ * filters over live data, they show only over the fixtures they can sort.
  */
 
 const SEARCH_ICON = (
@@ -32,12 +36,16 @@ const PLUS_ICON = (
   </svg>
 );
 
-function statusPillClass(status: LessonStatus): string {
+function statusPillClass(status: CardStatus): string {
   return cn(
     "shrink-0 rounded-full px-2.5 py-[3px] text-[11.5px] font-semibold whitespace-nowrap",
     status === "Assigned" && "bg-nevo-violet/24 text-nevo-navy",
+    // Violet is the console's "worth your eye", never alarm.
+    status === "Needs review" && "bg-nevo-violet/24 text-nevo-navy",
     status === "Ready" && "bg-nevo-navy/10 text-nevo-near-black/60",
+    status === "Preparing" && "bg-nevo-navy/10 text-nevo-near-black/60",
     status === "Draft" && "bg-nevo-near-black/6 text-nevo-near-black/50",
+    status === "Didn’t parse" && "bg-nevo-near-black/6 text-nevo-near-black/50",
   );
 }
 
@@ -59,19 +67,39 @@ function UploadButton({ className }: { className?: string }) {
 export function LessonLibrary() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<LibraryFilter>("All");
+  const { cards: lessons, live, sample, loading } = useLessonLibrary();
 
-  const lessons = LIBRARY_LESSONS;
   const q = query.trim().toLowerCase();
   const shown = lessons.filter(
     (l) =>
-      (filter === "All" || l.subject === filter) &&
+      // Live lessons carry no subject, so the pills cannot narrow them.
+      (live || filter === "All" || l.subject === filter) &&
       (!q ||
         l.title.toLowerCase().includes(q) ||
         l.meta.toLowerCase().includes(q)),
   );
   const hasQuery = q.length > 0;
 
-  // Empty shelf (new teacher) - uploading is the entire page.
+  if (loading) {
+    return (
+      <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
+        <h2 className="text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
+          Lesson Library
+        </h2>
+        <div className="mt-[18px] h-12 max-w-[1000px] animate-pulse rounded-[10px] bg-nevo-cream-elevated xl:mt-[22px] xl:h-[50px]" />
+        <div className="mt-[18px] grid max-w-[1000px] grid-cols-2 gap-3.5 xl:grid-cols-3 xl:gap-4">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              className="min-h-[158px] animate-pulse rounded-[12px] bg-nevo-cream-elevated"
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Empty shelf - real for a live teacher with nothing uploaded yet.
   if (lessons.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center p-12">
@@ -101,6 +129,11 @@ export function LessonLibrary() {
       <h2 className="text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
         Lesson Library
       </h2>
+      {sample && (
+        <p className="mt-2 max-w-[560px] text-[13px] leading-[1.5] text-nevo-near-black/55 italic">
+          We couldn&rsquo;t reach your lessons just now, so these are samples.
+        </p>
+      )}
 
       {/* Search + upload: one row on desktop, stacked full-width on tablet */}
       <div className="mt-[18px] max-w-[1000px] xl:mt-[22px] xl:flex xl:items-center xl:gap-3.5">
@@ -139,7 +172,9 @@ export function LessonLibrary() {
         <UploadButton className="mt-3 h-12 w-full shrink-0 xl:mt-0 xl:h-[50px] xl:w-auto xl:px-[22px]" />
       </div>
 
-      {/* Subject pills */}
+      {/* Subject pills - fixtures only. A live lesson carries no subject, and
+          a filter that cannot filter is worse than no filter. */}
+      {!live && (
       <div className="mt-4 flex max-w-[1000px] flex-wrap gap-2 xl:mt-[18px] xl:gap-[9px]">
         {LIBRARY_FILTERS.map((label) => (
           <button
@@ -157,6 +192,7 @@ export function LessonLibrary() {
           </button>
         ))}
       </div>
+      )}
 
       {hasQuery && shown.length > 0 && (
         <p className="mt-[18px] text-sm text-nevo-near-black/60">
@@ -185,7 +221,7 @@ export function LessonLibrary() {
               </span>
               <div className="flex-1" />
               <div className="mt-3.5 border-t border-nevo-near-black/8 pt-3 text-[13px] text-nevo-near-black/55">
-                {lesson.assigned}
+                {lesson.footer}
               </div>
             </Link>
           ))}
