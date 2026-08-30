@@ -21,7 +21,8 @@ function initialsOf(name: string): string {
  * renames themselves is called that everywhere - not just on the screen
  * where they typed it.
  *
- * TODO(api): sourced from the profile endpoint once it exists.
+ * TODO(api): `GET /api/v1/users/me` exists and carries the real name; this
+ * has not been moved onto it yet. The teacher side uses `useCurrentUser`.
  */
 export function useDisplayName(): { name: string; initials: string } {
   const [name, setName] = useState(MOCK_STUDENT.name);

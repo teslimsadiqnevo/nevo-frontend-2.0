@@ -6,7 +6,8 @@ import { studentSlug } from "./teacherStudents";
  * their own portal now - so there is no parent sender, no include toggle and
  * no parent-contact state here. No class-wide broadcast in v1.
  *
- * TODO(api): replaced by the messaging endpoints when they exist.
+ * Superseded for a signed-in teacher: Connect runs on `/api/messages/*`.
+ * These back the designed screens and the failure fallback only.
  */
 
 export type Sender = "student" | "teacher";

@@ -30,9 +30,12 @@ export const SUBJECT_ICON: Record<string, LucideIcon> = {
 };
 
 /**
- * Mock lesson catalogue (Lessons Tab). TODO(api): replace with
- * the lesson-list endpoint (not deployed yet) — subject grouping, status and adaptive estimates
- * all come from the backend + learner profile.
+ * Mock lesson catalogue (Lessons Tab). TODO(api): `/api/content/lessons` is
+ * deployed and typed - the teacher library already uses it - and this has not
+ * been moved onto it. Replace with
+ * `GET /api/content/lessons`. Subject grouping, status and adaptive estimates
+ * have no source there - the teacher library hides its subject filter for
+ * exactly that reason - so those still need somewhere to come from.
  */
 export const LESSON_CATALOG: LessonSummary[] = [
   {

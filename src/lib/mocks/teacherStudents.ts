@@ -11,7 +11,9 @@ import { TEACHER_CLASSES, type TeacherClass } from "./teacherClasses";
  * there is no clinical language anywhere - the page has to hold up if a
  * parent or the SENCo reads it.
  *
- * TODO(api): replaced by the student/insights endpoints when they exist.
+ * TODO(api): `/api/v1/students/{id}/profile` and `/api/intelligence/profile/{id}`
+ * are deployed and typed but unwired; the per-student observations these
+ * fixtures carry have no endpoint at all.
  */
 
 export type ConfidenceLevel = 1 | 2 | 3;

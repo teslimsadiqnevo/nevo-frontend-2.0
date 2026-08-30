@@ -3,7 +3,9 @@
  * line is one brief sentence, reverse-chronological, and unread carries a
  * soft tint rather than bold shouting.
  *
- * TODO(api): replaced by the notifications seam when it exists.
+ * Superseded for a signed-in teacher: the bell runs on `/api/notifications`.
+ * These back the signed-out designed panel only - a failed feed shows nothing
+ * rather than these, because each line names a real child.
  */
 
 export type NotificationKind =
