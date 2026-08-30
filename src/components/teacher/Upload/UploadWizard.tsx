@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { contentApi, type ParseContentResponse } from "@/lib/api/content";
+import { ApiError } from "@/lib/api/client";
+import { getToken } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 import {
   FALLBACK_HEADINGS,
@@ -11,6 +14,7 @@ import {
 } from "./ParseFallback";
 import { PARSE_STAGES, ParseProgress } from "./ParseProgress";
 import { SectionReview } from "./SectionReview";
+import { UploadResult } from "./UploadResult";
 
 /**
  * Lesson Upload wizard (SCRUM-102.6 reconciled flow, C07g): one flow, two
@@ -31,24 +35,27 @@ import { SectionReview } from "./SectionReview";
  * 3 OF 3 at 85% (between processing's 70% and done's 100%).
  *
  * The block path's processing is the C07e staged parse (ParseProgress), and
- * its three calm failure shapes are C07f (ParseFallback). Until the parse
- * seam lands the outcome is mocked from the file: an extension outside the
- * accepted set reads as unreadable (real validation - drag-and-drop bypasses
- * the picker's accept filter), and for demos a filename containing
- * "partial" or "continuous" walks the matching fallback.
+ * its failure shapes are C07f (ParseFallback). That path's outcome is still
+ * mocked from the file: an extension outside the accepted set reads as
+ * unreadable (real validation - drag-and-drop bypasses the picker's accept
+ * filter), and for demos a filename containing "partial" or "continuous"
+ * walks the matching fallback.
  *
- * Nothing in this flow is live. `/api/content/parse` takes text rather than a
- * file, so the only way to reach it was to extract in the browser - a
- * workaround for a missing upload endpoint rather than a design, and one that
- * could never cover scans, Word, PowerPoint, or the Drive and OneDrive sources
- * the backend's own `sourceType` enum names. That extractor has been removed.
+ * THE UPLOAD IS LIVE. `POST /api/content/upload` takes the file itself and
+ * extracts server-side, so PDF, Word, PowerPoint, Markdown and plain text all
+ * work - the browser-side pdfjs extraction this flow used to need could never
+ * cover Word or PowerPoint, and is gone.
  *
- * So every upload takes the designed demo beat and is marked as a sample, and
- * no fixture content is ever passed off as the teacher's own file.
+ * The response is the parsed lesson, and the lesson exists from that moment:
+ * there is no separate commit on this path, so step 3 reviews what came back
+ * rather than asking for approval it does not need.
  *
- * TODO(api): a file upload endpoint (multipart to `/api/content/upload`, or
- * `/api/content/parse` accepting a file), with extraction server-side. Then
- * this flow uploads and renders what comes back.
+ * The block path's staged parse is still the designed demo beat. Its own
+ * endpoints exist (`/api/v1/uploads` and friends) but the structure they
+ * exchange is declared as a free-form object with no fields, so there is
+ * nothing to build the module editor against yet - see StructureTree.
+ *
+ * TODO(api): a typed `structure` on the staged upload.
  */
 
 type ScopeId = "single" | "unit" | "term";
@@ -148,7 +155,7 @@ const SCOPE_CHIP: Record<ScopeId, string> = {
   term: "A term or chapter",
 };
 
-/** Mock parse beats until the content seam lands. */
+/** Mock parse beats - the block path only; the single path uploads for real. */
 const PROCESS_MS = 2400;
 const BLOCK_STAGE_MS = 1150;
 const ACCEPTED = /\.(pdf|docx?|pptx?)$/i;
@@ -171,6 +178,8 @@ export function UploadWizard() {
   const [dragOver, setDragOver] = useState(false);
   /** The screen is showing fixture content, never the teacher's own file. */
   const [sample, setSample] = useState(false);
+  /** What the upload actually returned, when it was live. */
+  const [parsed, setParsed] = useState<ParseContentResponse | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -224,8 +233,29 @@ export function UploadWizard() {
     stopTimer();
     setFileName(file.name);
     setSample(false);
+    setParsed(null);
     setPhase("processing");
-    runMockBeats(file.name);
+
+    // The block path has no typed structure contract yet, and a signed-out
+    // visitor has no token - both keep the designed demo beat.
+    if (isBlock || !getToken()) {
+      runMockBeats(file.name);
+      return;
+    }
+
+    void contentApi
+      .upload(file)
+      .then((lesson) => {
+        setParsed(lesson);
+        setPhase("review");
+      })
+      .catch((err: unknown) => {
+        // A 400 is the server's answer about the file, not a fault: it could
+        // not read it. Anything else is ours, and says so differently.
+        const unreadable = err instanceof ApiError && err.status === 400;
+        setFallbackKind(unreadable ? "unreadable" : "unreachable");
+        setPhase("fallback");
+      });
   };
 
   const runMockBeats = (name: string) => {
@@ -306,12 +336,22 @@ export function UploadWizard() {
         )}
       </div>
 
-      {phase === "review" && (
-        <SectionReview
-          onBack={() => setPhase("file")}
-          onDone={() => setPhase("done")}
-        />
-      )}
+      {phase === "review" &&
+        (parsed ? (
+          <UploadResult
+            lesson={parsed}
+            fileName={fileName}
+            onUploadAnother={() => {
+              setParsed(null);
+              setPhase("file");
+            }}
+          />
+        ) : (
+          <SectionReview
+            onBack={() => setPhase("file")}
+            onDone={() => setPhase("done")}
+          />
+        ))}
 
       {phase === "fallback" && (
         <ParseFallback
