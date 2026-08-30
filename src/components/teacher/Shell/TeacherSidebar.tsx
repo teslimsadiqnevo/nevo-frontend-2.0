@@ -10,7 +10,7 @@ import {
   type TeacherNotification,
 } from "@/lib/mocks/teacherNotifications";
 import { useHasSession } from "@/hooks/useHasSession";
-import { useTeacherIdentity } from "@/hooks/useTeacherIdentity";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 // Lives under Profile/ because that page owned it first; it is generic.
 import { SignOutModal } from "@/components/teacher/Profile/SignOutModal";
 import { FeedbackPanel } from "./FeedbackPanel";
@@ -179,7 +179,7 @@ export function TeacherSidebar() {
   const [signOutOpen, setSignOutOpen] = useState(false);
   // Signed in, so the fixture persona is not who this is.
   const signedIn = useHasSession();
-  const identity = useTeacherIdentity();
+  const identity = useCurrentUser();
   const [expanded, setExpanded] = useState(true);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1280px)");

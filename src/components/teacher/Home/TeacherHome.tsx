@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { MOCK_TEACHER } from "@/components/teacher/Shell/teacherNav";
 import { useHasSession } from "@/hooks/useHasSession";
-import { useTeacherIdentity } from "@/hooks/useTeacherIdentity";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import {
   GOOD_TO_KNOW,
@@ -31,12 +31,11 @@ import { FlagCard } from "./FlagCard";
  *     Insights week: "it isn't drawn as empty, the section simply isn't there".
  *   - a real teacher with classes still gets fixture activity, so it is marked
  *     as a sample rather than passed off as their week.
- *   - the teacher's own name is not in the session payload, so a live session
- *     is greeted without one rather than as the fixture persona.
+ *   - the greeting uses the teacher's real name, from `GET /api/v1/users/me`,
+ *     and falls back to a nameless welcome rather than the fixture persona.
  *
  * TODO(api): flags/classes/activity come from the intelligence layer; the C03
- * loading skeleton ships when that fetch exists. TODO(api): a teacher profile
- * endpoint, so the greeting can use their actual name.
+ * loading skeleton ships when that fetch exists.
  */
 
 const SECTION_H =
@@ -54,12 +53,11 @@ export function TeacherHome() {
   const { classes, liveExtras, live, sample } = useTeacherClasses();
   // Live and genuinely empty - not merely "the fixtures did not match".
   const noClasses = live && classes.length === 0 && liveExtras.length === 0;
-  // The session carries a user_id and a role, never a name - and a teacher
-  // whose classes failed to load is still not the fixture persona.
+  // A teacher whose classes failed to load is still not the fixture persona.
   const signedIn = useHasSession();
-  // Recovered from the class roster when it can be; null when it cannot, which
-  // is the same nameless greeting as before.
-  const identity = useTeacherIdentity();
+  // Null while it loads, and if the profile call fails - both greet without a
+  // name rather than borrowing one.
+  const identity = useCurrentUser();
   const greetName = signedIn ? identity?.name : MOCK_TEACHER.name;
   const flags = noClasses ? [] : HOME_FLAGS;
   const hasFlags = flags.length > 0;
