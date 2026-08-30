@@ -9,7 +9,7 @@ export {
   type TeamMember,
 } from "./team";
 export { signalsApi, type SignalEvent } from "./signals";
-export { intelligenceApi } from "./intelligence";
+export { intelligenceApi, type AttentionFlag } from "./intelligence";
 export { contentApi, type ParseContentRequest, type ParseContentResponse } from "./content";
 export { exportApi, type IepExport, type IepExportShare } from "./export";
 export {
@@ -34,6 +34,8 @@ export {
   type TeacherNotificationSettings,
 } from "./settings";
 export { assignmentsApi, type Assignment } from "./assignments";
+export { feedbackApi, type FeedbackType } from "./feedback";
+export { messagesApi, type MessageThread, type ChatMessage } from "./messages";
 export { permissionsApi, type PermissionsMe } from "./permissions";
 export {
   schoolIntelligenceApi,
