@@ -22,12 +22,11 @@ import { ClassQrDialog, ClassQrScreen } from "./ClassQr";
  * who is on the roster, whether Nevo has observed them yet, and when they
  * were last here.
  *
- * Rows are not links. `/teacher/students/{id}` resolves against fixtures and
- * would 404 on a real student id - a row that navigates nowhere is worse
- * than a row that does not pretend to.
+ * Rows link to the student's profile, which reads live since the student
+ * endpoints were wired.
  *
  * TODO(api): per-student observations, then these rows become the C16b
- * Student Observations rows and can link to a live profile.
+ * Student Observations rows, with their chips and seats.
  */
 export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
   const [qr, setQr] = useState<"none" | "dialog" | "screen">("none");
@@ -99,9 +98,11 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
             </p>
             <div className="mt-3.5 flex flex-col gap-2 xl:mt-4">
               {students.map((student) => (
-                <div
+                <Link
                   key={student.studentId}
+                  href={`/teacher/students/${student.studentId}?class=${klass.class_id}`}
                   className={cn(
+                    "cursor-pointer transition-[filter] hover:brightness-[0.985]",
                     "flex flex-col rounded-[12px] bg-nevo-cream-elevated px-[18px] py-4 shadow-elevation-1 xl:flex-row xl:items-center xl:gap-4 xl:p-5",
                     student.profileStatus === "observed" &&
                       "border-l-[3px] border-nevo-violet",
@@ -126,7 +127,7 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
                   <span className="mt-1 shrink-0 text-[13px] whitespace-nowrap text-nevo-near-black/55 xl:mt-0">
                     {lastSeenLine(student)}
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
             <div className="mt-4 flex items-center gap-[7px] text-[12px] text-nevo-near-black/55">
