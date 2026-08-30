@@ -6,6 +6,8 @@ import { BookOpen, Clock, Play, Shapes } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { EmptyState, IllustrationWrapper } from "@/components/shared";
 import { useDisplayName } from "@/components/student/Shell/useDisplayName";
+import { useHasSession } from "@/hooks/useHasSession";
+import { useStudentDashboard } from "@/hooks/useStudentDashboard";
 import { WarmUpCard } from "@/components/student/Profiling/WarmUpCard";
 import { dimensionForToday } from "@/components/student/Profiling/WarmUpRun";
 
@@ -18,6 +20,8 @@ interface InProgress {
   /** 0–1 through the lesson. */
   progress: number;
   note: string;
+  /** Null renders the card without a destination - see the live mapping. */
+  href: string | null;
   /**
    * Present when the student is mid-module in a modular lesson (SCRUM-101.4):
    * the card's middle line names the module instead of the segment hint.
@@ -30,6 +34,7 @@ interface TodayLesson {
   title: string;
   time: string;
   icon: LucideIcon;
+  href: string | null;
 }
 
 const CONTINUE: InProgress | null = {
@@ -37,13 +42,15 @@ const CONTINUE: InProgress | null = {
   title: "Photosynthesis",
   progress: 0.55,
   note: "A little over halfway",
+  href: "/student/lessons/photosynthesis",
   module: { index: 1, count: 2, title: "Practice" },
 };
 
+const MOCK_HREF = "/student/lessons/photosynthesis";
 const TODAY: TodayLesson[] = [
-  { lessonId: "photosynthesis", title: "Telling the Time", time: "About 10 min", icon: Clock },
-  { lessonId: "photosynthesis", title: "The Lighthouse", time: "About 15 min", icon: BookOpen },
-  { lessonId: "photosynthesis", title: "Shapes Around Us", time: "About 8 min", icon: Shapes },
+  { lessonId: "photosynthesis", title: "Telling the Time", time: "About 10 min", icon: Clock, href: MOCK_HREF },
+  { lessonId: "photosynthesis", title: "The Lighthouse", time: "About 15 min", icon: BookOpen, href: MOCK_HREF },
+  { lessonId: "photosynthesis", title: "Shapes Around Us", time: "About 8 min", icon: Shapes, href: MOCK_HREF },
 ];
 
 const ENCOURAGEMENT =
@@ -80,7 +87,111 @@ function useLocalDate() {
 export function HomeDashboard() {
   const { name: displayName } = useDisplayName();
   const date = useLocalDate();
-  const nothingQueued = !CONTINUE && TODAY.length === 0;
+  const signedIn = useHasSession();
+  const { data: live, failed, loading } = useStudentDashboard();
+
+  // Live rows are mapped into the frame's own shapes so the designed cards
+  // render either source. Live cards carry `href: null`: the lesson player
+  // still resolves mock ids only, and a child tapping Play into "this page
+  // doesn't exist" is worse than a card that simply states the assignment.
+  // TODO(app): link these the moment the player reads real lessons.
+  let cont: InProgress | null = CONTINUE;
+  let today: TodayLesson[] = TODAY;
+  let encouragement = ENCOURAGEMENT;
+  if (signedIn) {
+    if (live) {
+      const byLesson = new Map(live.assignments.map((a) => [a.lesson.id, a]));
+      const ip = [...live.recentProgress]
+        .filter((r) => r.status === "in_progress")
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+        .find((r) => byLesson.get(r.lessonId));
+      const ipLesson = ip ? byLesson.get(ip.lessonId)!.lesson : null;
+      // Coarse on purpose: whether segmentPosition is 0- or 1-based is
+      // unstated, so the fraction may be off by one segment and the note
+      // only ever claims a bucket, never a number.
+      const frac =
+        ip && ipLesson && ipLesson.segmentCount > 0
+          ? Math.max(0, Math.min(1, ip.segmentPosition / ipLesson.segmentCount))
+          : 0;
+      cont =
+        ip && ipLesson
+          ? {
+              lessonId: ip.lessonId,
+              title: ipLesson.title,
+              progress: frac,
+              note:
+                frac < 1 / 3
+                  ? "Just getting started"
+                  : frac < 2 / 3
+                    ? "About halfway in"
+                    : "Nearly there",
+              href: null,
+            }
+          : null;
+      const contId = cont ? cont.lessonId : null;
+      today = live.assignments
+        .filter((a) => a.status !== "completed" && a.lesson.id !== contId)
+        .map((a) => ({
+          lessonId: a.lesson.id,
+          title: a.lesson.title,
+          time: a.dueAt
+            ? `Due ${new Date(a.dueAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+            : `${a.lesson.segmentCount} ${a.lesson.segmentCount === 1 ? "section" : "sections"}`,
+          icon: BookOpen,
+          href: null,
+        }));
+      // The designed line claims "You've been showing up this week" - a
+      // claim about the child that nothing verifies. Live students get a
+      // line that asserts nothing. Flagged to design.
+      encouragement = "Go at your own pace \u2014 Nevo keeps up with you.";
+    } else {
+      cont = null;
+      today = [];
+      encouragement = "";
+    }
+  }
+  const nothingQueued = signedIn
+    ? Boolean(live) && !cont && today.length === 0
+    : !cont && today.length === 0;
+
+  if (signedIn && loading) {
+    return (
+      <div className="mx-auto w-full max-w-[720px] px-5 py-2 pb-8 sm:px-8 sm:py-6 lg:max-w-[860px]">
+        <div className="mt-2 h-9 w-64 animate-pulse rounded bg-nevo-cream-elevated" />
+        <div className="mt-6 h-[132px] animate-pulse rounded-[16px] bg-nevo-cream-elevated" />
+        <div className="mt-8 grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-[150px] animate-pulse rounded-[12px] bg-nevo-cream-elevated" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (signedIn && failed) {
+    return (
+      <div className="mx-auto w-full max-w-[720px] px-5 py-2 pb-8 sm:px-8 sm:py-6 lg:max-w-[860px]">
+        <h1 className="mt-2 text-[28px] font-semibold leading-[1.12] tracking-[-0.02em] text-nevo-near-black sm:text-[34px]">
+          Welcome back{displayName ? `, ${displayName}` : ""}
+        </h1>
+        <div className="mt-8 rounded-[16px] bg-nevo-cream-elevated p-[22px] shadow-elevation-1">
+          <p className="text-[17px] font-semibold text-nevo-near-black">
+            We couldn&rsquo;t load your lessons just now
+          </p>
+          <p className="mt-1.5 text-[15px] leading-[1.5] text-nevo-near-black/68">
+            Nothing is lost. Give it a moment and try again.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-5 flex h-[48px] cursor-pointer items-center rounded-[12px] bg-nevo-navy px-7 text-[15px] font-medium text-nevo-cream"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-[720px] px-5 py-2 pb-8 sm:px-8 sm:py-6 lg:max-w-[860px]">
@@ -116,15 +227,15 @@ export function HomeDashboard() {
               calibration presented as a game, never an assessment. */}
           <WarmUpCard dimension={dimensionForToday()} />
 
-          {CONTINUE && <ContinueCard lesson={CONTINUE} />}
+          {cont && <ContinueCard lesson={cont} />}
 
           <div className="mt-8 flex items-baseline justify-between motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-500 motion-safe:[animation-delay:200ms]">
             <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-nevo-near-black">
               Today&apos;s lessons
             </h2>
-            {TODAY.length > 0 && (
+            {today.length > 0 && (
               <span className="text-[13px] text-nevo-near-black/60">
-                {TODAY.length} ready
+                {today.length} ready
               </span>
             )}
           </div>
@@ -134,17 +245,19 @@ export function HomeDashboard() {
               (SCRUM-94 G5), and scroll-snap overrides the student's own
               deceleration curve. */}
           <div className="mt-3.5 grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4">
-            {TODAY.map((lesson, i) => (
+            {today.map((lesson, i) => (
               <LessonCard key={i} lesson={lesson} index={i} />
             ))}
           </div>
 
-          <div className="mt-8 flex items-center gap-3.5 rounded-[12px] bg-nevo-violet/14 px-5 py-[18px] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-500 motion-safe:[animation-delay:320ms]">
-            <span className="size-2.5 shrink-0 rounded-full bg-nevo-violet" />
-            <p className="text-[15px] leading-[1.45] text-nevo-near-black">
-              {ENCOURAGEMENT}
-            </p>
-          </div>
+          {encouragement && (
+            <div className="mt-8 flex items-center gap-3.5 rounded-[12px] bg-nevo-violet/14 px-5 py-[18px] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-500 motion-safe:[animation-delay:320ms]">
+              <span className="size-2.5 shrink-0 rounded-full bg-nevo-violet" />
+              <p className="text-[15px] leading-[1.45] text-nevo-near-black">
+                {encouragement}
+              </p>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -153,17 +266,20 @@ export function HomeDashboard() {
 
 /** Primary "pick back up" card — the one at Design System Level 3 elevation. */
 function ContinueCard({ lesson }: { lesson: InProgress }) {
+  // No destination -> no Link, no Continue button, no play glyph. A card that
+  // states the fact of the lesson beats one whose Play lands on a 404.
+  const Wrap = lesson.href ? Link : "div";
   return (
-    <Link
-      href={`/student/lessons/${lesson.lessonId}`}
-      className="mt-6 block rounded-[16px] bg-nevo-cream-elevated p-[22px] shadow-elevation-3 transition-transform active:scale-[0.99] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-500 motion-safe:[animation-delay:120ms]"
+    <Wrap
+      href={lesson.href ?? "#"}
+      className={`mt-6 block rounded-[16px] bg-nevo-cream-elevated p-[22px] shadow-elevation-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-500 motion-safe:[animation-delay:120ms]${lesson.href ? " transition-transform active:scale-[0.99]" : ""}`}
     >
       <span className="font-mono text-[11px] tracking-[0.08em] text-nevo-near-black/60 uppercase">
         Pick back up
       </span>
       <div className="mt-4 sm:flex sm:items-center sm:gap-7">
         <div className="flex flex-1 items-center gap-[18px]">
-          <ProgressRing value={lesson.progress} />
+          <ProgressRing value={lesson.progress} glyph={Boolean(lesson.href)} />
           <div className="min-w-0 flex-1">
             <p className="text-[19px] font-semibold tracking-[-0.01em] text-nevo-near-black">
               {lesson.title}
@@ -177,16 +293,18 @@ function ContinueCard({ lesson }: { lesson: InProgress }) {
             </p>
           </div>
         </div>
-        <span className="mt-5 flex h-[52px] w-full shrink-0 items-center justify-center rounded-[12px] bg-nevo-navy px-8 text-base font-medium text-nevo-cream sm:mt-0 sm:w-auto">
-          Continue
-        </span>
+        {lesson.href && (
+          <span className="mt-5 flex h-[52px] w-full shrink-0 items-center justify-center rounded-[12px] bg-nevo-navy px-8 text-base font-medium text-nevo-cream sm:mt-0 sm:w-auto">
+            Continue
+          </span>
+        )}
       </div>
-    </Link>
+    </Wrap>
   );
 }
 
 /** A quiet violet arc on a navy-tinted track, with a play glyph — never a %. */
-function ProgressRing({ value }: { value: number }) {
+function ProgressRing({ value, glyph = true }: { value: number; glyph?: boolean }) {
   const r = 32;
   const circumference = 2 * Math.PI * r;
   const offset = circumference * (1 - Math.max(0, Math.min(1, value)));
@@ -211,9 +329,11 @@ function ProgressRing({ value }: { value: number }) {
           strokeDashoffset={offset}
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-nevo-navy">
-        <Play className="size-6" fill="currentColor" strokeWidth={0} />
-      </span>
+      {glyph && (
+        <span className="absolute inset-0 flex items-center justify-center text-nevo-navy">
+          <Play className="size-6" fill="currentColor" strokeWidth={0} />
+        </span>
+      )}
     </span>
   );
 }
@@ -223,10 +343,11 @@ function LessonCard({ lesson, index }: { lesson: TodayLesson; index: number }) {
   const Icon = lesson.icon;
   // Alternating violet tints, matching the frame's rhythm.
   const tints = ["bg-nevo-violet/18", "bg-nevo-violet/12", "bg-nevo-violet/[0.22]"];
+  const Wrap = lesson.href ? Link : "div";
   return (
-    <Link
-      href={`/student/lessons/${lesson.lessonId}`}
-      className="overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 transition-transform active:scale-[0.98] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-500"
+    <Wrap
+      href={lesson.href ?? "#"}
+      className={`overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-500${lesson.href ? " transition-transform active:scale-[0.98]" : ""}`}
       style={{ animationDelay: `${240 + index * 70}ms` }}
     >
       <div className={`flex h-[88px] items-center justify-center text-nevo-navy ${tints[index % tints.length]}`}>
@@ -238,6 +359,6 @@ function LessonCard({ lesson, index }: { lesson: TodayLesson; index: number }) {
         </p>
         <p className="mt-1.5 text-[13px] text-nevo-near-black/60">{lesson.time}</p>
       </div>
-    </Link>
+    </Wrap>
   );
 }

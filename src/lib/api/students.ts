@@ -149,7 +149,28 @@ export interface StudentProgress {
   lessons: LessonProgress[];
 }
 
+/** One row of the student's own recent lesson activity. */
+export interface DashboardProgressRow {
+  lessonId: string;
+  /** LessonCompletionStatus: in_progress | completed | exited. */
+  status: string;
+  segmentPosition: number;
+  updatedAt: string;
+}
+
 export const studentsApi = {
+  /**
+   * The signed-in student's own landing data: who they are, what has been
+   * assigned to them (each with its lesson summary nested), and their recent
+   * lesson activity. GET /api/v1/students/me/dashboard
+   */
+  myDashboard: () =>
+    api.get<{
+      student: StudentIdentity;
+      assignments: import("./assignments").Assignment[];
+      recentProgress: DashboardProgressRow[];
+    }>("/api/v1/students/me/dashboard"),
+
   profile: (studentId: string) =>
     api.get<StudentProfileResponse>(`/api/v1/students/${studentId}/profile`),
 
