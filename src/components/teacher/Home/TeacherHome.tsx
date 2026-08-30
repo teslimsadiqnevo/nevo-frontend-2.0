@@ -11,7 +11,9 @@ import {
   HOME_FLAGS,
 } from "@/lib/mocks/teacherHome";
 import { cn } from "@/lib/utils";
+import { useTeacherFlags } from "@/hooks/useTeacherFlags";
 import { ClassPulse } from "./ClassPulse";
+import { LiveFlagCard } from "./LiveFlagCard";
 import { HomeClasses } from "./HomeClasses";
 import { FlagCard } from "./FlagCard";
 
@@ -21,21 +23,22 @@ import { FlagCard } from "./FlagCard";
  * good-to-know note, the class trio, recent activity, and the Ask Nevo drawer.
  * Content column caps at 1040px centred, inner 940px.
  *
- * Everything below the greeting - the pulse, the flags, the class trio, the
- * activity list - is fixture content: no intelligence endpoint exists. So the
- * page reads the live class list to decide what it is honestly allowed to say:
+ * The flags are live; the pulse, the class trio and the activity list are not.
+ * The page reads what it has to decide what it is honestly allowed to say:
  *
  *   - a real teacher with no classes gets the greeting and a line saying so,
  *     and the sections simply are not there. C14 draws no Home empty state, so
  *     rather than invent one this follows its stated principle for the quiet
  *     Insights week: "it isn't drawn as empty, the section simply isn't there".
- *   - a real teacher with classes still gets fixture activity, so it is marked
- *     as a sample rather than passed off as their week.
+ *   - the flags are LIVE, from `/api/intelligence/flags`. An empty list is a
+ *     real calm morning and gets C03's own no-flags card, not fixtures - which
+ *     is the whole point: "nothing needs you" is only reassuring if it is true.
+ *   - the pulse and the activity list are still fixture, and still marked as a
+ *     sample rather than passed off as their week.
  *   - the greeting uses the teacher's real name, from `GET /api/v1/users/me`,
  *     and falls back to a nameless welcome rather than the fixture persona.
  *
- * TODO(api): flags/classes/activity come from the intelligence layer; the C03
- * loading skeleton ships when that fetch exists.
+ * TODO(api): the class pulse and the activity list have no endpoint.
  */
 
 const SECTION_H =
@@ -59,8 +62,18 @@ export function TeacherHome() {
   // name rather than borrowing one.
   const identity = useCurrentUser();
   const greetName = signedIn ? identity?.name : MOCK_TEACHER.name;
-  const flags = noClasses ? [] : HOME_FLAGS;
-  const hasFlags = flags.length > 0;
+  // Live flags, with the fixtures reserved for the designed screens and the
+  // failure fallback. A teacher with no classes has nothing to flag either way.
+  const {
+    flags: liveFlags,
+    live: flagsLive,
+    failed: flagsFailed,
+  } = useTeacherFlags();
+  const showFixtureFlags = !flagsLive && (!signedIn || flagsFailed);
+  const flags = noClasses ? [] : liveFlags;
+  const fixtureFlags = noClasses || !showFixtureFlags ? [] : HOME_FLAGS;
+  const flagCount = flags.length + fixtureFlags.length;
+  const hasFlags = flagCount > 0;
 
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
@@ -71,10 +84,11 @@ export function TeacherHome() {
         <h2 className="mt-1 text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
           {greetName ? `Welcome back, ${greetName}` : "Welcome back"}
         </h2>
+        {/* The frame's line says "Three things"; the real count is whatever
+            the flags endpoint returned. */}
         {hasFlags && (
           <p className="mt-2 hidden text-[15.5px] leading-[1.55] text-nevo-near-black/60 xl:block">
-            Three things are worth your eye before first period. Everything else
-            is running smoothly.
+            {`${flagCount} ${flagCount === 1 ? "thing is" : "things are"} worth your eye before first period. Everything else is running smoothly.`}
           </p>
         )}
 
@@ -86,8 +100,11 @@ export function TeacherHome() {
         ) : (
           (live || sample) && (
             <p className="mt-2 max-w-[560px] text-[13px] leading-[1.5] text-nevo-near-black/55 italic">
-              We can&rsquo;t read your class activity yet, so everything below
-              is a sample.
+              {/* Names what is actually a sample. The flags above are live, so
+                  "everything below" would now be untrue in the other
+                  direction. */}
+              The class pulse and recent activity are samples &ndash;
+              we can&rsquo;t read your class activity yet.
             </p>
           )
         )}
@@ -105,16 +122,21 @@ export function TeacherHome() {
                 <div className="mt-[26px] flex items-center gap-2.5 xl:mt-8">
                   <h3 className={SECTION_H}>Worth your attention</h3>
                   <span className="rounded-full bg-nevo-near-black/10 px-2 py-0.5 text-[12px] text-nevo-near-black/70 xl:px-[9px] xl:text-[12.5px]">
-                    {flags.length}
+                    {flagCount}
                   </span>
                 </div>
                 <div className="mt-3.5 flex flex-col gap-3 xl:mt-4 xl:gap-3.5">
                   {flags.map((flag) => (
+                    <LiveFlagCard key={flag.id} flag={flag} />
+                  ))}
+                  {fixtureFlags.map((flag) => (
                     <FlagCard key={flag.id} flag={flag} />
                   ))}
                 </div>
 
-                {/* Good to know - a quiet win, never a flag */}
+                {/* Good to know - a quiet win, never a flag. Fixture prose, so
+                    it does not sit beside live flags pretending to be theirs. */}
+                {fixtureFlags.length > 0 && (
                 <div className="mt-[22px] flex max-w-[660px] items-start gap-3 rounded-[12px] bg-nevo-violet/14 px-[18px] py-4">
                   <span className="mt-px shrink-0 text-nevo-navy">
                     <svg
@@ -139,6 +161,7 @@ export function TeacherHome() {
                     {GOOD_TO_KNOW}
                   </p>
                 </div>
+                )}
               </>
             ) : (
               // Calm morning - nothing flagged (C03 no-flags state)
