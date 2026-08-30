@@ -5,7 +5,6 @@ import { Toggle } from "@/components/teacher/shared/Toggle";
 import { useAccessibility } from "@/context/AccessibilityContext";
 import {
   ACCESSIBILITY_SETTINGS,
-  DEFAULT_SETTINGS,
   NOTIFICATION_SETTINGS,
   TEACHER_PROFILE,
   type TeacherProfile,
@@ -13,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useTeacherSettings } from "@/hooks/useTeacherSettings";
 import { EditProfileModal } from "./EditProfileModal";
 import { SignOutModal } from "./SignOutModal";
 
@@ -48,7 +48,7 @@ const TOAST_MS = 3000;
 export function ProfileSettings() {
   const a11y = useAccessibility();
   const [profile, setProfile] = useState<TeacherProfile>(TEACHER_PROFILE);
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const notifications = useTeacherSettings();
   const [dirty, setDirty] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   // This is the page where a teacher would most reasonably read these as their
@@ -71,7 +71,10 @@ export function ProfileSettings() {
   );
 
   const flip = (id: string) => {
-    setSettings((s) => ({ ...s, [id]: !s[id] }));
+    notifications.set(
+      id as keyof typeof notifications.values,
+      !notifications.values[id as keyof typeof notifications.values],
+    );
     setDirty(true);
   };
 
@@ -81,7 +84,7 @@ export function ProfileSettings() {
       ? a11y.reducedMotion
       : id === "largerText"
         ? a11y.textSize !== "m"
-        : settings[id];
+        : notifications.values[id as keyof typeof notifications.values];
 
   const toggle = (id: string) => {
     if (id === "reduceMotion") {
@@ -95,13 +98,19 @@ export function ProfileSettings() {
     flip(id);
   };
 
+  /**
+   * The toast follows the save's real outcome, not the click. A failed write
+   * that says "Settings saved" is the one thing this button must never do,
+   * and the row stays dirty so the teacher can try again.
+   */
   const save = () => {
-    if (!dirty) return;
-    // TODO(api): persist profile + settings.
-    setDirty(false);
-    setToast("Settings saved");
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setToast(""), TOAST_MS);
+    if (!dirty || notifications.saveState === "saving") return;
+    void notifications.save().then((ok) => {
+      if (ok) setDirty(false);
+      setToast(ok ? "Settings saved" : "We couldn’t save that – try again");
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => setToast(""), TOAST_MS);
+    });
   };
 
   const rows = (list: typeof NOTIFICATION_SETTINGS) =>

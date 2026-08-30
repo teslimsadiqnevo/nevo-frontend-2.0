@@ -25,12 +25,12 @@ import { authApi, teamApi } from "@/lib/api";
  * still active, so the screen says so and routes to sign-in instead of
  * reporting an activation failure.
  *
- * Reset has no deployed endpoint and still runs on the simulated beat.
- *
- * TODO(api): a password-reset endpoint, so the reset half stops pretending.
+ * Reset is live against POST /api/v1/auth/password-reset/complete, using the
+ * token from the emailed link. A rejected token is almost always an expired
+ * one, so that failure routes to the reset screen's own expired state rather
+ * than dead-ending here.
  */
 
-const SUBMIT_MS = 1100;
 const SUCCESS_HOLD_MS = 1600;
 
 const REQUIREMENTS = [
@@ -121,8 +121,10 @@ export function SetPasswordForm({
   school,
 }: {
   mode: "activation" | "reset";
-  email: string;
-  school: string;
+  /** Activation only: the invite names the account. A reset link does not,
+   *  and nothing resolves an opaque reset token to an address. */
+  email?: string;
+  school?: string;
 }) {
   const router = useRouter();
   const [password, setPassword] = useState("");
@@ -143,7 +145,7 @@ export function SetPasswordForm({
   const token = params.get("token");
   /** The accept response carries no email, so the link has to. The prop is the
    *  fallback that keeps the designed screen viewable on its own. */
-  const inviteEmail = params.get("email") ?? email;
+  const inviteEmail = params.get("email") ?? email ?? "";
   const activation = mode === "activation";
   const met = REQUIREMENTS.map((r) => r.test(password));
   const allMet = met.every(Boolean);
@@ -169,9 +171,23 @@ export function SetPasswordForm({
     setError("");
     setPhase("saving");
 
-    // Reset has no endpoint yet; the simulated beat stands in for it alone.
     if (!activation) {
-      timers.current.push(setTimeout(() => finish("signin"), SUBMIT_MS));
+      if (!token) {
+        setPhase("form");
+        setError(
+          "This reset link is missing its code. Request a fresh one and we'll send it over.",
+        );
+        return;
+      }
+      try {
+        await authApi.completePasswordReset({ token, password });
+      } catch {
+        // A rejected reset token is almost always an expired one, and that
+        // screen already offers a way forward.
+        router.push("/auth/teacher/reset?expired=1");
+        return;
+      }
+      finish("signin");
       return;
     }
 
@@ -241,9 +257,11 @@ export function SetPasswordForm({
 
   return (
     <div className="flex w-full max-w-[440px] flex-col items-stretch px-6">
-      <span className="text-center text-[12.5px] font-semibold tracking-[0.14em] text-nevo-violet uppercase">
-        {school}
-      </span>
+      {school && (
+        <span className="text-center text-[12.5px] font-semibold tracking-[0.14em] text-nevo-violet uppercase">
+          {school}
+        </span>
+      )}
       <h2 className="mt-3.5 text-center text-[34px] leading-[1.15] font-semibold tracking-[-0.02em] text-nevo-near-black">
         {activation ? "Set your password" : "Choose a new password"}
       </h2>
@@ -253,17 +271,24 @@ export function SetPasswordForm({
           : "Create a new password for your Nevo account."}
       </p>
 
-      {/* Email is fixed by the invite - shown, never editable. */}
-      <span className="mt-6 text-[13.5px] font-semibold text-nevo-near-black/70">
-        Email
-      </span>
-      <div className="mt-2 flex h-[52px] w-full items-center gap-2.5 rounded-[10px] border-[1.5px] border-nevo-near-black/16 bg-nevo-near-black/5 px-4 text-[16px] text-nevo-near-black/70">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-nevo-near-black/45">
-          <rect x="5" y="11" width="14" height="9" rx="2" />
-          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-        </svg>
-        <span className="truncate">{inviteEmail}</span>
-      </div>
+      {/* Activation only: the invite fixes the address, so it is shown and
+          never editable. A reset link carries an opaque token and nothing
+          resolves it to an address - naming one here would mean naming the
+          wrong person's on a security screen. */}
+      {inviteEmail && (
+        <>
+          <span className="mt-6 text-[13.5px] font-semibold text-nevo-near-black/70">
+            Email
+          </span>
+          <div className="mt-2 flex h-[52px] w-full items-center gap-2.5 rounded-[10px] border-[1.5px] border-nevo-near-black/16 bg-nevo-near-black/5 px-4 text-[16px] text-nevo-near-black/70">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-nevo-near-black/45">
+              <rect x="5" y="11" width="14" height="9" rx="2" />
+              <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+            </svg>
+            <span className="truncate">{inviteEmail}</span>
+          </div>
+        </>
+      )}
 
       <PasswordField
         id="new-password"

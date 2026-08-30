@@ -64,6 +64,24 @@ export const authApi = {
     }
   },
 
+  /**
+   * Ask for a reset link. Always resolves the same way for any address:
+   * the backend returns a generic receipt so the screen cannot be used to
+   * discover whether an account exists.
+   *
+   * Email delivery is a deployment concern on the backend's side - a 200
+   * here means the request was accepted, not that a message has landed.
+   */
+  requestPasswordReset: (email: string) =>
+    api.post<{ status: string; message: string }>(
+      "/api/v1/auth/forgot-password",
+      { email },
+    ),
+
+  /** Set the new password, using the token from the emailed link. */
+  completePasswordReset: (payload: { token: string; password: string }) =>
+    api.post<unknown>("/api/v1/auth/password-reset/complete", payload),
+
   /** Complete the OAuth redirect from Microsoft/Google.
    *  TODO(api): the backend's SSO callback is a browser redirect flow
    *  (`GET /api/v1/auth/sso/{provider}/callback`) - align once the school SSO
