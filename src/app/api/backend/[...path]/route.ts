@@ -3,8 +3,8 @@
  *
  * The backend exposes no CORS headers (browser preflights 405), so every
  * browser-side call goes through here: `/api/backend/<path>` forwards to
- * `<UPSTREAM>/<path>` with the method, JSON body and Authorization header
- * intact. Auth is Bearer-token (no cookies), so nothing else needs rewriting.
+ * `<UPSTREAM>/<path>` with the method, raw body and Authorization header
+ * intact - raw so that multipart file uploads survive the hop byte for byte. Auth is Bearer-token (no cookies), so nothing else needs rewriting.
  * Remove in favour of direct calls if/when the backend grows CORSMiddleware.
  */
 import type { NextRequest } from "next/server";
@@ -44,16 +44,19 @@ async function forward(
   const contentType = request.headers.get("content-type");
   if (contentType) headers["Content-Type"] = contentType;
 
-  const body =
+  // Bytes, not text: a multipart upload carries a binary PDF or DOCX, and
+  // decoding it as UTF-8 to re-encode it would corrupt the file. JSON bodies
+  // pass through an ArrayBuffer unchanged, so this is right for both.
+  const raw =
     request.method === "GET" || request.method === "HEAD"
       ? undefined
-      : await request.text();
+      : await request.arrayBuffer();
 
   try {
     const upstream = await fetch(url, {
       method: request.method,
       headers,
-      body: body || undefined,
+      body: raw && raw.byteLength > 0 ? raw : undefined,
       // Render's free tier cold-starts; give it room rather than failing.
       signal: AbortSignal.timeout(60_000),
     });

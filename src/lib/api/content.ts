@@ -1,10 +1,17 @@
 import { api } from "./client";
 
 /**
- * Lesson content endpoints, typed against the deployed backend
- * (openapi 2.0.0). Parsing (Teacher Console C.7) is live; lesson
- * listing/detail endpoints are not deployed yet - the library still runs on
- * src/lib/mocks/teacherLibrary until they exist.
+ * Lesson content endpoints.
+ *
+ * `upload` is the one the console wants: multipart, with extraction done
+ * server-side, so PDF, Word, PowerPoint, Markdown and plain text all work
+ * without the browser trying to read them. It replaces the pdfjs extraction
+ * the wizard used to do, which could never cover Word or PowerPoint.
+ *
+ * `parse` remains for callers that already hold extracted text.
+ *
+ * Both return the same parsed lesson, and both CREATE it: the response's
+ * `lessonId` is a lesson that now exists in the library.
  */
 
 export type LessonSourceType =
@@ -76,7 +83,20 @@ export interface ParseContentResponse {
 }
 
 export const contentApi = {
-  /** Parse uploaded content into segments. POST /api/content/parse */
+  /** Parse already-extracted text. POST /api/content/parse */
   parse: (payload: ParseContentRequest) =>
     api.post<ParseContentResponse>("/api/content/parse", payload),
+
+  /**
+   * Upload a source file and get the parsed lesson back.
+   * POST /api/content/upload (multipart, one field named `file`).
+   *
+   * An unreadable or unsupported file is a 400 with a functional message -
+   * that is a real answer about the file, not a server fault.
+   */
+  upload: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.post<ParseContentResponse>("/api/content/upload", form);
+  },
 };

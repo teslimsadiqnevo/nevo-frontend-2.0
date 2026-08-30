@@ -13,23 +13,33 @@ import { useEffect, useRef, useState } from "react";
  *   on the faint pages.
  * - "unreadable": a plain reason, the recurring "Nothing you did is lost",
  *   and a real forward path.
+ * - "unreachable": ours, not the frame's. A live upload can fail because the
+ *   backend did, and blaming the teacher's file for our outage would be a
+ *   lie - so this one says the fault is ours and offers the same file again.
+ *   Flagged to design.
  *
  * Renders the body AND its own foot (Back + status note - no Continue, per
  * the frame). Chrome: STEP 3 OF 5 at 55%, in the wizard's head.
  */
 
-export type FallbackKind = "noBoundary" | "partial" | "unreadable";
+export type FallbackKind =
+  | "noBoundary"
+  | "partial"
+  | "unreadable"
+  | "unreachable";
 
 export const FALLBACK_HEADINGS: Record<FallbackKind, string> = {
   noBoundary: "One continuous lesson",
   partial: "Read most of your block",
   unreadable: "We hit a snag",
+  unreachable: "We hit a snag",
 };
 
 const FOOT_NOTES: Record<FallbackKind, string> = {
   noBoundary: "Staying as one lesson - you can split it any time.",
   partial: "Your progress is saved.",
   unreadable: "Your progress is saved - nothing was lost.",
+  unreachable: "Your file is fine - nothing was lost.",
 };
 
 const FLAT_SEGMENTS = [
@@ -225,6 +235,34 @@ export function ParseFallback({
                   Pages 15-16 - waiting on a retry
                 </span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {kind === "unreachable" && (
+          <div className="mx-auto flex max-w-[560px] flex-col items-center pt-6 text-center xl:pt-10">
+            <span className="flex size-14 shrink-0 items-center justify-center rounded-[16px] bg-nevo-violet/18 text-nevo-navy">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v5M12 16h.01" />
+              </svg>
+            </span>
+            <h3 className="mt-[18px] text-xl font-semibold tracking-[-0.01em] text-nevo-near-black">
+              We couldn&rsquo;t reach Nevo just then
+            </h3>
+            <p className="mt-[9px] max-w-[420px] text-[14.5px] leading-[1.6] text-nevo-near-black/70">
+              Nothing is wrong with your file &ndash; this one is on us. Try
+              the same file again in a moment and it should go straight
+              through.
+            </p>
+            <div className="mt-[22px] flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={onTryAnother}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] bg-nevo-navy px-[18px] py-[11px] text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
+              >
+                Try again
+              </button>
             </div>
           </div>
         )}

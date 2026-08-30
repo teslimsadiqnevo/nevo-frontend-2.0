@@ -130,6 +130,11 @@ export async function request<T>(
   const url = buildUrl(path, params, baseUrl);
   const token = await getAuthToken();
 
+  // FormData carries its own multipart boundary, which only the browser can
+  // generate - so it must be passed through untouched and its Content-Type
+  // left unset. Everything else is JSON.
+  const multipart = body instanceof FormData;
+
   const init: RequestInit = {
     ...rest,
     // Cookie auth by default; overridable for public cross-origin endpoints
@@ -137,11 +142,15 @@ export async function request<T>(
     credentials: rest.credentials ?? "include",
     headers: {
       Accept: "application/json",
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(body !== undefined && !multipart
+        ? { "Content-Type": "application/json" }
+        : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    ...(body !== undefined
+      ? { body: multipart ? (body as FormData) : JSON.stringify(body) }
+      : {}),
   };
 
   if (isDev) console.debug(`[api] ${rest.method ?? "GET"} ${url}`);
