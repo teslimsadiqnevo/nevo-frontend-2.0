@@ -163,7 +163,7 @@ const ACCOUNT_MENU: {
 export function TeacherSidebar() {
   const pathname = usePathname();
   // C13: the bell opens a popover; the dot is a badge, never a count, and it
-  // reflects live unread state. TODO(api): from the notifications seam.
+  // reflects live unread state, from `/api/notifications`'s own unreadCount.
   const { notes, unreadCount, markAllRead } = useTeacherNotifications();
   const [notifOpen, setNotifOpen] = useState(false);
   const hasNotifications = unreadCount > 0;

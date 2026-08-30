@@ -19,7 +19,9 @@ import { cn } from "@/lib/utils";
  * nevo-pop, and two success moments popping differently would read worse than
  * the divergence. Flagged to design.
  *
- * TODO(api): no feedback endpoint is deployed - `send` resolves locally, and
+ * TODO(api): `POST /api/v1/feedback` IS deployed - it is one of the seven
+ * endpoints still returning an untyped ack - but this panel is not wired to
+ * it yet, so `send` resolves locally, and
  * nothing is transmitted. TODO(design): the sent state both auto-closes at
  * ~1.5s and draws an "Open again" button, which leaves that button barely
  * reachable; built as drawn and raised.
@@ -58,7 +60,7 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
 
   const send = () => {
     if (!ready || sent) return;
-    // TODO(api): post the feedback once an endpoint exists.
+    // TODO(api): post to `/api/v1/feedback`, which exists and is unwired.
     setSent(true);
     closeTimer.current = setTimeout(onClose, SENT_CLOSE_MS);
   };

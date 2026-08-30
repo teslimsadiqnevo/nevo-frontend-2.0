@@ -128,13 +128,15 @@ export function rememberProfile(profile: RememberedProfile): void {
 }
 
 /**
- * The name the student is shown as. There is no profile endpoint, so the
- * edit on the profile screen persists to the device: it updates the
+ * The name the student is shown as. The student app does not yet read the
+ * profile endpoint, so the edit on the profile screen persists to the device: it updates the
  * remembered profile when the device has one, and falls back to its own key
  * otherwise. Without this the screen flashed "Saved" and forgot the name on
  * the next load.
  *
- * TODO(api): replace with the profile endpoint once it exists.
+ * TODO(api): `GET /api/v1/users/me` exists and returns the real name - the
+ * teacher console reads it through `useCurrentUser`. The student app has not
+ * been moved onto it yet.
  */
 export function getStoredDisplayName(): string | null {
   if (typeof window === "undefined") return null;

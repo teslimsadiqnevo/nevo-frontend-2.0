@@ -2,9 +2,10 @@
  * Teacher profile and settings (C11). The email is school-managed and read
  * only; everything else the teacher owns.
  *
- * TODO(api): profile comes from the session payload and settings persist
- * server-side once those endpoints exist. Today they hold for the session,
- * which is exactly what the frame documents.
+ * Superseded for a signed-in teacher: identity comes from `GET /api/v1/users/me`
+ * and the notification choices persist to `/api/settings/me`. The values below
+ * back the designed screens, and DEFAULT_SETTINGS is still the real starting
+ * position for an account that has never saved.
  */
 
 export interface TeacherProfile {

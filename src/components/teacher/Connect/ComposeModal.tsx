@@ -26,7 +26,8 @@ import { cn } from "@/lib/utils";
  * have, since that is the smaller change and matches C10b; the phase states
  * still replace the form rather than overlaying it.
  *
- * TODO(api): no messaging endpoint is deployed - `onSend` resolves the phase.
+ * `onSend` posts for real - see `useConnectThreads`. Recipients are the
+ * teacher's own students, gathered from their class rosters.
  */
 
 type Phase = "form" | "sending" | "sent" | "failed";

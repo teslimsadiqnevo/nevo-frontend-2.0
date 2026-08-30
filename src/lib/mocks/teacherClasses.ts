@@ -2,7 +2,11 @@
  * My Classes mock data (C05 / `Nevo Teacher Classes` frame). JSS 2A carries
  * the frame's exact roster; the other classes carry calm representative
  * rosters (the frame renders subsets, never all N students).
- * TODO(api): classes/rosters come from the teacher-class-assignment seam.
+ * Superseded for a signed-in teacher: classes come from
+ * `/api/v1/teachers/me/classes` and rosters from
+ * `/api/v1/classes/{id}/students`. The observations, lessons and summaries
+ * here have no endpoint, which is why a live class renders its own screen
+ * rather than borrowing one of these.
  */
 
 export type StudentStatus = "ok" | "glance" | "flag";

@@ -32,8 +32,9 @@ export function dimensionForToday(): BaselineDimension {
  * right or wrong.
  *
  * The done state only claims the run was saved if the write actually
- * landed - the endpoint is not deployed today, so telling a child their
- * progress was saved would be false every single time.
+ * landed. `POST /api/baseline/submit` is deployed now but this screen is not
+ * wired to it, so the claim stays unmade - telling a child their progress was
+ * saved when nothing was written would be false every single time.
  * TODO(api): dimension comes from GET /api/baseline/recalibrate-prompt.
  */
 export function WarmUpRun({

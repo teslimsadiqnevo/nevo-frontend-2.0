@@ -64,7 +64,7 @@ export function ProfilingFlow({
       const c = capture;
       // Fire-and-forget: the run never blocks on the network. Raw stream is
       // purged regardless - only the reduced vector is ever transmitted.
-      // TODO(api): retry/queue once the baseline contract lands.
+      // TODO(api): `/api/baseline/submit` is deployed; add retry/queue.
       baselineApi
         .submit(c.sessionId, features)
         .catch(() => {})

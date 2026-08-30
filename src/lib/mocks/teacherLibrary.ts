@@ -1,7 +1,10 @@
 /**
  * Lesson Library mock data (C06 / `Nevo Teacher Library` frame) - everything
  * the teacher has created or can reach, verbatim from the frame.
- * TODO(api): served by the content seam once lesson listing exists.
+ * Superseded for a signed-in teacher: the library runs on
+ * `GET /api/content/lessons`. These back the designed screens and the
+ * failure fallback. The detail half also stands in for the block-path
+ * review, which has no typed structure contract yet.
  */
 
 export type LessonStatus = "Assigned" | "Ready" | "Draft";

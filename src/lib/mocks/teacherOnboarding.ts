@@ -5,8 +5,9 @@
  * the class list is the real TEACHER_CLASSES fixture, exactly as the frame's
  * own mock data has it.
  *
- * TODO(api): invite/verify/join endpoints (Handoff §11 /invites, /join/:token)
- * are not deployed yet - the verify round-trip below is simulated.
+ * TODO(api): the invite endpoints landed on 30 Aug - `/api/v1/invites` (admin
+ * only; a teacher gets 403) and `GET /api/v1/join/{token}` plus its accept -
+ * so the simulated verify round-trip below can be replaced. It has not been.
  */
 export const TEACHER_INVITE = {
   school: "Corona Secondary School",
