@@ -9,6 +9,7 @@ import { TEXT_ZOOM, useAccessibility } from "@/context/AccessibilityContext";
 import { useBehaviouralCapture } from "@/hooks";
 import { NotificationBell } from "./NotificationBell";
 import { OfflineTakeover, useOnline } from "./OfflineTakeover";
+import { useHasSession } from "@/hooks/useHasSession";
 import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
 import { useDisplayName } from "./useDisplayName";
 
@@ -29,6 +30,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   const { textSize } = useAccessibility();
   // The chrome calls the student by their own name, not the fixture's.
   const student = useDisplayName();
+  const signedIn = useHasSession();
   const online = useOnline();
   // Offline takes over network-backed tabs (board 28); Downloads stays
   // reachable - it is where "See saved lessons" points.
@@ -64,7 +66,14 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
         <Sidebar
           items={STUDENT_NAV}
           activeHref={activeHref}
-          user={{ ...MOCK_STUDENT, ...student }}
+          // A live student's year group has no source (`users/me` carries
+          // none), so the fixture's "Year 4" is dropped rather than shown
+          // under their real name. Restored when a year group exists.
+          user={{
+            ...MOCK_STUDENT,
+            ...student,
+            subtitle: signedIn ? undefined : MOCK_STUDENT.subtitle,
+          }}
           collapsed={collapsed}
           onToggle={setCollapsed}
         />
