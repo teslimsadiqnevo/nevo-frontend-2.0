@@ -90,7 +90,7 @@ export function HomeDashboard() {
           {date ?? ""}
         </span>
         <h1 className="mt-2 text-[28px] font-semibold leading-[1.12] tracking-[-0.02em] text-nevo-near-black sm:text-[34px]">
-          Welcome back, {displayName}
+          Welcome back{displayName ? `, ${displayName}` : ""}
         </h1>
       </div>
 

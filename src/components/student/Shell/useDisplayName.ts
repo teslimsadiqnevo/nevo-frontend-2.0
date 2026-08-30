@@ -1,39 +1,52 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useHasSession } from "@/hooks/useHasSession";
 import { getStoredDisplayName } from "@/lib/auth/session";
 import { MOCK_STUDENT } from "./studentNav";
 
 function initialsOf(name: string): string {
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase() ?? "")
-      .join("") || MOCK_STUDENT.initials
-  );
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
 }
 
 /**
- * What to call the student. Reads the device-stored name after mount (the
- * fixture renders first so the server and client agree), so a student who
- * renames themselves is called that everywhere - not just on the screen
- * where they typed it.
+ * What to call the student.
  *
- * TODO(api): `GET /api/v1/users/me` exists and carries the real name; this
- * has not been moved onto it yet. The teacher side uses `useCurrentUser`.
+ * Precedence: the name they chose for themselves on this device (an explicit
+ * act, and it survives the server disagreeing), then the account's real name
+ * from `GET /api/v1/users/me` - first name only, because this app speaks to
+ * children by first name - then the fixture, which now only ever shows
+ * signed out.
+ *
+ * A signed-in student whose name has not resolved yet is briefly nameless
+ * rather than briefly "Ada": being called someone else's name is worse than
+ * a beat without one.
  */
 export function useDisplayName(): { name: string; initials: string } {
-  const [name, setName] = useState(MOCK_STUDENT.name);
+  const signedIn = useHasSession();
+  const identity = useCurrentUser();
+  const [stored, setStored] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = getStoredDisplayName();
+    const s = getStoredDisplayName();
     // Post-mount hydration read of an external store, same pattern as
     // AccessibilityContext - it cannot run during render without a mismatch.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (stored && stored !== name) setName(stored);
-  }, [name]);
+    if (s) setStored(s);
+  }, []);
 
-  return { name, initials: initialsOf(name) };
+  const serverFirst = identity?.name?.split(/\s+/)[0] ?? null;
+  const name = stored ?? serverFirst ?? (signedIn ? "" : MOCK_STUDENT.name);
+  const initials =
+    (stored ? initialsOf(stored) : "") ||
+    (identity?.initials ?? "") ||
+    (signedIn ? "" : MOCK_STUDENT.initials);
+
+  return { name, initials };
 }

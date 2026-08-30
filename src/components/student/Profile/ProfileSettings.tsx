@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronRight, LogOut, MessageCircle } from "lucide-react";
 import { NevoKeyboard, Switch } from "@/components/shared";
 import { useAuth } from "@/hooks";
-import { MOCK_STUDENT } from "@/components/student/Shell/studentNav";
 import { useDisplayName } from "@/components/student/Shell/useDisplayName";
 import {
   getRememberedProfile,
@@ -50,7 +49,7 @@ export function ProfileSettings() {
       .map((w) => w[0])
       .slice(0, 2)
       .join("")
-      .toUpperCase() || MOCK_STUDENT.initials;
+      .toUpperCase() || stored.initials;
 
   const {
     reducedMotion,
@@ -205,11 +204,17 @@ export function ProfileSettings() {
         ) : (
           <>
             <span className="min-w-0 flex-1 truncate text-[15px] text-nevo-near-black">
-              {name}
+              {name || stored.name}
             </span>
             <button
               type="button"
-              onClick={() => setEditingName(true)}
+              onClick={() => {
+                // The local field seeds once at mount, which can predate the
+                // server name arriving - so entering edit re-seeds from
+                // whatever the hook now says.
+                setName((n) => n || stored.name);
+                setEditingName(true);
+              }}
               className="cursor-pointer text-[15px] font-medium text-nevo-navy"
             >
               Change
