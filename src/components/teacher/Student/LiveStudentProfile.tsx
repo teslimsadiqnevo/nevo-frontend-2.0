@@ -18,13 +18,12 @@ import { MasteryDualTrack } from "./MasteryDualTrack";
  * `mastery/student` - and whatever Nevo recommends, which the backend writes
  * in plain language already.
  *
- * WHAT IS DELIBERATELY NOT SHOWN. The learner profile carries
- * `workingMemoryCapacity` and `attentionSpan`. They are engine parameters,
- * and putting a number against a child's working memory is exactly the
- * clinical framing C08 forbids - "the page has to hold up if a parent or the
- * SENCo reads it" - and sits badly beside the compliance screen's claim that
- * Nevo holds no diagnostic label about anyone. They are fetched, typed, and
- * left off the page pending a product decision.
+ * WHAT IS RULED OUT (Olayinka, 30 Aug 2026), not merely deferred: the
+ * learner profile's `workingMemoryCapacity` and `attentionSpan` are never
+ * rendered here or on any teacher surface - a number against a child's
+ * working memory is the clinical framing C08 forbids and the D22 compliance
+ * claim cannot survive. Do not wire them in later; backend has been asked to
+ * stop sending them on teacher reads.
  *
  * The C16c adaptation insights are live, from `/api/adaptations/student/{id}`,
  * with suppressed entries excluded - the section is what actually happened.

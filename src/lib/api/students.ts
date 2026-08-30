@@ -6,23 +6,26 @@ import { api } from "./client";
  * Four endpoints, because the contract splits them: identity and open-flag
  * count, the learner profile, per-concept mastery, and recommendations.
  *
- * ZERO-TAG APPLIES HERE. `workingMemoryCapacity` and `attentionSpan` are
- * engine parameters, not things to show a teacher as a score about a child -
- * C08's rule is that the page must hold up if a parent or the SENCo reads it,
- * and Nevo's whole NDPA claim is that it holds no diagnostic label about
- * anyone. They are typed so the shape is honest, and deliberately not
- * rendered. See `LiveStudentProfile`.
+ * ZERO-TAG APPLIES HERE, and it is now a RULING, not a pending question
+ * (Olayinka, 30 Aug 2026): `workingMemoryCapacity` and `attentionSpan` are
+ * never rendered on any teacher-visible surface. A number against a child's
+ * working memory is a diagnostic-shaped measurement, which is exactly what
+ * the D22 compliance screen promises Nevo does not hold. The accommodations
+ * read carries everything actionable in those numbers, in the product's own
+ * register. Backend has been asked to stop returning them on teacher-scoped
+ * reads; until then they stay typed here and unrendered.
  *
  * `mastery/student` returns `conceptId` and no name, though `mastery/class`
  * carries `conceptName` - so `/api/concepts` resolves it. Flagged to backend.
  *
- * NOT TYPED HERE ON PURPOSE: `/api/conversation-evidence/student/{id}`. Its
- * `recentEvidence` rows carry `currentPage` and `contextIds` - which page a
- * child was on when they asked Nevo for help, one row per question. That is
- * the student's Ask Nevo usage, not the learning evidence C08's "What Nevo has
- * seen" section shows, and putting a teacher-visible log of where a child
- * asked for help on this page is a product and privacy decision rather than a
- * wiring one. Raised, deliberately unwired.
+ * CONVERSATION EVIDENCE IS RULED AGGREGATE-ONLY (Olayinka, 30 Aug 2026).
+ * `/api/conversation-evidence/student/{id}` returns per-question rows -
+ * which page a child was on each time they asked Nevo for help. A teacher-
+ * visible log of help-seeking chills exactly the students who most need a
+ * safe place to ask, so the per-question rows are never shown. What MAY ship,
+ * once design draws it: the pattern only - interaction count and category mix
+ * over the period - and nothing at all below 3 interactions, so a single
+ * question is never traceable. Untyped here until that element exists.
  */
 
 export interface StudentIdentity {
