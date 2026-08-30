@@ -25,12 +25,11 @@ import { useHasSession } from "./useHasSession";
  * a live thread simply does not, rather than guessing which class a student is
  * in.
  *
- * Fixtures back the designed screens when there is no live data, and say so.
+ * Fixtures back the designed screens only when the request genuinely fails,
+ * and say so. A slow response still wins whenever it lands.
  *
  * TODO(api): a class on the thread, and unread state - neither exists.
  */
-
-const LIVE_TIMEOUT_MS = 6000;
 
 export interface ConnectThread {
   id: string;
@@ -136,20 +135,19 @@ export function useConnectThreads(): ConnectState {
   useEffect(() => {
     if (!getToken()) return;
     let cancelled = false;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const timeout = new Promise<null>((resolve) => {
-      timers.push(setTimeout(() => resolve(null), LIVE_TIMEOUT_MS));
-    });
-    void Promise.race([messagesApi.threads().catch(() => null), timeout]).then(
-      (res) => {
-        if (cancelled) return;
-        if (res) setLive(res.threads.map(toThread));
-        else setFailed(true);
-      },
-    );
+    // No timeout race: a thread list that arrives late is still the teacher's
+    // real conversations, and discarding it to keep showing fixtures was the
+    // bug this replaced.
+    void messagesApi
+      .threads()
+      .then((res) => {
+        if (!cancelled) setLive(res.threads.map(toThread));
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
     return () => {
       cancelled = true;
-      timers.forEach(clearTimeout);
     };
   }, []);
 

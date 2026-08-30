@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { classesApi, type AssignedClass } from "@/lib/api";
-import { getToken } from "@/lib/auth/session";
 import { TEACHER_CLASSES, type TeacherClass } from "@/lib/mocks/teacherClasses";
+import { useLiveQuery } from "./useLiveQuery";
 
 /**
  * The teacher's class list, live-first: GET /api/v1/teachers/me/classes when
@@ -20,12 +20,10 @@ import { TEACHER_CLASSES, type TeacherClass } from "@/lib/mocks/teacherClasses";
  * So a live class is now only ever itself. Fixtures back the designed screens
  * when there is no live data at all, and never stand in for a real class.
  *
- * The live call is capped - a Render cold start must never blank the console -
- * and a call that never lands raises `sample`, so screens can say plainly that
- * they are showing stand-in data.
+ * A response always wins, however late - see `useLiveQuery`. Only a genuine
+ * failure raises `sample`, which is the one honest reason to put fixtures on
+ * screen.
  */
-
-const LIVE_TIMEOUT_MS = 6000;
 
 /** Id, name and code - all any picker or selector actually needs. */
 export interface ClassOption {
@@ -57,30 +55,10 @@ export interface TeacherClasses {
 }
 
 export function useTeacherClasses(): TeacherClasses {
-  const [liveClasses, setLiveClasses] = useState<AssignedClass[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const run = useCallback(() => classesApi.myClasses(), []);
+  const { data, failed } = useLiveQuery<AssignedClass[]>(run, []);
 
-  useEffect(() => {
-    if (!getToken()) return;
-    let cancelled = false;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const timeout = new Promise<null>((resolve) => {
-      timers.push(setTimeout(() => resolve(null), LIVE_TIMEOUT_MS));
-    });
-    void Promise.race([classesApi.myClasses().catch(() => null), timeout]).then(
-      (res) => {
-        if (cancelled) return;
-        if (res) setLiveClasses(res);
-        else setFailed(true);
-      },
-    );
-    return () => {
-      cancelled = true;
-      timers.forEach(clearTimeout);
-    };
-  }, []);
-
-  if (liveClasses === null) {
+  if (data === null) {
     return {
       classes: TEACHER_CLASSES,
       liveClasses: [],
@@ -98,8 +76,8 @@ export function useTeacherClasses(): TeacherClasses {
 
   return {
     classes: [],
-    liveClasses,
-    options: liveClasses.map((c) => ({
+    liveClasses: data,
+    options: data.map((c) => ({
       id: c.class_id,
       name: c.class_name,
       joinCode: c.class_code,

@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { lessonsApi, type LessonSummary, type LessonSourceType } from "@/lib/api/lessons";
-import { getToken } from "@/lib/auth/session";
-import { useHasSession } from "./useHasSession";
+import { useLiveQuery } from "./useLiveQuery";
 import {
   LIBRARY_LESSONS,
   type LibrarySubject,
@@ -33,8 +32,6 @@ import {
  * that failed to parse, and no treatment for "needs review" on a library card.
  * TODO(api): a subject on the lesson, and assignment counts in the summary.
  */
-
-const LIVE_TIMEOUT_MS = 6000;
 
 export type CardStatus =
   | "Assigned"
@@ -118,42 +115,25 @@ export interface LessonLibraryState {
   cards: LibraryCard[];
   /** Real lessons are in hand - subject pills do not apply. */
   live: boolean;
-  /** A session exists but the call never landed, so fixtures stand in. */
+  /** The call failed, so fixtures stand in. */
   sample: boolean;
   loading: boolean;
+  /** Still waiting, long enough to say so. */
+  slow: boolean;
 }
 
 export function useLessonLibrary(): LessonLibraryState {
-  const [live, setLive] = useState<LessonSummary[] | null>(null);
-  const [failed, setFailed] = useState(false);
-  // Derived, not stored: reading localStorage into initial state renders one
-  // thing on the server and another on the client, which is a hydration
-  // mismatch. `useHasSession` reports false until hydration settles.
-  const signedIn = useHasSession();
-  const loading = signedIn && live === null && !failed;
+  const run = useCallback(() => lessonsApi.list(), []);
+  const { data, failed, slow, loading } = useLiveQuery<LessonSummary[]>(run, []);
 
-  useEffect(() => {
-    if (!getToken()) return;
-    let cancelled = false;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const timeout = new Promise<null>((resolve) => {
-      timers.push(setTimeout(() => resolve(null), LIVE_TIMEOUT_MS));
-    });
-    void Promise.race([lessonsApi.list().catch(() => null), timeout]).then(
-      (res) => {
-        if (cancelled) return;
-        if (res) setLive(res);
-        else setFailed(true);
-      },
-    );
-    return () => {
-      cancelled = true;
-      timers.forEach(clearTimeout);
-    };
-  }, []);
-
-  if (live === null) {
-    return { cards: FIXTURE_CARDS, live: false, sample: failed, loading };
+  if (data === null) {
+    return { cards: FIXTURE_CARDS, live: false, sample: failed, loading, slow };
   }
-  return { cards: live.map(toCard), live: true, sample: false, loading: false };
+  return {
+    cards: data.map(toCard),
+    live: true,
+    sample: false,
+    loading: false,
+    slow: false,
+  };
 }
