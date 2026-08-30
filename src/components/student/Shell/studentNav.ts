@@ -13,8 +13,11 @@ export const STUDENT_NAV: NavItem[] = [
 ];
 
 /**
- * The signed-in student, for the shell chrome (avatar + sidebar footer).
- * TODO(api): source from the session/profile once auth + profile land.
+ * The fixture student, for the signed-out designed screens only - a live
+ * session reads its name through `useDisplayName`, which prefers the
+ * device-chosen name, then `users/me`. `subtitle` still has no live source
+ * (users/me carries no year group) and ProfilingFlow's band selection reads
+ * it - flagged.
  */
 export const MOCK_STUDENT = {
   name: "Ada",
