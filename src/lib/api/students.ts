@@ -15,6 +15,14 @@ import { api } from "./client";
  *
  * `mastery/student` returns `conceptId` and no name, though `mastery/class`
  * carries `conceptName` - so `/api/concepts` resolves it. Flagged to backend.
+ *
+ * NOT TYPED HERE ON PURPOSE: `/api/conversation-evidence/student/{id}`. Its
+ * `recentEvidence` rows carry `currentPage` and `contextIds` - which page a
+ * child was on when they asked Nevo for help, one row per question. That is
+ * the student's Ask Nevo usage, not the learning evidence C08's "What Nevo has
+ * seen" section shows, and putting a teacher-visible log of where a child
+ * asked for help on this page is a product and privacy decision rather than a
+ * wiring one. Raised, deliberately unwired.
  */
 
 export interface StudentIdentity {
@@ -61,6 +69,21 @@ export interface Recommendation {
   generatedAt: string;
 }
 
+export interface StudentAdaptation {
+  id: string;
+  studentId: string;
+  lessonId: string;
+  lessonTitle: string;
+  timestamp: string;
+  eventType: string;
+  /** What prompted it. */
+  trigger: string;
+  /** What Nevo did, in the product's own plain register. */
+  adaptation: string;
+  /** True when the adaptation was considered and withheld. */
+  suppressed: boolean;
+}
+
 export interface Concept {
   id: string;
   name: string;
@@ -79,6 +102,12 @@ export const studentsApi = {
 
   recommendations: (studentId: string) =>
     api.get<Recommendation[]>(`/api/intelligence/recommendations/${studentId}`),
+
+  /** What Nevo quietly adjusted, and why (C16c). */
+  adaptations: (studentId: string, limit = 8) =>
+    api.get<StudentAdaptation[]>(`/api/adaptations/student/${studentId}`, {
+      params: { limit },
+    }),
 
   /** Concept names, to resolve the ids mastery returns. */
   concepts: () => api.get<Concept[]>("/api/concepts"),
