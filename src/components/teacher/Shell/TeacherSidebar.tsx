@@ -5,12 +5,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { MOCK_TEACHER, TEACHER_NAV, type TeacherNavItem } from "./teacherNav";
-import {
-  TEACHER_NOTIFICATIONS,
-  type TeacherNotification,
-} from "@/lib/mocks/teacherNotifications";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useTeacherNotifications } from "@/hooks/useTeacherNotifications";
 // Lives under Profile/ because that page owned it first; it is generic.
 import { SignOutModal } from "@/components/teacher/Profile/SignOutModal";
 import { FeedbackPanel } from "./FeedbackPanel";
@@ -167,11 +164,9 @@ export function TeacherSidebar() {
   const pathname = usePathname();
   // C13: the bell opens a popover; the dot is a badge, never a count, and it
   // reflects live unread state. TODO(api): from the notifications seam.
-  const [notes, setNotes] = useState<TeacherNotification[]>(
-    TEACHER_NOTIFICATIONS,
-  );
+  const { notes, unreadCount, markAllRead } = useTeacherNotifications();
   const [notifOpen, setNotifOpen] = useState(false);
-  const hasNotifications = notes.some((n) => n.unread);
+  const hasNotifications = unreadCount > 0;
   // Desktop opens expanded, tablet collapsed (frame: tablet variants are
   // `collapsed`); the breakpoint re-asserts the default, the chevron is free.
   const [menuOpen, setMenuOpen] = useState(false);
@@ -309,9 +304,7 @@ export function TeacherSidebar() {
       {notifOpen && (
         <NotificationsPanel
           notes={notes}
-          onMarkAllRead={() =>
-            setNotes((ns) => ns.map((n) => ({ ...n, unread: false })))
-          }
+          onMarkAllRead={markAllRead}
           onClose={() => setNotifOpen(false)}
         />
       )}
