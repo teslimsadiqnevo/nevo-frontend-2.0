@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   studentsApi,
+  type Accommodations,
   type ConceptMasteryRow,
+  type LessonProgress,
   type Recommendation,
   type StudentAdaptation,
   type StudentProfileResponse,
@@ -45,6 +47,10 @@ export interface StudentProfileState {
   recommendations: Recommendation[];
   /** What Nevo adjusted, newest first, suppressed ones excluded. */
   adaptations: StudentAdaptation[];
+  /** Lessons worked through, newest first. */
+  sessions: LessonProgress[];
+  /** What Nevo is offering, and why. Null when the read failed. */
+  accommodations: Accommodations | null;
   /** `observed` once Nevo has watched enough to adapt. */
   observed: boolean;
   loading: boolean;
@@ -60,6 +66,10 @@ export function useStudentProfile(studentId: string): StudentProfileState {
   const [names, setNames] = useState<Map<string, string>>(new Map());
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [adaptations, setAdaptations] = useState<StudentAdaptation[]>([]);
+  const [sessions, setSessions] = useState<LessonProgress[]>([]);
+  const [accommodations, setAccommodations] = useState<Accommodations | null>(
+    null,
+  );
   const [observed, setObserved] = useState(false);
   const [missing, setMissing] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -110,6 +120,23 @@ export function useStudentProfile(studentId: string): StudentProfileState {
       })
       .catch(() => {});
     void studentsApi
+      .progress(studentId)
+      .then((p) => {
+        if (cancelled) return;
+        setSessions(
+          [...p.lessons].sort(
+            (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+          ),
+        );
+      })
+      .catch(() => {});
+    void studentsApi
+      .accommodations(studentId)
+      .then((a) => {
+        if (!cancelled) setAccommodations(a);
+      })
+      .catch(() => {});
+    void studentsApi
       .learnerProfile(studentId)
       .then((p) => {
         if (!cancelled) setObserved(p.status === "observed");
@@ -132,6 +159,8 @@ export function useStudentProfile(studentId: string): StudentProfileState {
     })),
     recommendations,
     adaptations,
+    sessions,
+    accommodations,
     observed,
     loading,
     missing,

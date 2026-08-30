@@ -29,15 +29,39 @@ import { MasteryDualTrack } from "./MasteryDualTrack";
  * The C16c adaptation insights are live, from `/api/adaptations/student/{id}`,
  * with suppressed entries excluded - the section is what actually happened.
  *
- * ALSO ABSENT, for want of an endpoint: recent sessions, the noticing banner,
- * and the confidence dimensions. The "what Nevo has seen" evidence list has
- * an endpoint that does not fit it - see `students.ts`.
+ * Recent sessions come from `students/{id}/progress`. Its rows are not
+ * clickable: C08d's session panel wants a section-by-section breakdown, and
+ * nothing serves one. Its position indices are not shown either - the spec
+ * does not say whether they are 0- or 1-based, and "section 0" in front of a
+ * teacher is worse than no position.
+ *
+ * Accommodations are what Nevo is OFFERING, on stated evidence - which is a
+ * different thing from the engine parameters above, and reads in the same
+ * register the recommendations already do.
+ *
+ * ALSO ABSENT, for want of an endpoint: the noticing banner and the confidence
+ * dimensions. The "what Nevo has seen" evidence list has an endpoint that does
+ * not fit it - see `students.ts`.
  * The early state is real: `status: not_observed_yet` is precisely the
  * student the frame's calm early profile was drawn for.
  */
 
 const SECTION_H =
   "text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase xl:text-sm";
+
+/** The support Nevo turned on, named the way the console talks about it. */
+const ACCOMMODATION_LABEL: Record<string, string> = {
+  reading: "Reading support",
+  attention: "Attention support",
+  numerical: "Number support",
+};
+
+/** `LessonCompletionStatus`, in the frame's plain register. */
+const SESSION_NOTE: Record<string, string> = {
+  completed: "Finished this lesson",
+  in_progress: "Working through it",
+  exited: "Left partway through",
+};
 
 function initialsOf(first: string | null, last: string | null): string {
   const a = first?.trim()?.[0] ?? "";
@@ -52,7 +76,15 @@ export function LiveStudentProfile({
   state: StudentProfileState;
   classHref?: string;
 }) {
-  const { profile, concepts, recommendations, adaptations, observed } = state;
+  const {
+    profile,
+    concepts,
+    recommendations,
+    adaptations,
+    sessions,
+    accommodations,
+    observed,
+  } = state;
   if (!profile) return null;
 
   const { student, openFlagCount } = profile;
@@ -151,6 +183,35 @@ export function LiveStudentProfile({
           </>
         )}
 
+        {accommodations && accommodations.activeAccommodations.length > 0 && (
+          <>
+            <h3 className={cn(SECTION_H, "mt-8")}>What Nevo is offering</h3>
+            <p className="mt-2 max-w-[62ch] text-[13px] leading-[1.5] text-nevo-near-black/60">
+              Support Nevo has turned on, and what it saw that led there.
+            </p>
+            <div className="mt-3.5 divide-y divide-nevo-near-black/7 overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1">
+              {accommodations.signals.map((sig) => (
+                <div key={sig.accommodation} className="px-[22px] py-4">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-[15px] font-semibold text-nevo-near-black">
+                      {ACCOMMODATION_LABEL[sig.accommodation] ??
+                        sig.accommodation}
+                    </span>
+                    <span className="rounded-full bg-nevo-navy/9 px-[9px] py-0.5 text-[11px] font-semibold whitespace-nowrap text-nevo-near-black/55">
+                      {`across ${sig.lessonCount} ${sig.lessonCount === 1 ? "lesson" : "lessons"}`}
+                    </span>
+                  </div>
+                  {sig.evidence.length > 0 && (
+                    <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-[1.5] text-nevo-near-black/70">
+                      {sig.evidence.join(" · ")}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         {recommendations.length > 0 && (
           <>
             <h3 className={cn(SECTION_H, "mt-8")}>What might help</h3>
@@ -211,6 +272,32 @@ export function LiveStudentProfile({
                 {ADAPTATIONS_FOOTNOTE_DESKTOP_TAIL}
               </span>
             </p>
+          </>
+        )}
+
+        {sessions.length > 0 && (
+          <>
+            <h3 className={cn(SECTION_H, "mt-8")}>Recent sessions</h3>
+            <div className="mt-3.5 divide-y divide-nevo-near-black/7 overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1">
+              {sessions.slice(0, 8).map((l) => (
+                <div key={l.lessonId} className="flex gap-[18px] px-[22px] py-4">
+                  <span className="w-[70px] shrink-0 pt-0.5 text-[13.5px] text-nevo-near-black/55">
+                    {new Date(l.updatedAt).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-semibold text-nevo-near-black">
+                      {l.title}
+                    </span>
+                    <span className="mt-[5px] block text-[14px] leading-[1.5] text-nevo-near-black/72">
+                      {SESSION_NOTE[l.status] ?? l.status.replace(/_/g, " ")}
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
           </>
         )}
 

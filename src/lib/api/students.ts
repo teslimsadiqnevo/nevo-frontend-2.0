@@ -90,6 +90,62 @@ export interface Concept {
   subject: string;
 }
 
+/** What Nevo is currently offering this student, and on what evidence. */
+export type AccommodationType = "reading" | "attention" | "numerical";
+
+export interface AccommodationSignal {
+  accommodation: AccommodationType;
+  frontendSignal: string;
+  evidence: string[];
+  lessonCount: number;
+}
+
+export interface Accommodations {
+  studentId: string;
+  activeAccommodations: AccommodationType[];
+  frontendSignals: string[];
+  signals: AccommodationSignal[];
+  source: string;
+  /**
+   * The Zero-Tag assertion: whether any of this was written down as a label
+   * about the child. It should always be false, and the compliance screen
+   * makes the same claim school-wide, so it is not rendered per student -
+   * but it is typed, because a `true` here would matter enormously.
+   */
+  persistedAsLabel: boolean;
+}
+
+export interface LessonProgress {
+  lessonId: string;
+  title: string;
+  /** `in_progress` | `completed` | `exited`, per LessonCompletionStatus. */
+  status: string;
+  /**
+   * Indices into the lesson. Whether they are 0- or 1-based is not stated in
+   * the spec and cannot be told apart from one demo school's data, so they
+   * are typed and not rendered - "section 0" in front of a teacher is worse
+   * than no position at all.
+   */
+  modulePosition: number;
+  segmentPosition: number;
+  updatedAt: string;
+}
+
+export interface StudentProgress {
+  studentId: string;
+  subject: string | null;
+  masteryAverage: number | null;
+  concepts: {
+    conceptId: string;
+    name: string;
+    subject: string;
+    understanding: number;
+    reading: number;
+    practiceCount: number;
+  }[];
+  lessons: LessonProgress[];
+}
+
 export const studentsApi = {
   profile: (studentId: string) =>
     api.get<StudentProfileResponse>(`/api/v1/students/${studentId}/profile`),
@@ -108,6 +164,14 @@ export const studentsApi = {
     api.get<StudentAdaptation[]>(`/api/adaptations/student/${studentId}`, {
       params: { limit },
     }),
+
+  /** Lessons this student has worked through, newest activity first. */
+  progress: (studentId: string) =>
+    api.get<StudentProgress>(`/api/students/${studentId}/progress`),
+
+  /** Active accommodations and the evidence behind them. */
+  accommodations: (studentId: string) =>
+    api.get<Accommodations>(`/api/intelligence/accommodations/${studentId}`),
 
   /** Concept names, to resolve the ids mastery returns. */
   concepts: () => api.get<Concept[]>("/api/concepts"),
