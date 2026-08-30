@@ -5,6 +5,7 @@ import type { Assignment } from "@/lib/api/assignments";
 import type {
   LessonContentType,
   LessonDetailResponse,
+  LessonModule,
   LessonSegment,
 } from "@/lib/api/lessons";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,11 @@ import { cn } from "@/lib/utils";
  * screen reports what it knows - who the lesson is assigned to, from the
  * assignments list - and leaves the rest out. The frame's principle for a
  * quiet week applies: the section simply is not there.
+ *
+ * Segments are grouped into the parser's modules when it made any, with each
+ * module's preview and recap. That grouping only exists on the v1 lesson
+ * alias, whose own segments drop the review flags - so the screen asks both
+ * routes and joins them here rather than trading one for the other.
  *
  * TODO(api): per-segment completion, so the progress rows and the dip note can
  * come back.
@@ -104,15 +110,39 @@ function SegmentRow({ segment, index }: { segment: LessonSegment; index: number 
 
 export function LiveLessonDetail({
   lesson,
+  modules,
   assignments,
 }: {
   lesson: LessonDetailResponse;
+  modules: LessonModule[];
   assignments: Assignment[];
 }) {
   const segments = [...lesson.segments].sort(
     (a, b) => a.sequenceOrder - b.sequenceOrder,
   );
   const needsReview = segments.filter((s) => s.needsReview).length;
+
+  // Group by module where the parser made any. A segment the modules do not
+  // claim still has to appear - a lesson that silently hid a section would be
+  // worse than an ungrouped one - so leftovers land in a trailing group.
+  const claimed = new Set(modules.flatMap((m) => m.segmentIds));
+  const grouped =
+    modules.length === 0
+      ? []
+      : [
+          ...modules.map((m) => ({
+            module: m as LessonModule | null,
+            segments: segments.filter((s) => m.segmentIds.includes(s.id)),
+          })),
+          ...(segments.some((s) => !claimed.has(s.id))
+            ? [
+                {
+                  module: null,
+                  segments: segments.filter((s) => !claimed.has(s.id)),
+                },
+              ]
+            : []),
+        ].filter((g) => g.segments.length > 0);
   const students = new Set(assignments.map((a) => a.studentId)).size;
   const nextDue = assignments
     .map((a) => a.dueAt)
@@ -168,7 +198,36 @@ export function LiveLessonDetail({
         )}
 
         <h3 className={cn(SECTION_H, "mt-8")}>What&rsquo;s in this lesson</h3>
-        {segments.length > 0 ? (
+        {segments.length > 0 && grouped.length > 0 ? (
+          <div className="mt-3.5 flex flex-col gap-4 xl:mt-4">
+            {grouped.map((g) => (
+              <div key={g.module?.id ?? "ungrouped"}>
+                <h4 className="text-[14.5px] font-semibold text-nevo-near-black">
+                  {g.module?.title ?? "Also in this lesson"}
+                </h4>
+                {g.module?.preview && (
+                  <p className="mt-1 max-w-[64ch] text-[13.5px] leading-[1.5] text-nevo-near-black/62">
+                    {g.module.preview}
+                  </p>
+                )}
+                <div className="mt-2.5 divide-y divide-nevo-near-black/7 overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1">
+                  {g.segments.map((s) => (
+                    <SegmentRow
+                      key={s.id}
+                      segment={s}
+                      index={segments.indexOf(s)}
+                    />
+                  ))}
+                </div>
+                {g.module?.recap && (
+                  <p className="mt-2 max-w-[64ch] text-[13px] leading-[1.5] text-nevo-near-black/55 italic">
+                    {g.module.recap}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : segments.length > 0 ? (
           <div className="mt-3.5 divide-y divide-nevo-near-black/7 overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 xl:mt-4">
             {segments.map((s, i) => (
               <SegmentRow key={s.id} segment={s} index={i} />

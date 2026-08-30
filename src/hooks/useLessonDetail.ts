@@ -3,16 +3,22 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { assignmentsApi, type Assignment } from "@/lib/api/assignments";
-import { lessonsApi, type LessonDetailResponse } from "@/lib/api/lessons";
+import {
+  lessonsApi,
+  type LessonDetailResponse,
+  type LessonModule,
+} from "@/lib/api/lessons";
 import { getToken } from "@/lib/auth/session";
 import { useHasSession } from "./useHasSession";
 
 /**
  * One lesson: its parsed segments, plus who it has been given to.
  *
- * Two calls, because the contract splits them - `GET /api/content/lessons/{id}`
- * has the content and no assignment, and `GET /api/v1/assignments` has the
- * assignments and cannot be filtered by lesson. The second is best-effort: a
+ * Three calls, because the contract splits them three ways.
+ * `GET /api/content/lessons/{id}` has the segments and their review flags but
+ * no modules; `GET /api/v1/lessons/{id}` has the modules but drops the review
+ * flags; `GET /api/v1/assignments` has the assignments and cannot be filtered
+ * by lesson. Only the first decides whether the page exists. The second is best-effort: a
  * lesson still reads perfectly well without knowing who has it, so a failed
  * assignment call leaves that section absent rather than failing the page.
  *
@@ -23,6 +29,8 @@ import { useHasSession } from "./useHasSession";
 
 export interface LessonDetailState {
   lesson: LessonDetailResponse | null;
+  /** How the parser grouped the segments; empty when it grouped none. */
+  modules: LessonModule[];
   /** Assignments for this lesson; empty when none or when the call failed. */
   assignments: Assignment[];
   loading: boolean;
@@ -35,6 +43,7 @@ export interface LessonDetailState {
 export function useLessonDetail(lessonId: string): LessonDetailState {
   const [lesson, setLesson] = useState<LessonDetailResponse | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [modules, setModules] = useState<LessonModule[]>([]);
   const [missing, setMissing] = useState(false);
   const [failed, setFailed] = useState(false);
   const signedIn = useHasSession();
@@ -55,6 +64,16 @@ export function useLessonDetail(lessonId: string): LessonDetailState {
         else setFailed(true);
       });
 
+    // Best-effort: a lesson reads fine ungrouped.
+    void lessonsApi
+      .modules(lessonId)
+      .then((m) => {
+        if (!cancelled) {
+          setModules([...m].sort((a, b) => a.sequenceOrder - b.sequenceOrder));
+        }
+      })
+      .catch(() => {});
+
     // Best-effort: the page is worth showing without it.
     void assignmentsApi
       .list()
@@ -70,5 +89,5 @@ export function useLessonDetail(lessonId: string): LessonDetailState {
     };
   }, [lessonId]);
 
-  return { lesson, assignments, loading, missing, failed };
+  return { lesson, modules, assignments, loading, missing, failed };
 }
