@@ -7,30 +7,49 @@ import { TEACHER_CLASSES, type TeacherClass } from "@/lib/mocks/teacherClasses";
 
 /**
  * The teacher's class list, live-first: GET /api/v1/teachers/me/classes when
- * a session exists, the design fixtures otherwise. Live classes that match a
- * fixture by name keep the fixture's rich console data (roster, lessons,
- * summaries) with the real class code layered on top; live classes with no
- * fixture surface as `liveExtras` so a screen can show them honestly without
- * inventing detail the backend doesn't serve yet.
+ * a session exists, the design fixtures otherwise.
  *
- * Every console surface that shows classes reads from here, so a real
- * teacher sees their own classes rather than the fixture three.
+ * NO NAME MATCHING. This hook used to pair a live class with a fixture of the
+ * same name and hand back the fixture - roster, lessons, observations and all -
+ * with only the join code replaced. That was defensible while no roster
+ * endpoint existed and indefensible the moment one did: the demo school's real
+ * class is called "JSS 2A", which is also a fixture name, so a real teacher
+ * opening their own class was shown six invented children, complete with seat
+ * numbers, as though they were their students.
  *
- * The live call is capped - a Render cold start must never blank the
- * console - and a call that never lands raises `sample`, so screens can say
- * plainly that they are showing stand-in data instead of passing fixtures
- * off as a roster.
+ * So a live class is now only ever itself. Fixtures back the designed screens
+ * when there is no live data at all, and never stand in for a real class.
+ *
+ * The live call is capped - a Render cold start must never blank the console -
+ * and a call that never lands raises `sample`, so screens can say plainly that
+ * they are showing stand-in data.
  */
 
 const LIVE_TIMEOUT_MS = 6000;
 
-const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+/** Id, name and code - all any picker or selector actually needs. */
+export interface ClassOption {
+  id: string;
+  name: string;
+  joinCode: string | null;
+  /**
+   * Fixture-only. The live class list carries neither a headcount nor a
+   * roster, and a picker must say "we don't know" rather than borrow a
+   * number. `GET /api/v1/classes/{id}/students` has both, per class - see
+   * `useClassRoster` - but that is a fetch per class and belongs to the
+   * screen that needs it.
+   */
+  studentCount?: number;
+  roster?: { name: string }[];
+}
 
 export interface TeacherClasses {
-  /** Fixture-backed classes the teacher has, real join code layered on. */
+  /** Fixture classes, for the designed screens. Empty once live data lands. */
   classes: TeacherClass[];
-  /** Real assignments with no fixture behind them. */
-  liveExtras: AssignedClass[];
+  /** The teacher's real assignments. Empty until they do. */
+  liveClasses: AssignedClass[];
+  /** Whichever of the two is real right now, flattened for pickers. */
+  options: ClassOption[];
   /** Live data is in hand. */
   live: boolean;
   /** A session exists but the live list never arrived - fixtures stand in. */
@@ -64,26 +83,28 @@ export function useTeacherClasses(): TeacherClasses {
   if (liveClasses === null) {
     return {
       classes: TEACHER_CLASSES,
-      liveExtras: [],
+      liveClasses: [],
+      options: TEACHER_CLASSES.map((c) => ({
+        id: c.id,
+        name: c.name,
+        joinCode: c.joinCode,
+        studentCount: c.count,
+        roster: c.roster.map((r) => ({ name: r.name })),
+      })),
       live: false,
       sample: failed,
     };
   }
 
-  const classes: TeacherClass[] = [];
-  const liveExtras: AssignedClass[] = [];
-  for (const assigned of liveClasses) {
-    const fixture = TEACHER_CLASSES.find(
-      (c) => norm(c.name) === norm(assigned.class_name),
-    );
-    if (fixture) {
-      classes.push({
-        ...fixture,
-        joinCode: assigned.class_code ?? fixture.joinCode,
-      });
-    } else {
-      liveExtras.push(assigned);
-    }
-  }
-  return { classes, liveExtras, live: true, sample: false };
+  return {
+    classes: [],
+    liveClasses,
+    options: liveClasses.map((c) => ({
+      id: c.class_id,
+      name: c.class_name,
+      joinCode: c.class_code,
+    })),
+    live: true,
+    sample: false,
+  };
 }

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import {
   type StudentStatus,
   type TeacherClass,
@@ -58,12 +57,10 @@ export function ClassDetail({ klass }: { klass: TeacherClass }) {
   const [tab, setTab] = useState<Tab>("Roster");
   // C12: the dialog is the entry point; projection is the same code, room-sized.
   const [qr, setQr] = useState<"none" | "dialog" | "screen">("none");
-  // The page is fixture-fed server-side, so the join code here can be a
-  // stand-in. A projected code that cannot be joined is the one place a
-  // stale fixture does visible harm, so the live one wins when we have it.
-  const { classes: myClasses } = useTeacherClasses();
-  const joinCode =
-    myClasses.find((c) => c.id === klass.id)?.joinCode ?? klass.joinCode;
+  // This screen renders only while there is no live class list - a real class
+  // goes to `LiveClassDetail` instead - so everything here, the join code
+  // included, is the fixture's own. Nothing live is merged in.
+  const joinCode = klass.joinCode;
 
   const glanceCount = klass.roster.filter((r) => r.status === "glance").length;
   const flagCount = klass.roster.filter((r) => r.status === "flag").length;

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import { SCHOOL_LINE } from "@/lib/mocks/teacherClasses";
 import { cn } from "@/lib/utils";
@@ -12,10 +13,10 @@ import { cn } from "@/lib/utils";
  * No classes yet renders the calm empty state - assignment is the admin's job,
  * never a dead end.
  *
- * Data is live-first via useTeacherClasses: real assignments enrich the
- * fixtures by name; live classes without a fixture render as quiet cards
- * (name + class code) that open the minimal live detail, since the backend
- * serves no roster or lessons for them yet.
+ * Data is live-first via useTeacherClasses, and a real class is never
+ * dressed in a fixture: live classes render as their own cards (name + class
+ * code) linking to their real id, and the fixture cards appear only when
+ * there is no live list at all - in which case the page says so.
  */
 
 function SummaryDot({ tone }: { tone: "glance" | "ok" }) {
@@ -32,9 +33,10 @@ function SummaryDot({ tone }: { tone: "glance" | "ok" }) {
 }
 
 export function ClassesList() {
-  const { classes, liveExtras, sample } = useTeacherClasses();
+  const { classes, liveClasses, sample, live } = useTeacherClasses();
+  const identity = useCurrentUser();
 
-  if (classes.length === 0 && liveExtras.length === 0) {
+  if (classes.length === 0 && liveClasses.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center p-12">
         <div className="flex max-w-[400px] flex-col items-center text-center">
@@ -64,9 +66,13 @@ export function ClassesList() {
         <h2 className="text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
           My Classes
         </h2>
-        <p className="mt-[7px] text-sm text-nevo-near-black/60 xl:mt-2 xl:text-[15px]">
-          {SCHOOL_LINE}
-        </p>
+        {/* The real school from `users/me`; the fixture line, term and all,
+            belongs only to the designed screens. Absent beats invented. */}
+        {(identity?.school ?? (!live && SCHOOL_LINE)) && (
+          <p className="mt-[7px] text-sm text-nevo-near-black/60 xl:mt-2 xl:text-[15px]">
+            {identity?.school ?? SCHOOL_LINE}
+          </p>
+        )}
 
         {/* Sample data must never pass for a roster: if the live list didn't
             arrive, say so plainly rather than letting fixtures stand in
@@ -111,7 +117,7 @@ export function ClassesList() {
               </div>
             </Link>
           ))}
-          {liveExtras.map((a) => (
+          {liveClasses.map((a) => (
             <Link
               key={a.assignment_id}
               href={`/teacher/classes/${a.class_id}`}
@@ -156,7 +162,7 @@ export function ClassesList() {
               </div>
             </Link>
           ))}
-          {liveExtras.map((a) => (
+          {liveClasses.map((a) => (
             <Link
               key={a.assignment_id}
               href={`/teacher/classes/${a.class_id}`}

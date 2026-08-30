@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
  * render as quiet cards rather than being dropped or dressed up.
  */
 export function HomeClasses() {
-  const { classes, liveExtras } = useTeacherClasses();
+  const { classes, liveClasses } = useTeacherClasses();
 
   return (
     <div className="mt-3.5 flex flex-wrap gap-3 xl:mt-4 xl:gap-3.5">
@@ -53,7 +53,7 @@ export function HomeClasses() {
         );
       })}
 
-      {liveExtras.map((a) => (
+      {liveClasses.map((a) => (
         <Link
           key={a.assignment_id}
           href={`/teacher/classes/${a.class_id}`}
