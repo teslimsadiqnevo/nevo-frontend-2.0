@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, Send } from "lucide-react";
 import { NevoKeyboard, useNevoKeyboardDock } from "@/components/shared";
+import { useStudentThreads } from "@/hooks/useStudentThreads";
 import { cn } from "@/lib/utils";
-import { THREADS, type Message, type Thread } from "./connectData";
+import { type Message, type Thread } from "./connectData";
 
 /** Simulated delivery latency for an optimistic message. */
 const DELIVER_MS = 1100;
@@ -14,13 +15,28 @@ const DELIVER_MS = 1100;
  * once the teacher adds one, a parent). Two panes on tablet/desktop (thread list
  * + conversation); a single pane with a back button on mobile.
  *
- * v1 is a UI shell over mock threads — sending is optimistic and delivery is
- * simulated. TODO(api): real threads, messages, and send.
+ * Threads and messages are live from `/api/messages/*`. SENDING IS NOT, and
+ * not by omission: `POST /api/messages` constrains `recipientType` to
+ * `^(student|class)$` - there is no `teacher` value - so a student cannot
+ * address their teacher through the contract at all. The composer says so
+ * rather than dropping a child's message into a request that cannot be
+ * addressed. Fixtures keep the optimistic send for the designed screens.
+ *
+ * TODO(api): a student-to-teacher recipient. Logged as a student blocker.
  */
 export function ConnectTab() {
-  // Messages live in state so sending/delivery can update them.
-  const [threads, setThreads] = useState<Thread[]>(THREADS);
-  const [activeId, setActiveId] = useState<string>(THREADS[0].id);
+  // Live threads read from the API; the fixtures back the designed screens
+  // and keep their simulated send.
+  const {
+    threads: sourceThreads,
+    live,
+    loading,
+    openThread: fetchThread,
+  } = useStudentThreads();
+  const [fixtureThreads, setFixtureThreads] = useState<Thread[]>(sourceThreads);
+  const threads = live ? sourceThreads : fixtureThreads;
+  const setThreads = setFixtureThreads;
+  const [activeId, setActiveId] = useState<string>("");
   // Mobile only: which pane is showing.
   const [mobileView, setMobileView] = useState<"list" | "thread">("list");
   const [draft, setDraft] = useState("");
@@ -33,7 +49,14 @@ export function ConnectTab() {
     return () => active.forEach(clearTimeout);
   }, []);
 
+  // Derived, not assigned: the live list arrives after mount, and setting a
+  // default from an effect is the setState-in-effect the codebase rules out.
   const active = threads.find((t) => t.id === activeId) ?? threads[0];
+
+  // The list endpoint carries no message bodies, so opening one fetches it.
+  useEffect(() => {
+    if (active) fetchThread(active.id);
+  }, [active, fetchThread]);
 
   const setMessages = (threadId: string, fn: (m: Message[]) => Message[]) =>
     setThreads((ts) =>
@@ -81,6 +104,39 @@ export function ConnectTab() {
     setMobileView("thread");
   };
 
+  // A live student can genuinely have no threads, which the fixtures never
+  // could - and every pane below assumes an active one.
+  if (live && (loading || !active)) {
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="px-5 pt-5 pb-3">
+          <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-nevo-near-black">
+            Connect
+          </h1>
+        </div>
+        {loading ? (
+          <div className="space-y-2 px-3">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="h-[62px] animate-pulse rounded-[12px] bg-nevo-cream-elevated"
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center px-10 pb-10 text-center">
+            <p className="text-[17px] font-medium text-nevo-near-black">
+              No messages yet
+            </p>
+            <p className="mt-2 max-w-[300px] text-[15px] leading-[1.5] text-nevo-near-black/62">
+              When your teacher sends you a message, you&apos;ll find it here.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full min-h-0">
       {/* Thread list — always on md+, on mobile only in list view */}
@@ -100,7 +156,10 @@ export function ConnectTab() {
             <button
               key={thread.id}
               type="button"
-              onClick={() => openThread(thread.id)}
+              onClick={() => {
+                fetchThread(thread.id);
+                openThread(thread.id);
+              }}
               aria-current={thread.id === activeId}
               className={cn(
                 "mb-0.5 flex w-full items-center gap-3 rounded-[12px] p-3 text-left transition-colors",
@@ -159,6 +218,16 @@ export function ConnectTab() {
           ))}
         </div>
 
+        {live ? (
+          /* Not a disabled input: a child should be told why, not left
+             poking at something inert. */
+          <div className="shrink-0 border-t border-nevo-near-black/8 px-4 py-3.5">
+            <p className="text-[13.5px] leading-[1.45] text-nevo-near-black/60">
+              You can read messages from your teacher here. Replying isn&apos;t
+              switched on yet.
+            </p>
+          </div>
+        ) : (
         <div className="flex shrink-0 items-center gap-2.5 border-t border-nevo-near-black/8 px-4 py-3">
           <input
             value={draft}
@@ -186,9 +255,10 @@ export function ConnectTab() {
             <Send className="size-5" strokeWidth={2} />
           </button>
         </div>
+        )}
 
         {/* Message entry on touch - docked below the composer so it stays visible. */}
-        {kb.open && (
+        {!live && kb.open && (
           <NevoKeyboard
             layout="qwerty"
             onKey={(c) => setDraft((d) => d + c)}
