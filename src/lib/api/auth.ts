@@ -37,7 +37,35 @@ function store(login: LoginResponse): LoginResponse {
   return login;
 }
 
+/** 200 of POST /auth/school-code/verify - the school, and its classes. */
+export interface SchoolVerification {
+  schoolId: string;
+  schoolName: string;
+  /** How this school's students sign in; no enum in the spec. */
+  authMethod: string;
+  classes: { id: string; name: string; yearGroup: string | null }[];
+}
+
 export const authApi = {
+  /**
+   * Resolve a school code during onboarding. Pre-auth by design - the child
+   * has no session yet - and the response carries the school's class list,
+   * which is exactly what the class-confirmation step needs.
+   */
+  verifySchoolCode: (schoolCode: string) =>
+    api.post<SchoolVerification>("/api/v1/auth/school-code/verify", {
+      schoolCode,
+    }),
+
+  /**
+   * Store the chosen PIN server-side. Requires a Bearer session - which pure
+   * pre-auth onboarding does not have, so the PIN screen only calls this when
+   * a token exists (the SSO path, or any future flow that signs in first).
+   * Flagged to backend: a child who onboards with no session cannot store
+   * their PIN, and their next sign-in checks it server-side.
+   */
+  setPin: (pin: string) => api.post<Record<string, string>>("/api/v1/auth/pin", { pin }),
+
   /** Staff sign-in (teacher/admin) - email + password. */
   loginPassword: (payload: { email: string; password: string }) =>
     api

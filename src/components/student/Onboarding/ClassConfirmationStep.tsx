@@ -9,12 +9,16 @@ import {
   NevoKeyboard,
   useNevoKeyboardDock,
 } from "@/components/shared";
+import {
+  getOnboardingDraft,
+  mergeOnboardingDraft,
+} from "@/lib/auth/onboarding";
 import { OnboardingShell } from "./OnboardingShell";
 
 const NEXT_STEP = "/student/onboarding/sequence";
 
-// TODO(api): replace with the school's actual class roster. Auto-skip when a
-// single class matches; show the searchable list when several do.
+// The signed-out designed screen's list. A live flow reads the classes the
+// school-code verification returned instead - see the draft read below.
 const DEMO_CLASSES = [
   "Year 2 Wrens",
   "Year 2 Sparrows",
@@ -39,11 +43,25 @@ const DEMO_CLASSES = [
  * roster verbatim (no Nevo-imposed naming).
  */
 export function ClassConfirmationStep({
-  classes = DEMO_CLASSES,
+  classes: classesProp,
 }: {
   classes?: string[];
 }) {
   const router = useRouter();
+  // The school's real classes arrived with the code verification and live in
+  // the onboarding draft; the fixtures back the designed screen when the
+  // draft has none (signed-out preview, or a school with no classes listed).
+  const [draftClasses, setDraftClasses] = useState<string[] | null>(null);
+  useEffect(() => {
+    const fromDraft = getOnboardingDraft().classes;
+    if (fromDraft && fromDraft.length > 0) {
+      // Post-mount hydration read of an external store, same pattern as
+      // AccessibilityContext - it cannot run during render without a mismatch.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDraftClasses(fromDraft.map((c) => c.name));
+    }
+  }, []);
+  const classes = classesProp ?? draftClasses ?? DEMO_CLASSES;
   const mode = classes.length === 1 ? "autoskip" : "select";
   const [query, setQuery] = useState("");
   const kb = useNevoKeyboardDock();
@@ -68,6 +86,10 @@ export function ClassConfirmationStep({
 
   const pick = (name: string) => {
     setSelected(name);
+    // Keep what they chose: the id rides the draft for whichever later step
+    // can finally join the class (the class-code endpoint needs a session).
+    const match = getOnboardingDraft().classes?.find((c) => c.name === name);
+    mergeOnboardingDraft({ className: name, classId: match?.id });
     if (navT.current) clearTimeout(navT.current);
     navT.current = setTimeout(() => router.push(NEXT_STEP), 480);
   };

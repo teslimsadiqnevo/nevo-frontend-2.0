@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button, IllustrationWrapper } from "@/components/shared";
+import { ApiError, authApi } from "@/lib/api";
 import { BUSY_PHASE, BUSY_REASON, SIGNAL_EVENT_TYPES } from "@/lib/constants";
 import { useSignals } from "@/hooks";
 import { mergeOnboardingDraft } from "@/lib/auth/onboarding";
@@ -11,10 +12,6 @@ import { OnboardingShell } from "./OnboardingShell";
 import { SchoolCodeInput, type CodeStatus } from "./SchoolCodeInput";
 
 const NEXT_STEP = "/student/onboarding/class";
-
-// TODO(api): replace this demo check with a real school-code lookup once the
-// backend contract exists. The valid demo code is NEVO-7K2M.
-const DEMO_VALID_CODE = "7K2M";
 
 /**
  * Onboarding Step 2 — School Connection (UI/UX spec B.2 Step 2). Identifies the
@@ -27,6 +24,10 @@ export function SchoolConnectionStep() {
   const router = useRouter();
   const [code, setCode] = useState(["", "", "", ""]);
   const [status, setStatus] = useState<CodeStatus>("idle");
+  // A school that does not exist and a check we could not run are different
+  // sentences, and a child should never wonder if they mistyped when we
+  // failed. Both render in the same warm error styling.
+  const [trouble, setTrouble] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [signalSession] = useState(() => `onboarding-school-${randomId()}`);
   const { trackEvent } = useSignals(signalSession);
@@ -57,24 +58,36 @@ export function SchoolConnectionStep() {
   const handleChange = (next: string[]) => {
     reset();
     setStatus("idle");
+    setTrouble(false);
     setCode(next);
   };
 
   const handleComplete = (entered: string) => {
     setStatus("pending");
-    timers.current.push(
-      setTimeout(() => {
-        if (entered === DEMO_VALID_CODE) {
-          setStatus("success");
-          // Remember which school this device joined (folded into the
-          // remembered profile at PIN creation - the live login needs it).
-          // Canonical form: the UI's fixed prefix + the four typed characters.
-          mergeOnboardingDraft({ schoolCode: `NEVO-${entered}` });
-          timers.current.push(setTimeout(() => router.push(NEXT_STEP), 900));
-        } else {
-          setStatus("error");
-        }
-      }, 700),
+    setTrouble(false);
+    // Canonical form: the UI's fixed prefix + the four typed characters.
+    const schoolCode = `NEVO-${entered}`;
+    void authApi.verifySchoolCode(schoolCode).then(
+      (school) => {
+        setStatus("success");
+        // Remember what the school told us: the code (the live login needs
+        // it), the name, how its students sign in, and its class list -
+        // which is exactly what the next step confirms against.
+        mergeOnboardingDraft({
+          schoolCode,
+          schoolName: school.schoolName,
+          authMethod: school.authMethod,
+          classes: school.classes.map((c) => ({ id: c.id, name: c.name })),
+        });
+        timers.current.push(setTimeout(() => router.push(NEXT_STEP), 900));
+      },
+      (err: unknown) => {
+        // 4xx is the server's answer about the code; anything else is ours.
+        const notFound =
+          err instanceof ApiError && err.status >= 400 && err.status < 500;
+        setTrouble(!notFound);
+        setStatus("error");
+      },
     );
   };
 
@@ -86,7 +99,9 @@ export function SchoolConnectionStep() {
         }
       : status === "error"
         ? {
-            text: "That code doesn't match a school. Check it with your teacher.",
+            text: trouble
+              ? "We couldn't check that just now. Give it a moment and try again."
+              : "That code doesn't match a school. Check it with your teacher.",
             className: "text-nevo-violet",
           }
         : null;

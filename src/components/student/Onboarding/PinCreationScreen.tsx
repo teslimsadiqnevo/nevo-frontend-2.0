@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { NevoKeyboard } from "@/components/shared";
+import { authApi } from "@/lib/api";
+import { getToken } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,12 +13,23 @@ import { cn } from "@/lib/utils";
  * lives in one place and rapid input (fast typing, held keys, quick taps) always
  * folds onto the latest state — no stale closures, no setState-in-effect.
  *
- * TODO(api): persist the chosen PIN via the auth client on `done`.
+ * When a session exists the PIN is stored server-side before the flow
+ * advances - the next sign-in checks it there, so celebrating first would be
+ * a lie. Pure pre-auth onboarding has no token to send (`POST /auth/pin` is
+ * Bearer-only, flagged to backend), so that path stays device-only.
  */
 type PinState = { digits: string; error: boolean; done: boolean };
-type PinAction = { type: "digit"; value: string } | { type: "backspace" };
+type PinAction =
+  | { type: "digit"; value: string }
+  | { type: "backspace" }
+  | { type: "saveFailed" };
 
 function pinReducer(state: PinState, action: PinAction): PinState {
+  // The server rejected the save: keep their first PIN, re-open the confirm
+  // row, and let the alert line explain.
+  if (action.type === "saveFailed") {
+    return { digits: state.digits.slice(0, 4), error: false, done: false };
+  }
   if (action.type === "backspace") {
     if (state.done) return state;
     return { digits: state.digits.slice(0, -1), error: false, done: false };
@@ -56,6 +69,7 @@ export function PinCreationScreen({
     error: false,
     done: false,
   });
+  const [saveFailed, setSaveFailed] = useState(false);
 
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
@@ -64,6 +78,7 @@ export function PinCreationScreen({
 
   // Stable handlers — dispatch never goes stale, so rapid input folds correctly.
   const pressDigit = useCallback((d: string) => {
+    setSaveFailed(false);
     dispatch({ type: "digit", value: d });
   }, []);
   const backspace = useCallback(() => dispatch({ type: "backspace" }), []);
@@ -84,11 +99,34 @@ export function PinCreationScreen({
   }, [sso, pressDigit, backspace]);
 
   // Auto-advance once the PIN is set (manual) or the SSO confirmation lands.
+  // With a session, "set" means stored server-side: the write happens inside
+  // the designed beat, and a failure re-opens the confirm row instead of
+  // advancing on a PIN the next sign-in would reject.
   useEffect(() => {
     if (!done && !sso) return;
-    const t = setTimeout(() => onCompleteRef.current?.(), sso ? 1600 : 1200);
-    return () => clearTimeout(t);
-  }, [done, sso]);
+    let cancelled = false;
+    const t = setTimeout(() => {
+      if (sso || !getToken()) {
+        onCompleteRef.current?.();
+        return;
+      }
+      void authApi.setPin(digits.slice(0, 4)).then(
+        () => {
+          if (!cancelled) onCompleteRef.current?.();
+        },
+        () => {
+          if (!cancelled) {
+            setSaveFailed(true);
+            dispatch({ type: "saveFailed" });
+          }
+        },
+      );
+    }, sso ? 1600 : 1200);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [done, sso, digits]);
 
   const showEntry = !sso && !done;
   const showConfirmation = sso || done;
@@ -135,7 +173,11 @@ export function PinCreationScreen({
               role="alert"
               className="mt-4 min-h-5 text-sm text-nevo-violet"
             >
-              {error ? "Those didn't match - let's try once more" : ""}
+              {error
+                ? "Those didn't match - let's try once more"
+                : saveFailed
+                  ? "That didn't save - type it again to confirm"
+                  : ""}
             </p>
           </>
         )}

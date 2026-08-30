@@ -14,6 +14,13 @@ export interface OnboardingDraft {
   name?: string;
   age?: number;
   schoolCode?: string;
+  /** From the live school-code verification, when it ran. */
+  schoolName?: string;
+  authMethod?: string;
+  classes?: { id: string; name: string }[];
+  /** The class the student picked (or the only one there was). */
+  classId?: string;
+  className?: string;
 }
 
 export function getOnboardingDraft(): OnboardingDraft {
