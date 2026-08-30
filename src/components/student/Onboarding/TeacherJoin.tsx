@@ -7,7 +7,12 @@ import { Check, ChevronLeft } from "lucide-react";
 import { NevoKeyboard, useNevoKeyboardDock } from "@/components/shared";
 import { cn } from "@/lib/utils";
 
-/** Mock class code until the roster contract lands. TODO(api). */
+/** Mock class code. `POST /api/v1/connections/class-code` exists (the code
+ *  rides a `class_code` query param on a POST - flagged) but is Bearer-only,
+ *  and this step runs before any session exists - so a real join cannot
+ *  happen here. The picked class rides the onboarding draft instead; flagged
+ *  to backend: either the endpoint accepts the pre-auth flow, or the join
+ *  fires after first sign-in. TODO(api). */
 const VALID_CODE = "MAP4KZ";
 /** Mock validation beat. */
 const VALIDATE_MS = 700;
