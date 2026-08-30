@@ -112,3 +112,34 @@ export const studentsApi = {
   /** Concept names, to resolve the ids mastery returns. */
   concepts: () => api.get<Concept[]>("/api/concepts"),
 };
+
+/** One misconception several students in a class share (C09). */
+export interface ClassMisconception {
+  conceptId: string;
+  conceptName: string;
+  /** A short name for the shape of the error. */
+  pattern: string;
+  studentCount: number;
+  description: string;
+}
+
+/** Class-level mastery per concept. Carries `conceptName`, unlike the
+ *  per-student read - see the note at the top of this file. */
+export interface ClassMasteryRow {
+  conceptId: string;
+  conceptName: string;
+  studentCount: number;
+  masteryProbabilityConcept: number;
+  masteryProbabilityReading: number;
+}
+
+export const classInsightsApi = {
+  /** Shared misconceptions. `minimumStudents` filters out one-offs. */
+  misconceptions: (classId: string, minimumStudents = 2) =>
+    api.get<ClassMisconception[]>(`/api/misconceptions/class/${classId}`, {
+      params: { minimumStudents },
+    }),
+
+  mastery: (classId: string) =>
+    api.get<ClassMasteryRow[]>(`/api/mastery/class/${classId}`),
+};
