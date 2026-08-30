@@ -28,6 +28,12 @@ export {
   type LessonSourceType,
 } from "./lessons";
 export { usersApi, type CurrentUser, type SchoolSummary } from "./users";
+export {
+  settingsApi,
+  type SettingsBag,
+  type TeacherNotificationSettings,
+} from "./settings";
+export { assignmentsApi, type Assignment } from "./assignments";
 export { permissionsApi, type PermissionsMe } from "./permissions";
 export {
   schoolIntelligenceApi,

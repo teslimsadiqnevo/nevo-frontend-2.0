@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { TEACHER_INVITE } from "@/lib/mocks/teacherOnboarding";
+import { authApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { SetPasswordForm } from "./SetPasswordForm";
 
@@ -19,8 +19,15 @@ import { SetPasswordForm } from "./SetPasswordForm";
  * Routing: `?token=` opens Step B, `?expired=1` the failure state, otherwise
  * Step A.
  *
- * TODO(api): no password-reset endpoint is deployed - the request below is
- * simulated, which is why the confirmation is deliberately non-committal.
+ * The request is live against POST /api/v1/auth/forgot-password, which always
+ * returns the same generic receipt whether or not the address is known - so
+ * the screen cannot be used to discover who has an account. That is also why
+ * the confirmation stays non-committal, and why a failed request still shows
+ * it: revealing "no such user" through an error would defeat the endpoint's
+ * own design.
+ *
+ * TODO(api): email delivery needs its provider configured on the backend, so
+ * a receipt today does not mean a message has landed.
  */
 
 const SENDING_MS = 1100;
@@ -56,13 +63,9 @@ export function TeacherPasswordReset() {
 
   // Step B - the emailed link lands here with a token.
   if (token && !expired) {
-    return (
-      <SetPasswordForm
-        mode="reset"
-        email={TEACHER_INVITE.email}
-        school={`${TEACHER_INVITE.school} · ${TEACHER_INVITE.location}`}
-      />
-    );
+    // No email, no school: the reset token is opaque and nothing resolves it
+    // to an account, so naming one would mean naming a stranger's.
+    return <SetPasswordForm mode="reset" />;
   }
 
   // Failure - the link aged out. Always a way forward.
@@ -134,7 +137,18 @@ export function TeacherPasswordReset() {
   const send = () => {
     if (!valid || phase === "sending") return;
     setPhase("sending");
-    timers.current.push(setTimeout(() => setPhase("sent"), SENDING_MS));
+    // The frame's beat and the request run together, so a fast reply still
+    // lands after the beat rather than flashing past it.
+    const beat = new Promise<void>((resolve) => {
+      timers.current.push(setTimeout(resolve, SENDING_MS));
+    });
+    void Promise.all([
+      // The same confirmation either way: an error here would leak whether
+      // the address is known, which is the one thing this endpoint is built
+      // not to reveal.
+      authApi.requestPasswordReset(email.trim()).catch(() => null),
+      beat,
+    ]).then(() => setPhase("sent"));
   };
 
   return (
