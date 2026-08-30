@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { classesApi, type ClassStudent } from "@/lib/api/classes";
-import { getToken } from "@/lib/auth/session";
-import { useHasSession } from "./useHasSession";
+import { useLiveQuery } from "./useLiveQuery";
 
 /**
  * One class's roster, from `GET /api/v1/classes/{class_id}/students`.
@@ -22,8 +21,6 @@ import { useHasSession } from "./useHasSession";
  * "worth a glance" signal the fixture rows do.
  */
 
-const LIVE_TIMEOUT_MS = 6000;
-
 export interface ClassRoster {
   students: ClassStudent[];
   loading: boolean;
@@ -32,33 +29,12 @@ export interface ClassRoster {
 }
 
 export function useClassRoster(classId: string): ClassRoster {
-  const [students, setStudents] = useState<ClassStudent[] | null>(null);
-  const [failed, setFailed] = useState(false);
-  const signedIn = useHasSession();
-  const loading = signedIn && students === null && !failed;
-
-  useEffect(() => {
-    if (!getToken()) return;
-    let cancelled = false;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const timeout = new Promise<null>((resolve) => {
-      timers.push(setTimeout(() => resolve(null), LIVE_TIMEOUT_MS));
-    });
-    void Promise.race([
-      classesApi.classStudents(classId).catch(() => null),
-      timeout,
-    ]).then((res) => {
-      if (cancelled) return;
-      if (res) setStudents(res);
-      else setFailed(true);
-    });
-    return () => {
-      cancelled = true;
-      timers.forEach(clearTimeout);
-    };
-  }, [classId]);
-
-  return { students: students ?? [], loading, failed };
+  const run = useCallback(
+    () => classesApi.classStudents(classId),
+    [classId],
+  );
+  const { data, failed, loading } = useLiveQuery<ClassStudent[]>(run, [classId]);
+  return { students: data ?? [], loading, failed };
 }
 
 /** The name to show: the given/family pair, or the backend's fallback. */

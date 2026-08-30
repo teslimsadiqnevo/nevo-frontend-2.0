@@ -67,7 +67,7 @@ function UploadButton({ className }: { className?: string }) {
 export function LessonLibrary() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<LibraryFilter>("All");
-  const { cards: lessons, live, sample, loading } = useLessonLibrary();
+  const { cards: lessons, live, sample, loading, slow } = useLessonLibrary();
 
   const q = query.trim().toLowerCase();
   const shown = lessons.filter(
@@ -86,6 +86,11 @@ export function LessonLibrary() {
         <h2 className="text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
           Lesson Library
         </h2>
+        {slow && (
+          <p className="mt-2 max-w-[560px] text-[13px] leading-[1.5] text-nevo-near-black/55">
+            Still fetching your lessons &ndash; the server is taking a moment.
+          </p>
+        )}
         <div className="mt-[18px] h-12 max-w-[1000px] animate-pulse rounded-[10px] bg-nevo-cream-elevated xl:mt-[22px] xl:h-[50px]" />
         <div className="mt-[18px] grid max-w-[1000px] grid-cols-2 gap-3.5 xl:grid-cols-3 xl:gap-4">
           {[0, 1, 2, 3, 4, 5].map((i) => (
