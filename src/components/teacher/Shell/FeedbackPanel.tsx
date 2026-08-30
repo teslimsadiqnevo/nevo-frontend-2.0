@@ -1,6 +1,8 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { feedbackApi } from "@/lib/api/feedback";
 import { cn } from "@/lib/utils";
 
 /**
@@ -19,12 +21,18 @@ import { cn } from "@/lib/utils";
  * nevo-pop, and two success moments popping differently would read worse than
  * the divergence. Flagged to design.
  *
- * TODO(api): `POST /api/v1/feedback` IS deployed - it is one of the seven
- * endpoints still returning an untyped ack - but this panel is not wired to
- * it yet, so `send` resolves locally, and
- * nothing is transmitted. TODO(design): the sent state both auto-closes at
- * ~1.5s and draws an "Open again" button, which leaves that button barely
- * reachable; built as drawn and raised.
+ * Live against `POST /api/v1/feedback`, carrying the route the teacher was on
+ * as `context` - "which screen was this about" is the first question feedback
+ * raises.
+ *
+ * The frame draws no failure state, as it draws none for Set Password. A
+ * feedback panel that says "Thank you" while transmitting nothing is the worst
+ * version of this screen, so the failure branch here is ours, in the house
+ * voice, and keeps the note so it can be sent again. Flagged to design.
+ *
+ * TODO(design): the sent state both auto-closes at ~1.5s and draws an "Open
+ * again" button, which leaves that button barely reachable; built as drawn
+ * and raised.
  */
 
 /** The frame's note: "auto-closes ~1.5s in-app". */
@@ -36,9 +44,12 @@ const PILL_BASE =
   "inline-flex h-9 cursor-pointer items-center rounded-[20px] px-4 text-[13px] transition-[filter,background-color] active:scale-[0.98]";
 
 export function FeedbackPanel({ onClose }: { onClose: () => void }) {
+  const pathname = usePathname();
   const [type, setType] = useState<FeedbackType>("feedback");
   const [text, setText] = useState("");
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [failed, setFailed] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -59,16 +70,28 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
   const ready = text.trim().length > 0;
 
   const send = () => {
-    if (!ready || sent) return;
-    // TODO(api): post to `/api/v1/feedback`, which exists and is unwired.
-    setSent(true);
-    closeTimer.current = setTimeout(onClose, SENT_CLOSE_MS);
+    if (!ready || sent || sending) return;
+    setSending(true);
+    setFailed(false);
+    void feedbackApi
+      .submit({ type, note: text.trim(), context: pathname ?? undefined })
+      .then(() => {
+        setSending(false);
+        // Only now: the thank-you must mean something was stored.
+        setSent(true);
+        closeTimer.current = setTimeout(onClose, SENT_CLOSE_MS);
+      })
+      .catch(() => {
+        setSending(false);
+        setFailed(true);
+      });
   };
 
   const openAgain = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
     setText("");
     setSent(false);
+    setFailed(false);
   };
 
   const panel =
@@ -177,17 +200,27 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
             className="mt-4 min-h-[120px] w-full resize-none rounded-[10px] border border-nevo-near-black/12 bg-nevo-cream-elevated px-3.5 py-3 text-sm leading-[1.5] text-nevo-near-black outline-none transition-colors placeholder:text-nevo-near-black/30 focus:border-nevo-navy"
           />
 
+          {/* Ours, not the frame's: the note is kept so it can be sent again,
+              and nothing is thanked for until something is stored. */}
+          {failed && (
+            <p className="mt-3 rounded-[10px] bg-nevo-violet/14 px-3.5 py-3 text-[13px] leading-[1.5] text-nevo-near-black/78">
+              That didn&rsquo;t reach us &ndash; your note is still here, so
+              you can try again in a moment.
+            </p>
+          )}
+
           <button
             type="button"
             onClick={send}
+            disabled={!ready || sending}
             className={cn(
               "mt-4 flex h-11 w-full items-center justify-center rounded-[10px] bg-nevo-navy text-[13px] font-semibold text-nevo-cream transition-[filter]",
-              ready
+              ready && !sending
                 ? "cursor-pointer hover:brightness-[1.06] active:scale-[0.98]"
                 : "cursor-default opacity-50",
             )}
           >
-            Send Feedback
+            {sending ? "Sending…" : failed ? "Try again" : "Send Feedback"}
           </button>
         </div>
       )}
