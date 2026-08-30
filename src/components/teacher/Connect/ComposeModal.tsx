@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useStudentDirectory } from "@/hooks/useStudentDirectory";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import {
   COMPOSE_CLASS_FILTERS,
@@ -45,7 +46,9 @@ export function ComposeModal({
 }) {
   const [query, setQuery] = useState("");
   // Filter chips follow the teacher's real classes; "All classes" leads.
-  const { options: classes } = useTeacherClasses();
+  const { options: classes, live } = useTeacherClasses();
+  const { students: directory, loading: directoryLoading } =
+    useStudentDirectory();
   const classFilters = [
     COMPOSE_CLASS_FILTERS[0],
     ...classes.map((c) => c.name),
@@ -72,14 +75,32 @@ export function ComposeModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, phase]);
 
+  // Real students when we have them; the fixtures only back the designed
+  // screens. A compose list of invented children on a screen that sends
+  // messages would be the worst place for one.
+  const roster: ComposeStudent[] = useMemo(
+    () =>
+      directory.length > 0
+        ? directory.map((s) => ({
+            name: s.name,
+            className: s.className,
+            initials: s.initials,
+            studentId: s.studentId,
+          }))
+        : live
+          ? []
+          : COMPOSE_STUDENTS,
+    [directory, live],
+  );
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return COMPOSE_STUDENTS.filter(
+    return roster.filter(
       (s) =>
         (filter === "All classes" || s.className === filter) &&
         (!q || s.name.toLowerCase().includes(q)),
     );
-  }, [query, filter]);
+  }, [query, filter, roster]);
 
   const firstName = picked?.name.split(" ")[0] ?? "the student";
   const ready = Boolean(picked) && text.trim().length > 0;
@@ -292,11 +313,26 @@ export function ComposeModal({
                       </span>
                     </button>
                   ))}
-                  {shown.length === 0 && (
-                    <p className="px-2 py-4 text-[13px] text-nevo-near-black/50">
-                      {`No students match “${query.trim()}”.`}
-                    </p>
-                  )}
+                  {shown.length === 0 &&
+                    (directoryLoading ? (
+                      <div className="space-y-2 px-2 py-2">
+                        {[0, 1, 2].map((i) => (
+                          <div
+                            key={i}
+                            className="h-[46px] animate-pulse rounded-[10px] bg-nevo-cream-inset"
+                          />
+                        ))}
+                      </div>
+                    ) : query.trim() ? (
+                      <p className="px-2 py-4 text-[13px] text-nevo-near-black/50">
+                        {`No students match “${query.trim()}”.`}
+                      </p>
+                    ) : (
+                      <p className="px-2 py-4 text-[13px] leading-[1.5] text-nevo-near-black/50">
+                        Nobody has joined your classes yet, so there&rsquo;s
+                        nobody to message.
+                      </p>
+                    ))}
                 </div>
 
                 {/* The frame keeps one advisory for the whole form; our picker
