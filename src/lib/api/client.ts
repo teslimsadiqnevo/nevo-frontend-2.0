@@ -96,15 +96,6 @@ export interface RequestOptions extends Omit<RequestInit, "body"> {
   params?: Record<string, QueryValue>;
   /** Override the environment base URL (e.g. a public endpoint on a different host). */
   baseUrl?: string;
-  /**
-   * Treat a 401/403 here as "not available to me", not as a dead session.
-   *
-   * The default is right for the calls a screen depends on: a rejected token
-   * should sign someone out rather than leave them in a console that quietly
-   * fails. It is wrong for a speculative read - one the UI is fine without -
-   * where a scope-related 403 would otherwise end a perfectly good session.
-   */
-  tolerateAuthFailure?: boolean;
 }
 
 function buildUrl(
@@ -135,7 +126,7 @@ export async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { body, params, headers, baseUrl, tolerateAuthFailure, ...rest } = options;
+  const { body, params, headers, baseUrl, ...rest } = options;
   const url = buildUrl(path, params, baseUrl);
   const token = await getAuthToken();
 
@@ -171,10 +162,7 @@ export async function request<T>(
       detail = await response.text().catch(() => undefined);
     }
     if (isDev) console.error(`[api] ${response.status} ${url}`, detail);
-    if (
-      (response.status === 401 || response.status === 403) &&
-      !tolerateAuthFailure
-    ) {
+    if (response.status === 401 || response.status === 403) {
       handleAuthFailure(path, Boolean(token));
     }
     throw new ApiError(response.status, friendlyMessage(response.status), detail);

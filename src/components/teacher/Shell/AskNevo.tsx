@@ -14,6 +14,7 @@ import {
 } from "@/lib/mocks/teacherAskNevo";
 import { randomId } from "@/lib/utils";
 import { useHasSession } from "@/hooks/useHasSession";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { MOCK_TEACHER } from "./teacherNav";
 
 /**
@@ -58,6 +59,7 @@ export function AskNevo() {
   const threadId = useRef(randomId());
   const [open, setOpen] = useState(false);
   const signedIn = useHasSession();
+  const identity = useCurrentUser();
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [thinking, setThinking] = useState(false);
@@ -173,11 +175,11 @@ export function AskNevo() {
                   <span className="text-[18px] leading-[1.1] font-medium tracking-[-0.01em] text-nevo-near-black">
                     Ask Nevo
                   </span>
-                  {/* The school name is a fixture; a real session gives us a
-                      school_id uuid and nothing that resolves it. */}
-                  {!signedIn && (
+                  {/* Real for a live session; the fixture only backs the
+                      signed-out preview of the frame. */}
+                  {(signedIn ? identity?.school : MOCK_TEACHER.school) && (
                     <span className="mt-0.5 text-[12.5px] text-nevo-near-black/68">
-                      {MOCK_TEACHER.school}
+                      {signedIn ? identity?.school : MOCK_TEACHER.school}
                     </span>
                   )}
                 </div>

@@ -12,7 +12,7 @@ import {
 } from "@/lib/mocks/teacherProfile";
 import { cn } from "@/lib/utils";
 import { useHasSession } from "@/hooks/useHasSession";
-import { useTeacherIdentity } from "@/hooks/useTeacherIdentity";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { EditProfileModal } from "./EditProfileModal";
 import { SignOutModal } from "./SignOutModal";
 
@@ -51,14 +51,14 @@ export function ProfileSettings() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [dirty, setDirty] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  // The session carries a user_id and a role. Name, email, school and subjects
-  // are all fixture values, and this is the page where a teacher would most
-  // reasonably read them as their own account details - a fabricated email
-  // worst of all, since it looks like where their notifications go.
+  // This is the page where a teacher would most reasonably read these as their
+  // own account details - a fabricated email worst of all, since it looks like
+  // where their notifications go. So a live session shows only what the
+  // profile call returned, and the fixture is reserved for the signed-out
+  // preview of the frame.
   const signedIn = useHasSession();
-  // Name and email come back from the class roster when they can - school and
-  // subjects still have no source anywhere.
-  const identity = useTeacherIdentity();
+  // Name, email, school and subjects - all of it real, all from one call.
+  const identity = useCurrentUser();
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [toast, setToast] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,16 +172,29 @@ export function ProfileSettings() {
             </span>
             {signedIn ? (
               <>
+                {(identity?.subjects.length || identity?.school) && (
+                  <div className="mt-[3px] text-sm text-nevo-near-black/60">
+                    <span className="xl:hidden">
+                      {identity.subjects.join(" & ") || identity.school}
+                    </span>
+                    <span className="hidden xl:inline">
+                      {[identity.subjects.join(" & "), identity.school]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </div>
+                )}
                 {identity?.email && (
                   <div className="mt-[3px] truncate text-[13.5px] text-nevo-near-black/50">
                     {identity.email}
                   </div>
                 )}
-                <div className="mt-[3px] max-w-[420px] text-sm leading-[1.5] text-nevo-near-black/60">
-                  {identity?.name
-                    ? "Your school holds these details. Subjects and school name aren’t connected here yet."
-                    : "Your details aren’t connected yet – your name and contact details come from your school."}
-                </div>
+                {!identity?.name && (
+                  <div className="mt-[3px] max-w-[420px] text-sm leading-[1.5] text-nevo-near-black/60">
+                    Your details aren’t connected yet – your name and contact
+                    details come from your school.
+                  </div>
+                )}
               </>
             ) : (
               <>

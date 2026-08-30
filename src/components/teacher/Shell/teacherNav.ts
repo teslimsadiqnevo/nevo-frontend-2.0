@@ -17,8 +17,10 @@ export const TEACHER_NAV: TeacherNavItem[] = [
   { name: "Connect", href: "/teacher/connect" },
 ];
 
-/** The C-screen docs' teacher persona. TODO(api): from the session once the
- *  backend exposes the teacher profile. */
+/**
+ * The C-screen docs' teacher persona, for the signed-out preview of the
+ * frames only. A live session reads its identity from `useCurrentUser`.
+ */
 export const MOCK_TEACHER = {
   name: "Ms. Adeyemi",
   role: "Teacher",
