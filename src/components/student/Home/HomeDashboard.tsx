@@ -8,6 +8,7 @@ import { EmptyState, IllustrationWrapper } from "@/components/shared";
 import { useDisplayName } from "@/components/student/Shell/useDisplayName";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useStudentDashboard } from "@/hooks/useStudentDashboard";
+import { useWarmUpDimension } from "@/hooks/useWarmUpDimension";
 import { WarmUpCard } from "@/components/student/Profiling/WarmUpCard";
 import { dimensionForToday } from "@/components/student/Profiling/WarmUpRun";
 
@@ -89,6 +90,7 @@ export function HomeDashboard() {
   const date = useLocalDate();
   const signedIn = useHasSession();
   const { data: live, failed, loading } = useStudentDashboard();
+  const warmUpDimension = useWarmUpDimension(dimensionForToday());
 
   // Live rows are mapped into the frame's own shapes so the designed cards
   // render either source. Live cards carry `href: null`: the lesson player
@@ -225,7 +227,9 @@ export function HomeDashboard() {
         <>
           {/* The daily warm-up opens the session (SCRUM-104) - a quick
               calibration presented as a game, never an assessment. */}
-          <WarmUpCard dimension={dimensionForToday()} />
+          {/* The same dimension the run will use - the card naming one task
+              and the run opening another would be a small, avoidable lie. */}
+          <WarmUpCard dimension={warmUpDimension} />
 
           {cont && <ContinueCard lesson={cont} />}
 
