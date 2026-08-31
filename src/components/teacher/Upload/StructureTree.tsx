@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -20,10 +19,29 @@ import { cn } from "@/lib/utils";
  * title (cream background + cream text) made the title invisible - focus
  * here keeps the text readable. Flagged to design.
  *
- * TODO(api): block-level parsing. `/api/content/parse` returns one lesson and
- * a flat segment list, so it cannot fill this three-level tree - the page
- * carries a standing sample banner until that exists. The frame's canonical
- * P5 Science block stands in, and commit posts nothing yet.
+ * THIS PAGE IS A SAMPLE, and it now says so at every point a teacher could
+ * mistake it for their own work - the banner, and the confirmation.
+ *
+ * The staged upload contract landed on 31 Aug and most of it is real:
+ * `POST /api/v1/uploads` stages a file, `GET /api/v1/uploads/{id}` returns a
+ * TYPED structure, `PUT /api/v1/uploads/{id}/structure` saves an edit,
+ * `POST .../confirm` commits and `POST .../undo` reverses. So the endpoints
+ * this page needs exist.
+ *
+ * What does NOT line up is the shape. The contract's `structure` is
+ * `{lessonId, modules[{title, sequenceOrder, segmentIds}]}` - ONE lesson and
+ * its modules, two levels. C07d is three: a block holding several LESSONS,
+ * each holding sections, each holding segments. There is no block level in
+ * the contract and no way to express "this unit became four lessons", which
+ * is the entire point of the block path. So the tree cannot be driven by it
+ * yet, and the frame's canonical P5 Science block still stands in.
+ *
+ * TODO(api): a block-level structure, or a ruling that `structure.lessonId`
+ * names the BLOCK and `modules` are its lessons. Asked, not assumed.
+ *
+ * Until then nothing here writes, and nothing here claims to: the fabricated
+ * "Adding to your library" beat and its "Added to your library" success are
+ * gone, and Save draft - which persisted nothing - is not drawn at all.
  */
 
 type Seg = { id: number; title: string; mins: string };
@@ -134,13 +152,11 @@ const SplitGlyph = (
 );
 
 export function StructureTree() {
-  const router = useRouter();
   const [blockTitle, setBlockTitle] = useState(FRESH.blockTitle);
   const [lessons, setLessons] = useState<Lesson[]>(FRESH.lessons);
   const [reveal, setReveal] = useState<Record<string, boolean>>({});
   const [undo, setUndo] = useState<Undo | null>(null);
-  const [phase, setPhase] = useState<"edit" | "confirm" | "committing" | "committed">("edit");
-  const [draft, setDraft] = useState<"idle" | "saving" | "saved">("idle");
+  const [phase, setPhase] = useState<"edit" | "confirm">("edit");
   const [allOpen, setAllOpen] = useState(false);
   const [over, setOver] = useState<string | null>(null);
   // The drag payload lives in a ref for the drop handlers; `dragging` mirrors
@@ -152,13 +168,6 @@ export function StructureTree() {
     setDragging(d);
   };
   const nextId = useRef(1000);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
 
   const clone = () =>
     lessons.map((L) => ({ ...L, modules: L.modules.map((M) => ({ ...M, segments: [...M.segments] })) }));
@@ -301,19 +310,6 @@ export function StructureTree() {
     L.modules = L.modules.slice(0, mi + 1);
     s.splice(li + 1, 0, { id: nextId.current++, title: "", open: true, modules: moved });
     setLessons(s);
-  };
-
-  const saveDraft = () => {
-    if (draft !== "idle") return;
-    setDraft("saving");
-    // TODO(api): persist the draft; the mock beat stands in.
-    timer.current = setTimeout(() => setDraft("saved"), 700);
-  };
-
-  const confirmYes = () => {
-    setPhase("committing");
-    // TODO(api): commit the block; the mock beat stands in.
-    timer.current = setTimeout(() => setPhase("committed"), 850);
   };
 
   const setTitleOf = (fn: (s: Lesson[]) => void) => {
@@ -682,9 +678,10 @@ export function StructureTree() {
 
       {/* Pinned commit bar */}
       <div className="flex shrink-0 items-center gap-3.5 border-t border-nevo-near-black/10 bg-nevo-cream px-6 py-3 xl:px-8 xl:py-3.5">
-        <button type="button" onClick={saveDraft} className={ghostBtn}>
-          {draft === "saving" ? "Saving…" : draft === "saved" ? "Draft saved" : "Save draft"}
-        </button>
+        {/* The frame draws "Save draft" here. It is not drawn while this is a
+            sample: it persisted nothing, and a button that reports "Draft
+            saved" over a draft that was never sent is the same fabrication as
+            the commit below. It returns with the real staged upload. */}
         <span className="min-w-0 flex-1 truncate text-[12.5px] text-nevo-near-black/60">
           {summaryLine}
         </span>
@@ -703,58 +700,23 @@ export function StructureTree() {
             {phase === "confirm" && (
               <div>
                 <span className="font-mono text-[10.5px] font-bold tracking-[0.14em] text-nevo-violet">
-                  ADD TO LIBRARY
+                  NOTHING WILL BE SAVED
                 </span>
                 <p className="mt-2.5 text-base leading-[1.55] font-medium text-nevo-near-black">
-                  {`This will add ${counts.lessons} lessons, ${counts.modules} sections and ${counts.segments} segments to your library.`}
+                  This is a sample structure, so there is nothing to add to
+                  your library yet.
                 </p>
                 <p className="mt-2 text-[13px] leading-[1.5] text-nevo-near-black/60">
-                  You can still edit any lesson later.
+                  {`On your own upload this step would add ${counts.lessons} lessons, ${counts.modules} sections and ${counts.segments} segments.`}
                 </p>
                 <div className="mt-5 flex items-center gap-3">
-                  <button type="button" onClick={confirmYes} className={primaryBtn}>
-                    Yes, add them
-                  </button>
-                  <button type="button" onClick={() => setPhase("edit")} className={ghostBtn}>
-                    Let me review first
+                  <button type="button" onClick={() => setPhase("edit")} className={primaryBtn}>
+                    Back to editing
                   </button>
                 </div>
               </div>
             )}
 
-            {phase === "committing" && (
-              <div className="flex items-center gap-3.5 py-1.5">
-                <span className="size-[26px] shrink-0 rounded-full border-[3px] border-nevo-navy/18 border-t-nevo-navy motion-safe:animate-spin motion-safe:[animation-duration:900ms]" />
-                <span className="text-[15px] font-medium text-nevo-near-black">
-                  Adding to your library&hellip;
-                </span>
-              </div>
-            )}
-
-            {phase === "committed" && (
-              <div className="flex items-center gap-3.5">
-                <span className="flex size-[38px] shrink-0 items-center justify-center rounded-full bg-nevo-navy text-nevo-cream motion-safe:animate-nevo-pop">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M5 12l4 4L19 6" />
-                  </svg>
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[15.5px] font-semibold text-nevo-near-black">
-                    Added to your library.
-                  </div>
-                  <div className="mt-[3px] text-[13px] text-nevo-near-black/62">
-                    You can still edit any lesson later.
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => router.push("/teacher/lessons")}
-                  className={ghostBtn}
-                >
-                  Done
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}

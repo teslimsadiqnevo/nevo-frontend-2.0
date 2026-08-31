@@ -50,12 +50,19 @@ import { UploadResult } from "./UploadResult";
  * there is no separate commit on this path, so step 3 reviews what came back
  * rather than asking for approval it does not need.
  *
- * The block path's staged parse is still the designed demo beat. Its own
- * endpoints exist (`/api/v1/uploads` and friends) but the structure they
- * exchange is declared as a free-form object with no fields, so there is
- * nothing to build the module editor against yet - see StructureTree.
+ * The block path's staged parse is still the designed demo beat, but the
+ * reason changed on 31 Aug and the copy says the new one. The staged
+ * endpoints are real AND the structure is now typed - `POST /api/v1/uploads`
+ * takes the file with its scope and subject, and `GET /api/v1/uploads/{id}`
+ * returns `{lessonId, modules[...]}`.
  *
- * TODO(api): a typed `structure` on the staged upload.
+ * What is missing is a level. That structure describes ONE lesson and its
+ * modules; the block path exists to turn a unit into SEVERAL lessons, and the
+ * contract has nowhere to put them. So the staged call would succeed and
+ * still not answer the question this path asks, which is why it is not made:
+ * a request whose answer we cannot show is not honesty, it is just traffic.
+ *
+ * TODO(api): a block-level structure. See StructureTree for the exact ask.
  */
 
 type ScopeId = "single" | "unit" | "term";
@@ -236,8 +243,9 @@ export function UploadWizard() {
     setParsed(null);
     setPhase("processing");
 
-    // The block path has no typed structure contract yet, and a signed-out
-    // visitor has no token - both keep the designed demo beat.
+    // The block path has no BLOCK-level structure to render, and a signed-out
+    // visitor has no token - both keep the designed demo beat, each labelled
+    // with its own reason below.
     if (isBlock || !getToken()) {
       runMockBeats(file.name);
       return;
@@ -330,8 +338,12 @@ export function UploadWizard() {
         )}
         {sample && (phase === "review" || phase === "blockParsed") && (
           <p className="mt-1.5 max-w-[560px] text-[13px] leading-[1.5] text-nevo-near-black/55 italic">
-            We can&rsquo;t read your file yet, so this is a sample lesson -
-            nothing below comes from what you uploaded.
+            {/* Two different reasons, and a teacher deserves the right one:
+                a whole unit cannot be split into lessons yet, whereas a
+                signed-out visitor simply has nothing to read the file with. */}
+            {isBlock
+              ? "We can’t split a unit into separate lessons yet, so this is a sample - nothing below comes from what you uploaded."
+              : "We can’t read your file yet, so this is a sample lesson - nothing below comes from what you uploaded."}
           </p>
         )}
       </div>
