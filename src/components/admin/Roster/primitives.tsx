@@ -188,12 +188,19 @@ export function Sheet({
   onClose,
   children,
   footer,
+  /**
+   * 420px is the default the spec sets for create and assign. D6's
+   * reassignment sheet is the one exception at 472px, "matching the built
+   * invite sheet" - it carries a scrolling list rather than two fields.
+   */
+  widthClass = "max-w-[420px]",
 }: {
   title: string;
   subtitle?: string | null;
   onClose: () => void;
   children: React.ReactNode;
   footer: React.ReactNode;
+  widthClass?: string;
 }) {
   const panel = useRef<HTMLDivElement>(null);
 
@@ -219,7 +226,10 @@ export function Sheet({
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className="flex h-full w-full max-w-[420px] flex-col bg-nevo-cream shadow-[-8px_0_32px_rgba(0,0,0,0.16)] outline-none motion-safe:animate-nevo-sheet-r"
+        className={cn(
+          "flex h-full w-full flex-col bg-nevo-cream shadow-[-8px_0_32px_rgba(0,0,0,0.16)] outline-none motion-safe:animate-nevo-sheet-r",
+          widthClass,
+        )}
       >
         <div className="flex flex-none items-start justify-between gap-3 border-b border-nevo-near-black/8 px-[26px] pb-[18px] pt-6">
           <div className="min-w-0">
