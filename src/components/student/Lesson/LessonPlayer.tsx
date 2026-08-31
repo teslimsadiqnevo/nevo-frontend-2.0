@@ -126,6 +126,7 @@ export function LessonPlayer({
   plan,
   review = false,
   live = false,
+  startAt = 0,
 }: {
   lesson: Lesson;
   plan: AdaptationPlan | null;
@@ -135,6 +136,11 @@ export function LessonPlayer({
    * their invented ids would 404 and blame the network for our own fixture.
    */
   live?: boolean;
+  /**
+   * Segment to open on, from saved progress. Clamped by the caller; a review
+   * session always opens at the top regardless.
+   */
+  startAt?: number;
   /**
    * Review session (37d): the same player as a spaced-retrieval variant. Adds
    * only an entry screen, the REVIEW pill during, and the "You strengthened
@@ -168,9 +174,13 @@ export function LessonPlayer({
     return () => setActiveLesson(null);
   }, [lesson.id, sessionId, plan, setActiveLesson]);
 
-  const [index, setIndex] = useState(0);
+  // Resuming opens on the saved segment; a review session replays the whole
+  // thing, so it ignores the saved position.
+  const opening =
+    !review && startAt > 0 && startAt < lesson.segments.length ? startAt : 0;
+  const [index, setIndex] = useState(opening);
 
-  const first = lesson.segments[0];
+  const first = lesson.segments[opening];
   const firstPlan = planFor(first.id);
 
   // The student's MANUAL density pick (navy chip). Separate from the system's

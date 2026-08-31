@@ -24,7 +24,7 @@ const LESSONS_HREF = "/student/lessons";
  */
 export function LessonRoute({ lessonId }: { lessonId: string }) {
   const router = useRouter();
-  const { lesson, live, plan, loading, failed, empty } =
+  const { lesson, live, plan, loading, failed, empty, resumeAt } =
     useStudentLesson(lessonId);
   const hydrated = useHydrated();
 
@@ -32,7 +32,16 @@ export function LessonRoute({ lessonId }: { lessonId: string }) {
   // lesson resolves. Draw the skeleton rather than deciding wrongly.
   if (!hydrated || loading) return <LessonLoadingSkeleton />;
 
-  if (lesson) return <LessonPlayer lesson={lesson} plan={plan} live={live} />;
+  if (lesson) {
+    return (
+      <LessonPlayer
+        lesson={lesson}
+        plan={plan}
+        live={live}
+        startAt={resumeAt ?? 0}
+      />
+    );
+  }
 
   if (failed) {
     return (

@@ -8,6 +8,7 @@ import { lessonFromContent } from "@/lib/lessons/fromContent";
 import { getMockAdaptation, getMockLesson } from "@/lib/mocks";
 import type { AdaptationPlan, Lesson } from "@/lib/types";
 import { useHasSession } from "./useHasSession";
+import { useStudentDashboard } from "./useStudentDashboard";
 
 /**
  * The lesson a student is about to play, live-first.
@@ -46,11 +47,20 @@ export interface StudentLessonState {
   failed: boolean;
   /** It loaded, and there is nothing in it to play. */
   empty: boolean;
+  /**
+   * The segment to open on, from the student's own saved progress. Null when
+   * there is none, or when the lesson is a mock (whose ids nothing records).
+   */
+  resumeAt: number | null;
 }
 
 export function useStudentLesson(lessonId: string): StudentLessonState {
   const signedIn = useHasSession();
   const mock = getMockLesson(lessonId);
+  // Where they got to last time. Home already promises "About halfway in" off
+  // this same row, so the player has to honour it - a Continue button that
+  // restarts from the beginning is worse than no Continue button.
+  const { data: dashboard } = useStudentDashboard();
 
   const [live, setLive] = useState<Lesson | null>(null);
   const [missing, setMissing] = useState(false);
@@ -101,9 +111,22 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
 
   const lesson = live ?? mock;
 
+  // `segmentPosition` is the 0-based index we wrote ourselves, so it round
+  // trips - but it is clamped anyway, because a position past the end would
+  // open an empty spine, and a lesson re-parsed with fewer segments is exactly
+  // how that happens.
+  const saved = dashboard?.recentProgress
+    .filter((r) => r.lessonId === lessonId && r.status === "in_progress")
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+  const resumeAt =
+    live && saved
+      ? Math.max(0, Math.min(saved.segmentPosition, live.segments.length - 1))
+      : null;
+
   return {
     lesson,
     live: Boolean(live),
+    resumeAt,
     // The adaptation plan has no student-facing endpoint; a live lesson plays
     // unadapted rather than borrowing another lesson's plan.
     plan: live ? null : getMockAdaptation(lessonId),
