@@ -160,7 +160,110 @@ export interface DashboardProgressRow {
   updatedAt: string;
 }
 
+/**
+ * The admin roster's view of a student (D7 / D7b). Enrolment fact only - this
+ * shape must never grow a score, a mastery figure or an adaptation.
+ *
+ * WHAT IS NOT HERE, and cannot be: CONSENT. D7 exists to answer "which
+ * students cannot yet begin lessons", and the list route returns no consent
+ * field of any kind. See the note on `StudentsView` - it is not derived from
+ * `status`, because an account being active is a different fact from a parent
+ * having agreed, and conflating them would misinform a school about a legal
+ * position.
+ */
+export interface AdminStudentRow {
+  id: string;
+  /** Always present - the backend composes its own fallback. */
+  name: string;
+  /** The student's sign-in name. Belongs on the detail page; do not drop it. */
+  loginIdentifier: string | null;
+  /** "active" | "deactivated" in practice; the schema does not narrow it. */
+  status: string;
+  ageBand: string | null;
+}
+
+export interface AdminStudentDetail {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  loginIdentifier: string | null;
+  email: string | null;
+  status: string;
+  ageBand: string | null;
+  classIds: string[];
+  firstUse: boolean;
+}
+
+/**
+ * A guardian attached to a student.
+ *
+ * `account_created` is the closest thing the API has to a consent signal, and
+ * it is NOT the same thing - it says an account exists, not that consent was
+ * given, refused, pending or withdrawn. D7b's four-state consent record cannot
+ * be built from it and is not attempted.
+ */
+export interface ParentLink {
+  id: string;
+  school_id: string;
+  student_id: string;
+  parent_id: string | null;
+  parent_name: string;
+  parent_contact: string;
+  contact_method: string;
+  account_created: boolean;
+}
+
 export const studentsApi = {
+  /**
+   * The school roster. Deactivated students are excluded by default and
+   * reachable by filter, which is what `includeInactive` does. `classId`
+   * narrows to one class - the same filter D7's "All classes" pill drives.
+   */
+  list: (options: { classId?: string; includeInactive?: boolean } = {}) =>
+    api.get<AdminStudentRow[]>("/api/v1/students", {
+      params: {
+        classId: options.classId,
+        includeInactive: options.includeInactive ? true : undefined,
+      },
+    }),
+
+  /** One student, admin-scoped. GET /api/v1/students/{student_id} */
+  get: (studentId: string) =>
+    api.get<AdminStudentDetail>(`/api/v1/students/${studentId}`),
+
+  /** Guardians on the record. */
+  parentLinks: (studentId: string) =>
+    api.get<ParentLink[]>(`/api/v1/students/${studentId}/parent-links`),
+
+  /**
+   * Move a student to another class. A move never resets anything - no
+   * progress, no profile, no history - and the sheet says so before it
+   * commits.
+   *
+   * TODO(api): D7c offers "Move now" or a scheduled date at the start of next
+   * term. The endpoint takes a class id and nothing else, so only "now" is
+   * built rather than pretending a date was honoured.
+   */
+  moveToClass: (studentId: string, classId: string) =>
+    api.patch<{ studentId: string; classId: string }>(
+      `/api/v1/students/${studentId}/class`,
+      { classId },
+    ),
+
+  /** Step one of two. Reversible, keeps everything, frees the seat. */
+  deactivate: (studentId: string) =>
+    api.post<void>(`/api/v1/students/${studentId}/deactivate`),
+
+  /** Undo a deactivation - they pick up exactly where they left off. */
+  restore: (studentId: string) =>
+    api.post<void>(`/api/v1/students/${studentId}/restore`),
+
+  /**
+   * Step two of two, and the only permanent deletion in the admin set. Only
+   * reachable once a student is already deactivated, and gated on their name
+   * typed exactly. Severity comes from friction, not from colour.
+   */
+  erase: (studentId: string) => api.del<void>(`/api/v1/students/${studentId}`),
   /**
    * The signed-in student's own landing data: who they are, what has been
    * assigned to them (each with its lesson summary nested), and their recent

@@ -21,6 +21,11 @@ export {
   type ProfileStatus,
 } from "./classes";
 export {
+  type AdminStudentDetail,
+  type AdminStudentRow,
+  type ParentLink,
+} from "./students";
+export {
   teachersApi,
   type TeacherDetail,
   type TeacherSummary,
