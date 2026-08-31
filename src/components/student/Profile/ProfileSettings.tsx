@@ -10,6 +10,7 @@ import {
   getRememberedProfile,
   setStoredDisplayName,
 } from "@/lib/auth/session";
+import { settingsApi } from "@/lib/api/settings";
 import { useAccessibility } from "@/context/AccessibilityContext";
 import { cn } from "@/lib/utils";
 import { SignOutSheet } from "./SignOutSheet";
@@ -186,6 +187,12 @@ export function ProfileSettings() {
               // "Saved" now means it: the name persists to the device and
               // the rest of the app follows it.
               setStoredDisplayName(name, initials);
+              // Also against the account, so the name they chose for
+              // themselves follows them to another device. Best-effort: the
+              // device copy is what this screen reads back either way.
+              void settingsApi
+                .update({ displayName: name.trim() })
+                .catch(() => {});
               flashSaved();
             }}
             onKeyDown={(e) => {

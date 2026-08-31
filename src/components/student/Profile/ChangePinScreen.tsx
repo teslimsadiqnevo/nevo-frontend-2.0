@@ -10,8 +10,13 @@ const PROFILE_HREF = "/student/profile";
  * Change PIN (Profile & Settings → "Change PIN"). The product frames reuse the
  * PIN-creation pattern wholesale (`Nevo Student App` changepin view = the PIN
  * Frame + a 44×44 back chevron), so this wraps `PinCreationScreen` and returns
- * to Profile on completion or via the chevron. TODO(api): persist the new PIN
- * via the auth client once the contract lands.
+ * to Profile on completion or via the chevron.
+ *
+ * The PIN is stored server-side: `PinCreationScreen` posts to
+ * `POST /api/v1/auth/pin` whenever a session exists, and this screen only
+ * ever runs signed in - so unlike the onboarding path (which is pre-auth and
+ * has no token to send), the change here reaches Nevo, and a failed write
+ * re-opens the confirm row rather than returning to Profile on a lie.
  */
 export function ChangePinScreen() {
   const router = useRouter();

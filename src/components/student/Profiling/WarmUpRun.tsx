@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useWarmUpDimension } from "@/hooks/useWarmUpDimension";
 import { ArrowRight, Check } from "lucide-react";
 import { cn, randomId } from "@/lib/utils";
 import { baselineApi } from "@/lib/api";
@@ -35,14 +36,22 @@ export function dimensionForToday(): BaselineDimension {
  * landed. `POST /api/baseline/submit` is deployed now but this screen is not
  * wired to it, so the claim stays unmade - telling a child their progress was
  * saved when nothing was written would be false every single time.
- * TODO(api): dimension comes from GET /api/baseline/recalibrate-prompt.
+ * The day's dimension comes from `GET /api/baseline/recalibrate-prompt/{id}`
+ * - the engine knows what it wants recalibrated next, which a day-of-week
+ * rotation only approximates. The rotation stays as the fallback for the
+ * signed-out screens and for a prompt that does not answer, and an
+ * unrecognised dimension falls back too rather than driving a task that does
+ * not exist.
  */
 export function WarmUpRun({
-  dimension = dimensionForToday(),
+  dimension: dimensionProp,
 }: {
   dimension?: BaselineDimension;
 }) {
   const router = useRouter();
+  // The engine's choice when it answers; the rotation otherwise.
+  const live = useWarmUpDimension(dimensionProp ?? dimensionForToday());
+  const dimension = dimensionProp ?? live;
   const [done, setDone] = useState(false);
   // null until the write settles; false means it never reached Nevo.
   const [saved, setSaved] = useState<boolean | null>(null);
