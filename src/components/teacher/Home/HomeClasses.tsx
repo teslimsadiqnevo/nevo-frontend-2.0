@@ -11,9 +11,43 @@ import { cn } from "@/lib/utils";
  * no summary yet), but the SET of classes is live, so a teacher never sees
  * three classes that aren't theirs. Assignments with no fixture behind them
  * render as quiet cards rather than being dropped or dressed up.
+ *
+ * "Never sees three classes that aren't theirs" was not true while the read
+ * was IN FLIGHT. The hook returns fixtures for `data === null`, which covers
+ * loading as well as failure, and this component read neither flag - so every
+ * load showed JSS 2A, JSS 2B and SSS 1 Sciences, with invented headcounts, to
+ * whoever was signed in. Skeletons now hold that window, and a failed read
+ * says so instead of standing in for it.
  */
 export function HomeClasses() {
-  const { classes, liveClasses } = useTeacherClasses();
+  const { classes, liveClasses, sample, loading } = useTeacherClasses();
+
+  if (loading) {
+    return (
+      <div className="mt-3.5 flex flex-wrap gap-3 xl:mt-4 xl:gap-3.5">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="min-w-[180px] flex-1 animate-pulse rounded-[12px] bg-nevo-cream-elevated px-[18px] py-4 xl:px-[22px] xl:py-5"
+          >
+            <div className="h-[17px] w-24 rounded bg-nevo-cream-inset" />
+            <div className="mt-2 h-3 w-16 rounded bg-nevo-cream-inset" />
+            <div className="mt-4 h-3 w-28 rounded bg-nevo-cream-inset" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (sample) {
+    return (
+      <p className="mt-3.5 max-w-[560px] text-[13px] leading-[1.5] text-nevo-near-black/60 italic">
+        We couldn&rsquo;t reach your school just now, so your classes
+        aren&rsquo;t here. They haven&rsquo;t gone anywhere &ndash; try again in
+        a moment.
+      </p>
+    );
+  }
 
   return (
     <div className="mt-3.5 flex flex-wrap gap-3 xl:mt-4 xl:gap-3.5">

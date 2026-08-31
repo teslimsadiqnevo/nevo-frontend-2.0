@@ -47,8 +47,33 @@ export function ClassRoute({
   // Fixtures back the designed screens only while there is no live data.
   if (!live && fixture) return <ClassDetail klass={fixture} />;
 
-  // Resolved (or nothing to resolve with) and still unknown - it is a 404.
-  if (live || sample || !getToken()) notFound();
+  // Resolved and still unknown - THAT is a 404. `sample` is not resolution:
+  // it means the class list could not be read, which is not evidence the
+  // class does not exist. Treating it as proof gave a teacher "This page
+  // doesn't exist" for their own class whenever the list read failed.
+  if (live || !getToken()) notFound();
+
+  if (sample) {
+    return (
+      <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
+        <div className="mx-auto max-w-[660px] rounded-[12px] bg-nevo-cream-elevated px-[26px] py-7 shadow-elevation-1">
+          <h2 className="text-[17px] font-semibold text-nevo-near-black">
+            We couldn&rsquo;t load this class
+          </h2>
+          <p className="mt-2 text-sm leading-[1.55] text-nevo-near-black/62">
+            It hasn&rsquo;t gone anywhere. Try again in a moment.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-5 h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 items-center justify-center p-12">

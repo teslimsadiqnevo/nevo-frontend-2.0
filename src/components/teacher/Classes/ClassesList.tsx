@@ -33,7 +33,7 @@ function SummaryDot({ tone }: { tone: "glance" | "ok" }) {
 }
 
 export function ClassesList() {
-  const { classes, liveClasses, sample, live } = useTeacherClasses();
+  const { classes, liveClasses, sample, live, loading } = useTeacherClasses();
   const identity = useCurrentUser();
 
   if (classes.length === 0 && liveClasses.length === 0) {
@@ -74,6 +74,19 @@ export function ClassesList() {
           </p>
         )}
 
+        {/* Loading is not failure and is not the designed screen: hold the
+            window with skeletons rather than three invented classes. */}
+        {loading && (
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="h-[132px] animate-pulse rounded-[12px] bg-nevo-cream-elevated"
+              />
+            ))}
+          </div>
+        )}
+
         {/* Sample data must never pass for a roster: if the live list didn't
             arrive, say so plainly rather than letting fixtures stand in
             silently. */}
@@ -94,7 +107,7 @@ export function ClassesList() {
 
         {/* Desktop grid */}
         <div className="mt-6 hidden grid-cols-3 gap-4 xl:grid">
-          {classes.map((c) => (
+          {(loading ? [] : classes).map((c) => (
             <Link
               key={c.id}
               href={`/teacher/classes/${c.id}`}
@@ -140,7 +153,7 @@ export function ClassesList() {
 
         {/* Tablet: stacked horizontal cards */}
         <div className="mt-5 flex flex-col gap-3 xl:hidden">
-          {classes.map((c) => (
+          {(loading ? [] : classes).map((c) => (
             <Link
               key={c.id}
               href={`/teacher/classes/${c.id}`}

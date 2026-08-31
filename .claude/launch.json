@@ -7,6 +7,19 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "dev-student",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "../nevo-2.0-student/node_modules/next/dist/bin/next",
+        "dev",
+        "../nevo-2.0-student",
+        "-p",
+        "3100"
+      ],
+      "port": 3100,
+      "autoPort": false
     }
   ]
 }

@@ -50,13 +50,21 @@ export interface TeacherClasses {
   options: ClassOption[];
   /** Live data is in hand. */
   live: boolean;
+  /**
+   * The read is still in flight. DISTINCT from `sample`: `data === null`
+   * covers both "not back yet" and "never coming", and only the second is a
+   * reason to show anything other than a skeleton. Without this, every
+   * consumer rendered fixture classes for the whole in-flight window - which
+   * the backend's own 1.0-5.6s range makes seconds long on every load.
+   */
+  loading: boolean;
   /** A session exists but the live list never arrived - fixtures stand in. */
   sample: boolean;
 }
 
 export function useTeacherClasses(): TeacherClasses {
   const run = useCallback(() => classesApi.myClasses(), []);
-  const { data, failed } = useLiveQuery<AssignedClass[]>(run, []);
+  const { data, failed, loading } = useLiveQuery<AssignedClass[]>(run, []);
 
   if (data === null) {
     return {
@@ -71,6 +79,7 @@ export function useTeacherClasses(): TeacherClasses {
       })),
       live: false,
       sample: failed,
+      loading,
     };
   }
 
@@ -84,5 +93,6 @@ export function useTeacherClasses(): TeacherClasses {
     })),
     live: true,
     sample: false,
+    loading: false,
   };
 }
