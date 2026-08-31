@@ -68,9 +68,13 @@ function toRow(n: Notification): TeacherNotification {
   return {
     id: n.notificationId,
     kind: kindOf(n.type),
-    // The frame is one sentence; `description` is the sentence and `title`
-    // the label above it, so the sentence wins when there is one.
-    text: n.description || n.title,
+    // TWO lines, per design: the title is the label and the description the
+    // sentence under it. This used to collapse to `description || title`,
+    // which threw away half of every notification.
+    text: n.title,
+    detail: n.description && n.description !== n.title ? n.description : "",
+    // Nullable in the contract: a row with nowhere to go is not a link.
+    href: n.navigatesTo ?? undefined,
     time: relative(n.createdAt),
     unread: !n.read,
   };
@@ -83,12 +87,25 @@ export interface TeacherNotificationsState {
   /** The read failed. NEVER the same thing as an empty feed. */
   failed: boolean;
   markAllRead: () => void;
+  /** Marks one row read. Optimistic; a failed write is not worth a bounce. */
+  markRead: (id: string) => void;
+  /**
+   * Takes one row out of the feed, returning an undo. Archived rows cannot be
+   * listed again (see `notificationsApi.archive`), so the undo is the only way
+   * back and it has to be offered here and now.
+   */
+  archive: (id: string) => void;
+  /** Puts back the last archived row, if there is one. */
+  undoArchive: () => void;
+  /** The row waiting to be undone, if any. */
+  lastArchived: TeacherNotification | null;
 }
 
 export function useTeacherNotifications(): TeacherNotificationsState {
   const [feed, setFeed] = useState<Notification[] | null>(null);
   const [unread, setUnread] = useState(0);
   const [failed, setFailed] = useState(false);
+  const [archived, setArchived] = useState<Notification[]>([]);
   const signedIn = useHasSession();
 
   /*
@@ -129,6 +146,58 @@ export function useTeacherNotifications(): TeacherNotificationsState {
     };
   }, []);
 
+  /*
+   * Every one of these does its network call OUTSIDE the state updater.
+   * React invokes updaters more than once (StrictMode does it deliberately),
+   * so a POST inside one fires twice - which the first version of this did,
+   * sending two `restore` calls for a single Undo.
+   */
+  const markRead = useCallback(
+    (id: string) => {
+      const row = feed?.find((n) => n.notificationId === id);
+      if (!row || row.read) return;
+      // Optimistic: the teacher opened it, so it is read whatever the write
+      // says. A failed POST is not worth bouncing the row back to unread.
+      setFeed(
+        (f) =>
+          f?.map((n) =>
+            n.notificationId === id ? { ...n, read: true } : n,
+          ) ?? f,
+      );
+      setUnread((u) => Math.max(0, u - 1));
+      if (getToken()) void notificationsApi.markRead(id).catch(() => {});
+    },
+    [feed],
+  );
+
+  const archive = useCallback(
+    (id: string) => {
+      const row = feed?.find((n) => n.notificationId === id);
+      if (!row) return;
+      setFeed((f) => f?.filter((n) => n.notificationId !== id) ?? f);
+      setArchived((a) => [row, ...a]);
+      if (!row.read) setUnread((u) => Math.max(0, u - 1));
+      if (getToken()) void notificationsApi.archive(id).catch(() => {});
+    },
+    [feed],
+  );
+
+  const undoArchive = useCallback(() => {
+    const row = archived[0];
+    if (!row) return;
+    setArchived((a) => a.slice(1));
+    setFeed((f) =>
+      f
+        ? [row, ...f].sort(
+            (x, y) => +new Date(y.createdAt) - +new Date(x.createdAt),
+          )
+        : f,
+    );
+    if (!row.read) setUnread((u) => u + 1);
+    if (getToken())
+      void notificationsApi.restore(row.notificationId).catch(() => {});
+  }, [archived]);
+
   const markAllRead = useCallback(() => {
     if (!getToken()) {
       setFeed((f) => f?.map((n) => ({ ...n, read: true })) ?? f);
@@ -155,6 +224,10 @@ export function useTeacherNotifications(): TeacherNotificationsState {
       live: false,
       failed: false,
       markAllRead,
+      markRead,
+      archive,
+      undoArchive,
+      lastArchived: null,
     };
   }
 
@@ -164,5 +237,9 @@ export function useTeacherNotifications(): TeacherNotificationsState {
     live: true,
     failed,
     markAllRead,
+    markRead,
+    archive,
+    undoArchive,
+    lastArchived: archived[0] ? toRow(archived[0]) : null,
   };
 }
