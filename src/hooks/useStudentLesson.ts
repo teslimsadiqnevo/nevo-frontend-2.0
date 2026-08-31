@@ -34,6 +34,15 @@ import { useStudentDashboard } from "./useStudentDashboard";
  * empty spine is not the way to say that.
  */
 
+/** One lesson's resolved answer, stamped with the id it belongs to. */
+interface Resolution {
+  id: string | null;
+  lesson?: Lesson;
+  missing?: boolean;
+  failed?: boolean;
+  empty?: boolean;
+}
+
 export interface StudentLessonState {
   lesson: Lesson | null;
   /** The lesson came from the backend, so its id is real and writable. */
@@ -62,21 +71,23 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
   // restarts from the beginning is worse than no Continue button.
   const { data: dashboard } = useStudentDashboard();
 
-  const [live, setLive] = useState<Lesson | null>(null);
-  const [missing, setMissing] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const [empty, setEmpty] = useState(false);
+  // One piece of state, STAMPED WITH THE ID IT DESCRIBES. Resetting four
+  // separate flags at the top of the effect would clear them a render late -
+  // long enough to show the previous lesson's error under this lesson's
+  // title - and is a setState-in-effect besides. Stamping means a stale
+  // answer is simply not this lesson's answer, with no reset at all.
+  const [resolved, setResolved] = useState<Resolution>({ id: null });
+  const state: Resolution = resolved.id === lessonId ? resolved : { id: null };
+  const live = state.lesson ?? null;
+  const missing = state.missing ?? false;
+  const failed = state.failed ?? false;
+  const empty = state.empty ?? false;
 
   useEffect(() => {
     // Signed out there is no token to read with, and the mock is the whole
     // designed experience anyway.
     if (!getToken()) return;
     let cancelled = false;
-
-    setLive(null);
-    setMissing(false);
-    setFailed(false);
-    setEmpty(false);
 
     // Modules are best-effort and come from a different endpoint. A lesson
     // plays perfectly well ungrouped, so its failure must not fail the page -
@@ -90,17 +101,20 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
       .then(([res, mods]) => {
         if (cancelled) return;
         const built = lessonFromContent(res, mods);
-        if (built) setLive(built);
-        else setEmpty(true);
+        setResolved(
+          built
+            ? { id: lessonId, lesson: built }
+            : { id: lessonId, empty: true },
+        );
       })
       .catch((err: unknown) => {
         if (cancelled) return;
         // A 404 on a lesson we also hold a mock for is not "missing" - the
         // mock answers it. Only a live-only id can genuinely be absent.
         if (err instanceof ApiError && err.status === 404) {
-          if (!getMockLesson(lessonId)) setMissing(true);
+          if (!getMockLesson(lessonId)) setResolved({ id: lessonId, missing: true });
         } else {
-          setFailed(true);
+          setResolved({ id: lessonId, failed: true });
         }
       });
 
