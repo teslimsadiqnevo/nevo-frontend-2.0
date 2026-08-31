@@ -38,17 +38,25 @@ export function LessonPreviewSheet({
         </SheetTitle>
 
         <div className="mt-3.5 flex items-center gap-2.5">
-          <span className="rounded-full bg-nevo-violet/25 px-3 py-1 text-[13px] text-nevo-navy">
-            {lesson.subject}
-          </span>
+          {/* Live lessons carry no subject - the chip is dropped rather than
+              drawn empty, and never filled with a guess. */}
+          {lesson.subject && (
+            <span className="rounded-full bg-nevo-violet/25 px-3 py-1 text-[13px] text-nevo-navy">
+              {lesson.subject}
+            </span>
+          )}
           <span className="text-sm text-nevo-near-black/60">
             {lesson.timeEstimate.replace(/\bmin\b/, "minutes")}
           </span>
         </div>
 
-        <p className="mt-[18px] text-[15px] leading-[1.6] text-nevo-near-black sm:text-base">
-          {lesson.description}
-        </p>
+        {/* Nothing in the contract writes a "what you'll do" for a child, so a
+            live lesson shows none rather than one we invented. */}
+        {lesson.description && (
+          <p className="mt-[18px] text-[15px] leading-[1.6] text-nevo-near-black sm:text-base">
+            {lesson.description}
+          </p>
+        )}
 
         {inProgress && (
           <>
