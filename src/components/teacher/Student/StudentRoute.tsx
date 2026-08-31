@@ -2,6 +2,7 @@
 
 import { notFound } from "next/navigation";
 import { useStudentProfile } from "@/hooks/useStudentProfile";
+import { useHydrated } from "@/hooks/useHydrated";
 import { getToken } from "@/lib/auth/session";
 import type { StudentProfileData } from "@/lib/mocks/teacherStudents";
 import { LiveStudentProfile } from "./LiveStudentProfile";
@@ -25,6 +26,20 @@ export function StudentRoute({
   classHref?: string;
 }) {
   const state = useStudentProfile(studentId);
+  const hydrated = useHydrated();
+
+  // See LessonRoute: the server cannot read the token, so a real student's
+  // page fell through to notFound() and answered 404 on any hard load.
+  if (!hydrated) {
+    return (
+      <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
+        <div className="mx-auto max-w-[860px]">
+          <div className="h-8 w-64 animate-pulse rounded bg-nevo-cream-elevated" />
+          <div className="mt-8 h-[280px] animate-pulse rounded-[12px] bg-nevo-cream-elevated" />
+        </div>
+      </div>
+    );
+  }
 
   if (state.profile) {
     return <LiveStudentProfile state={state} classHref={classHref} />;

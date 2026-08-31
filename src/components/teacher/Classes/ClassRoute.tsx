@@ -2,6 +2,7 @@
 
 import { notFound } from "next/navigation";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
+import { useHydrated } from "@/hooks/useHydrated";
 import { getToken } from "@/lib/auth/session";
 import type { TeacherClass } from "@/lib/mocks/teacherClasses";
 import { ClassDetail } from "./ClassDetail";
@@ -25,6 +26,18 @@ export function ClassRoute({
   classId: string;
 }) {
   const { liveClasses, live, sample } = useTeacherClasses();
+  const hydrated = useHydrated();
+
+  // See LessonRoute: on the server this route rendered "This page doesn't
+  // exist" for a signed-in teacher's own class, because getToken() is false
+  // there. Decide nothing until the client is running.
+  if (!hydrated) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-12">
+        <div className="h-[280px] w-full max-w-[860px] animate-pulse rounded-[12px] bg-nevo-cream-elevated" />
+      </div>
+    );
+  }
 
   // A real class is only ever itself. This is checked before the fixtures so
   // that a live class can never be answered with a fixture of the same name.

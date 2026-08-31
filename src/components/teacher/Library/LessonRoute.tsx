@@ -2,6 +2,7 @@
 
 import { notFound } from "next/navigation";
 import { useLessonDetail } from "@/hooks/useLessonDetail";
+import { useHydrated } from "@/hooks/useHydrated";
 import { getToken } from "@/lib/auth/session";
 import type {
   LessonDetailData,
@@ -39,6 +40,22 @@ export function LessonRoute({
     missing,
     failed,
   } = useLessonDetail(lessonId);
+  const hydrated = useHydrated();
+
+  // Nothing that reads the token may decide before the client is running:
+  // on the server every getToken() is false, so a real lesson fell through to
+  // notFound() and the page answered 404.
+  if (!hydrated) {
+    return (
+      <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
+        <div className="mx-auto max-w-[860px]">
+          <div className="h-5 w-32 animate-pulse rounded bg-nevo-cream-elevated" />
+          <div className="mt-4 h-8 w-72 animate-pulse rounded bg-nevo-cream-elevated" />
+          <div className="mt-8 h-[280px] animate-pulse rounded-[12px] bg-nevo-cream-elevated" />
+        </div>
+      </div>
+    );
+  }
 
   if (lesson) {
     return (
