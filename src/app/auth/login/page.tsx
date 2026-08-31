@@ -7,17 +7,19 @@ import { NevoKeyboard } from "@/components/shared";
 import { authApi } from "@/lib/api";
 import { getRememberedProfile, type RememberedProfile } from "@/lib/auth/session";
 import { useAuth } from "@/hooks";
-import type { UserRole } from "@/lib/constants";
+import { STUDENT_PIN_LENGTH, type UserRole } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-const PIN_LENGTH = 4;
+// The length the screens commit to - see `STUDENT_PIN_LENGTH` for why this is
+// one number and not the contract's 4-8 range.
+const PIN_LENGTH = STUDENT_PIN_LENGTH;
 /** The frame's done beat before navigating home. */
 const DONE_MS = 700;
 
 /**
  * Student Login (frame 00) - the returning-student PIN unlock. The device
  * remembers who signs in here (school code + identifier + name, seeded at
- * onboarding); the student only enters their PIN. Four boxes, the Nevo pad
+ * onboarding); the student only enters their PIN. One box per digit, the Nevo pad
  * keyboard on touch, a calm violet error line - never red - and a pop-check
  * "Welcome back" beat before the dashboard.
  *

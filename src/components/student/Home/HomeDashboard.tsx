@@ -93,10 +93,10 @@ export function HomeDashboard() {
   const warmUpDimension = useWarmUpDimension(dimensionForToday());
 
   // Live rows are mapped into the frame's own shapes so the designed cards
-  // render either source. Live cards carry `href: null`: the lesson player
-  // still resolves mock ids only, and a child tapping Play into "this page
-  // doesn't exist" is worse than a card that simply states the assignment.
-  // TODO(app): link these the moment the player reads real lessons.
+  // render either source. These used to carry `href: null` - the player
+  // resolved mock ids only, so a real assignment had nowhere to go and the
+  // card stated it rather than leading a child into "this page doesn't
+  // exist". The player reads live content now, so they link.
   let cont: InProgress | null = CONTINUE;
   let today: TodayLesson[] = TODAY;
   let encouragement = ENCOURAGEMENT;
@@ -127,7 +127,7 @@ export function HomeDashboard() {
                   : frac < 2 / 3
                     ? "About halfway in"
                     : "Nearly there",
-              href: null,
+              href: `/student/lessons/${ip.lessonId}`,
             }
           : null;
       const contId = cont ? cont.lessonId : null;
@@ -140,7 +140,7 @@ export function HomeDashboard() {
             ? `Due ${new Date(a.dueAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
             : `${a.lesson.segmentCount} ${a.lesson.segmentCount === 1 ? "section" : "sections"}`,
           icon: BookOpen,
-          href: null,
+          href: `/student/lessons/${a.lesson.id}`,
         }));
       // The designed line claims "You've been showing up this week" - a
       // claim about the child that nothing verifies. Live students get a

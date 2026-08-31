@@ -5,6 +5,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { NevoKeyboard } from "@/components/shared";
 import { authApi } from "@/lib/api";
+import { STUDENT_PIN_LENGTH } from "@/lib/constants";
 import { getToken } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 
@@ -28,27 +29,31 @@ function pinReducer(state: PinState, action: PinAction): PinState {
   // The server rejected the save: keep their first PIN, re-open the confirm
   // row, and let the alert line explain.
   if (action.type === "saveFailed") {
-    return { digits: state.digits.slice(0, 4), error: false, done: false };
+    return { digits: state.digits.slice(0, STUDENT_PIN_LENGTH), error: false, done: false };
   }
   if (action.type === "backspace") {
     if (state.done) return state;
     return { digits: state.digits.slice(0, -1), error: false, done: false };
   }
   // action.type === "digit"
-  if (state.done || state.digits.length >= 8) return state;
+  // Both rows together: the PIN, then its confirmation.
+  const BOTH = STUDENT_PIN_LENGTH * 2;
+  if (state.done || state.digits.length >= BOTH) return state;
   const next = state.digits + action.value;
-  if (next.length < 8) return { digits: next, error: false, done: false };
-  // Eighth digit completes the confirm row — compare the two halves.
-  if (next.slice(0, 4) === next.slice(4)) {
+  if (next.length < BOTH) return { digits: next, error: false, done: false };
+  // The last digit completes the confirm row — compare the two halves.
+  if (next.slice(0, STUDENT_PIN_LENGTH) === next.slice(STUDENT_PIN_LENGTH)) {
     return { digits: next, error: false, done: true };
   }
-  return { digits: next.slice(0, 4), error: true, done: false }; // keep first PIN
+  // keep first PIN
+  return { digits: next.slice(0, STUDENT_PIN_LENGTH), error: true, done: false };
 }
 
 /**
  * PIN Creation (UI/UX spec) — the last onboarding step before "You're In".
  *
- * Manual students set a 4-digit PIN, then re-type it to confirm; a mismatch
+ * Manual students set a PIN (STUDENT_PIN_LENGTH digits), then re-type it to
+ * confirm; a mismatch
  * resets the confirm row with a gentle nudge (no lockouts, no attempt counter).
  * SSO students never set a PIN — they get a calm "you're signed in"
  * confirmation instead. Both paths auto-advance once settled.
@@ -110,7 +115,7 @@ export function PinCreationScreen({
         onCompleteRef.current?.();
         return;
       }
-      void authApi.setPin(digits.slice(0, 4)).then(
+      void authApi.setPin(digits.slice(0, STUDENT_PIN_LENGTH)).then(
         () => {
           if (!cancelled) onCompleteRef.current?.();
         },
@@ -165,7 +170,7 @@ export function PinCreationScreen({
             <p className="mt-7 mb-3 text-sm font-medium">Type it again to confirm</p>
             <PinRow
               filled={digits.length}
-              offset={4}
+              offset={STUDENT_PIN_LENGTH}
               caretAt={digits.length}
               error={error}
             />
@@ -209,7 +214,7 @@ function PinRow({
 }) {
   return (
     <div className={cn("flex gap-3", offset === 0 && "mt-10")}>
-      {[0, 1, 2, 3].map((i) => {
+      {Array.from({ length: STUDENT_PIN_LENGTH }, (_, i) => {
         const idx = offset + i;
         const isFilled = filled > idx;
         const isActive = idx === caretAt;

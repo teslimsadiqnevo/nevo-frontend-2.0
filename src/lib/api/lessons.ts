@@ -126,6 +126,45 @@ export interface LessonClassProgress {
   slowdownNote: string | null;
 }
 
+/**
+ * A play session, from `POST /api/v1/lessons/{id}/session`.
+ *
+ * `resumed` means the backend matched an existing open session rather than
+ * opening a new one - so a child returning to a lesson continues one session
+ * instead of accumulating orphans.
+ */
+export interface LessonSessionResponse {
+  sessionId: string;
+  resumed: boolean;
+}
+
+/** `LessonCompletionStatus` - the values progress rows come back with. */
+export const LESSON_STATUS = {
+  IN_PROGRESS: "in_progress",
+  COMPLETED: "completed",
+  EXITED: "exited",
+} as const;
+
+export type LessonStatus =
+  (typeof LESSON_STATUS)[keyof typeof LESSON_STATUS];
+
+export interface LessonProgressRequest {
+  sessionId: string;
+  assignmentId?: string | null;
+  modulePosition?: number;
+  segmentPosition?: number;
+  status: LessonStatus;
+}
+
+export interface LessonProgressResponse {
+  lessonId: string;
+  status: string;
+  modulePosition: number;
+  segmentPosition: number;
+  /** Untyped in the spec (`additionalProperties: true`), so it is not read. */
+  intelligence: Record<string, unknown>;
+}
+
 export const lessonsApi = {
   /** One class's progress through this lesson. */
   classProgress: (lessonId: string, classId: string) =>
@@ -152,4 +191,24 @@ export const lessonsApi = {
     api
       .get<{ modules?: LessonModule[] }>(`/api/v1/lessons/${lessonId}`)
       .then((r) => r.modules ?? []),
+
+  /**
+   * Open (or re-open) a play session. POST /api/v1/lessons/{id}/session
+   * Takes no body.
+   */
+  startSession: (lessonId: string) =>
+    api.post<LessonSessionResponse>(`/api/v1/lessons/${lessonId}/session`, {}),
+
+  /**
+   * Record where the student has got to. PUT /api/v1/lessons/{id}/progress
+   *
+   * `sessionId` is required, so progress cannot be written before a session
+   * exists - which is why `useLessonProgress` opens one before it reports
+   * anything.
+   */
+  saveProgress: (lessonId: string, body: LessonProgressRequest) =>
+    api.put<LessonProgressResponse>(
+      `/api/v1/lessons/${lessonId}/progress`,
+      body,
+    ),
 };

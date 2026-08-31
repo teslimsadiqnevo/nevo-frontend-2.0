@@ -7,6 +7,8 @@ import {
   NevoKeyboard,
   useNevoKeyboardDock,
 } from "@/components/shared";
+import { useHasSession } from "@/hooks/useHasSession";
+import { useStudentLessons } from "@/hooks/useStudentLessons";
 import { cn } from "@/lib/utils";
 import {
   LESSON_CATALOG,
@@ -26,41 +28,124 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 /**
- * Lessons Tab (screen 20). The student's whole library, organised by subject,
- * with a calm status on each card and an adaptive time estimate. Search + status
- * filters narrow it; tapping a lesson opens its preview. Warm empty state when a
- * search finds nothing.
+ * Lessons Tab (screen 20). The student's lessons, with a calm status on each
+ * card. Search + status filters narrow it; tapping a lesson opens its preview.
+ * Warm empty state when a search finds nothing.
+ *
+ * LIVE FIRST. A signed-in child sees their own assignments (see
+ * `useStudentLessons`) and never the fixtures - this screen used to render the
+ * catalogue unconditionally, so a real student browsed four invented lessons,
+ * one of them claiming they were 55% through it. Signed out, the fixtures back
+ * the designed screen as before.
+ *
+ * Live lessons carry no subject, so they render as one ungrouped grid; the
+ * fixtures keep their subject headings. Grouping by an invented subject would
+ * be the same mistake in a different place.
  */
 export function LessonsTab() {
+  const signedIn = useHasSession();
+  const { lessons: liveLessons, live, loading, failed } = useStudentLessons();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const kb = useNevoKeyboardDock();
   const [preview, setPreview] = useState<LessonSummary | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  // Fixtures only when there is no session to read from.
+  const source = useMemo(
+    () => (live ? liveLessons : signedIn ? [] : LESSON_CATALOG),
+    [live, liveLessons, signedIn],
+  );
+
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const matched = LESSON_CATALOG.filter(
+    const matched = source.filter(
       (l) =>
         (filter === "all" || l.status === filter) &&
         (q === "" || l.title.toLowerCase().includes(q)),
     );
-    // Preserve catalogue order of subjects.
+    // Grouped by subject where one exists; live lessons have none and fall
+    // into a single unlabelled group.
     const bySubject = new Map<string, LessonSummary[]>();
     for (const lesson of matched) {
-      const list = bySubject.get(lesson.subject) ?? [];
+      const key = lesson.subject ?? "";
+      const list = bySubject.get(key) ?? [];
       list.push(lesson);
-      bySubject.set(lesson.subject, list);
+      bySubject.set(key, list);
     }
     return [...bySubject.entries()];
-  }, [query, filter]);
+  }, [source, query, filter]);
 
   const noResults = groups.length === 0;
+  /** Nothing has been assigned yet - different from a search finding nothing. */
+  const nothingAssigned = live && liveLessons.length === 0;
 
   const openPreview = (lesson: LessonSummary) => {
     setPreview(lesson);
     setPreviewOpen(true);
   };
+
+  const shell = (children: React.ReactNode) => (
+    <div className="mx-auto w-full max-w-[900px] px-5 py-2 pb-6 sm:px-8 sm:py-6">
+      <h1 className="text-2xl font-semibold tracking-[-0.01em] text-nevo-near-black sm:text-[30px] lg:text-[32px]">
+        Lessons
+      </h1>
+      {children}
+    </div>
+  );
+
+  if (signedIn && loading) {
+    return shell(
+      <div className="mt-6 grid grid-cols-2 gap-3.5 lg:grid-cols-3">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="h-[150px] animate-pulse rounded-[12px] bg-nevo-cream-elevated"
+          />
+        ))}
+      </div>,
+    );
+  }
+
+  if (signedIn && failed) {
+    return shell(
+      <div className="mt-6 rounded-[16px] bg-nevo-cream-elevated p-[22px] shadow-elevation-1">
+        <p className="text-[17px] font-semibold text-nevo-near-black">
+          We couldn&rsquo;t load your lessons just now
+        </p>
+        <p className="mt-1.5 text-[15px] leading-[1.5] text-nevo-near-black/68">
+          Nothing is lost. Give it a moment and try again.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-5 flex h-[48px] cursor-pointer items-center rounded-[12px] bg-nevo-navy px-7 text-[15px] font-medium text-nevo-cream"
+        >
+          Try again
+        </button>
+      </div>,
+    );
+  }
+
+  if (nothingAssigned) {
+    return shell(
+      <div className="flex flex-col items-center px-6 pt-11 pb-6 text-center">
+        <IllustrationWrapper
+          src="/illustrations/empty-lessons.png"
+          alt=""
+          width={512}
+          height={512}
+          className="w-[170px]"
+        />
+        <h2 className="mt-5 text-lg font-medium text-nevo-near-black">
+          No lessons yet
+        </h2>
+        <p className="mt-1.5 max-w-[280px] text-sm leading-[1.5] text-nevo-near-black/60">
+          When your teacher sets one, it will appear here.
+        </p>
+      </div>,
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-[900px] px-5 py-2 pb-6 sm:px-8 sm:py-6">
@@ -149,10 +234,14 @@ export function LessonsTab() {
           {groups.map(([subject, lessons]) => (
             <section key={subject} className="mb-7">
               {/* Not sticky: a pinned header overlays cards (taps land on it)
-                  and perturbs the scroll signal (SCRUM-94). */}
-              <h2 className="mb-3 py-1.5 text-lg font-semibold text-nevo-near-black">
-                {subject}
-              </h2>
+                  and perturbs the scroll signal (SCRUM-94). Live lessons have
+                  no subject, so they render headingless rather than under an
+                  invented one. */}
+              {subject && (
+                <h2 className="mb-3 py-1.5 text-lg font-semibold text-nevo-near-black">
+                  {subject}
+                </h2>
+              )}
               <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-3">
                 {lessons.map((lesson) => (
                   <LessonCard
@@ -183,7 +272,10 @@ function LessonCard({
   lesson: LessonSummary;
   onOpen: () => void;
 }) {
-  const Icon = SUBJECT_ICON[lesson.subject] ?? SUBJECT_ICON.Science;
+  // No subject on live lessons - the neutral book mark stands in.
+  const Icon =
+    (lesson.subject ? SUBJECT_ICON[lesson.subject] : undefined) ??
+    SUBJECT_ICON.English;
   return (
     <button
       type="button"

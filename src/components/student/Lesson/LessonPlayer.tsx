@@ -37,6 +37,8 @@ import {
   FrustrationHint,
 } from "./AffectiveLayer";
 import { AfterLessonAssessment } from "./AfterLessonAssessment";
+import { LESSON_STATUS } from "@/lib/api/lessons";
+import { useLessonProgress } from "@/hooks/useLessonProgress";
 import { AudioSegment } from "./AudioSegment";
 import { BreakOfferPill } from "./BreakOfferPill";
 import { BreakScreen } from "./BreakScreen";
@@ -123,9 +125,16 @@ export function LessonPlayer({
   lesson,
   plan,
   review = false,
+  live = false,
 }: {
   lesson: Lesson;
   plan: AdaptationPlan | null;
+  /**
+   * The lesson came from the backend, so its id is real and progress can be
+   * written against it. False for the two authored mock lessons - writing
+   * their invented ids would 404 and blame the network for our own fixture.
+   */
+  live?: boolean;
   /**
    * Review session (37d): the same player as a spaced-retrieval variant. Adds
    * only an entry screen, the REVIEW pill during, and the "You strengthened
@@ -193,6 +202,37 @@ export function LessonPlayer({
   >(review ? "review-entry" : "segments");
   // Exiting mid-lesson goes through the leave dialog, not straight out.
   const [leaveOpen, setLeaveOpen] = useState(false);
+
+  // ── Persisted progress ────────────────────────────────────────────────────
+  // Nothing wrote a child's position down before this: closing the tab
+  // returned a lesson to unstarted. `useLessonProgress` opens the session and
+  // reports position; the two authored mocks opt out (`live`), because their
+  // ids are invented and a 404 would be ours, not the network's.
+  const progress = useLessonProgress(lesson.id, live);
+  const { report: reportProgress } = progress;
+
+  // Position, on every move - including the ones that go through a module
+  // boundary or a break, which is why this watches `index` rather than
+  // hooking each call site.
+  useEffect(() => {
+    const pos = modulePositionFor(lesson, index);
+    reportProgress(LESSON_STATUS.IN_PROGRESS, {
+      segment: index,
+      ...(pos ? { module: pos.moduleIndex } : {}),
+    });
+  }, [lesson, index, reportProgress]);
+
+  // Completion. Reported once, when the player reaches its final phase - the
+  // assessment sits between the last segment and this, so it must not fire on
+  // the last segment alone.
+  const completionReported = useRef(false);
+  useEffect(() => {
+    if (phase !== "complete" || completionReported.current) return;
+    completionReported.current = true;
+    reportProgress(LESSON_STATUS.COMPLETED, {
+      segment: Math.max(0, lesson.segments.length - 1),
+    });
+  }, [phase, lesson, reportProgress]);
   // SCRUM-101: the segment index the player is about to enter across a module
   // boundary. Non-null takes over the screen with the boundary landing; the
   // student's continue (or break + "I'm ready") completes the move.
@@ -444,7 +484,14 @@ export function LessonPlayer({
   // sparkle rides the unfollowed system chip (AdaptiveToggleBar).
   const systemDensity: Density = segPlan?.density ?? DENSITY.SIMPLIFY;
   const effectiveDensity: Density = density ?? systemDensity;
-  const densitySegments: ToggleSegment[] = DENSITIES.map(({ id, label }) => ({
+  // Only the densities this segment can actually reshape into. Parsed backend
+  // content carries one body and no variants, so a live lesson offers none -
+  // and an offered density that re-renders identical prose is the player
+  // telling a child it adapted when it did not. Authored lessons carry all
+  // three and are unaffected.
+  const densitySegments: ToggleSegment[] = DENSITIES.filter(
+    ({ id }) => segment.text?.body[id] !== undefined,
+  ).map(({ id, label }) => ({
     id,
     label,
     state:
@@ -524,6 +571,14 @@ export function LessonPlayer({
   }
 
   if (phase === "complete") {
+    // "Your progress is saved" is the screen's default note, and until the
+    // progress write existed it was simply untrue. Now it is a report: when
+    // the write did not reach Nevo the child is told, in the same words the
+    // daily warm-up uses - the fault is ours and it says so.
+    const savedNote = progress.completionFailed
+      ? "We couldn’t save that just now — that’s on us, not you. Your work is still yours."
+      : undefined;
+
     // Review sessions close on the strengthened-concept variant (37d) - the
     // standard completion screen with only the message swapped.
     if (review) {
@@ -531,7 +586,10 @@ export function LessonPlayer({
         <LessonComplete
           onDone={() => router.push(HOME_HREF)}
           heading="You strengthened this concept"
-          note={`${lesson.title} is settling in. We'll bring it back once more before it fully sticks.`}
+          note={
+            savedNote ??
+            `${lesson.title} is settling in. We'll bring it back once more before it fully sticks.`
+          }
           doneLabel="Done"
         />
       );
@@ -539,6 +597,7 @@ export function LessonPlayer({
     return (
       <LessonComplete
         onDone={() => router.push(HOME_HREF)}
+        note={savedNote}
         onSeeSummary={
           lesson.summary
             ? () => router.push(`${LESSONS_HREF}/${lesson.id}/summary`)
@@ -652,10 +711,17 @@ export function LessonPlayer({
             pulse={affect === AFFECTIVE_STATES.BOREDOM}
           />
         </div>
-        {/* Frame: the density toggle sits alone on its own right-aligned row. */}
-        <div className="flex justify-end">
-          <AdaptiveToggleBar segments={densitySegments} onSelect={pickDensity} />
-        </div>
+        {/* Frame: the density toggle sits alone on its own right-aligned row.
+            Absent entirely when the segment has no reshapes to offer, rather
+            than an empty pill rail. */}
+        {densitySegments.length > 0 && (
+          <div className="flex justify-end">
+            <AdaptiveToggleBar
+              segments={densitySegments}
+              onSelect={pickDensity}
+            />
+          </div>
+        )}
       </header>
 
       {/* Two-level position line for modular lessons (SCRUM-101.3) - its own
