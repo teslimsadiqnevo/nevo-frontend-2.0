@@ -233,7 +233,43 @@ export function ProfileSettings() {
         </div>
 
         <h3 className={SECTION_H3}>Notifications</h3>
-        <div className={CARD}>{rows(NOTIFICATION_SETTINGS)}</div>
+        {notifications.failed ? (
+          /* The toggles below are frame defaults until the stored values are
+             read. Showing them as the teacher's saved choices would be a
+             claim, and saving over them would overwrite the two categories
+             they never touched - so the card says so instead. */
+          <div className={CARD}>
+            <div className="px-[22px] py-5">
+              <p className="text-[15px] font-medium text-nevo-near-black">
+                We couldn&rsquo;t load your notification choices.
+              </p>
+              <p className="mt-1.5 text-sm leading-[1.5] text-nevo-near-black/62">
+                We&rsquo;re not showing them rather than guessing. Nothing has
+                changed &ndash; try again in a moment.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="mt-4 h-[42px] cursor-pointer rounded-[10px] border-[1.5px] border-nevo-navy/35 px-4 text-sm font-semibold text-nevo-navy transition-colors hover:bg-nevo-navy/6"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        ) : !notifications.ready ? (
+          <div className={CARD}>
+            <div className="space-y-3 px-[22px] py-5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="h-[38px] animate-pulse rounded-[10px] bg-nevo-cream-inset"
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className={CARD}>{rows(NOTIFICATION_SETTINGS)}</div>
+        )}
 
         <h3 className={SECTION_H3}>Accessibility</h3>
         <div className={CARD}>{rows(ACCESSIBILITY_SETTINGS)}</div>

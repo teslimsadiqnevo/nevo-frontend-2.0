@@ -40,6 +40,16 @@ export type SaveState = "idle" | "saving" | "saved" | "failed";
 export interface TeacherSettings {
   values: TeacherNotificationSettings;
   ready: boolean;
+  /**
+   * The stored preferences could not be read. Editing is refused while this
+   * is true: every write sends ALL THREE categories, so saving over state we
+   * never read would overwrite the two the teacher did not touch with the
+   * frame's defaults - and force each category's `email` channel to false,
+   * silently turning off email they may have had on. (The email channel has
+   * no switch in the frame; design deferred it to v1.5, so this side must
+   * preserve it, never clear it.)
+   */
+  failed: boolean;
   set: (key: keyof TeacherNotificationSettings, value: boolean) => void;
   /** Resolves true when the write landed, so the caller can toast the truth. */
   save: () => Promise<boolean>;
@@ -53,6 +63,7 @@ export function useTeacherSettings(): TeacherSettings {
     Record<string, boolean>
   >({});
   const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const signedIn = useHasSession();
 
@@ -76,9 +87,10 @@ export function useTeacherSettings(): TeacherSettings {
         setReady(true);
       })
       .catch(() => {
-        // Never saved, or unreachable. The frame's defaults stand either way;
-        // what must not happen is a toggle showing a state we did not read.
-        if (!cancelled) setReady(true);
+        // NOT ready. `values` still holds the frame's defaults, and rendering
+        // those as the teacher's saved choices is exactly the thing the old
+        // comment here said must not happen - while doing it.
+        if (!cancelled) setFailed(true);
       });
     return () => {
       cancelled = true;
@@ -98,6 +110,11 @@ export function useTeacherSettings(): TeacherSettings {
       setSaveState("saved");
       return true;
     }
+    // Refuse rather than clobber: see `failed` above.
+    if (failed) {
+      setSaveState("failed");
+      return false;
+    }
     setSaveState("saving");
     const rows: NotificationPreference[] = (
       Object.keys(values) as (keyof TeacherNotificationSettings)[]
@@ -114,7 +131,14 @@ export function useTeacherSettings(): TeacherSettings {
       setSaveState("failed");
       return false;
     }
-  }, [values, emailByCategory]);
+  }, [values, emailByCategory, failed]);
 
-  return { values, ready: ready || !signedIn, set, save, saveState };
+  return {
+    values,
+    ready: ready || !signedIn,
+    failed: failed && signedIn,
+    set,
+    save,
+    saveState,
+  };
 }
