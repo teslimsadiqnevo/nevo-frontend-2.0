@@ -160,8 +160,11 @@ export function ConnectView() {
   ) => {
     const threadId = await sendLive(to, text);
     if (!threadId) {
-      flashToast("That didn’t send – try again");
-      return;
+      if (toast) flashToast("That didn’t send – try again");
+      // THROW, do not return. Callers cannot tell success from failure if this
+      // resolves either way - which is exactly how the compose modal came to
+      // report "Message sent" over a send that never happened.
+      throw new Error("send failed");
     }
     setActiveId(threadId);
     setNewestId(nextId());
@@ -175,19 +178,33 @@ export function ConnectView() {
     const text = draft.trim();
     if (!text || !active?.recipientId) return;
     setDraft("");
+    // The inline composer reports failure through the toast `deliver` raises,
+    // so the rejection is handled here rather than surfacing twice.
     void deliver(
       {
         recipientId: active.recipientId,
         recipientType: active.recipientType === "class" ? "class" : "student",
       },
       text,
-    );
+    ).catch(() => {});
   };
 
-  const sendFromCompose = (student: ComposeStudent, text: string) => {
+  /**
+   * RETURNS the promise, and rejects when it cannot send. The modal decides
+   * what to show from it, so anything that resolves here is a claim that the
+   * message reached the child.
+   *
+   * It used to `void` the call and return early with no studentId, so both
+   * paths resolved and the modal said "Message sent" - for a failed request,
+   * and for a request it had never made.
+   */
+  const sendFromCompose = async (student: ComposeStudent, text: string) => {
     setPresetStudent(undefined);
-    if (!student.studentId) return;
-    void deliver(
+    if (!student.studentId) {
+      // A picker row with no id is a fixture. There is nobody to send to.
+      throw new Error("no student id");
+    }
+    await deliver(
       { recipientId: student.studentId, recipientType: "student" },
       text,
       false,
@@ -330,7 +347,12 @@ export function ConnectView() {
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col justify-end gap-3.5 overflow-y-auto px-6 py-6 xl:px-7">
-                {active.messages.map((m) => (
+                {/* A thread the list knows about but whose bodies have not
+                    arrived yet has no `messages` at all - which is exactly the
+                    state a freshly-composed thread is in the instant it is
+                    opened. Rendering it as an empty conversation is right;
+                    crashing the whole Connect screen was not. */}
+                {(active.messages ?? []).map((m) => (
                   <Bubble key={m.id} m={m} isNew={m.id === newestId} />
                 ))}
                 <div ref={endRef} />
