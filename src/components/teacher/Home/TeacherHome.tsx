@@ -12,7 +12,9 @@ import {
 } from "@/lib/mocks/teacherHome";
 import { cn } from "@/lib/utils";
 import { useTeacherFlags } from "@/hooks/useTeacherFlags";
+import { useTeacherHome } from "@/hooks/useTeacherHome";
 import { ClassPulse } from "./ClassPulse";
+import { LiveClassPulse } from "./LiveClassPulse";
 import { LiveFlagCard } from "./LiveFlagCard";
 import { HomeClasses } from "./HomeClasses";
 import { FlagCard } from "./FlagCard";
@@ -33,12 +35,15 @@ import { FlagCard } from "./FlagCard";
  *   - the flags are LIVE, from `/api/intelligence/flags`. An empty list is a
  *     real calm morning and gets C03's own no-flags card, not fixtures - which
  *     is the whole point: "nothing needs you" is only reassuring if it is true.
- *   - the pulse and the activity list are still fixture, and still marked as a
- *     sample rather than passed off as their week.
+ *   - the pulse and the activity list are live too, from
+ *     `GET /api/v1/teachers/me/home` - the endpoint backend shipped against
+ *     the blockers list. The pulse repeats per class, because that is how it
+ *     arrives; see `LiveClassPulse`.
  *   - the greeting uses the teacher's real name, from `GET /api/v1/users/me`,
  *     and falls back to a nameless welcome rather than the fixture persona.
  *
- * TODO(api): the class pulse and the activity list have no endpoint.
+ * TODO(design): the pulse's number-to-word banding is ours - see
+ * `useTeacherHome`.
  */
 
 const SECTION_H =
@@ -53,7 +58,7 @@ function todayLine(): string {
 }
 
 export function TeacherHome() {
-  const { classes, liveClasses, live, sample } = useTeacherClasses();
+  const { classes, liveClasses, live } = useTeacherClasses();
   // Live and genuinely empty - not merely "the fixtures did not match".
   const noClasses = live && classes.length === 0 && liveClasses.length === 0;
   // A teacher whose classes failed to load is still not the fixture persona.
@@ -69,6 +74,14 @@ export function TeacherHome() {
     live: flagsLive,
     failed: flagsFailed,
   } = useTeacherFlags();
+  const {
+    pulse,
+    activity,
+    live: homeLive,
+    failed: homeFailed,
+  } = useTeacherHome();
+  // Fixtures back the designed screens and the failure fallback only.
+  const showFixtureHome = !homeLive && (!signedIn || homeFailed);
   const showFixtureFlags = !flagsLive && (!signedIn || flagsFailed);
   const flags = noClasses ? [] : liveFlags;
   const fixtureFlags = noClasses || !showFixtureFlags ? [] : HOME_FLAGS;
@@ -98,19 +111,22 @@ export function TeacherHome() {
             one, your students&rsquo; week will show up here.
           </p>
         ) : (
-          (live || sample) && (
+          showFixtureHome &&
+          signedIn && (
             <p className="mt-2 max-w-[560px] text-[13px] leading-[1.5] text-nevo-near-black/55 italic">
-              {/* Names what is actually a sample. The flags above are live, so
-                  "everything below" would now be untrue in the other
-                  direction. */}
-              The class pulse and recent activity are samples &ndash;
-              we can&rsquo;t read your class activity yet.
+              {/* Only claimed when the fixtures are actually on screen - the
+                  pulse and activity are live whenever the endpoint answers. */}
+              We couldn&rsquo;t read your class activity just now, so the pulse
+              and recent activity are samples.
             </p>
           )
         )}
 
         {/* C16a: the pulse leads - class weather first, specifics below. */}
-        {!noClasses && <ClassPulse />}
+        {!noClasses &&
+          (homeLive
+            ? pulse.map((p) => <LiveClassPulse key={p.classId} pulse={p} />)
+            : showFixtureHome && <ClassPulse />)}
 
         {/* All of this is class-derived. With no classes there is nothing
             truthful to put here - including the calm no-flags card, which
@@ -196,9 +212,42 @@ export function TeacherHome() {
             <h3 className={cn(SECTION_H, "mt-[30px] xl:mt-10")}>My classes</h3>
             <HomeClasses />
 
-            <h3 className={cn(SECTION_H, "mt-[30px] xl:mt-9")}>
-              Recent activity
-            </h3>
+            {(homeLive ? activity.length > 0 : showFixtureHome) && (
+              <h3 className={cn(SECTION_H, "mt-[30px] xl:mt-9")}>
+                Recent activity
+              </h3>
+            )}
+            {homeLive && activity.length > 0 && (
+              <div className="mt-3.5 overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 xl:mt-4">
+                {activity.map((a, i) => {
+                  const Row = a.href ? Link : "div";
+                  return (
+                    <Row
+                      key={a.id}
+                      href={a.href ?? "#"}
+                      className={cn(
+                        "flex items-center justify-between gap-4 px-[22px] py-4",
+                        a.href &&
+                          "cursor-pointer transition-[filter] hover:brightness-[0.985]",
+                        i < activity.length - 1 &&
+                          "border-b border-nevo-near-black/7",
+                      )}
+                    >
+                      <div className="flex min-w-0 flex-col">
+                        <span className="text-[15.5px] font-semibold text-nevo-near-black">
+                          {a.title}
+                        </span>
+                        <span className="mt-[3px] text-[13px] text-nevo-near-black/55">
+                          {[a.detail, a.when].filter(Boolean).join(" · ")}
+                        </span>
+                      </div>
+                    </Row>
+                  );
+                })}
+              </div>
+            )}
+
+            {showFixtureHome && (
             <div className="mt-3.5 overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 xl:mt-4">
               {HOME_ACTIVITY.map((a, i) => (
                 <Link
@@ -234,6 +283,7 @@ export function TeacherHome() {
                 </Link>
               ))}
             </div>
+            )}
           </>
         )}
       </div>
