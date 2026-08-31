@@ -32,7 +32,6 @@ import { MOCK_TEACHER } from "./teacherNav";
  */
 
 const THINKING_MS = 850;
-const LIVE_TIMEOUT_MS = 15000;
 
 const SHEET = "w-[460px] xl:w-[468px]";
 
@@ -44,6 +43,9 @@ type Turn =
       action?: { label: string; href: string };
       /** Canned stand-in shown after a live attempt failed. */
       sample?: boolean;
+      /** Present only on a REAL answer - what the vote is cast against. */
+      interactionId?: string;
+      vote?: 1 | -1;
     }
   | { kind: "cannothelp" };
 
@@ -107,26 +109,37 @@ export function AskNevo() {
     const beat = new Promise<void>((resolve) =>
       timers.current.push(setTimeout(resolve, reduced ? 0 : THINKING_MS)),
     );
-    const live = Promise.race([
-      askNevoApi
-        .ask({
-          role: "teacher",
-          currentPage: pathname,
-          contextIds: { threadId: asUuid(threadId.current) },
-          question,
-        })
-        .catch(() => null),
-      new Promise<null>((resolve) =>
-        timers.current.push(setTimeout(() => resolve(null), LIVE_TIMEOUT_MS)),
-      ),
-    ]);
+    /*
+     * NO RACE. This used to run the question against a 15s cap and take
+     * whichever finished first, so a real answer arriving at 15.1s was thrown
+     * away and a CANNED one shown in its place. A teacher who asked something
+     * hard - the questions most worth asking - was the most likely to get a
+     * stand-in instead of the answer Nevo had actually produced.
+     *
+     * Same bug as the notification feed and the four hooks in PR #148. Only a
+     * genuine failure falls back, and it says so.
+     */
+    const live = askNevoApi
+      .ask({
+        role: "teacher",
+        currentPage: pathname,
+        contextIds: { threadId: asUuid(threadId.current) },
+        question,
+      })
+      .catch(() => null);
 
     void Promise.all([live, beat]).then(([res]) => {
       if (!alive.current) return;
       setTurns((ts) => [
         ...ts,
         res
-          ? { kind: "answer", text: res.answer }
+          ? {
+              kind: "answer",
+              text: res.answer,
+              // Kept so the vote below has something to post against; a
+              // canned answer has no interaction and gets no vote.
+              interactionId: res.interaction_id,
+            }
           : { ...cannedFor(question), sample: Boolean(getToken()) },
       ]);
       setThinking(false);
@@ -134,6 +147,28 @@ export function AskNevo() {
         endRef.current?.scrollIntoView({ block: "end" }),
       );
     });
+  };
+
+  /**
+   * C01's helpfulness vote. Optimistic on purpose - the teacher's own mark is
+   * the point, and a failed write should not snatch it back - but it is only
+   * ever offered on a REAL answer, so a vote always has an interaction behind
+   * it. Toggling the same thumb clears it, per the frame.
+   */
+  const vote = (index: number, value: 1 | -1) => {
+    setTurns((ts) =>
+      ts.map((t, i) =>
+        i === index && t.kind === "answer"
+          ? { ...t, vote: t.vote === value ? undefined : value }
+          : t,
+      ),
+    );
+    const turn = turns[index];
+    if (turn?.kind !== "answer" || !turn.interactionId) return;
+    if (turn.vote === value) return; // clearing - nothing to record
+    void askNevoApi
+      .recordHelpfulness(turn.interactionId, value === 1)
+      .catch(() => {});
   };
 
   const showEntry = turns.length === 0 && !thinking;
@@ -256,6 +291,42 @@ export function AskNevo() {
                               a sample answer.
                             </p>
                           )}
+                          {t.interactionId && (
+                            <div className="mt-[11px] flex items-center justify-end gap-1 border-t border-nevo-near-black/9 pt-[9px]">
+                              {([1, -1] as const).map((v) => {
+                                const on = t.vote === v;
+                                return (
+                                  <button
+                                    key={v}
+                                    type="button"
+                                    aria-label={v === 1 ? "Helpful" : "Not helpful"}
+                                    aria-pressed={on}
+                                    title={v === 1 ? "Helpful" : "Not helpful"}
+                                    onClick={() => vote(i, v)}
+                                    className="inline-flex size-[30px] cursor-pointer items-center justify-center rounded-lg transition-transform duration-[120ms] active:scale-[0.98]"
+                                  >
+                                    <svg
+                                      width="19"
+                                      height="19"
+                                      viewBox="0 0 24 24"
+                                      fill={on ? "#9a9ccb" : "none"}
+                                      stroke={on ? "#9a9ccb" : "rgba(43,43,47,0.4)"}
+                                      strokeWidth="1.7"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      aria-hidden
+                                    >
+                                      {v === 1 ? (
+                                        <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                                      ) : (
+                                        <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
+                                      )}
+                                    </svg>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                           {t.action && (
                             <div className="mt-3 flex flex-wrap gap-[9px]">
                               <Link
@@ -276,16 +347,13 @@ export function AskNevo() {
                             {CANNOT_HELP_LINE}
                           </p>
                         </div>
-                        <Link
-                          href="/teacher/connect"
-                          onClick={close}
-                          className="mt-2.5 ml-1 inline-flex cursor-pointer items-center gap-[7px] text-[13px] font-medium text-nevo-violet transition-transform duration-[120ms] active:scale-[0.98]"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.5A8 8 0 1 1 21 12z" />
-                          </svg>
-                          Message your school admin
-                        </Link>
+                        {/* Design deleted "Message your school admin" from
+                            this state on 31 Aug: Connect messages STUDENTS,
+                            so the link went somewhere that could not do what
+                            it offered. Plain text now, per the frame. */}
+                        <p className="mt-2.5 ml-1 text-[13px] leading-[1.5] text-nevo-near-black/60">
+                          Your school admin looks after that side of things.
+                        </p>
                       </div>
                     ),
                   )}
