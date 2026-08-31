@@ -19,8 +19,14 @@ import type {
 /** Text modality — one heading, body variants keyed by density (frame 17). */
 export interface TextContent {
   heading: string;
-  /** `default` is the base rendering; density keys reshape the same segment. */
-  body: Record<Density | "default", string>;
+  /**
+   * `default` is the base rendering; density keys reshape the same segment.
+   * The densities are OPTIONAL: parsed backend content carries one body per
+   * segment and no reshapes, so live lessons supply `default` alone. The
+   * player offers only the densities a segment actually has - a toggle that
+   * re-renders identical prose is a claim the content cannot honour.
+   */
+  body: { default: string } & Partial<Record<Density, string>>;
   /**
    * Slower breaks the same idea into small numbered step cards (frame 17);
    * the density's `body` string becomes the lead line above them.

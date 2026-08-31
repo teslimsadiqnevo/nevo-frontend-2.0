@@ -32,12 +32,37 @@ export type TrackEvent = (
  *   const { trackEvent } = useSignals(sessionId, lessonId);
  *   trackEvent("time_on_segment", { segmentId, duration });
  *
- * `lessonId` scopes the ingest envelope; non-lesson streams (onboarding,
- * profiling) omit it and the sessionId doubles as the flow tag.
- * TODO(api): flagged to backend - a non-lesson session shape for the ingest
- * contract, which today models lesson sessions only.
+ * THE SESSION ID MUST BE THE BACKEND'S. Both `session.sessionId` and every
+ * `events[].sessionId` are declared `format: uuid`, and the player used to
+ * pass a string it built itself - `lesson-<id>-<random>`. It is not a UUID, so
+ * EVERY batch this app ever sent was rejected 422 before a single field was
+ * read: time on segment, scroll depth, replays, modality switches,
+ * comprehension responses, breaks. The whole evidence stream the Intelligence
+ * Framework runs on, silently refused at the door.
+ *
+ * Silently, because a 4xx is deliberately not re-queued (it would fail
+ * identically every five seconds forever) and the failure has no user-facing
+ * effect. Nothing surfaced it until the network tab was read against a real
+ * signed-in account.
+ *
+ * So `sessionId` is now the id `POST /api/v1/lessons/{id}/session` issues -
+ * the same one `PUT /progress` requires, which is the backend telling us these
+ * are one session, not two. It arrives asynchronously, so events captured
+ * before it lands are HELD (capped, newest kept) and go out with the first
+ * batch that can be addressed, rather than being thrown at a validator that
+ * will refuse them.
+ *
+ * `lessonId` scopes the envelope and is a UUID too, so a stream with no lesson
+ * session - onboarding, profiling, SSO - cannot be addressed at all and holds
+ * forever. That is not this hook's to fix: the contract models lesson sessions
+ * only, and a non-lesson session shape is on the backend blocker list. Holding
+ * is at least honest, and cheaper than a 422 every five seconds.
  */
-export function useSignals(sessionId: string, lessonId?: string) {
+/** The ingest contract declares both ids `format: uuid`; anything else is a 422. */
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function useSignals(sessionId: string | null, lessonId?: string) {
   const queue = useRef<SignalEvent[]>([]);
   const sessionRef = useRef(sessionId);
   const lessonRef = useRef(lessonId);
@@ -46,7 +71,11 @@ export function useSignals(sessionId: string, lessonId?: string) {
 
   // Keep the latest ids in refs without mutating them during render.
   useEffect(() => {
-    if (sessionRef.current !== sessionId) {
+    // Only a genuinely NEW session restarts the capture window. Going from
+    // "not issued yet" to the issued id is this session resolving, not a
+    // second one - resetting there would stamp the envelope later than the
+    // events it carries.
+    if (sessionRef.current && sessionRef.current !== sessionId) {
       startedAtRef.current = new Date().toISOString();
     }
     sessionRef.current = sessionId;
@@ -55,15 +84,24 @@ export function useSignals(sessionId: string, lessonId?: string) {
 
   const flush = useCallback(() => {
     if (queue.current.length === 0) return;
+
+    // Nothing can be addressed without both UUIDs. Hold rather than send a
+    // batch the validator will refuse - capped, because a stream that can
+    // never be addressed would otherwise grow for the life of the screen.
+    const session = sessionRef.current;
+    const lesson = lessonRef.current;
+    if (!session || !UUID.test(session) || !lesson || !UUID.test(lesson)) {
+      if (queue.current.length > SIGNAL_BATCH.MAX_HELD_EVENTS) {
+        queue.current = queue.current.slice(-SIGNAL_BATCH.MAX_HELD_EVENTS);
+      }
+      return;
+    }
+
     const batch = queue.current;
     queue.current = [];
     signalsApi
       .submitBatch(
-        {
-          sessionId: sessionRef.current,
-          lessonId: lessonRef.current ?? sessionRef.current,
-          startedAt: startedAtRef.current,
-        },
+        { sessionId: session, lessonId: lesson, startedAt: startedAtRef.current },
         batch,
       )
       .catch((cause) => {

@@ -7,12 +7,20 @@ export type LessonStatus = "not_started" | "in_progress" | "completed";
 export interface LessonSummary {
   id: string;
   title: string;
-  subject: string;
+  /**
+   * Absent on live lessons: assignments carry no subject, so the list renders
+   * ungrouped and the preview omits the chip rather than guessing one.
+   */
+  subject?: string;
   /** Adaptive time estimate — personalised per learner (backend later). */
   timeEstimate: string;
   status: LessonStatus;
-  /** Plain-language "what you'll do", shown in the preview. */
-  description: string;
+  /**
+   * Plain-language "what you'll do", shown in the preview. Absent on live
+   * lessons - nothing in the contract writes one for a child, and a generated
+   * stand-in would be us describing a lesson we have not read.
+   */
+  description?: string;
   /** 0–1 through the lesson, when `in_progress`. */
   progress?: number;
   /**

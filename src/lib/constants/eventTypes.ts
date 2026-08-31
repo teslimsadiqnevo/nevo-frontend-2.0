@@ -111,4 +111,11 @@ export const SIGNAL_BATCH = {
   FLUSH_INTERVAL_MS: 5_000,
   /** Flush immediately once a batch reaches this many events. */
   MAX_BATCH_SIZE: 20,
+  /**
+   * Most events a HELD queue keeps while it waits for the session id the
+   * ingest contract requires. A stream that can never send - a mock lesson,
+   * or an onboarding flow with no lesson session - would otherwise grow for
+   * as long as the screen is open. The newest are kept.
+   */
+  MAX_HELD_EVENTS: 200,
 } as const;
