@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks";
 
@@ -10,7 +9,6 @@ import { useAuth } from "@/hooks";
  * and sits below the primary action.
  */
 export function SignOutModal({ onStay }: { onStay: () => void }) {
-  const router = useRouter();
   const auth = useAuth();
   const [busy, setBusy] = useState(false);
 
@@ -30,8 +28,13 @@ export function SignOutModal({ onStay }: { onStay: () => void }) {
     // store (NDPA ephemerality, SCRUM-76) - calling logout() alone left both
     // the in-memory user and that store behind.
     auth.signOut();
+    // A HARD navigation, not router.push. The route guard reads the `nevo.role`
+    // cookie, and a client-side push raced the clearing of it: the guard still
+    // saw a teacher, bounced them off /auth/teacher back into the console, and
+    // the token then dropped underneath them - so signing out landed you back
+    // where you started and quietly logged you out a moment later.
     // Teachers land on their own door, not the student PIN unlock.
-    router.push("/auth/teacher");
+    window.location.assign("/auth/teacher");
   };
 
   return (

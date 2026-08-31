@@ -32,7 +32,6 @@ import { useHasSession } from "./useHasSession";
  * as inert; also `title` and `description` where the frame has one line.
  */
 
-const LIVE_TIMEOUT_MS = 6000;
 
 /** The frame's five marks, matched on what the type string contains. */
 function kindOf(type: string): NotificationKind {
@@ -81,33 +80,52 @@ export interface TeacherNotificationsState {
   notes: TeacherNotification[];
   unreadCount: number;
   live: boolean;
+  /** The read failed. NEVER the same thing as an empty feed. */
+  failed: boolean;
   markAllRead: () => void;
 }
 
 export function useTeacherNotifications(): TeacherNotificationsState {
   const [feed, setFeed] = useState<Notification[] | null>(null);
   const [unread, setUnread] = useState(0);
+  const [failed, setFailed] = useState(false);
   const signedIn = useHasSession();
 
+  /*
+   * NO RACE, NO CAP. This hook used to run the feed against a 6s timeout and
+   * take whichever finished first - so a response arriving at 6.1s was
+   * DISCARDED and rendered as "Nothing new right now.", with the unread dot
+   * cleared, on the one surface that tells a teacher a child needs attention.
+   * The backend's own ordinary range is 1.0-5.6s, so the cap sat inside the
+   * normal distribution.
+   *
+   * That is the exact bug removed from four other hooks in PR #148, and this
+   * hook - written afterwards - reintroduced it. The rule from that fix
+   * stands: a slow read is still a real read, and only a FAILED one may be
+   * reported as such. Failure and emptiness are different states and must
+   * read differently.
+   */
   useEffect(() => {
     if (!getToken()) return;
     let cancelled = false;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const timeout = new Promise<null>((resolve) => {
-      timers.push(setTimeout(() => resolve(null), LIVE_TIMEOUT_MS));
-    });
-    void Promise.race([notificationsApi.list().catch(() => null), timeout]).then(
-      (res) => {
+    void notificationsApi
+      .list()
+      .then((res) => {
         if (cancelled) return;
-        // A failed feed resolves to empty, never to fixtures: these rows make
-        // claims about named children.
-        setFeed(res?.notifications ?? []);
-        setUnread(res?.unreadCount ?? 0);
-      },
-    );
+        setFeed(res.notifications);
+        setUnread(res.unreadCount);
+        setFailed(false);
+      })
+      .catch(() => {
+        // Empty rather than fixtures - these rows name real children - but
+        // flagged as failed so the panel can say so.
+        if (cancelled) return;
+        setFeed([]);
+        setUnread(0);
+        setFailed(true);
+      });
     return () => {
       cancelled = true;
-      timers.forEach(clearTimeout);
     };
   }, []);
 
@@ -135,6 +153,7 @@ export function useTeacherNotifications(): TeacherNotificationsState {
       notes,
       unreadCount: notes.filter((n) => n.unread).length,
       live: false,
+      failed: false,
       markAllRead,
     };
   }
@@ -143,6 +162,7 @@ export function useTeacherNotifications(): TeacherNotificationsState {
     notes: (feed ?? []).map(toRow),
     unreadCount: unread,
     live: true,
+    failed,
     markAllRead,
   };
 }
