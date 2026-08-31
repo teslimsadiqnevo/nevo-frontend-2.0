@@ -17,6 +17,17 @@ export function TeacherShell({ children }: { children: React.ReactNode }) {
 
   if (pathname.startsWith("/teacher/onboarding")) return <>{children}</>;
 
+  /*
+   * The pill yields inside the upload wizard and returns when it closes
+   * (design, 31 Aug). Upload is the one console flow that owns the whole
+   * screen - a floating pill over a file picker and a structure tree is
+   * competing with the thing the teacher came to do.
+   *
+   * Route-based rather than state-based: the wizard's steps are URLs, so
+   * leaving the flow is what brings the pill back, with no state to reset.
+   */
+  const inUpload = pathname.startsWith("/teacher/lessons/upload");
+
   return (
     <div className="flex h-dvh flex-row overflow-hidden bg-nevo-cream text-nevo-near-black">
       <TeacherSidebar />
@@ -29,8 +40,8 @@ export function TeacherShell({ children }: { children: React.ReactNode }) {
       >
         {children}
       </main>
-      {/* C15: Ask Nevo floats on every console surface. */}
-      <AskNevo />
+      {/* C15: Ask Nevo floats on every console surface except upload. */}
+      {!inUpload && <AskNevo />}
     </div>
   );
 }

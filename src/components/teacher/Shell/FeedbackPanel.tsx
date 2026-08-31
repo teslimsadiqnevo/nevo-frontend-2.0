@@ -30,10 +30,10 @@ import { cn } from "@/lib/utils";
  * version of this screen, so the failure branch here is ours, in the house
  * voice, and keeps the note so it can be sent again. Flagged to design.
  *
- * TODO(design): the sent state both auto-closes at ~1.5s and draws an "Open
- * again" button, which leaves that button barely reachable; built as drawn
- * and raised.
- */
+ * Design ruled on the sent state (31 Aug): the 1.5s auto-close stands and
+ * "Open again" goes. A button that appears for a second and a half, under a
+ * line saying the panel closes on its own, was asking the teacher to race it.
+*/
 
 /** The frame's note: "auto-closes ~1.5s in-app". */
 const SENT_CLOSE_MS = 1500;
@@ -87,13 +87,6 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
       });
   };
 
-  const openAgain = () => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    setText("");
-    setSent(false);
-    setFailed(false);
-  };
-
   const panel =
     "fixed top-1/2 right-6 z-50 flex w-[360px] max-w-[calc(100vw-3rem)] -translate-y-1/2 flex-col rounded-2xl bg-nevo-cream-inset p-6 shadow-[0_20px_56px_rgba(0,0,0,0.2)]";
 
@@ -125,13 +118,6 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
           <p className="mt-[7px] text-sm leading-[1.55] text-nevo-near-black/62">
             The panel closes on its own. You can share more any time.
           </p>
-          <button
-            type="button"
-            onClick={openAgain}
-            className="mt-[18px] inline-flex h-[38px] cursor-pointer items-center rounded-[10px] border-[1.5px] border-nevo-near-black/18 px-4 text-[13px] font-semibold text-nevo-near-black transition-colors hover:bg-nevo-near-black/5 active:scale-[0.98]"
-          >
-            Open again
-          </button>
         </div>
       ) : (
         <div

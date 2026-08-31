@@ -64,6 +64,32 @@ function UploadButton({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Bulk ingestion's secondary entry, per design (31 Aug): "Upload multiple
+ * lessons", beside or below the single upload button on C06.
+ *
+ * The screen existed at `/teacher/lessons/upload/bulk` with nothing anywhere
+ * linking to it - a whole flow reachable only by typing the URL.
+ */
+function BulkUploadLink({ className }: { className?: string }) {
+  return (
+    <Link
+      href="/teacher/lessons/upload/bulk"
+      className={cn(
+        "inline-flex cursor-pointer items-center justify-center gap-[7px] rounded-[10px] border-[1.5px] border-nevo-navy/30 text-[14.5px] font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6",
+        className,
+      )}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 8V6a2 2 0 0 1 2-2h2" />
+        <rect x="8" y="8" width="12" height="12" rx="2" />
+        <path d="M14 11v6M11 14h6" />
+      </svg>
+      Upload multiple lessons
+    </Link>
+  );
+}
+
 export function LessonLibrary() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<LibraryFilter>("All");
@@ -175,6 +201,11 @@ export function LessonLibrary() {
           )}
         </div>
         <UploadButton className="mt-3 h-12 w-full shrink-0 xl:mt-0 xl:h-[50px] xl:w-auto xl:px-[22px]" />
+      </div>
+
+      {/* Secondary, and below - design's own placement. */}
+      <div className="mt-2.5 max-w-[1000px] xl:mt-3">
+        <BulkUploadLink className="h-10 w-full xl:h-[42px] xl:w-auto xl:px-[18px]" />
       </div>
 
       {/* Subject pills - fixtures only. A live lesson carries no subject, and
