@@ -33,6 +33,12 @@ export interface DirectoryStudent {
 export interface StudentDirectory {
   students: DirectoryStudent[];
   loading: boolean;
+  /**
+   * At least one roster read failed. An empty directory then means "we could
+   * not find out", not "these classes have no students" - and on the compose
+   * picker those are different sentences to a teacher.
+   */
+  failed: boolean;
 }
 
 function initialsOf(name: string): string {
@@ -57,6 +63,7 @@ function toDirectory(className: string, roster: ClassStudent[]) {
 
 export function useStudentDirectory(): StudentDirectory {
   const [students, setStudents] = useState<DirectoryStudent[] | null>(null);
+  const [failed, setFailed] = useState(false);
   const signedIn = useHasSession();
   const loading = signedIn && students === null;
 
@@ -66,17 +73,26 @@ export function useStudentDirectory(): StudentDirectory {
     void (async () => {
       try {
         const classes = await classesApi.myClasses();
-        const rosters = await Promise.all(
-          classes.slice(0, MAX_CLASSES).map((c) =>
-            classesApi
-              .classStudents(c.class_id)
-              .then((roster) => toDirectory(c.class_name, roster))
-              .catch(() => []),
-          ),
+        const settled = await Promise.allSettled(
+          classes
+            .slice(0, MAX_CLASSES)
+            .map((c) =>
+              classesApi
+                .classStudents(c.class_id)
+                .then((roster) => toDirectory(c.class_name, roster)),
+            ),
         );
-        if (!cancelled) setStudents(rosters.flat());
+        if (cancelled) return;
+        const rosters = settled.map((r) =>
+          r.status === "fulfilled" ? r.value : [],
+        );
+        setStudents(rosters.flat());
+        setFailed(settled.some((r) => r.status === "rejected"));
       } catch {
-        if (!cancelled) setStudents([]);
+        if (!cancelled) {
+          setStudents([]);
+          setFailed(true);
+        }
       }
     })();
     return () => {
@@ -84,5 +100,5 @@ export function useStudentDirectory(): StudentDirectory {
     };
   }, []);
 
-  return { students: students ?? [], loading };
+  return { students: students ?? [], loading, failed };
 }

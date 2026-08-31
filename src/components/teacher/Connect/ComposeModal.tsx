@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStudentDirectory } from "@/hooks/useStudentDirectory";
+import { useHasSession } from "@/hooks/useHasSession";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import {
   COMPOSE_CLASS_FILTERS,
@@ -48,15 +49,24 @@ export function ComposeModal({
   const [query, setQuery] = useState("");
   // Filter chips follow the teacher's real classes; "All classes" leads.
   const { options: classes, live } = useTeacherClasses();
-  const { students: directory, loading: directoryLoading } =
-    useStudentDirectory();
+  const signedIn = useHasSession();
+  const {
+    students: directory,
+    loading: directoryLoading,
+    failed: directoryFailed,
+  } = useStudentDirectory();
   const classFilters = [
     COMPOSE_CLASS_FILTERS[0],
     ...classes.map((c) => c.name),
   ];
   const [filter, setFilter] = useState(COMPOSE_CLASS_FILTERS[0]);
-  const [picked, setPicked] = useState<ComposeStudent | null>(
-    () => COMPOSE_STUDENTS.find((s) => s.name === presetStudent) ?? null,
+  // Never preset from the fixtures for a signed-in teacher: those rows carry
+  // no studentId, and a preselected one would arm the send button against a
+  // child who does not exist.
+  const [picked, setPicked] = useState<ComposeStudent | null>(() =>
+    signedIn
+      ? null
+      : (COMPOSE_STUDENTS.find((s) => s.name === presetStudent) ?? null),
   );
   const [text, setText] = useState("");
   const [phase, setPhase] = useState<Phase>("form");
@@ -88,10 +98,15 @@ export function ComposeModal({
             initials: s.initials,
             studentId: s.studentId,
           }))
-        : live
+        : // Gated on the SESSION, not on `live`. `live` is false while the
+          // class list is merely in flight, so a signed-in teacher was shown
+          // eight invented children on a screen that sends messages - and
+          // those rows carry no studentId, so picking one reported a message
+          // sent to nobody.
+          signedIn
           ? []
           : COMPOSE_STUDENTS,
-    [directory, live],
+    [directory, signedIn],
   );
 
   const shown = useMemo(() => {
@@ -330,8 +345,11 @@ export function ComposeModal({
                       </p>
                     ) : (
                       <p className="px-2 py-4 text-[13px] leading-[1.5] text-nevo-near-black/50">
-                        Nobody has joined your classes yet, so there&rsquo;s
-                        nobody to message.
+                        {/* A roster we could not READ is not a class with no
+                            students in it. */}
+                        {live && !directoryFailed
+                          ? "Nobody has joined your classes yet, so there’s nobody to message."
+                          : "We couldn’t load your students just now, so there’s nobody to choose. Try again in a moment."}
                       </p>
                     ))}
                 </div>

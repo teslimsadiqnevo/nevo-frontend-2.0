@@ -170,7 +170,12 @@ export function useConnectThreads(): ConnectState {
                   ? {
                       ...x,
                       loaded: true,
-                      messages: body.messages.map((m) => toMessage(m, selfId)),
+                      // A body with no `messages` is a thread that exists and
+                      // has nothing in it yet - the state a just-composed
+                      // thread is in. Not a reason to take down Connect.
+                      messages: (body.messages ?? []).map((m) =>
+                        toMessage(m, selfId),
+                      ),
                     }
                   : x,
               ) ?? cur,
