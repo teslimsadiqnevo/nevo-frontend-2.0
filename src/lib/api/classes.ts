@@ -53,9 +53,73 @@ export interface ClassStudent {
   status: string;
   profileStatus: ProfileStatus | (string & {});
   latestSessionAt: string | null;
+  /** Free-text notes the roster carries; absent on older rows. */
+  observations?: string[];
+  /** Which seat the student occupies against the school's allowance. */
+  seatContext: string;
+}
+
+/**
+ * A class as the admin console reads it (D5 / D5b). camelCase, like the roster
+ * route above and unlike the snake_case assignment surface.
+ *
+ * `source` is what forks every manual-versus-SSO branch in D5: where it is
+ * "sso" the provider owns the class list, so Create is ABSENT rather than
+ * disabled and archive does not appear at all.
+ *
+ * `subjects` backs the detail header's third clause. It is optional in the
+ * schema and often empty, so the header composes only the clauses it has.
+ */
+export interface AdminClass {
+  id: string;
+  name: string;
+  code: string | null;
+  /** A `YearGroup` enum value. Typed as string: the backend does not narrow it. */
+  yearGroup: string | null;
+  source: string | null;
+  subjects: string[];
+  studentCount: number;
+  /** Non-null means archived. Archive is reversible and never deletes. */
+  archivedAt: string | null;
 }
 
 export const classesApi = {
+  /**
+   * Every class in the school. Archived rows are excluded by default and a
+   * filter reveals them, which is exactly what `includeArchived` does.
+   */
+  list: (includeArchived = false) =>
+    api.get<AdminClass[]>("/api/v1/classes", {
+      params: includeArchived ? { includeArchived: true } : undefined,
+    }),
+
+  /** One class. GET /api/v1/classes/{class_id} */
+  get: (classId: string) => api.get<AdminClass>(`/api/v1/classes/${classId}`),
+
+  /**
+   * Create a class.
+   *
+   * D5's create sheet offers an OPTIONAL PRIMARY TEACHER, and SCRUM-40's data
+   * note asks for `primary_teacher_id` on this body - but the deployed schema
+   * takes `{ name, yearGroup }` and nothing else. So the sheet creates, then
+   * assigns with the id this returns. Two calls, not one, and not atomic: if
+   * the assignment fails the class still exists, which the sheet says plainly
+   * rather than pretending the whole thing failed.
+   */
+  create: (payload: { name: string; yearGroup: string | null }) =>
+    api.post<{ id: string; code: string | null }>("/api/v1/classes", payload),
+
+  /** Rename or re-year a class. Does not rewrite assignment history. */
+  update: (classId: string, payload: { name: string; yearGroup: string | null }) =>
+    api.patch<{ id: string; name: string }>(`/api/v1/classes/${classId}`, payload),
+
+  /** Archive: reversible, keeps records, never touches student progress. */
+  archive: (classId: string) =>
+    api.post<void>(`/api/v1/classes/${classId}/archive`),
+
+  /** Undo an archive. */
+  restore: (classId: string) =>
+    api.post<void>(`/api/v1/classes/${classId}/restore`),
   /** The signed-in teacher's classes. GET /api/v1/teachers/me/classes */
   myClasses: () => api.get<AssignedClass[]>("/api/v1/teachers/me/classes"),
 

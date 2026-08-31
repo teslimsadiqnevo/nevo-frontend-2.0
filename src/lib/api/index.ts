@@ -14,11 +14,17 @@ export { contentApi, type ParseContentRequest, type ParseContentResponse } from 
 export { exportApi, type IepExport, type IepExportShare } from "./export";
 export {
   classesApi,
+  type AdminClass,
   type AssignedClass,
   type AssignedTeacher,
   type ClassStudent,
   type ProfileStatus,
 } from "./classes";
+export {
+  teachersApi,
+  type TeacherDetail,
+  type TeacherSummary,
+} from "./teachers";
 export {
   lessonsApi,
   type LessonSummary,
