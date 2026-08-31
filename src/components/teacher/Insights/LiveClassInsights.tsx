@@ -36,7 +36,7 @@ export function LiveClassInsights({
   classId: string;
   className: string;
 }) {
-  const { misconceptions, concepts, flags, loading, empty } =
+  const { misconceptions, concepts, flags, loading, empty, failed } =
     useClassInsights(classId);
 
   if (loading) {
@@ -48,6 +48,30 @@ export function LiveClassInsights({
             className="h-[120px] animate-pulse rounded-xl bg-nevo-cream-elevated"
           />
         ))}
+      </div>
+    );
+  }
+
+  // A class we could not read is not a class with nothing to say. Saying
+  // "still gathering insights" over three failed requests is an affirmative,
+  // false claim about real children.
+  if (failed) {
+    return (
+      <div className="mt-8 flex max-w-[640px] items-start gap-4 rounded-xl bg-nevo-cream-elevated p-7 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+        <span className="mt-px size-[22px] shrink-0 text-nevo-violet xl:size-6">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="size-full">
+            <path d="M7 18a4 4 0 0 1-.5-7.97A5.5 5.5 0 0 1 17.5 9.5 4 4 0 0 1 17 18" />
+            <path d="M10 20.5l4-4M14 20.5l-4-4" />
+          </svg>
+        </span>
+        <div>
+          <h3 className="text-[17px] font-semibold text-nevo-near-black xl:text-lg">
+            We couldn&rsquo;t load insights just now
+          </h3>
+          <p className="mt-[7px] text-[14.5px] leading-[1.55] text-nevo-near-black/68 xl:mt-2 xl:text-[15px]">
+            {`This isn't about ${className} - we just couldn't reach Nevo. Try again in a moment.`}
+          </p>
+        </div>
       </div>
     );
   }

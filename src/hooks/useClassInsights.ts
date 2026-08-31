@@ -51,6 +51,8 @@ export interface ClassInsightsState {
   loading: boolean;
   /** Every read landed and there was nothing in any of them. */
   empty: boolean;
+  /** Every read FAILED. Never the same thing as `empty`. */
+  failed: boolean;
 }
 
 const pct = (p: number) => Math.round(Math.max(0, Math.min(1, p)) * 100);
@@ -67,6 +69,7 @@ export function useClassInsights(classId: string | null): ClassInsightsState {
   const [mastery, setMastery] = useState<ClassMasteryRow[]>([]);
   const [flags, setFlags] = useState<AttentionFlag[]>([]);
   const [settled, setSettled] = useState(0);
+  const [failures, setFailures] = useState(0);
   const signedIn = useHasSession();
   const { students } = useStudentDirectory();
 
@@ -80,27 +83,33 @@ export function useClassInsights(classId: string | null): ClassInsightsState {
     const done = () => {
       if (!cancelled) setSettled((n) => n + 1);
     };
+    // A read that FAILED is not a class with nothing to show. Counting them
+    // separately is what keeps "we couldn't load this" out of the mouth of
+    // "this class is just getting started".
+    const fail = () => {
+      if (!cancelled) setFailures((n) => n + 1);
+    };
 
     void classInsightsApi
       .misconceptions(classId)
       .then((rows) => {
         if (!cancelled) setMisconceptions(rows);
       })
-      .catch(() => {})
+      .catch(fail)
       .finally(done);
     void classInsightsApi
       .mastery(classId)
       .then((rows) => {
         if (!cancelled) setMastery(rows);
       })
-      .catch(() => {})
+      .catch(fail)
       .finally(done);
     void intelligenceApi
       .getFlags({ classId })
       .then((rows) => {
         if (!cancelled) setFlags(rows.filter((f) => !f.acknowledged));
       })
-      .catch(() => {})
+      .catch(fail)
       .finally(done);
 
     return () => {
@@ -111,7 +120,11 @@ export function useClassInsights(classId: string | null): ClassInsightsState {
   const byId = new Map(students.map((s) => [s.studentId, s]));
   const loading = Boolean(classId) && signedIn && settled < 3;
 
+  // Every read failed: say so, rather than describing an empty class.
+  const allFailed = !loading && failures === 3;
+
   return {
+    failed: allFailed,
     misconceptions,
     concepts: mastery.map((m) => ({
       conceptId: m.conceptId,
@@ -129,6 +142,7 @@ export function useClassInsights(classId: string | null): ClassInsightsState {
     loading,
     empty:
       !loading &&
+      failures < 3 &&
       misconceptions.length === 0 &&
       mastery.length === 0 &&
       flags.length === 0,
