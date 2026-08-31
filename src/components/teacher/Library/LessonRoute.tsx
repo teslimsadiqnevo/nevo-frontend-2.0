@@ -29,8 +29,16 @@ export function LessonRoute({
   fixture: (LibraryLesson & { detail: LessonDetailData }) | null;
   lessonId: string;
 }) {
-  const { lesson, modules, assignments, loading, missing, failed } =
-    useLessonDetail(lessonId);
+  const {
+    lesson,
+    modules,
+    assignments,
+    progress,
+    classIds,
+    loading,
+    missing,
+    failed,
+  } = useLessonDetail(lessonId);
 
   if (lesson) {
     return (
@@ -38,6 +46,8 @@ export function LessonRoute({
         lesson={lesson}
         modules={modules}
         assignments={assignments}
+        progress={progress}
+        classCount={classIds.length}
       />
     );
   }
