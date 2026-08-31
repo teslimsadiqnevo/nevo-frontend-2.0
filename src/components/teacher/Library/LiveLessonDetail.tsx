@@ -11,6 +11,7 @@ import type {
   SegmentProgress,
 } from "@/lib/api/lessons";
 import { cn } from "@/lib/utils";
+import { LessonDetailActions } from "./LessonDetailActions";
 
 /**
  * Lesson detail for a real lesson (C06b), built from what
@@ -206,16 +207,24 @@ export function LiveLessonDetail({
           Lesson Library
         </Link>
 
-        <h2 className="mt-4 text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
-          {lesson.title}
-        </h2>
-        <span className="mt-[5px] block text-[14.5px] text-nevo-near-black/60">
-          {`${lesson.segmentCount} ${lesson.segmentCount === 1 ? "section" : "sections"}`}
-          {students > 0 &&
-            ` · Assigned to ${students} ${students === 1 ? "student" : "students"}`}
-          {nextDue &&
-            ` · Due ${new Date(nextDue).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`}
-        </span>
+        {/* C06b's header actions were mounted ONLY by the fixture component,
+            so a signed-in teacher had no way into the assign flow from a real
+            lesson - the console's best-wired write had no entry point. */}
+        <div className="mt-4 flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h2 className="text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
+              {lesson.title}
+            </h2>
+            <span className="mt-[5px] block text-[14.5px] text-nevo-near-black/60">
+              {`${lesson.segmentCount} ${lesson.segmentCount === 1 ? "section" : "sections"}`}
+              {students > 0 &&
+                ` · Assigned to ${students} ${students === 1 ? "student" : "students"}`}
+              {nextDue &&
+                ` · Due ${new Date(nextDue).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`}
+            </span>
+          </div>
+          <LessonDetailActions lessonId={lesson.id} />
+        </div>
 
         {needsReview > 0 && (
           <div className="mt-6 flex max-w-[660px] items-start gap-3.5 rounded-[12px] bg-nevo-violet/14 px-[18px] py-4">

@@ -111,13 +111,19 @@ export function TeacherHome() {
             one, your students&rsquo; week will show up here.
           </p>
         ) : (
-          showFixtureHome &&
-          signedIn && (
+          signedIn &&
+          (showFixtureHome || showFixtureFlags) && (
             <p className="mt-2 max-w-[560px] text-[13px] leading-[1.5] text-nevo-near-black/55 italic">
-              {/* Only claimed when the fixtures are actually on screen - the
-                  pulse and activity are live whenever the endpoint answers. */}
-              We couldn&rsquo;t read your class activity just now, so the pulse
-              and recent activity are samples.
+              {/* Names the sections that are ACTUALLY fixture. The two reads
+                  fail independently, and this line used to be gated on the
+                  home read alone - so when only the flags call failed, three
+                  invented children appeared under "Worth your attention" with
+                  nothing anywhere saying they were not real. */}
+              {showFixtureHome && showFixtureFlags
+                ? "We couldn’t read your class activity just now, so what’s below is a sample."
+                : showFixtureHome
+                  ? "We couldn’t read your class activity just now, so the pulse and recent activity are samples."
+                  : "We couldn’t read what needs your attention just now, so the flagged students below are a sample."}
             </p>
           )
         )}

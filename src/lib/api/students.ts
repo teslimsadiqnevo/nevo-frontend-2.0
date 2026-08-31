@@ -222,8 +222,15 @@ export interface ClassMasteryRow {
 }
 
 export const classInsightsApi = {
-  /** Shared misconceptions. `minimumStudents` filters out one-offs. */
-  misconceptions: (classId: string, minimumStudents = 2) =>
+  /**
+   * Shared misconceptions. `minimumStudents` filters out one-offs.
+   *
+   * THREE IS THE FLOOR, and it is the server's, not a preference: the spec
+   * constrains this parameter to `minimum: 3` (default 3, max 50). We sent 2,
+   * so every single request 422'd and C09's "a shared sticking point" section
+   * has never rendered for any class since it was written. Do not lower it.
+   */
+  misconceptions: (classId: string, minimumStudents = 3) =>
     api.get<ClassMisconception[]>(`/api/misconceptions/class/${classId}`, {
       params: { minimumStudents },
     }),
