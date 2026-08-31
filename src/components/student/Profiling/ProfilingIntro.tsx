@@ -8,13 +8,25 @@ import { ProfilingShell } from "./ProfilingShell";
  * flow, one component with two modes per the frame. Fixed copy; never "test",
  * "score" or "ability". No skip, no back. The complete screen shows no results
  * of any kind - a settled figure, not a celebration.
+ *
+ * The complete copy reports the baseline write rather than assuming it: "your
+ * learning space has been personalized" is a claim about the engine, and it is
+ * false if the submit never landed. `saved === false` swaps it for the same
+ * plain admission the daily warm-up uses.
  */
 export function ProfilingIntro({
   mode,
   onContinue,
+  saved = null,
 }: {
   mode: "intro" | "complete";
   onContinue: () => void;
+  /**
+   * Whether the baseline reached Nevo. Null while it is still resolving, which
+   * reads as the settled copy - the child did their part either way and the
+   * screen should not flicker a warning at them mid-flight.
+   */
+  saved?: boolean | null;
 }) {
   const complete = mode === "complete";
   return (
@@ -41,7 +53,9 @@ export function ProfilingIntro({
         </h1>
         <p className="mt-3 max-w-[400px] text-[15px] leading-[1.55] text-pretty text-nevo-near-black sm:text-base">
           {complete
-            ? "Your learning space has been personalized."
+            ? saved === false
+              ? "Thanks for doing that. We couldn’t save it just now — that’s on us, not you."
+              : "Your learning space has been personalized."
             : "You'll do four quick activities. No tests, no scores. This just helps Nevo work better for you."}
         </p>
         <button

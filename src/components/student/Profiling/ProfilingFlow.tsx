@@ -51,6 +51,9 @@ export function ProfilingFlow({
   const band = bandForYearLabel(MOCK_STUDENT.subtitle);
   const [capture] = useState(() => new BaselineCapture(`baseline-${randomId()}`));
   const submitted = useRef(false);
+  // null while the submit is still resolving; false means it never reached
+  // Nevo, and the completion screen says so rather than claiming "All set".
+  const [saved, setSaved] = useState<boolean | null>(null);
 
   const finishRun = () => {
     if (!submitted.current) {
@@ -62,12 +65,14 @@ export function ProfilingFlow({
         reduceTrialModule(capture, "domain_probe"),
       ];
       const c = capture;
-      // Fire-and-forget: the run never blocks on the network. Raw stream is
-      // purged regardless - only the reduced vector is ever transmitted.
-      // TODO(api): `/api/baseline/submit` is deployed; add retry/queue.
-      baselineApi
-        .submit(c.sessionId, features)
-        .catch(() => {})
+      // The run never BLOCKS on the network, but it is no longer thrown away
+      // by it either: three attempts, and the raw stream is held until the
+      // answer is known rather than purged alongside a silent failure. Only
+      // the reduced vector is ever transmitted; the raw capture never leaves
+      // the device and is purged either way once we have an answer.
+      void baselineApi
+        .submitWithRetry(c.sessionId, features)
+        .then((ok) => setSaved(ok))
         .finally(() => void c.purge());
       track?.(ONBOARDING_SIGNAL_TYPES.BASELINE_SUBMITTED, {
         modules: features.map((f) => f.module),
@@ -190,5 +195,5 @@ export function ProfilingFlow({
     );
   }
 
-  return <ProfilingIntro mode="complete" onContinue={onDone} />;
+  return <ProfilingIntro mode="complete" saved={saved} onContinue={onDone} />;
 }
