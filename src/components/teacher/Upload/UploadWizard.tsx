@@ -180,6 +180,10 @@ export function UploadWizard() {
   const [phase, setPhase] = useState<Phase>("scope");
   const [scope, setScope] = useState<ScopeId | null>(null);
   const [fileName, setFileName] = useState("");
+  // The File itself, not just its name: "Try again" on a server fault must
+  // resend the same upload, not reopen the picker and ask a teacher to find
+  // their file a second time for a failure that was ours.
+  const lastFile = useRef<File | null>(null);
   const [parseStage, setParseStage] = useState(0);
   const [fallbackKind, setFallbackKind] = useState<FallbackKind>("unreadable");
   const [dragOver, setDragOver] = useState(false);
@@ -238,6 +242,7 @@ export function UploadWizard() {
 
   const startFile = (file: File) => {
     stopTimer();
+    lastFile.current = file;
     setFileName(file.name);
     setSample(false);
     setParsed(null);
@@ -258,10 +263,18 @@ export function UploadWizard() {
         setPhase("review");
       })
       .catch((err: unknown) => {
-        // A 400 is the server's answer about the file, not a fault: it could
-        // not read it. Anything else is ours, and says so differently.
-        const unreadable = err instanceof ApiError && err.status === 400;
-        setFallbackKind(unreadable ? "unreadable" : "unreachable");
+        // WHOSE FAULT IS IT? Any 4xx is the server's ANSWER about this file -
+        // it read the request and rejected it. Only a 5xx, or no status at
+        // all (the network never got there), is ours.
+        //
+        // This used to test `status === 400` alone, and `/api/content/upload`
+        // documents 200 and 422 only - so the file-fault branch never fired
+        // and every unreadable file was reported as "we couldn't reach Nevo",
+        // blaming our infrastructure for a file the backend had read and
+        // answered on.
+        const status = err instanceof ApiError ? err.status : undefined;
+        const ourFault = status === undefined || status >= 500;
+        setFallbackKind(ourFault ? "unreachable" : "unreadable");
         setPhase("fallback");
       });
   };
@@ -371,6 +384,12 @@ export function UploadWizard() {
           blockName={blockName}
           onBack={() => setPhase("file")}
           onTryAnother={() => setPhase("file")}
+          onRetrySameFile={() => {
+            // Read at click time, never during render.
+            const f = lastFile.current;
+            if (f) startFile(f);
+            else setPhase("file");
+          }}
         />
       )}
 

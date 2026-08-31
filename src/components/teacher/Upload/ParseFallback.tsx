@@ -39,7 +39,8 @@ const FOOT_NOTES: Record<FallbackKind, string> = {
   noBoundary: "Staying as one lesson - you can split it any time.",
   partial: "Your progress is saved.",
   unreadable: "Your progress is saved - nothing was lost.",
-  unreachable: "Your file is fine - nothing was lost.",
+  // C07f's own footnote for this state, from the 31 Aug frame.
+  unreachable: "Nothing is wrong with your file - try again in a moment.",
 };
 
 const FLAT_SEGMENTS = [
@@ -64,11 +65,14 @@ export function ParseFallback({
   blockName,
   onBack,
   onTryAnother,
+  onRetrySameFile,
 }: {
   kind: FallbackKind;
   blockName: string;
   onBack: () => void;
   onTryAnother: () => void;
+  /** Resends the SAME file, falling back to the picker if it is gone. */
+  onRetrySameFile: () => void;
 }) {
   const [splitOpened, setSplitOpened] = useState(false);
   const [formatsOpen, setFormatsOpen] = useState(false);
@@ -242,25 +246,32 @@ export function ParseFallback({
         {kind === "unreachable" && (
           <div className="mx-auto flex max-w-[560px] flex-col items-center pt-6 text-center xl:pt-10">
             <span className="flex size-14 shrink-0 items-center justify-center rounded-[16px] bg-nevo-violet/18 text-nevo-navy">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 8v5M12 16h.01" />
+              {/* The frame's cloud-with-a-slash: this is the connection, not
+                  the file. The old circle-and-exclamation read as a fault in
+                  what the teacher had done. */}
+              <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M7 18a4 4 0 0 1-.5-7.97A5.5 5.5 0 0 1 17.5 9.5 4 4 0 0 1 17 18" />
+                <path d="M10 20.5l4-4M14 20.5l-4-4" />
               </svg>
             </span>
             <h3 className="mt-[18px] text-xl font-semibold tracking-[-0.01em] text-nevo-near-black">
-              We couldn&rsquo;t reach Nevo just then
+              We couldn&rsquo;t reach Nevo just then.
             </h3>
             <p className="mt-[9px] max-w-[420px] text-[14.5px] leading-[1.6] text-nevo-near-black/70">
-              Nothing is wrong with your file &ndash; this one is on us. Try
-              the same file again in a moment and it should go straight
-              through.
+              Nothing is wrong with your file. Please try again in a moment.
             </p>
             <div className="mt-[22px] flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
-                onClick={onTryAnother}
+                /* "Try again" resends the same file. It used to reopen the
+                   picker, which contradicted the sentence above it. */
+                onClick={onRetrySameFile}
                 className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] bg-nevo-navy px-[18px] py-[11px] text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
               >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                  <path d="M21 3v6h-6" />
+                </svg>
                 Try again
               </button>
             </div>
