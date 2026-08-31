@@ -384,6 +384,7 @@ export function UploadWizard() {
           blockName={blockName}
           onBack={() => setPhase("file")}
           onTryAnother={() => setPhase("file")}
+          onContinueAnyway={() => setPhase("blockParsed")}
           onRetrySameFile={() => {
             // Read at click time, never during render.
             const f = lastFile.current;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 /**
  * Block-path fallback states (C07f, SCRUM-102.4): the three failure shapes,
@@ -66,6 +66,7 @@ export function ParseFallback({
   onBack,
   onTryAnother,
   onRetrySameFile,
+  onContinueAnyway,
 }: {
   kind: FallbackKind;
   blockName: string;
@@ -73,25 +74,11 @@ export function ParseFallback({
   onTryAnother: () => void;
   /** Resends the SAME file, falling back to the picker if it is gone. */
   onRetrySameFile: () => void;
+  /** Proceeds with the pages that did parse. */
+  onContinueAnyway: () => void;
 }) {
   const [splitOpened, setSplitOpened] = useState(false);
   const [formatsOpen, setFormatsOpen] = useState(false);
-  const [retry, setRetry] = useState<"idle" | "retrying" | "done">("idle");
-  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (retryTimer.current) clearTimeout(retryTimer.current);
-    },
-    [],
-  );
-
-  const startRetry = () => {
-    if (retry !== "idle") return;
-    setRetry("retrying");
-    // TODO(api): re-parse just the faint pages; the mock beat stands in.
-    retryTimer.current = setTimeout(() => setRetry("done"), 900);
-  };
-
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-[22px] xl:px-8 xl:py-7">
@@ -189,18 +176,21 @@ export function ParseFallback({
                   pages.
                 </p>
                 <div className="mt-[13px] flex flex-wrap items-center gap-2.5">
+                  {/* The frame draws "Retry pages 15-16" here. It is not drawn
+                      while this state is a sample: it waited 900ms and then
+                      said "Retried - all pages in", which is a claim that two
+                      pages had been re-read when nothing was sent.
+
+                      `POST /api/v1/uploads/{id}/retry-pages` exists and takes
+                      the page numbers, but it needs an upload id, and this
+                      screen is only ever reached from the mocked block parse -
+                      there is no staged upload behind it to retry. The control
+                      returns with that upload. */}
                   <button
                     type="button"
-                    onClick={startRetry}
+                    onClick={onContinueAnyway}
                     className="inline-flex cursor-pointer items-center gap-[7px] rounded-[10px] bg-nevo-navy px-[15px] py-[9px] text-[13px] font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
                   >
-                    {retry === "retrying"
-                      ? "Retrying…"
-                      : retry === "done"
-                        ? "Retried - all pages in"
-                        : "Retry pages 15-16"}
-                  </button>
-                  <button type="button" className={ghostBtnSm}>
                     Continue with what we have
                   </button>
                 </div>
