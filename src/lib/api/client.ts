@@ -67,8 +67,20 @@ async function getAuthToken(): Promise<string | undefined> {
  * visitor. And a request sent WITHOUT a token was never authenticated, so
  * its 401 is expected, not a death.
  */
+/**
+ * One dead token, one redirect.
+ *
+ * A console screen has several reads in flight at once, so a token that has
+ * expired comes back 401 on all of them together. Without this latch the
+ * first call read the role and left for the right door, and every later one
+ * found the session ALREADY CLEARED, resolved no role, and re-assigned to the
+ * student screen - last write winning. A teacher was reliably sent to the
+ * child's session screen by a race, not by anything about their session.
+ */
+let redirecting = false;
+
 function handleAuthFailure(path: string, sentToken: boolean): void {
-  if (typeof window === "undefined" || !sentToken) return;
+  if (typeof window === "undefined" || !sentToken || redirecting) return;
   // Only the sign-in and sign-out calls own their failures. The session
   // check must NOT be exempt: it is the one call that discovers a dead
   // token, and exempting it left the student browsing an app that still
@@ -76,14 +88,18 @@ function handleAuthFailure(path: string, sentToken: boolean): void {
   if (path.includes("/auth/login") || path.includes("/auth/logout")) return;
   const role = getSession()?.role;
   clearSession();
-  // No teacher- or admin-side "session expired" screen is designed (flagged);
-  // each door carries the same reassurance. The backend's admin roles are
+  // Every console now lands on a screen that SAYS the session ended, rather
+  // than reappearing as a sign-in form with no explanation - design shipped
+  // the shared teacher/admin frame on 31 Aug. The role is read before
+  // `clearSession` above, which is the only moment it is still known, and it
+  // picks the door the screen offers. The backend's admin roles are
   // `senco_admin` and `other_admin`, never a plain "admin".
   const door = role === "teacher"
-    ? "/auth/teacher"
+    ? "/auth/teacher/session-expired"
     : isAdminRole(role)
-      ? "/auth/admin"
+      ? "/auth/admin/session-expired"
       : "/auth/session-expired";
+  redirecting = true;
   window.location.assign(door);
 }
 
