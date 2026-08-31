@@ -90,7 +90,50 @@ export interface LessonModule {
   segmentIds: string[];
 }
 
+/**
+ * How one class is moving through one lesson - `GET /api/v1/lessons/{id}/class-progress`.
+ *
+ * Shipped 30 Aug against the frontend blockers list; it is the source C06b's
+ * progress rows and its "where the class slowed" note had been waiting on.
+ *
+ * `classId` is REQUIRED, and a lesson does not know which class is being
+ * asked about - so the caller derives it from the lesson's own assignments.
+ * A lesson assigned only to individuals has no class to report on.
+ */
+export interface SegmentProgress {
+  segmentId: string;
+  segmentKey: string;
+  title: string | null;
+  sequenceOrder: number;
+  assignedStudentCount: number;
+  completionCount: number;
+  /** 0-1. */
+  completionRate: number;
+  averageTimeSeconds: number | null;
+  slowdownCount: number;
+  /** The parser's own words about this segment, when it has any. */
+  note: string | null;
+}
+
+export interface LessonClassProgress {
+  lessonId: string;
+  classId: string;
+  assignedStudentCount: number;
+  segments: SegmentProgress[];
+  /** Where the class slowed most, if anywhere. */
+  slowestSegmentId: string | null;
+  /** C06b's dip note, written server-side. */
+  slowdownNote: string | null;
+}
+
 export const lessonsApi = {
+  /** One class's progress through this lesson. */
+  classProgress: (lessonId: string, classId: string) =>
+    api.get<LessonClassProgress>(
+      `/api/v1/lessons/${lessonId}/class-progress`,
+      { params: { classId } },
+    ),
+
   /** The parsed lesson library. GET /api/content/lessons */
   list: (options?: { limit?: number }) =>
     api.get<LessonSummary[]>("/api/content/lessons", {

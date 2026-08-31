@@ -3,10 +3,12 @@
 import Link from "next/link";
 import type { Assignment } from "@/lib/api/assignments";
 import type {
+  LessonClassProgress,
   LessonContentType,
   LessonDetailResponse,
   LessonModule,
   LessonSegment,
+  SegmentProgress,
 } from "@/lib/api/lessons";
 import { cn } from "@/lib/utils";
 
@@ -31,8 +33,11 @@ import { cn } from "@/lib/utils";
  * alias, whose own segments drop the review flags - so the screen asks both
  * routes and joins them here rather than trading one for the other.
  *
- * TODO(api): per-segment completion, so the progress rows and the dip note can
- * come back.
+ * PER-SEGMENT PROGRESS is live where the lesson was assigned to a class
+ * (`GET /api/v1/lessons/{id}/class-progress`), which restores C06b's progress
+ * rows and its "where the class slowed" note - the note is written
+ * server-side, so it is quoted rather than composed here. A lesson assigned
+ * only to individuals has no class to report on and simply has no progress.
  * TODO(design): C06b has no treatment for a segment needing review, which is
  * the most actionable thing this endpoint returns.
  */
@@ -68,7 +73,17 @@ function TypeTag({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SegmentRow({ segment, index }: { segment: LessonSegment; index: number }) {
+function SegmentRow({
+  segment,
+  index,
+  progress,
+  slowest,
+}: {
+  segment: LessonSegment;
+  index: number;
+  progress?: SegmentProgress;
+  slowest?: boolean;
+}) {
   return (
     <div
       className={cn(
@@ -99,10 +114,31 @@ function SegmentRow({ segment, index }: { segment: LessonSegment; index: number 
           </p>
         )}
       </div>
-      {segment.availableModalities.length > 0 && (
-        <span className="shrink-0 text-[12.5px] text-nevo-near-black/45">
-          {segment.availableModalities.join(" · ")}
-        </span>
+      {progress ? (
+        <div className="flex shrink-0 items-center gap-3.5">
+          <div className="h-1.5 w-[130px] overflow-hidden rounded-full bg-nevo-navy/14">
+            <span
+              /* Violet where the class slowed - C06b's rule is that a dip is
+                 never red, and never reads as a scoreboard. */
+              className={cn(
+                "block h-full rounded-full",
+                slowest ? "bg-nevo-violet" : "bg-nevo-navy",
+              )}
+              style={{
+                width: `${Math.round(Math.max(0, Math.min(1, progress.completionRate)) * 100)}%`,
+              }}
+            />
+          </div>
+          <span className="w-[120px] text-right text-sm text-nevo-near-black/68">
+            {`${progress.completionCount} of ${progress.assignedStudentCount} done`}
+          </span>
+        </div>
+      ) : (
+        segment.availableModalities.length > 0 && (
+          <span className="shrink-0 text-[12.5px] text-nevo-near-black/45">
+            {segment.availableModalities.join(" · ")}
+          </span>
+        )
       )}
     </div>
   );
@@ -112,11 +148,19 @@ export function LiveLessonDetail({
   lesson,
   modules,
   assignments,
+  progress,
+  classCount = 0,
 }: {
   lesson: LessonDetailResponse;
   modules: LessonModule[];
   assignments: Assignment[];
+  progress?: LessonClassProgress | null;
+  /** How many classes hold this lesson; >1 means the rows name one of them. */
+  classCount?: number;
 }) {
+  const bySegment = new Map(
+    (progress?.segments ?? []).map((p) => [p.segmentId, p]),
+  );
   const segments = [...lesson.segments].sort(
     (a, b) => a.sequenceOrder - b.sequenceOrder,
   );
@@ -197,7 +241,20 @@ export function LiveLessonDetail({
           </p>
         )}
 
-        <h3 className={cn(SECTION_H, "mt-8")}>What&rsquo;s in this lesson</h3>
+        {progress?.slowdownNote && (
+          <p className="mt-5 max-w-[68ch] rounded-[12px] bg-nevo-violet/14 px-[18px] py-4 text-[14.5px] leading-[1.6] text-nevo-near-black/82">
+            {progress.slowdownNote}
+          </p>
+        )}
+
+        <h3 className={cn(SECTION_H, "mt-8")}>
+          What&rsquo;s in this lesson
+          {progress && classCount > 1 && (
+            <span className="ml-2 font-normal tracking-normal text-nevo-near-black/45 normal-case">
+              {"progress shown for one class"}
+            </span>
+          )}
+        </h3>
         {segments.length > 0 && grouped.length > 0 ? (
           <div className="mt-3.5 flex flex-col gap-4 xl:mt-4">
             {grouped.map((g) => (
@@ -216,6 +273,8 @@ export function LiveLessonDetail({
                       key={s.id}
                       segment={s}
                       index={segments.indexOf(s)}
+                      progress={bySegment.get(s.id)}
+                      slowest={progress?.slowestSegmentId === s.id}
                     />
                   ))}
                 </div>
@@ -230,7 +289,13 @@ export function LiveLessonDetail({
         ) : segments.length > 0 ? (
           <div className="mt-3.5 divide-y divide-nevo-near-black/7 overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 xl:mt-4">
             {segments.map((s, i) => (
-              <SegmentRow key={s.id} segment={s} index={i} />
+              <SegmentRow
+                key={s.id}
+                segment={s}
+                index={i}
+                progress={bySegment.get(s.id)}
+                slowest={progress?.slowestSegmentId === s.id}
+              />
             ))}
           </div>
         ) : (
