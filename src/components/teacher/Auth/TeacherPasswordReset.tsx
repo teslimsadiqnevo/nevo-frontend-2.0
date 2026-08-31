@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { authApi } from "@/lib/api";
+import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { SetPasswordForm } from "./SetPasswordForm";
 
@@ -53,7 +54,9 @@ export function TeacherPasswordReset() {
   const expired = params.get("expired") === "1";
 
   const [email, setEmail] = useState("");
-  const [phase, setPhase] = useState<"idle" | "sending" | "sent">("idle");
+  const [phase, setPhase] = useState<
+    "idle" | "sending" | "sent" | "unreachable"
+  >("idle");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -104,6 +107,30 @@ export function TeacherPasswordReset() {
   }
 
   // Step A - sent state. Same words whether or not the account exists.
+  if (phase === "unreachable") {
+    return (
+      <div className="flex w-full max-w-[420px] flex-col items-center px-6 text-center">
+        <span className="text-[12.5px] font-semibold tracking-[0.14em] text-nevo-violet uppercase">
+          Password reset
+        </span>
+        <h2 className="mt-3.5 text-[30px] leading-[1.15] font-semibold tracking-[-0.02em] text-nevo-near-black">
+          We couldn&rsquo;t reach Nevo
+        </h2>
+        <p className="mt-3 text-[16px] leading-[1.55] text-nevo-near-black/70">
+          No link has been sent, so there&rsquo;s nothing waiting in your
+          inbox. Try again in a moment.
+        </p>
+        <button
+          type="button"
+          onClick={() => setPhase("idle")}
+          className="mt-7 h-[52px] w-full cursor-pointer rounded-[10px] bg-nevo-navy text-base font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   if (phase === "sent") {
     return (
       <div className="flex w-full max-w-[420px] flex-col items-center px-6 text-center motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300">
@@ -143,12 +170,24 @@ export function TeacherPasswordReset() {
       timers.current.push(setTimeout(resolve, SENDING_MS));
     });
     void Promise.all([
-      // The same confirmation either way: an error here would leak whether
-      // the address is known, which is the one thing this endpoint is built
-      // not to reveal.
-      authApi.requestPasswordReset(email.trim()).catch(() => null),
+      // The same confirmation for any answer the SERVER gives: a different
+      // outcome for a known and an unknown address would leak which is which,
+      // and not leaking that is the whole point of this endpoint.
+      //
+      // A request that never reached the server is a different thing. `status
+      // 0` is the client's own transport failure, and telling someone to check
+      // their email for a link that was never requested is the one outcome
+      // this screen must not produce.
+      authApi
+        .requestPasswordReset(email.trim())
+        .then(() => true)
+        .catch((err: unknown) =>
+          err instanceof ApiError && err.status === 0 ? "unreachable" : true,
+        ),
       beat,
-    ]).then(() => setPhase("sent"));
+    ]).then(([outcome]) =>
+      setPhase(outcome === "unreachable" ? "unreachable" : "sent"),
+    );
   };
 
   return (

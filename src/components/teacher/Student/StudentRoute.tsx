@@ -20,10 +20,13 @@ export function StudentRoute({
   fixture,
   studentId,
   classHref,
+  recommendOpen,
 }: {
   fixture: StudentProfileData | null;
   studentId: string;
   classHref?: string;
+  /** C08c opens as its own URL; the gate below has to cover both. */
+  recommendOpen?: boolean;
 }) {
   const state = useStudentProfile(studentId);
   const hydrated = useHydrated();
@@ -83,7 +86,8 @@ export function StudentRoute({
   }
 
   // Fixtures back the designed screen only when there is no live data at all.
-  if (!getToken() && fixture) return <StudentProfile student={fixture} />;
+  if (!getToken() && fixture)
+    return <StudentProfile student={fixture} recommendOpen={recommendOpen} />;
 
   if (state.missing || !getToken()) notFound();
 
