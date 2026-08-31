@@ -164,8 +164,16 @@ export function TeacherSidebar() {
   const pathname = usePathname();
   // C13: the bell opens a popover; the dot is a badge, never a count, and it
   // reflects live unread state, from `/api/notifications`'s own unreadCount.
-  const { notes, unreadCount, failed: notesFailed, markAllRead } =
-    useTeacherNotifications();
+  const {
+    notes,
+    unreadCount,
+    failed: notesFailed,
+    markAllRead,
+    markRead,
+    archive: archiveNote,
+    undoArchive,
+    lastArchived,
+  } = useTeacherNotifications();
   const [notifOpen, setNotifOpen] = useState(false);
   const hasNotifications = unreadCount > 0;
   // Desktop opens expanded, tablet collapsed (frame: tablet variants are
@@ -307,6 +315,10 @@ export function TeacherSidebar() {
           notes={notes}
           failed={notesFailed}
           onMarkAllRead={markAllRead}
+          onOpen={markRead}
+          onArchive={archiveNote}
+          onUndoArchive={undoArchive}
+          lastArchived={lastArchived}
           onClose={() => setNotifOpen(false)}
         />
       )}

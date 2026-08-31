@@ -44,4 +44,20 @@ export const notificationsApi = {
 
   /** 204. Backs the panel's "Mark all read". */
   markAllRead: () => api.post<void>("/api/v1/notifications/read-all"),
+
+  /**
+   * 204. Takes the row out of the feed.
+   *
+   * NOTE: archived rows can never be listed again. `GET /api/notifications`
+   * declares no query parameters and `NotificationResponse` carries no
+   * archived flag, so there is no archived VIEW to build - which is why the
+   * undo below is offered inline, at the moment of archiving, rather than as
+   * a place to go and find things. Raised with backend.
+   */
+  archive: (id: string) =>
+    api.post<void>(`/api/v1/notifications/${id}/archive`),
+
+  /** 204. Puts an archived row back; the only way to reverse an archive. */
+  restore: (id: string) =>
+    api.post<void>(`/api/v1/notifications/${id}/restore`),
 };

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect } from "react";
 import type {
   NotificationKind,
@@ -49,12 +50,22 @@ const KIND_ICON: Record<NotificationKind, React.ReactNode> = {
 export function NotificationsPanel({
   notes,
   failed = false,
+  onOpen,
+  onArchive,
+  onUndoArchive,
+  lastArchived,
   onMarkAllRead,
   onClose,
 }: {
   notes: TeacherNotification[];
   /** The feed could not be read. Not the same as having nothing to show. */
   failed?: boolean;
+  /** Marks the row read; the row navigates itself. */
+  onOpen?: (id: string) => void;
+  onArchive?: (id: string) => void;
+  onUndoArchive?: () => void;
+  /** Present only while an archive can still be undone. */
+  lastArchived?: { id: string; text: string } | null;
   onMarkAllRead: () => void;
   onClose: () => void;
 }) {
@@ -127,31 +138,92 @@ export function NotificationsPanel({
           </div>
         ) : (
           <div className="max-h-[520px] overflow-y-auto">
-            {notes.map((n, i) => (
-              <div
-                key={n.id}
-                className={cn(
-                  "flex gap-[11px] px-[18px] py-[13px] xl:gap-[13px] xl:px-5 xl:py-[15px]",
-                  n.unread && "bg-nevo-violet/9",
-                  i < notes.length - 1 && "border-b border-nevo-near-black/6",
-                )}
-              >
-                <span className="flex size-[34px] shrink-0 items-center justify-center rounded-[9px] bg-nevo-navy/10 text-nevo-navy">
-                  {KIND_ICON[n.kind]}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm leading-[1.45] text-nevo-near-black">
-                    {n.text}
-                  </p>
-                  <span className="mt-[3px] block text-xs text-nevo-near-black/50">
-                    {n.time}
+            {notes.map((n, i) => {
+              /* A row with `navigatesTo` is a link; one without is not
+                 pretending to be. `navigatesTo` is nullable in the contract,
+                 so some rows genuinely have nowhere to go. */
+              const Row = n.href ? Link : "div";
+              return (
+                <div
+                  key={n.id}
+                  className={cn(
+                    "flex items-start gap-[11px] px-[18px] py-[13px] xl:gap-[13px] xl:px-5 xl:py-[15px]",
+                    n.unread && "bg-nevo-violet/9",
+                    i < notes.length - 1 && "border-b border-nevo-near-black/6",
+                  )}
+                >
+                  <span className="flex size-[34px] shrink-0 items-center justify-center rounded-[9px] bg-nevo-navy/10 text-nevo-navy">
+                    {KIND_ICON[n.kind]}
                   </span>
+                  <Row
+                    href={n.href ?? "#"}
+                    onClick={() => {
+                      if (n.unread) onOpen?.(n.id);
+                      if (n.href) onClose();
+                    }}
+                    className={cn(
+                      "min-w-0 flex-1 text-left",
+                      n.href && "cursor-pointer",
+                    )}
+                  >
+                    <p className="text-sm leading-[1.45] font-medium text-nevo-near-black">
+                      {n.text}
+                    </p>
+                    {n.detail && (
+                      <p className="mt-[3px] text-[13px] leading-[1.45] text-nevo-near-black/62">
+                        {n.detail}
+                      </p>
+                    )}
+                    <span className="mt-[3px] block text-xs text-nevo-near-black/50">
+                      {n.time}
+                    </span>
+                  </Row>
+                  <div className="flex shrink-0 items-center gap-1.5 pt-[3px]">
+                    {n.unread && (
+                      <button
+                        type="button"
+                        aria-label="Mark as read"
+                        title="Mark as read"
+                        onClick={() => onOpen?.(n.id)}
+                        className="inline-flex size-[26px] cursor-pointer items-center justify-center rounded-lg text-nevo-violet transition-colors hover:bg-nevo-navy/8"
+                      >
+                        <span className="size-2 rounded-full bg-nevo-violet" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      aria-label="Archive"
+                      title="Archive"
+                      onClick={() => onArchive?.(n.id)}
+                      className="inline-flex size-[26px] cursor-pointer items-center justify-center rounded-lg text-nevo-near-black/40 transition-colors hover:bg-nevo-navy/8 hover:text-nevo-near-black/70"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <rect x="3" y="4" width="18" height="4" rx="1" />
+                        <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                {n.unread && (
-                  <span className="mt-[5px] size-2 shrink-0 rounded-full bg-nevo-violet" />
-                )}
-              </div>
-            ))}
+              );
+            })}
+          </div>
+        )}
+
+        {/* Archived rows can never be listed again - the feed takes no
+            parameters and carries no archived flag - so this inline undo is
+            the ONLY way back. It has to be here, not on a page to visit. */}
+        {lastArchived && (
+          <div className="flex items-center gap-3 border-t border-nevo-near-black/8 px-[18px] py-3 xl:px-5">
+            <span className="min-w-0 flex-1 truncate text-[13px] text-nevo-near-black/62">
+              {`Archived "${lastArchived.text}"`}
+            </span>
+            <button
+              type="button"
+              onClick={onUndoArchive}
+              className="shrink-0 cursor-pointer text-[13px] font-semibold text-nevo-navy"
+            >
+              Undo
+            </button>
           </div>
         )}
       </div>

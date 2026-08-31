@@ -19,6 +19,10 @@ export interface TeacherNotification {
   id: string;
   kind: NotificationKind;
   text: string;
+  /** The sentence under the label. Empty when there is only a label. */
+  detail?: string;
+  /** Where tapping the row goes. Absent when the row has no destination. */
+  href?: string;
   time: string;
   unread: boolean;
 }
