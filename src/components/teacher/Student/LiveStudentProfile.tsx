@@ -22,8 +22,12 @@ import { MasteryDualTrack } from "./MasteryDualTrack";
  * learner profile's `workingMemoryCapacity` and `attentionSpan` are never
  * rendered here or on any teacher surface - a number against a child's
  * working memory is the clinical framing C08 forbids and the D22 compliance
- * claim cannot survive. Do not wire them in later; backend has been asked to
- * stop sending them on teacher reads.
+ * claim cannot survive.
+ *
+ * Backend enforced this at the source on 31 Aug: the teacher-scoped profile
+ * read no longer returns either field, and they are gone from the type. The
+ * ruling stands regardless - if they ever reappear in a payload, they still
+ * do not get rendered.
  *
  * The C16c adaptation insights are live, from `/api/adaptations/student/{id}`,
  * with suppressed entries excluded - the section is what actually happened.
