@@ -44,12 +44,19 @@ export interface LessonProgressState {
   completionFailed: boolean;
   /** True once a completion write has landed. */
   completionSaved: boolean;
+  /**
+   * The session id the backend issued. Signals need the SAME id - the ingest
+   * contract wants a UUID and `PUT /progress` wants this one, which is the
+   * backend saying progress and signals are one session, not two.
+   */
+  sessionId: string | null;
 }
 
 const IDLE: LessonProgressState = {
   report: () => {},
   completionFailed: false,
   completionSaved: false,
+  sessionId: null,
 };
 
 export function useLessonProgress(
@@ -62,6 +69,9 @@ export function useLessonProgress(
   enabled: boolean,
 ): LessonProgressState {
   const sessionId = useRef<string | null>(null);
+  // Mirrored into state as well: the ref keeps the writes synchronous, and
+  // signals need a re-render to learn the id exists.
+  const [issued, setIssued] = useState<string | null>(null);
   const pending = useRef<{
     status: LessonStatus;
     segment?: number;
@@ -119,6 +129,7 @@ export function useLessonProgress(
       .then((res) => {
         if (cancelled) return;
         sessionId.current = res.sessionId;
+        setIssued(res.sessionId);
         // Anything reported while the session was opening.
         const held = pending.current;
         pending.current = null;
@@ -150,5 +161,5 @@ export function useLessonProgress(
   );
 
   if (!enabled) return IDLE;
-  return { report, completionFailed, completionSaved };
+  return { report, completionFailed, completionSaved, sessionId: issued };
 }

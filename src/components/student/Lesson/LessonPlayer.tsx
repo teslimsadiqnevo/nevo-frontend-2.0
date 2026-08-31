@@ -155,13 +155,24 @@ export function LessonPlayer({
   const planFor = (segmentId: string) =>
     plan?.segments.find((s) => s.segmentId === segmentId);
 
-  // One signal session spans the whole lesson; useSignals batches events and
-  // flushes every 5s, at 20 events, and on unmount (exit/completion). Review
-  // sessions carry their own prefix so the backend can tell them apart.
+  // A LOCAL correlation id for the in-app lesson context (Ask Nevo reads it).
+  // It is NOT the signal session any more: the ingest contract wants a UUID,
+  // this is not one, and passing it here is what had every batch rejected 422.
+  // Signals ride the backend's issued id - see `useSignals`.
   const [sessionId] = useState(
     () => `${review ? "review" : "lesson"}-${lesson.id}-${randomId()}`,
   );
-  const { trackEvent } = useSignals(sessionId, lesson.id);
+  // ── Persisted progress ────────────────────────────────────────────────────
+  // Nothing wrote a child's position down before this: closing the tab
+  // returned a lesson to unstarted. `useLessonProgress` opens the session and
+  // reports position; the two authored mocks opt out (`live`), because their
+  // ids are invented and a 404 would be ours, not the network's.
+  const progress = useLessonProgress(lesson.id, live);
+  const { report: reportProgress } = progress;
+
+  // Signals ride the BACKEND's session id, not the local one above - see
+  // `useSignals`. Null until `POST /session` answers, which the hook holds for.
+  const { trackEvent } = useSignals(progress.sessionId, lesson.id);
   const { setActiveLesson } = useLesson();
 
   // Assessment picks, captured for the Review Answers screen (a separate route).
@@ -212,14 +223,6 @@ export function LessonPlayer({
   >(review ? "review-entry" : "segments");
   // Exiting mid-lesson goes through the leave dialog, not straight out.
   const [leaveOpen, setLeaveOpen] = useState(false);
-
-  // ── Persisted progress ────────────────────────────────────────────────────
-  // Nothing wrote a child's position down before this: closing the tab
-  // returned a lesson to unstarted. `useLessonProgress` opens the session and
-  // reports position; the two authored mocks opt out (`live`), because their
-  // ids are invented and a 404 would be ours, not the network's.
-  const progress = useLessonProgress(lesson.id, live);
-  const { report: reportProgress } = progress;
 
   // Position, on every move - including the ones that go through a module
   // boundary or a break, which is why this watches `index` rather than
