@@ -36,7 +36,7 @@ const SUCCESS_HOLD_MS = 1600;
 const REQUIREMENTS = [
   { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
   { label: "Contains a letter", test: (p: string) => /[a-zA-Z]/.test(p) },
-  { label: "Contains a number", test: (p: string) => /[0-9]/.test(p) },
+  { label: "At least one number", test: (p: string) => /[0-9]/.test(p) },
 ];
 
 /** Display only - it never gates the button, the three requirements do. */
@@ -263,11 +263,11 @@ export function SetPasswordForm({
         </span>
       )}
       <h2 className="mt-3.5 text-center text-[34px] leading-[1.15] font-semibold tracking-[-0.02em] text-nevo-near-black">
-        {activation ? "Set your password" : "Choose a new password"}
+        {activation ? "Create your password" : "Choose a new password"}
       </h2>
       <p className="mt-3 text-center text-[16px] leading-[1.55] text-nevo-near-black/70">
         {activation
-          ? "Welcome to Nevo. Create a password to activate your teacher account."
+          ? "One last thing before your dashboard. Choose a password you’ll remember."
           : "Create a new password for your Nevo account."}
       </p>
 
