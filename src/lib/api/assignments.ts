@@ -21,6 +21,9 @@ export interface Assignment {
   studentId: string;
   classId: string | null;
   status: string;
+  /** When it OPENS. Shipped 31 Aug; required on the read. */
+  availableFrom: string | null;
+  /** When it is DUE - a different thing. */
   dueAt: string | null;
   assignedAt: string;
 }
@@ -36,14 +39,17 @@ export const assignmentsApi = {
    * but a single `classId`, which expands to that class's current enrolment
    * server-side.
    *
-   * `dueAt` is a DUE date. The wizard's step 3 asks when a lesson should
-   * become AVAILABLE, which is a different thing and has no field, so
-   * nothing is sent for it - see the note in `AssignWizard`.
+   * `availableFrom` is when the lesson OPENS; `dueAt` is when it is DUE.
+   * They are separate fields and must not be mapped onto each other - a
+   * lesson scheduled to open on Friday is not a lesson due on Friday.
+   * `availableFrom` landed on 31 Aug 2026 and is what the wizard's step 3
+   * has always been asking for.
    */
   create: (payload: {
     lessonIds: string[];
     classId?: string | null;
     studentIds?: string[];
+    availableFrom?: string | null;
     dueAt?: string | null;
   }) => api.post<CreateAssignmentsResult>("/api/v1/assignments", payload),
 

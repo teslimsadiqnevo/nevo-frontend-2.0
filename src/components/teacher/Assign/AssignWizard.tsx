@@ -28,11 +28,17 @@ import { cn } from "@/lib/utils";
  * and inventing names to tick on the screen that assigns work would be the
  * worst place for it.
  *
- * SCHEDULING IS NOT SENT. Step 3 asks when a lesson becomes AVAILABLE; the
- * API has only `dueAt`, which is when it is DUE. Mapping one onto the other
- * would show a lesson scheduled to open on Friday as due on Friday, so a live
- * assignment sends no date and the step says so. Flagged: either the API needs
- * an available-from field, or the step needs to become a due date.
+ * SCHEDULING IS LIVE. `availableFrom` landed on 31 Aug 2026, so step 3 now
+ * sends the date it has always been asking for. It is deliberately NOT
+ * `dueAt`: a lesson scheduled to open on Friday is not a lesson due on
+ * Friday, and mapping one onto the other would have said so on screen.
+ *
+ * The frame's date literal is `2026-07-11`, a placeholder that is now in the
+ * past - shipping it as a live default would have scheduled every lesson to
+ * open weeks ago. The field instead starts EMPTY and is filled with tomorrow
+ * the moment a teacher chooses "Schedule for later", which is the only point
+ * a default is meaningful. It is filled in the toggle's handler, not during
+ * render, so there is no server/client date to disagree about.
  */
 
 type Step = 1 | 2 | 3 | 4;
@@ -147,7 +153,8 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
   const { options: myClasses } = useTeacherClasses();
   const [students, setStudents] = useState<Set<string>>(new Set());
   const [when, setWhen] = useState<"left" | "right">("left"); // left = available now
-  const [date, setDate] = useState("2026-07-11");
+  // Empty until "Schedule for later" is chosen - see the note above.
+  const [date, setDate] = useState("");
   const [time, setTime] = useState("08:00");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -156,6 +163,19 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
   const lessons = live
     ? cards.map((c) => ({ id: c.id, title: c.title, meta: c.meta }))
     : LESSONS;
+
+  /** Tomorrow in `YYYY-MM-DD`, local. Called from a handler, never render. */
+  const tomorrow = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  const chooseWhen = (v: "left" | "right") => {
+    setWhen(v);
+    // A default only means anything once "later" is actually chosen.
+    if (v === "right" && !date) setDate(tomorrow());
+  };
 
   const togIn = <T,>(set: Set<T>, v: T) => {
     const n = new Set(set);
@@ -171,7 +191,8 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
         ? who === "left"
           ? classes.size > 0
           : students.size > 0
-        : true;
+        : // Step 3: scheduling for later needs a date to schedule to.
+          when === "left" || Boolean(date);
 
   const close = () => router.push("/teacher/lessons");
 
@@ -188,10 +209,17 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
     setSubmitting(true);
     setError("");
     const lessonIds = [...chosen];
+    // "Available now" sends nothing rather than now-as-a-timestamp: the
+    // absence is what "open immediately" means, and a stamped `now` would
+    // drift by however long the request takes.
+    const availableFrom =
+      when === "right" && date
+        ? new Date(`${date}T${time}`).toISOString()
+        : undefined;
     try {
       const results = await Promise.all(
         [...classes].map((classId) =>
-          assignmentsApi.create({ lessonIds, classId }),
+          assignmentsApi.create({ lessonIds, classId, availableFrom }),
         ),
       );
       const created = results.reduce((n, r) => n + r.createdCount, 0);
@@ -222,7 +250,7 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
           return `${students.size} ${students.size === 1 ? "student" : "students"} in ${fmtList(classNames)}`;
         })();
   const whenText =
-    when === "right"
+    when === "right" && date
       ? (() => {
           const d = new Date(`${date}T${time}`);
           const day = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
@@ -380,24 +408,10 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
 
             {step === 3 && (
               <>
-                {/* Scheduling has no field on the API - only a due date, which
-                    is a different thing - so a live assignment opens now and
-                    the step says so rather than offering a date that would be
-                    silently dropped. */}
-                {live ? (
-                  <div className="mt-[22px] max-w-[560px] rounded-[12px] bg-nevo-cream-elevated px-[22px] py-5 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-                    <h3 className="text-[15.5px] font-semibold text-nevo-near-black">
-                      This opens as soon as you assign it
-                    </h3>
-                    <p className="mt-1.5 text-sm leading-[1.55] text-nevo-near-black/68">
-                      Scheduling a later start isn&rsquo;t connected yet.
-                      Everything you&rsquo;ve chosen will be available to your
-                      students straight away.
-                    </p>
-                  </div>
-                ) : (
-                <>
-                <Toggle left="Available now" right="Schedule for later" value={when} onChange={setWhen} />
+                {/* One control for everyone: `availableFrom` is live, so a
+                    real teacher gets the frame's step rather than a notice
+                    explaining why they cannot have it. */}
+                <Toggle left="Available now" right="Schedule for later" value={when} onChange={chooseWhen} />
                 {when === "right" && (
                   <div className="mt-4 flex gap-3.5 xl:mt-[18px]">
                     <div className="flex-1">
@@ -436,8 +450,6 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                       </label>
                     </div>
                   </div>
-                )}
-                </>
                 )}
               </>
             )}
