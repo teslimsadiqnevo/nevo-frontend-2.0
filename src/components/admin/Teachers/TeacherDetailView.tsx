@@ -1,0 +1,301 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import {
+  classesApi,
+  type AdminClass,
+  type AssignedClass,
+} from "@/lib/api/classes";
+import { teachersApi, type TeacherDetail } from "@/lib/api/teachers";
+import { yearGroupLabel } from "@/lib/constants/yearGroups";
+import { cn } from "@/lib/utils";
+import {
+  Avatar,
+  CARD,
+  GHOST_BTN,
+  PRIMARY_BTN,
+  ROW_DIVIDER,
+  RolePill,
+  SectionHeading,
+  TEXT_ACTION,
+} from "../Roster/primitives";
+import { RemoveAccessSheet } from "./RemoveAccessSheet";
+import { StatusPill, isInvited } from "./status";
+
+/**
+ * D6 teacher detail - oversight, not performance review.
+ *
+ * The boundary line under the stat cards is a TRUST FEATURE, which is why it is
+ * plain text on the page rather than a tooltip: an admin should be able to see,
+ * without asking, that this screen stops where it stops. SCRUM-40 asks for it
+ * and the frame writes it out.
+ *
+ * The Students figure is an aggregate headcount of the classes this teacher
+ * holds and nothing else. That is the only reason it clears the oversight
+ * boundary at all, and the spec forbids it ever gaining a qualifier - no
+ * "students at risk", no averages, no engagement figure. If you find yourself
+ * adding a second number to that card, stop.
+ *
+ * TODO(api): `GET /api/v1/teachers/{id}` returns `{id,name,email,status,classIds}`
+ * and nothing more. Three things the frame draws therefore cannot be built:
+ *   - the LAST ACTIVE stat card (no timestamp anywhere on the route), so the
+ *     frame's three cards render as two rather than inventing a third
+ *   - the header's "Active today" line, which is the same missing timestamp
+ *   - ASSIGNMENT HISTORY, which has no endpoint at all
+ * The Students headcount is summed client-side from the class list, because no
+ * `student_headcount` field exists either.
+ */
+
+type Phase = "loading" | "ready" | "failed";
+
+export function TeacherDetailView({ teacherId }: { teacherId: string }) {
+  const router = useRouter();
+  const [phase, setPhase] = useState<Phase>("loading");
+  const [teacher, setTeacher] = useState<TeacherDetail | null>(null);
+  const [held, setHeld] = useState<AssignedClass[]>([]);
+  const [allClasses, setAllClasses] = useState<AdminClass[]>([]);
+  const [removing, setRemoving] = useState(false);
+
+  const load = useCallback(() => {
+    Promise.all([
+      teachersApi.get(teacherId),
+      classesApi.teacherClasses(teacherId),
+      classesApi.list(),
+    ])
+      .then(([t, h, all]) => {
+        setTeacher(t);
+        setHeld(h);
+        setAllClasses(all);
+        setPhase("ready");
+      })
+      .catch(() => setPhase("failed"));
+  }, [teacherId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (phase === "loading") {
+    return (
+      <Wrapper>
+        <div className={cn(CARD, "h-[420px] animate-pulse")} />
+      </Wrapper>
+    );
+  }
+
+  if (phase === "failed" || !teacher) {
+    return (
+      <Wrapper>
+        <div className={cn(CARD, "px-[26px] py-7")}>
+          <h3 className="text-[17px] font-semibold text-nevo-near-black">
+            We couldn&rsquo;t load this teacher
+          </h3>
+          <p className="mt-2 max-w-[52ch] text-sm leading-[1.55] text-nevo-near-black/62">
+            Nothing has changed - this is only about showing them to you. Try
+            again in a moment.
+          </p>
+          <div className="mt-5 flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setPhase("loading");
+                load();
+              }}
+              className={PRIMARY_BTN}
+            >
+              Try again
+            </button>
+            <Link href="/admin/teachers" className={GHOST_BTN}>
+              Back to teachers
+            </Link>
+          </div>
+        </div>
+      </Wrapper>
+    );
+  }
+
+  const byId = new Map(allClasses.map((c) => [c.id, c]));
+  const headcount = held.reduce((sum, h) => sum + (byId.get(h.class_id)?.studentCount ?? 0), 0);
+  const years = Array.from(
+    new Set(
+      held
+        .map((h) => yearGroupLabel(byId.get(h.class_id)?.yearGroup))
+        .filter((v): v is string => Boolean(v)),
+    ),
+  );
+  const firstName = teacher.name.split(" ").filter(Boolean).slice(-1)[0] ?? teacher.name;
+  const invited = isInvited(teacher.status);
+
+  return (
+    <Wrapper>
+      <Link
+        href="/admin/teachers"
+        className="text-[13.5px] font-semibold text-nevo-navy hover:opacity-75"
+      >
+        &larr; Teachers
+      </Link>
+
+      <div className="mt-3 flex items-center gap-4">
+        <Avatar name={teacher.name} email={teacher.email} size={56} />
+        <div className="min-w-0 flex-1">
+          <h2 className="m-0 text-[26px] font-semibold tracking-[-0.018em] text-nevo-near-black">
+            {teacher.name}
+          </h2>
+          <div className="mt-[3px] truncate text-sm text-nevo-near-black/62">
+            {[teacher.email, "Teacher"].filter(Boolean).join(" · ")}
+          </div>
+        </div>
+        <StatusPill status={teacher.status} />
+      </div>
+
+      {invited ? (
+        <p className="mt-5 text-[13.5px] leading-[1.55] text-nevo-near-black/62">
+          This teacher hasn&rsquo;t opened their console yet.{" "}
+          <Link href="/admin/invitations" className="font-semibold text-nevo-navy hover:opacity-75">
+            Manage the invitation
+          </Link>
+        </p>
+      ) : null}
+
+      {/* Two cards, not the frame's three - see the note at the top of the file. */}
+      <div className="mt-7 flex gap-3.5 max-lg:flex-col">
+        <StatCard
+          value={String(held.length)}
+          label="Classes"
+          sub={years.length > 0 ? `across ${years.join(" & ")}` : "none assigned yet"}
+        />
+        <StatCard
+          value={String(headcount)}
+          label="Students"
+          sub="in their classes"
+        />
+      </div>
+
+      <p className="mt-4 flex items-start gap-2 text-[13px] leading-[1.55] text-nevo-near-black/60">
+        <LockGlyph />
+        <span>
+          <span className="font-semibold">What you can see here:</span> how much{" "}
+          {teacher.name} is teaching - not how their individual students are
+          doing. A student&rsquo;s learning detail stays between them and their
+          teacher.
+        </span>
+      </p>
+
+      <div className="mt-[30px] flex items-center justify-between gap-4">
+        <SectionHeading>Classes</SectionHeading>
+      </div>
+
+      <div className={cn(CARD, "mt-3.5")}>
+        {held.length === 0 ? (
+          <div className="px-[22px] py-6">
+            <p className="m-0 text-sm text-nevo-near-black/62">
+              {teacher.name} doesn&rsquo;t hold any classes yet.
+            </p>
+            <Link href="/admin/classes" className={cn(TEXT_ACTION, "mt-2.5")}>
+              Assign one from a class
+            </Link>
+          </div>
+        ) : (
+          held.map((h, i) => {
+            const info = byId.get(h.class_id);
+            const meta = [
+              yearGroupLabel(info?.yearGroup),
+              info ? `${info.studentCount} ${info.studentCount === 1 ? "student" : "students"}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            return (
+              <Link
+                key={h.assignment_id}
+                href={`/admin/classes/${h.class_id}`}
+                className={cn(
+                  "flex items-center gap-3.5 px-[22px] py-[15px] transition-colors hover:bg-nevo-navy/[0.03]",
+                  i < held.length - 1 && ROW_DIVIDER,
+                )}
+              >
+                <span className="flex-1 truncate text-[15px] font-semibold text-nevo-near-black">
+                  {h.class_name}
+                </span>
+                {meta ? (
+                  <span className="text-[13.5px] text-nevo-near-black/60">{meta}</span>
+                ) : null}
+                <RolePill role={h.role} />
+              </Link>
+            );
+          })
+        )}
+      </div>
+
+      {/* Removing access is quiet, below a rule, and never a red button. */}
+      <div className="mt-[26px] border-t border-nevo-near-black/10 pt-5">
+        <button type="button" onClick={() => setRemoving(true)} className={TEXT_ACTION}>
+          Remove admin-side access
+        </button>
+        <p className="mt-1.5 max-w-[520px] text-[13px] leading-[1.5] text-nevo-near-black/55">
+          {firstName} will no longer be able to open their Nevo console. Their
+          classes and notes stay with the school, and you can restore access
+          later.
+        </p>
+      </div>
+
+      {removing ? (
+        <RemoveAccessSheet
+          teacher={teacher}
+          held={held}
+          onClose={() => setRemoving(false)}
+          onRemoved={() => router.push("/admin/teachers")}
+        />
+      ) : null}
+    </Wrapper>
+  );
+}
+
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
+      <div className="mx-auto max-w-[820px]">{children}</div>
+    </div>
+  );
+}
+
+function StatCard({
+  value,
+  label,
+  sub,
+}: {
+  value: string;
+  label: string;
+  sub: string;
+}) {
+  return (
+    <div className={cn(CARD, "flex-1 px-[22px] py-5")}>
+      <div className="text-[34px] font-semibold leading-none tracking-[-0.02em] text-nevo-navy">
+        {value}
+      </div>
+      <div className="mt-2.5 text-sm font-semibold text-nevo-near-black">{label}</div>
+      <div className="mt-0.5 text-[12.5px] text-nevo-near-black/58">{sub}</div>
+    </div>
+  );
+}
+
+function LockGlyph() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="mt-[3px] flex-none text-nevo-violet/90"
+    >
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  );
+}
