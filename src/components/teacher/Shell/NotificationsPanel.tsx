@@ -48,10 +48,13 @@ const KIND_ICON: Record<NotificationKind, React.ReactNode> = {
 
 export function NotificationsPanel({
   notes,
+  failed = false,
   onMarkAllRead,
   onClose,
 }: {
   notes: TeacherNotification[];
+  /** The feed could not be read. Not the same as having nothing to show. */
+  failed?: boolean;
   onMarkAllRead: () => void;
   onClose: () => void;
 }) {
@@ -95,7 +98,22 @@ export function NotificationsPanel({
           )}
         </div>
 
-        {empty ? (
+        {empty && failed ? (
+          <div className="flex flex-col items-center px-6 py-11 text-center">
+            <div className="flex size-14 items-center justify-center rounded-xl bg-nevo-cream-elevated text-nevo-violet">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M7 18a4 4 0 0 1-.5-7.97A5.5 5.5 0 0 1 17.5 9.5 4 4 0 0 1 17 18" />
+                <path d="M10 20.5l4-4M14 20.5l-4-4" />
+              </svg>
+            </div>
+            <p className="mt-4 text-[15px] text-nevo-near-black/62">
+              We couldn&rsquo;t load your notifications.
+            </p>
+            <p className="mt-1 text-[13.5px] text-nevo-near-black/50">
+              This isn&rsquo;t an empty inbox &ndash; try again in a moment.
+            </p>
+          </div>
+        ) : empty ? (
           <div className="flex flex-col items-center px-6 py-11 text-center">
             <div className="flex size-14 items-center justify-center rounded-xl bg-nevo-cream-elevated text-nevo-violet">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
