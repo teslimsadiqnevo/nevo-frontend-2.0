@@ -212,9 +212,18 @@ export function SetPasswordForm({
       return;
     }
 
-    // The account is active from here on. Accepting returns no session, so
-    // sign in to reach the console; if that hop fails it is not an activation
-    // failure and must not read like one.
+    // The account is active from here on. Accepting returns no session
+    // (AcceptInvitationResponse is role/school_id/user_id), so sign in to
+    // reach the console; if that hop fails it is not an activation failure
+    // and must not read like one.
+    //
+    // With no address on the link there is nobody to sign in AS - the accept
+    // response carries none - so send them to the door rather than posting a
+    // login for an address we invented.
+    if (!inviteEmail) {
+      finish("signin");
+      return;
+    }
     try {
       await authApi.loginPassword({ email: inviteEmail, password });
       finish("console");
