@@ -10,7 +10,7 @@
  * The backend ships without notice - 20 endpoints appeared between two runs on
  * 27 Aug 2026 - so check here before assuming something is missing.
  */
-import { execSync } from "node:child_process";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -32,17 +32,37 @@ if (process.argv.includes("--json")) {
 
 const S = spec.components?.schemas ?? {};
 
-/** Paths referenced anywhere in the API client layer. */
-const used = new Set();
-try {
-  const out = execSync(`grep -rhno '"/api/[a-z0-9/_{}v-]*"' "${SRC}/lib/api"`, {
-    encoding: "utf8",
+function walk(dir) {
+  return readdirSync(dir).flatMap((n) => {
+    const f = join(dir, n);
+    return statSync(f).isDirectory() ? walk(f) : [f];
   });
-  for (const m of out.matchAll(/"(\/api\/[^"]*)"/g)) used.add(m[1]);
-} catch {
-  /* no matches is not an error */
 }
-const norm = (p) => p.replace(/\{[^}]+\}/g, "{}").replace(/\/$/, "");
+
+/**
+ * Paths referenced anywhere in the API client layer.
+ *
+ * Read with fs rather than shelling out to grep: every parameterised call is a
+ * BACKTICK template (`/api/v1/lessons/${id}/class-progress`), and the old
+ * double-quote-only pattern matched none of them - so every path with an id in
+ * it was reported unconsumed no matter how thoroughly it was wired, and the
+ * headline count read far lower than the truth.
+ */
+const used = new Set();
+for (const f of walk(join(SRC, "lib", "api"))) {
+  if (!/\.tsx?$/.test(f)) continue;
+  for (const m of readFileSync(f, "utf8").matchAll(
+    /["'`](\/api\/[^"'`\s]*)["'`]/g,
+  )) {
+    used.add(m[1]);
+  }
+}
+/** `${lessonId}` and `{lesson_id}` both collapse to `{}` so the two sides meet. */
+const norm = (p) =>
+  p
+    .replace(/\$\{[^}]*\}/g, "{}")
+    .replace(/\{[^}]+\}/g, "{}")
+    .replace(/\/$/, "");
 const usedNorm = new Set([...used].map(norm));
 
 const groups = {};
@@ -58,7 +78,7 @@ let consumed = 0;
 for (const [g, paths] of Object.entries(groups).sort()) {
   console.log(`\n## ${g}`);
   for (const p of paths) {
-    for (const [m, op] of Object.entries(spec.paths[p])) {
+    for (const m of Object.keys(spec.paths[p])) {
       if (!["get", "post", "put", "patch", "delete"].includes(m)) continue;
       total += 1;
       const hit = usedNorm.has(norm(p));
