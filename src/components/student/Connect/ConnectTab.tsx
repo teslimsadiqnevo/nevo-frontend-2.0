@@ -31,6 +31,7 @@ export function ConnectTab() {
     threads: sourceThreads,
     live,
     loading,
+    failed,
     openThread: fetchThread,
   } = useStudentThreads();
   const [fixtureThreads, setFixtureThreads] = useState<Thread[]>(sourceThreads);
@@ -106,7 +107,7 @@ export function ConnectTab() {
 
   // A live student can genuinely have no threads, which the fixtures never
   // could - and every pane below assumes an active one.
-  if (live && (loading || !active)) {
+  if (live && (loading || failed || !active)) {
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="px-5 pt-5 pb-3">
@@ -122,6 +123,25 @@ export function ConnectTab() {
                 className="h-[62px] animate-pulse rounded-[12px] bg-nevo-cream-elevated"
               />
             ))}
+          </div>
+        ) : failed ? (
+          /* A failed read is NOT an empty inbox. Saying "no messages yet" here
+             tells a child their teacher never wrote to them, which we do not
+             know and which is the crueller of the two guesses. */
+          <div className="flex flex-1 flex-col items-center justify-center px-10 pb-10 text-center">
+            <p className="text-[17px] font-medium text-nevo-near-black">
+              We couldn&rsquo;t load your messages
+            </p>
+            <p className="mt-2 max-w-[300px] text-[15px] leading-[1.5] text-nevo-near-black/62">
+              Nothing is lost. Give it a moment and try again.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-5 h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-6 text-[15px] font-medium text-nevo-cream"
+            >
+              Try again
+            </button>
           </div>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center px-10 pb-10 text-center">
