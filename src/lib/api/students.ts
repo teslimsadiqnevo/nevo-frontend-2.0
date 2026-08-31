@@ -12,11 +12,19 @@ import { api } from "./client";
  * working memory is a diagnostic-shaped measurement, which is exactly what
  * the D22 compliance screen promises Nevo does not hold. The accommodations
  * read carries everything actionable in those numbers, in the product's own
- * register. Backend has been asked to stop returning them on teacher-scoped
- * reads; until then they stay typed here and unrendered.
+ * register.
  *
- * `mastery/student` returns `conceptId` and no name, though `mastery/class`
- * carries `conceptName` - so `/api/concepts` resolves it. Flagged to backend.
+ * BACKEND HONOURED THE RULING (31 Aug 2026): `/api/intelligence/profile/{id}`
+ * is now `{studentId, status, observedEventCount}` and returns neither field
+ * on any teacher-scoped read. They are gone from `LearnerProfile` below - a
+ * type that declares fields the API never sends is a standing invitation to
+ * render them.
+ *
+ * `mastery/student` NOW CARRIES `conceptName` (31 Aug 2026), so the
+ * `/api/concepts` round trip that resolved ids to names is gone. It was
+ * best-effort and silently swallowed its own failure, which meant a teacher
+ * could be shown a raw UUID as the name of the concept their student was
+ * struggling with.
  *
  * CONVERSATION EVIDENCE IS RULED AGGREGATE-ONLY (Olayinka, 30 Aug 2026).
  * `/api/conversation-evidence/student/{id}` returns per-question rows -
@@ -46,14 +54,14 @@ export interface LearnerProfile {
   studentId: string;
   /** `observed` once Nevo has watched enough to adapt. */
   status: string;
-  workingMemoryCapacity: number | null;
-  attentionSpan: number | null;
   observedEventCount: number | null;
 }
 
 export interface ConceptMasteryRow {
   studentId: string;
   conceptId: string;
+  /** Shipped 31 Aug. Before it, this read had ids only. */
+  conceptName: string;
   /** 0-1. The frame's bars are percentages. */
   masteryProbabilityConcept: number;
   masteryProbabilityReading: number;
@@ -85,12 +93,6 @@ export interface StudentAdaptation {
   adaptation: string;
   /** True when the adaptation was considered and withheld. */
   suppressed: boolean;
-}
-
-export interface Concept {
-  id: string;
-  name: string;
-  subject: string;
 }
 
 /** What Nevo is currently offering this student, and on what evidence. */
@@ -197,8 +199,6 @@ export const studentsApi = {
   accommodations: (studentId: string) =>
     api.get<Accommodations>(`/api/intelligence/accommodations/${studentId}`),
 
-  /** Concept names, to resolve the ids mastery returns. */
-  concepts: () => api.get<Concept[]>("/api/concepts"),
 };
 
 /** One misconception several students in a class share (C09). */

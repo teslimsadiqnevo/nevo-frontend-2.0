@@ -63,7 +63,6 @@ const pct = (p: number) => Math.round(Math.max(0, Math.min(1, p)) * 100);
 export function useStudentProfile(studentId: string): StudentProfileState {
   const [profile, setProfile] = useState<StudentProfileResponse | null>(null);
   const [mastery, setMastery] = useState<ConceptMasteryRow[]>([]);
-  const [names, setNames] = useState<Map<string, string>>(new Map());
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [adaptations, setAdaptations] = useState<StudentAdaptation[]>([]);
   const [sessions, setSessions] = useState<LessonProgress[]>([]);
@@ -97,12 +96,6 @@ export function useStudentProfile(studentId: string): StudentProfileState {
       .mastery(studentId)
       .then((rows) => {
         if (!cancelled) setMastery(rows);
-      })
-      .catch(() => {});
-    void studentsApi
-      .concepts()
-      .then((list) => {
-        if (!cancelled) setNames(new Map(list.map((c) => [c.id, c.name])));
       })
       .catch(() => {});
     void studentsApi
@@ -152,7 +145,11 @@ export function useStudentProfile(studentId: string): StudentProfileState {
     profile,
     concepts: mastery.map((m) => ({
       conceptId: m.conceptId,
-      name: names.get(m.conceptId) ?? m.conceptId,
+      // Straight from the mastery read since 31 Aug. It used to be resolved
+      // through a second, best-effort `/api/concepts` call whose failure was
+      // swallowed - and when it failed a teacher was shown a raw UUID as the
+      // name of the concept their student was struggling with.
+      name: m.conceptName,
       understanding: pct(m.masteryProbabilityConcept),
       reading: pct(m.masteryProbabilityReading),
       practiceCount: m.practiceCount,
