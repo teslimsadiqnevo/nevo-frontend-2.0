@@ -151,7 +151,7 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
   const [who, setWho] = useState<"left" | "right">("left"); // left = whole class
   const [classes, setClasses] = useState<Set<string>>(new Set());
   // Recipients are the teacher's real assignments when a session has them.
-  const { options: myClasses } = useTeacherClasses();
+  const { options: myClasses, sample: classesSample } = useTeacherClasses();
   const [students, setStudents] = useState<Set<string>>(new Set());
   const [when, setWhen] = useState<"left" | "right">("left"); // left = available now
   // Empty until "Schedule for later" is chosen - see the note above.
@@ -171,6 +171,19 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
     const d = new Date();
     d.setDate(d.getDate() + 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  /**
+   * Picking a different KIND of recipient clears the other kind. The two sets
+   * were independent, so a teacher who chose classes, switched to "Specific
+   * students" and ticked two names got a step-4 summary reading "2 students in
+   * JSS 2A" over a request that assigned the lessons to every student in every
+   * class still selected.
+   */
+  const chooseWho = (v: "left" | "right") => {
+    setWho(v);
+    if (v === "left") setStudents(new Set());
+    else setClasses(new Set());
   };
 
   const chooseWhen = (v: "left" | "right") => {
@@ -193,8 +206,12 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
         ? who === "left"
           ? classes.size > 0
           : students.size > 0
-        : // Step 3: scheduling for later needs a date to schedule to.
-          when === "left" || Boolean(date);
+        : // Step 3: scheduling for later needs BOTH halves. `time` is a
+          // clearable input, and an empty one built `new Date("2026-09-01T")`
+          // - an Invalid Date that printed as "Invalid Date" on step 4 and
+          // then threw out of `toISOString()`, leaving Confirm stuck on
+          // "Assigning..." for ever with nothing sent and nothing said.
+          when === "left" || (Boolean(date) && Boolean(time));
 
   const close = () => router.push("/teacher/lessons");
 
@@ -214,41 +231,90 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
       close();
       return;
     }
+    if (classesSample) {
+      setError(
+        "We couldn’t reach your school, so we can’t assign to those classes. Nothing has been sent - try again in a moment.",
+      );
+      return;
+    }
     if (!live) {
       setError(
         "We couldn’t load your lessons, so we can’t assign them. Nothing has been sent - reopen this from your library and try again.",
       );
       return;
     }
-    setSubmitting(true);
-    setError("");
-    const lessonIds = [...chosen];
+    // The API takes `studentIds`, but the live class list carries no roster,
+    // so there are no real ids to send. Rather than quietly assign whole
+    // classes under a summary that promised individuals, say so.
+    if (who === "right") {
+      setError(
+        "Assigning to individual students isn’t connected yet. Choose whole classes instead, and nothing will be sent until you do.",
+      );
+      return;
+    }
+    if (classes.size === 0) {
+      setError("Choose at least one class before confirming.");
+      return;
+    }
+
     // "Available now" sends nothing rather than now-as-a-timestamp: the
     // absence is what "open immediately" means, and a stamped `now` would
     // drift by however long the request takes.
-    const availableFrom =
-      when === "right" && date
-        ? new Date(`${date}T${time}`).toISOString()
-        : undefined;
-    try {
-      const results = await Promise.all(
-        [...classes].map((classId) =>
-          assignmentsApi.create({ lessonIds, classId, availableFrom }),
-        ),
-      );
-      const created = results.reduce((n, r) => n + r.createdCount, 0);
-      if (created === 0) {
-        setSubmitting(false);
-        setError(
-          "Nothing was assigned - those classes may have no students enrolled yet.",
-        );
+    let availableFrom: string | undefined;
+    if (when === "right" && date && time) {
+      const at = new Date(`${date}T${time}`);
+      if (Number.isNaN(at.getTime())) {
+        setError("That date and time didn’t read properly - check them and try again.");
         return;
       }
-      close();
-    } catch {
-      setSubmitting(false);
-      setError("We couldn’t assign that just now. Nothing has been sent - try again.");
+      availableFrom = at.toISOString();
     }
+
+    setSubmitting(true);
+    setError("");
+    const lessonIds = [...chosen];
+    const targets = [...classes];
+
+    // allSettled, NOT all: `Promise.all` rejects on the FIRST failure while
+    // the other requests are already in flight and still land server-side.
+    // The teacher was then told "Nothing has been sent" over classes that HAD
+    // been assigned, and the retry it invited assigned them a second time -
+    // there is no idempotency key on this endpoint.
+    const results = await Promise.allSettled(
+      targets.map((classId) =>
+        assignmentsApi.create({ lessonIds, classId, availableFrom }),
+      ),
+    );
+    setSubmitting(false);
+
+    const failed = targets.filter((_, i) => results[i].status === "rejected");
+    const created = results.reduce(
+      (n, r) => n + (r.status === "fulfilled" ? r.value.createdCount : 0),
+      0,
+    );
+
+    if (failed.length === targets.length) {
+      setError("We couldn’t assign that just now. Nothing has been sent - try again.");
+      return;
+    }
+    if (failed.length > 0) {
+      // Name what DID land, so a retry is an informed choice rather than a
+      // gamble on double-assigning.
+      const names = failed
+        .map((id) => myClasses.find((c) => c.id === id)?.name ?? "one class")
+        .join(", ");
+      setError(
+        `Assigned to the other classes, but ${names} didn’t go through. Don’t redo the whole thing - reopen this for ${names} only.`,
+      );
+      return;
+    }
+    if (created === 0) {
+      setError(
+        "Nothing was assigned - those classes may have no students enrolled yet.",
+      );
+      return;
+    }
+    close();
   };
 
   const lessonsText = fmtList(
@@ -363,7 +429,17 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
 
             {step === 2 && (
               <>
-                <Toggle left="Whole class" right="Specific students" value={who} onChange={setWho} />
+                <Toggle left="Whole class" right="Specific students" value={who} onChange={chooseWho} />
+                {classesSample && (
+                  /* A signed-in teacher whose class list failed was shown
+                     fixture classes, fixture headcounts and sixteen invented
+                     children by name - on the screen that assigns work, with
+                     nothing saying they were not real. */
+                  <p className="mt-3 max-w-[560px] text-[13px] leading-[1.5] text-nevo-near-black/60 italic">
+                    We couldn&rsquo;t reach your school just now, so these are
+                    sample classes. Nothing you pick here will be assigned.
+                  </p>
+                )}
                 {who === "left" ? (
                   <div className="mt-4 flex flex-col gap-2.5 xl:mt-[18px] xl:gap-[11px]">
                     {myClasses.map((c) => (
@@ -388,7 +464,7 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                           {c.name.toUpperCase()}
                         </div>
                         <div className="mt-2 flex flex-col gap-2">
-                          {c.roster ? (
+                          {c.roster && !classesSample ? (
                             c.roster.map((s) => {
                               const key = `${c.id}:${s.name}`;
                               return (
