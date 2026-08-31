@@ -166,6 +166,22 @@ export function LiveLessonDetail({
     (a, b) => a.sequenceOrder - b.sequenceOrder,
   );
   const needsReview = segments.filter((s) => s.needsReview).length;
+  /**
+   * C06b's reason line names the SECTION, not the parser's reason codes.
+   * `reviewReasons` has no vocabulary in the contract - we would be printing
+   * backend tokens at a teacher - so the line says which section and leaves
+   * the why to the callout below it.
+   */
+  const reviewLine = (() => {
+    const flagged = segments
+      .map((seg, i) => ({ seg, n: i + 1 }))
+      .filter(({ seg }) => seg.needsReview);
+    if (flagged.length === 0) return "";
+    if (flagged.length === 1) {
+      return `Worth a look - a few lines in Section ${flagged[0].n} didn't scan cleanly.`;
+    }
+    return `Worth a look - a few lines in ${flagged.length} sections didn't scan cleanly.`;
+  })();
 
   // Group by module where the parser made any. A segment the modules do not
   // claim still has to appear - a lesson that silently hid a section would be
@@ -212,9 +228,28 @@ export function LiveLessonDetail({
             lesson - the console's best-wired write had no entry point. */}
         <div className="mt-4 flex items-start justify-between gap-6">
           <div className="min-w-0">
-            <h2 className="text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
-              {lesson.title}
-            </h2>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
+                {lesson.title}
+              </h2>
+              {needsReview > 0 && (
+                <span className="inline-flex shrink-0 items-center gap-[5px] rounded-full bg-nevo-violet/34 py-[3px] pr-[11px] pl-2 text-[11.5px] font-semibold whitespace-nowrap text-nevo-navy">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                    <circle cx="12" cy="12" r="2.6" />
+                  </svg>
+                  Needs review
+                </span>
+              )}
+            </div>
+            {/* C06b's violet reason line sits ABOVE the grey meta, so the
+                reason is read before the statistics. The section number comes
+                from the flagged segment itself - never a parser token. */}
+            {needsReview > 0 && (
+              <p className="mt-2 text-[14.5px] font-medium text-nevo-navy">
+                {reviewLine}
+              </p>
+            )}
             <span className="mt-[5px] block text-[14.5px] text-nevo-near-black/60">
               {`${lesson.segmentCount} ${lesson.segmentCount === 1 ? "section" : "sections"}`}
               {students > 0 &&

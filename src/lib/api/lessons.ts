@@ -47,6 +47,14 @@ export interface LessonSummary {
   segmentCount: number;
   /** Segments the parser wants a human to confirm. */
   reviewSegmentCount: number;
+  /**
+   * Shipped 31 Aug. NOT in the schema's `required` list, so it can arrive
+   * absent - and absent is not zero. Anything reading it must tell those
+   * apart before making a claim about whether a lesson is assigned.
+   */
+  assignmentCount?: number;
+  /** Shipped 31 Aug. Free text; only the staged upload routes can set one. */
+  subject?: string | null;
   createdAt: string;
 }
 

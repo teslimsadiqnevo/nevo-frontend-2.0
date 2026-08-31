@@ -207,29 +207,109 @@ export function LessonLibrary() {
 
       {shown.length > 0 ? (
         <div className="mt-[18px] grid max-w-[1000px] grid-cols-2 gap-3.5 xl:grid-cols-3 xl:gap-4">
-          {shown.map((lesson) => (
-            <Link
-              key={lesson.id}
-              href={`/teacher/lessons/${lesson.id}`}
-              className="flex min-h-[158px] cursor-pointer flex-col rounded-[12px] bg-nevo-cream-elevated p-5 shadow-elevation-1 transition-[filter,transform] hover:brightness-[0.985] active:scale-[0.99]"
-            >
-              <div className="flex items-start justify-between gap-2.5">
-                <span className="text-[16.5px] leading-[1.3] font-semibold tracking-[-0.01em] text-nevo-near-black">
-                  {lesson.title}
+          {shown.map((lesson) => {
+            /* C06's three card states. Parsing and failed are NOT links: the
+               frame marks both `cursor:default`, and there is nothing on the
+               other side of them - a failed lesson's detail page can only
+               repeat that it could not be read. They also used to nest an
+               anchor inside an anchor. */
+            if (lesson.kind === "parsing") {
+              return (
+                <div
+                  key={lesson.id}
+                  className="flex min-h-[158px] cursor-default flex-col rounded-[12px] bg-nevo-cream-elevated p-5 shadow-elevation-1"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="size-[34px] shrink-0 rounded-full border-[3px] border-nevo-navy/16 border-t-nevo-navy motion-safe:animate-spin motion-safe:[animation-duration:900ms]" />
+                    <span className="text-[15.5px] leading-[1.3] font-semibold text-nevo-near-black">
+                      Processing your lesson&hellip;
+                    </span>
+                  </div>
+                  <p className="mt-[13px] text-[13.5px] leading-[1.5] text-nevo-near-black/62">
+                    Nevo is getting this ready. It will appear here when
+                    it&rsquo;s done.
+                  </p>
+                  <div className="flex-1" />
+                  <div className="mt-3.5 border-t border-nevo-near-black/8 pt-3 text-[13px] text-nevo-near-black/45">
+                    {lesson.footer}
+                  </div>
+                </div>
+              );
+            }
+
+            if (lesson.kind === "failed") {
+              return (
+                <div
+                  key={lesson.id}
+                  className="flex min-h-[158px] cursor-default flex-col rounded-[12px] bg-nevo-cream-elevated p-5 shadow-elevation-1"
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Violet, never red - the frame is explicit. */}
+                    <span className="flex size-[34px] shrink-0 items-center justify-center rounded-[10px] bg-nevo-violet/22 text-nevo-navy">
+                      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+                        <path d="M14 3v6h6" />
+                        <path d="M9.5 13.5l5 5M14.5 13.5l-5 5" />
+                      </svg>
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-[15.5px] leading-[1.35] font-semibold text-nevo-near-black">
+                        This lesson couldn&rsquo;t be processed.
+                      </div>
+                      <p className="mt-1 text-[13.5px] leading-[1.5] text-nevo-near-black/62">
+                        Nothing you did is lost.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex-1" />
+                  <Link
+                    href="/teacher/lessons/upload"
+                    className="mt-3.5 inline-flex cursor-pointer items-center gap-[7px] border-t border-nevo-near-black/8 pt-3 text-sm font-semibold text-nevo-navy"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M12 16V4M7 9l5-5 5 5" />
+                      <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                    </svg>
+                    Try uploading again
+                  </Link>
+                </div>
+              );
+            }
+
+            return (
+              <Link
+                key={lesson.id}
+                href={`/teacher/lessons/${lesson.id}`}
+                className="flex min-h-[158px] cursor-pointer flex-col rounded-[12px] bg-nevo-cream-elevated p-5 shadow-elevation-1 transition-[filter,transform] hover:brightness-[0.985] active:scale-[0.99]"
+              >
+                <div className="flex items-start justify-between gap-2.5">
+                  <span className="text-[16.5px] leading-[1.3] font-semibold tracking-[-0.01em] text-nevo-near-black">
+                    {lesson.title}
+                  </span>
+                  {lesson.needsReview ? (
+                    <span className="inline-flex shrink-0 items-center gap-[5px] rounded-full bg-nevo-violet/34 py-[3px] pr-[11px] pl-2 text-[11.5px] font-semibold whitespace-nowrap text-nevo-navy">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                        <circle cx="12" cy="12" r="2.6" />
+                      </svg>
+                      Needs review
+                    </span>
+                  ) : (
+                    <span className={statusPillClass(lesson.status)}>
+                      {lesson.status}
+                    </span>
+                  )}
+                </div>
+                <span className="mt-2 text-[13.5px] text-nevo-near-black/60">
+                  {lesson.meta}
                 </span>
-                <span className={statusPillClass(lesson.status)}>
-                  {lesson.status}
-                </span>
-              </div>
-              <span className="mt-2 text-[13.5px] text-nevo-near-black/60">
-                {lesson.meta}
-              </span>
-              <div className="flex-1" />
-              <div className="mt-3.5 border-t border-nevo-near-black/8 pt-3 text-[13px] text-nevo-near-black/55">
-                {lesson.footer}
-              </div>
-            </Link>
-          ))}
+                <div className="flex-1" />
+                <div className="mt-3.5 border-t border-nevo-near-black/8 pt-3 text-[13px] text-nevo-near-black/55">
+                  {lesson.footer}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       ) : (
         // No lessons match the search/filter
