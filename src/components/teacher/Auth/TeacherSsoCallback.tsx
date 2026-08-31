@@ -3,9 +3,10 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks";
+import { authApi } from "@/lib/api";
 import { setSession } from "@/lib/auth/session";
 import { TEACHER_INVITE } from "@/lib/mocks/teacherOnboarding";
-import { USER_ROLES } from "@/lib/constants";
+import { type UserRole } from "@/lib/constants";
 
 /**
  * C02b - where "Continue with school SSO" lands after the identity provider.
@@ -17,7 +18,6 @@ import { USER_ROLES } from "@/lib/constants";
  * redirect flow that needs school SSO slugs seeded backend-side first.
  */
 
-const RESOLVE_MS = 1100;
 const SUCCESS_HOLD_MS = 900;
 
 type Phase = "signing-in" | "success" | "error";
@@ -51,48 +51,64 @@ export function TeacherSsoCallback() {
   const searchParams = useSearchParams();
   const { signIn } = useAuth();
   const [phase, setPhase] = useState<Phase>("signing-in");
+  // Derived, not assigned: the URL is known at render, so an incomplete link
+  // is a render-time fact. Setting it from the effect would be the
+  // setState-in-effect the codebase rules out.
+  const provider = searchParams.get("provider") ?? "";
+  const code = searchParams.get("code") ?? "";
+  const state = searchParams.get("state") ?? "";
+  const incomplete = !provider || !code || !state;
+  const shown: Phase = incomplete ? "error" : phase;
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Schedules the (mock) handshake; only ever sets state from inside the
   // timer callback, so the effect body stays setState-free.
+  /*
+   * A REAL handshake, or none.
+   *
+   * This used to ignore the URL entirely and, after 1100ms, write
+   * `setSession({ token: "", role: "teacher" })` and route to the dashboard.
+   * The `nevo.role` cookie is what the route guard reads, so ANY anonymous
+   * visitor who loaded this URL was let into the console shell - and because
+   * the token was empty, every hook then fell back to fixtures, turning the
+   * whole console into a demo that looked signed in. It also disarmed the
+   * session-expired redirect, which only fires for a request that carried a
+   * token.
+   *
+   * The contract requires `provider`, `code` and `state`; the response is a
+   * real session. With no code on the URL there is no handshake to complete
+   * and nothing to sign in with, so the screen says so instead of inventing
+   * one. Starting the flow is separately blocked on the schoolSlug
+   * chicken-and-egg (see `lib/api/sso.ts`), so in practice that is what a
+   * visitor here will see today - which is the truth.
+   */
   const schedule = useCallback(() => {
-    const fails = searchParams.get("mock") === "error";
-    timers.current.push(
-      setTimeout(() => {
-        if (fails) {
-          setPhase("error");
-          return;
-        }
-        // The deployed callback returns access_token / expires_at / role, so
-        // the real wiring lands here as a setSession call. Standing in for it
-        // with a token-less session keeps the flow honest: the route guard
-        // sees a teacher, but no Bearer goes out, so live data stays absent
-        // rather than being faked.
-        // TODO(api): swap for the real callback once school SSO slugs exist.
+    if (incomplete) return;
+    void authApi
+      .ssoCallback({ provider, code, state })
+      .then((res) => {
+        const role = res.role as UserRole;
         setSession({
-          token: "",
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-          userId: "teacher-sso-demo",
-          role: USER_ROLES.TEACHER,
+          token: res.access_token,
+          expiresAt: res.expires_at,
+          userId: res.user_id,
+          role,
         });
-        signIn({
-          id: "teacher-sso-demo",
-          role: USER_ROLES.TEACHER,
-          schoolId: "school-demo",
-          // No name: the real callback will not know one either, and seeding
-          // the fixture persona here would put a borrowed name into session.
-          method: "sso",
-        });
+        // The callback carries no school, and `AuthUser.schoolId` is not
+        // optional - so it is left to `users/me`, which returns the real one
+        // once the session exists. Seeding a placeholder here would put an
+        // invented school into the signed-in user.
+        signIn({ id: res.user_id, role, schoolId: "", method: "sso" });
         setPhase("success");
         timers.current.push(
           setTimeout(
-            () => router.replace("/teacher/dashboard"),
+            () => router.replace(res.destination || "/teacher/dashboard"),
             SUCCESS_HOLD_MS,
           ),
         );
-      }, RESOLVE_MS),
-    );
-  }, [router, searchParams, signIn]);
+      })
+      .catch(() => setPhase("error"));
+  }, [router, signIn, provider, code, state, incomplete]);
 
   useEffect(() => {
     const pending = timers.current;
@@ -107,7 +123,7 @@ export function TeacherSsoCallback() {
 
   return (
     <div className="flex w-full max-w-[440px] flex-col items-center px-10 text-center">
-      {phase === "signing-in" && (
+      {shown === "signing-in" && (
         <>
           <span className="mb-7">
             <LogoMark />
@@ -119,7 +135,7 @@ export function TeacherSsoCallback() {
         </>
       )}
 
-      {phase === "success" && (
+      {shown === "success" && (
         <>
           <span className="mb-9 xl:mb-[38px]">
             <LogoMark />
@@ -141,7 +157,7 @@ export function TeacherSsoCallback() {
         </>
       )}
 
-      {phase === "error" && (
+      {shown === "error" && (
         <>
           <LogoMark />
           <span className="mt-7 flex size-[68px] items-center justify-center rounded-full bg-nevo-violet/20 xl:mt-[30px] xl:size-[72px]">

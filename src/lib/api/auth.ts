@@ -110,10 +110,27 @@ export const authApi = {
   completePasswordReset: (payload: { token: string; password: string }) =>
     api.post<unknown>("/api/v1/auth/password-reset/complete", payload),
 
-  /** Complete the OAuth redirect from Microsoft/Google.
-   *  TODO(api): the backend's SSO callback is a browser redirect flow
-   *  (`GET /api/v1/auth/sso/{provider}/callback`) - align once the school SSO
-   *  slugs exist; the mock session path still drives onboarding today. */
-  ssoCallback: (query: Record<string, string>) =>
-    api.get("/auth/sso/callback", { params: query }),
+  /**
+   * Complete the OAuth redirect from Microsoft/Google.
+   *
+   * All three params are REQUIRED by the contract (`code` minLength 1,
+   * `state` minLength 3), and the response is a real session - the same shape
+   * password sign-in returns. The path was previously `/auth/sso/callback`,
+   * missing the `/api/v1` prefix, so it could never have reached the backend.
+   *
+   * Starting the flow is still blocked: both start endpoints need a
+   * `schoolSlug`, and the only thing that returns one is `sso/status`, which
+   * 404s until a school is already connected. So this completes a handshake
+   * nothing can yet begin - see `sso.ts`.
+   */
+  ssoCallback: (query: { provider: string; code: string; state: string }) =>
+    api.get<{
+      access_token: string;
+      token_type: string;
+      expires_at: string;
+      role: string;
+      user_id: string;
+      destination?: string | null;
+      replaced_session?: boolean | null;
+    }>("/api/v1/auth/sso/callback", { params: query }),
 };
