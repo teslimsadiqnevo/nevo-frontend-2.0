@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { assignmentsApi } from "@/lib/api/assignments";
 import { useLessonLibrary } from "@/hooks/useLessonLibrary";
+import { useHasSession } from "@/hooks/useHasSession";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import { cn } from "@/lib/utils";
 
@@ -157,6 +158,7 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("08:00");
   const [submitting, setSubmitting] = useState(false);
+  const signedIn = useHasSession();
   const [error, setError] = useState("");
   // The teacher's real library when there is one; the frame's four otherwise.
   const { cards, live } = useLessonLibrary();
@@ -202,8 +204,20 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
    * half happened.
    */
   const confirm = async () => {
-    if (!live) {
+    // A SIGNED-OUT visitor is walking the designed demo; closing is its end.
+    // A SIGNED-IN teacher is not, and this used to close for them too whenever
+    // the library had not loaded - so they saw "All set", pressed Confirm, and
+    // were returned to their library with nothing assigned and nothing said.
+    // Their chosen ids are fixture ids in that state, so the assignment cannot
+    // be made at all; the only honest thing is to say so and stay put.
+    if (!signedIn) {
       close();
+      return;
+    }
+    if (!live) {
+      setError(
+        "We couldn’t load your lessons, so we can’t assign them. Nothing has been sent - reopen this from your library and try again.",
+      );
       return;
     }
     setSubmitting(true);
