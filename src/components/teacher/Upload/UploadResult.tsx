@@ -23,8 +23,10 @@ import { cn } from "@/lib/utils";
  * creates it. There is no separate commit step on this path, so the screen
  * says the lesson is saved rather than implying a pending decision.
  *
- * TODO(api): a typed `structure` on the staged upload, which is what the
- * module-grouping half of C07g needs.
+ * The staged `structure` is typed as of 31 Aug and gained `lessons[]` on
+ * 1 Sep, so the module-grouping half of C07g is built - on the block path,
+ * in `LiveStructureTree`. This screen is the SINGLE-lesson outcome and stays
+ * as it is.
  */
 
 const TYPE_LABEL: Record<LessonContentType, string> = {

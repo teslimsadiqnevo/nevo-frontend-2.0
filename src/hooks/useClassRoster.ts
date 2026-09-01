@@ -17,8 +17,11 @@ import { useLiveQuery } from "./useLiveQuery";
  * genuinely empty (nobody has joined yet), and we could not load it. The
  * last one must never render as the second.
  *
- * TODO(api): per-student observations, so a live roster can carry the
- * "worth a glance" signal the fixture rows do.
+ * `observations` and `seatContext` SHIPPED on 31 Aug and are on every roster
+ * row. They are not rendered yet: `observations` is an untyped `string[]`
+ * with no enum, description or bound, so what it actually contains has to be
+ * eyeballed against a real class before any of it goes in front of a teacher
+ * - see the Zero-Tag rulings in `lib/api/students.ts`. Read, not drawn.
  */
 
 export interface ClassRoster {

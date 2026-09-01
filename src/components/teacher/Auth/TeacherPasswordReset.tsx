@@ -27,8 +27,11 @@ import { SetPasswordForm } from "./SetPasswordForm";
  * it: revealing "no such user" through an error would defeat the endpoint's
  * own design.
  *
- * TODO(api): email delivery needs its provider configured on the backend, so
- * a receipt today does not mean a message has landed.
+ * Backend confirmed on 1 Sep that transactional email is live on Resend, and
+ * that reset and invite mails send INLINE rather than through the queue - so
+ * a dead key surfaces here as a 5xx rather than failing quietly. Inbox
+ * placement still depends on domain verification, which is not something this
+ * side can observe.
  */
 
 const SENDING_MS = 1100;

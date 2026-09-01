@@ -78,13 +78,13 @@ export interface LessonDetailResponse extends LessonSummary {
 }
 
 /**
- * How the parser grouped the segments. Only `/api/v1/lessons/{id}` carries
- * these - and that endpoint's segments, confusingly, DROP `needsReview` and
- * `reviewReasons`. So the two are not interchangeable and neither is a
- * superset: the content route has the review flags, the v1 route has the
- * modules, and a screen wanting both has to ask twice.
+ * How the parser grouped the segments.
  *
- * TODO(api): one lesson-detail response carrying both.
+ * The two lesson-detail routes were once NOT interchangeable - the content
+ * route carried the review flags and no modules, the v1 route the reverse,
+ * and a screen wanting both had to ask twice. Backend closed that on 31 Aug:
+ * `/api/content/lessons/{id}` and `/api/v1/lessons/{id}` now return the same
+ * fields, modules and segment review flags included. One call is enough.
  */
 export interface LessonModule {
   id: string;
