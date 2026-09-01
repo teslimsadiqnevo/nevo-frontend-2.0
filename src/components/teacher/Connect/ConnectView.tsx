@@ -90,8 +90,14 @@ function Bubble({ m, isNew }: { m: Message; isNew?: boolean }) {
 }
 
 export function ConnectView() {
-  const { threads, sample, loading, openThread, send: sendLive } =
-    useConnectThreads();
+  const {
+    threads,
+    sample,
+    loading,
+    openThread,
+    send: sendLive,
+    markThreadRead,
+  } = useConnectThreads();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   // "Message <name>" on a student profile or session panel lands here with a
@@ -138,6 +144,10 @@ export function ConnectView() {
   const selectThread = (id: string) => {
     setActiveId(id);
     openThread(id);
+    // Opening it is reading it. The endpoint exists precisely so this is a
+    // deliberate write rather than a side effect of the GET above - a
+    // prefetch must not be able to clear a teacher's badge.
+    markThreadRead(id);
   };
 
   const flashToast = (text: string) => {
@@ -312,15 +322,39 @@ export function ConnectView() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline justify-between gap-2">
-                    <span className="text-[14.5px] font-semibold text-nevo-near-black">
+                    <span
+                      className={cn(
+                        "text-[14.5px] text-nevo-near-black",
+                        t.unread ? "font-bold" : "font-semibold",
+                      )}
+                    >
                       {t.studentName}
                     </span>
                     <span className="shrink-0 text-[11.5px] text-nevo-near-black/45">
                       {t.time}
                     </span>
                   </span>
-                  <span className="mt-[3px] block truncate text-[13px] leading-[1.4] text-nevo-near-black/60">
-                    {t.preview}
+                  {t.className && (
+                    <span className="mt-px block text-[11.5px] text-nevo-near-black/45">
+                      {t.className}
+                    </span>
+                  )}
+                  <span className="mt-[3px] flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate text-[13px] leading-[1.4]",
+                        t.unread
+                          ? "font-medium text-nevo-near-black/80"
+                          : "text-nevo-near-black/60",
+                      )}
+                    >
+                      {t.preview}
+                    </span>
+                    {t.unreadCount > 0 && (
+                      <span className="inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-nevo-violet px-1.5 text-[11px] font-semibold text-nevo-cream">
+                        {t.unreadCount}
+                      </span>
+                    )}
                   </span>
                 </span>
               </button>

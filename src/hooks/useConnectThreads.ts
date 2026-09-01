@@ -35,7 +35,7 @@ export interface ConnectThread {
   id: string;
   studentName: string;
   initials: string;
-  /** "" when live - the thread carries no class. */
+  /** The thread's class. Live since 31 Aug; "" only on fixtures. */
   className: string;
   preview: string;
   time: string;
@@ -43,6 +43,9 @@ export interface ConnectThread {
   /** Null on fixtures; the send target for a live thread. */
   recipientId: string | null;
   recipientType: RecipientType | (string & {});
+  /** Anything unread in this thread. */
+  unread: boolean;
+  unreadCount: number;
   /** Whether the body has been fetched yet. */
   loaded: boolean;
 }
@@ -83,12 +86,14 @@ function toThread(t: MessageThread): ConnectThread {
     id: t.threadId,
     studentName: t.title,
     initials: initialsOf(t.title),
-    className: "",
+    className: t.className ?? "",
     preview: t.latestPreview ?? "",
     time: shortStamp(t.lastMessageAt),
     messages: [],
     recipientId: t.recipientId,
     recipientType: t.recipientType,
+    unread: t.unread,
+    unreadCount: t.unreadCount,
     loaded: false,
   };
 }
@@ -108,6 +113,8 @@ const FIXTURE_THREADS: ConnectThread[] = THREADS.map((t) => ({
   ...t,
   recipientId: null,
   recipientType: "student",
+  unread: false,
+  unreadCount: 0,
   loaded: true,
 }));
 
@@ -119,6 +126,7 @@ export interface ConnectState {
   /** Fetch a thread's messages the first time it is opened. */
   openThread: (threadId: string) => void;
   /** Send into an existing thread, or start one with a student. */
+  markThreadRead: (threadId: string) => void;
   send: (
     to: { recipientId: string; recipientType: RecipientType },
     content: string,
@@ -190,6 +198,35 @@ export function useConnectThreads(): ConnectState {
     [selfId],
   );
 
+  /**
+   * Clear one thread's unread state.
+   *
+   * The response is the updated thread, so the badge reconciles from what the
+   * server says rather than from a local guess. Optimistic first, because the
+   * teacher is looking at the thread either way - but a failure leaves the
+   * server's own value in place on the next read rather than a stale zero.
+   */
+  const markThreadRead = useCallback((threadId: string) => {
+    setLive((ts) =>
+      ts?.map((t) =>
+        t.id === threadId ? { ...t, unread: false, unreadCount: 0 } : t,
+      ) ?? ts,
+    );
+    if (!getToken()) return;
+    void messagesApi
+      .markThreadRead(threadId)
+      .then((updated) => {
+        setLive((ts) =>
+          ts?.map((t) =>
+            t.id === threadId
+              ? { ...t, unread: updated.unread, unreadCount: updated.unreadCount }
+              : t,
+          ) ?? ts,
+        );
+      })
+      .catch(() => {});
+  }, []);
+
   const send = useCallback(
     async (
       to: { recipientId: string; recipientType: RecipientType },
@@ -224,6 +261,9 @@ export function useConnectThreads(): ConnectState {
               messages: [msg],
               recipientId: to.recipientId,
               recipientType: to.recipientType,
+              // A thread the teacher just started by writing in it.
+              unread: false,
+              unreadCount: 0,
               loaded: true,
             },
             ...ts,
@@ -245,7 +285,16 @@ export function useConnectThreads(): ConnectState {
       loading,
       openThread,
       send,
+      markThreadRead,
     };
   }
-  return { threads: live, live: true, sample: false, loading, openThread, send };
+  return {
+    threads: live,
+    live: true,
+    sample: false,
+    loading,
+    openThread,
+    send,
+    markThreadRead,
+  };
 }

@@ -18,8 +18,14 @@ export interface MessageThread {
   recipientType: RecipientType | (string & {});
   recipientId: string | null;
   title: string;
+  /** The class this thread belongs to. Shipped 31 Aug. */
+  className: string | null;
   latestPreview: string | null;
   lastMessageAt: string;
+  /** Anything unread in this thread. Shipped 31 Aug. */
+  unread: boolean;
+  /** How many. Shipped 31 Aug. */
+  unreadCount: number;
 }
 
 export interface ThreadList {
@@ -49,6 +55,17 @@ export const messagesApi = {
   /** One thread, chronological. */
   thread: (threadId: string) =>
     api.get<ThreadMessages>(`/api/messages/threads/${threadId}`),
+
+  /**
+   * Mark one thread read, returning the updated thread.
+   *
+   * Shipped 1 Sep. It exists BECAUSE fetching a thread already marked it read
+   * server-side, and clearing a badge should not be a side effect of a GET
+   * that a prefetch can fire. The response is the whole thread, so the badge
+   * reconciles without a second round trip.
+   */
+  markThreadRead: (threadId: string) =>
+    api.post<MessageThread>(`/api/messages/threads/${threadId}/read`),
 
   /** Send, creating the thread if this is the first message. */
   send: (payload: {
