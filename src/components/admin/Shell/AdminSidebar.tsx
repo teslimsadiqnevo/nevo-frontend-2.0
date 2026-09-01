@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useHasSession } from "@/hooks/useHasSession";
 import { usePermissions } from "@/hooks/usePermissions";
+import { notificationsApi } from "@/lib/api/notifications";
 import { cn } from "@/lib/utils";
+import { NotificationsPanel } from "../Notifications/NotificationsPanel";
 import { activeNavLabel, navForScopes, scopeSummary } from "./adminNav";
 
 /**
@@ -23,7 +25,13 @@ import { activeNavLabel, navForScopes, scopeSummary } from "./adminNav";
  * summary over a neutral glyph rather than the frame's fixture persona.
  *
  * TODO(api): a profile endpoint, after which the name and job title are real.
- * TODO(screen): the bell routes to D13 Notifications, which is not built.
+ *
+ * THE NOTIFICATIONS INDICATOR IS A DOT, NEVER A COUNT. SCRUM-100's first rule,
+ * and its "done when" goes further: no count is rendered OR EVEN FETCHED. So
+ * this asks `/notifications/unread-exists` for a boolean rather than
+ * `/unread-count` for a number - the surface cannot render what it never has.
+ * One indicator, one place: no dot on the avatar, none on Overview, and no
+ * browser-tab title change.
  */
 
 const GLYPH = {
@@ -133,6 +141,30 @@ export function AdminSidebar() {
   const { scopes, resolved } = usePermissions();
   const signedIn = useHasSession();
   const [expanded, setExpanded] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [hasUnread, setHasUnread] = useState(false);
+
+  /**
+   * A boolean, deliberately. The endpoint's own body varies between a bare
+   * `true` and `{ exists: true }` depending on version, so both are accepted
+   * and anything else reads as "nothing new" - a missing dot is a far smaller
+   * failure than a permanent one nobody can clear.
+   */
+  const refreshUnread = useCallback(() => {
+    if (!signedIn) return;
+    notificationsApi
+      .unreadExists()
+      .then((res) => {
+        setHasUnread(
+          typeof res === "boolean" ? res : Boolean(res && (res as { exists?: boolean }).exists),
+        );
+      })
+      .catch(() => setHasUnread(false));
+  }, [signedIn]);
+
+  useEffect(() => {
+    refreshUnread();
+  }, [refreshUnread]);
 
   const active = activeNavLabel(pathname);
   // Until scopes land there is nothing truthful to filter by, so the rail
@@ -200,13 +232,18 @@ export function AdminSidebar() {
         })}
       </nav>
 
-      {/* TODO(screen): D13 Notifications. */}
       <button
         type="button"
+        data-notification-toggle
         aria-label="Notifications"
+        aria-expanded={panelOpen}
+        title={expanded ? undefined : "Notifications"}
+        onClick={() => setPanelOpen((v) => !v)}
         className={cn(
           "relative mt-2 flex h-11 shrink-0 cursor-pointer items-center gap-[13px] rounded-[10px] transition-colors duration-[130ms] ease-out hover:bg-nevo-navy/5",
           expanded ? "px-3" : "justify-center",
+          // Active and has-notifications are independent: a row can be both.
+          panelOpen && "bg-nevo-navy/[0.08]",
         )}
       >
         <span className="relative flex size-[38px] shrink-0 items-center justify-center rounded-[10px] text-nevo-near-black/70">
@@ -214,13 +251,36 @@ export function AdminSidebar() {
             <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
             <path d="M13.7 21a2 2 0 0 1-3.4 0" />
           </svg>
+          {/* Collapsed rail: the dot sits on the glyph's top-right corner,
+              offset so it never overlaps it. */}
+          {hasUnread && !expanded ? (
+            <span
+              aria-hidden
+              className="absolute right-1 top-1 size-[7px] rounded-full bg-nevo-violet"
+            />
+          ) : null}
         </span>
         {expanded && (
           <span className="text-[14.5px] font-medium text-nevo-near-black/76">
             Notifications
           </span>
         )}
+        {/* Expanded: a 7px dot at the right end of the row. No number, no
+            ring, no animation on arrival - appearing silently is the point. */}
+        {hasUnread && expanded ? (
+          <span
+            aria-hidden
+            className="ml-auto mr-1 size-[7px] rounded-full bg-nevo-violet"
+          />
+        ) : null}
       </button>
+
+      {panelOpen ? (
+        <NotificationsPanel
+          onClose={() => setPanelOpen(false)}
+          onReadStateChanged={refreshUnread}
+        />
+      ) : null}
 
       <button
         type="button"
