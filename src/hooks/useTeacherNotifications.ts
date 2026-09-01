@@ -28,8 +28,9 @@ import { useHasSession } from "./useHasSession";
  * because a fabricated "Tunde stopped partway through a lesson" is a claim
  * about a real child.
  *
- * TODO(design): the API sends `navigatesTo` per row and the frame draws rows
- * as inert; also `title` and `description` where the frame has one line.
+ * Design ruled on 31 Aug that rows are tappable, two-line, and carry per-row
+ * read and archive - all built. `navigatesTo` is nullable, so a row without
+ * one is not a link rather than a link to nowhere.
  */
 
 

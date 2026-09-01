@@ -58,13 +58,14 @@ import { UploadResult } from "./UploadResult";
  * takes the file with its scope and subject, and `GET /api/v1/uploads/{id}`
  * returns `{lessonId, modules[...]}`.
  *
- * What is missing is a level. That structure describes ONE lesson and its
- * modules; the block path exists to turn a unit into SEVERAL lessons, and the
- * contract has nowhere to put them. So the staged call would succeed and
- * still not answer the question this path asks, which is why it is not made:
- * a request whose answer we cannot show is not honesty, it is just traffic.
+ * `structure.lessons[]` shipped on 1 Sep, so the missing level - a unit
+ * becoming SEVERAL lessons - can be expressed, and the block path is live for
+ * a signed-in teacher: it stages, polls, renders what the parser produced and
+ * commits it. The designed demo beat stands for a signed-out visitor.
  *
- * TODO(api): a block-level structure. See StructureTree for the exact ask.
+ * Backend's own caveat, worth keeping: the parser still emits one lesson per
+ * upload, so a real unit will usually show as one. That is the parse being
+ * honest, not the screen.
  */
 
 type ScopeId = "single" | "unit" | "term";

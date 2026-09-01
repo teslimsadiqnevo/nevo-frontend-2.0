@@ -25,8 +25,12 @@ import { ClassQrDialog, ClassQrScreen } from "./ClassQr";
  * Rows link to the student's profile, which reads live since the student
  * endpoints were wired.
  *
- * TODO(api): per-student observations, then these rows become the C16b
- * Student Observations rows, with their chips and seats.
+ * `observations` and `seatContext` shipped on 31 Aug and reach this screen,
+ * but are not drawn: `observations` is an untyped `string[]` with no enum,
+ * description or bound, so its CONTENTS have to be read against a real class
+ * before any of it goes in front of a teacher - the field-name check that
+ * satisfied the Zero-Tag rulings says nothing about what is inside. Until
+ * then these stay ordinary roster rows rather than C16b observation rows.
  */
 export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
   const [qr, setQr] = useState<"none" | "dialog" | "screen">("none");

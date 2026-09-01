@@ -28,20 +28,16 @@ import { cn } from "@/lib/utils";
  * `POST .../confirm` commits and `POST .../undo` reverses. So the endpoints
  * this page needs exist.
  *
- * What does NOT line up is the shape. The contract's `structure` is
- * `{lessonId, modules[{title, sequenceOrder, segmentIds}]}` - ONE lesson and
- * its modules, two levels. C07d is three: a block holding several LESSONS,
- * each holding sections, each holding segments. There is no block level in
- * the contract and no way to express "this unit became four lessons", which
- * is the entire point of the block path. So the tree cannot be driven by it
- * yet, and the frame's canonical P5 Science block still stands in.
+ * THIS COMPONENT IS THE SIGNED-OUT DEMO ONLY. `structure.lessons[]` shipped
+ * on 1 Sep, so a unit becoming several lessons can be expressed - and a real
+ * staged upload is rendered and steered by `LiveStructureTree`, which posts
+ * to `PUT /uploads/{id}/structure` and commits through `.../confirm`.
  *
- * TODO(api): a block-level structure, or a ruling that `structure.lessonId`
- * names the BLOCK and `modules` are its lessons. Asked, not assumed.
- *
- * Until then nothing here writes, and nothing here claims to: the fabricated
- * "Adding to your library" beat and its "Added to your library" success are
- * gone, and Save draft - which persisted nothing - is not drawn at all.
+ * What remains here is the frame's canonical P5 Science block, kept because
+ * the designed screen still needs somewhere to live. Nothing here writes, and
+ * nothing here claims to: the fabricated "Adding to your library" beat and
+ * its "Added to your library" success are gone, and Save draft - which
+ * persisted nothing - is not drawn at all.
  */
 
 type Seg = { id: number; title: string; mins: string };

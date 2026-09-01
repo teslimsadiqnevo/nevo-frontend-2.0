@@ -28,7 +28,9 @@ import { useHasSession } from "./useHasSession";
  * Fixtures back the designed screens only when the request genuinely fails,
  * and say so. A slow response still wins whenever it lands.
  *
- * TODO(api): a class on the thread, and unread state - neither exists.
+ * `className`, `unread` and `unreadCount` all shipped on 31 Aug and are
+ * wired: the row shows its class, unread threads are marked, and opening one
+ * clears it through `POST /api/messages/threads/{id}/read`.
  */
 
 export interface ConnectThread {

@@ -22,8 +22,14 @@ import { useStudentDirectory } from "./useStudentDirectory";
  * series and no target. A live card therefore shows the accent, who it is
  * about, what Nevo noticed and when - and one action that genuinely works.
  *
- * TODO(api): an evidence series on the flag, and somewhere for its actions to
- * point. TODO(design): a flag card without the evidence panel.
+ * `evidenceSeries` and `actionTargets` shipped on 31 Aug, and design then
+ * deferred the flag card's sparkline AND its second action to v1.5 - so the
+ * card ships without them deliberately, and neither field is read.
+ *
+ * `acknowledged` has a write now (`POST /api/intelligence/flags/{id}/
+ * acknowledge`) and this hook already filters acknowledged flags out, but
+ * NOTHING on C03 acknowledges one: the card's second slot is navigation, and
+ * design deferred it. The endpoint has no caller until a control is drawn.
  */
 
 export interface TeacherFlag {

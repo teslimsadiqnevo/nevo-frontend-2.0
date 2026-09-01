@@ -39,8 +39,12 @@ import { LessonDetailActions } from "./LessonDetailActions";
  * rows and its "where the class slowed" note - the note is written
  * server-side, so it is quoted rather than composed here. A lesson assigned
  * only to individuals has no class to report on and simply has no progress.
- * TODO(design): C06b has no treatment for a segment needing review, which is
- * the most actionable thing this endpoint returns.
+ * Design drew C06b's needs-review treatment on 31 Aug and it is built: the
+ * eye badge beside the title, the violet reason line above the meta, and the
+ * inline chip on the flagged section. The reason line names the SECTION and
+ * not the parser’s codes - `reviewReasons` is enumerated now, but its six
+ * values are engine vocabulary (`deterministic_parse_used`,
+ * `fewer_than_two_modalities`, ...) and none is a sentence for a teacher.
  */
 
 const SECTION_H =

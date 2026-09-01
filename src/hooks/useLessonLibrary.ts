@@ -28,9 +28,14 @@ import {
  * about where it is in the PARSER. A live library reports the parse honestly
  * instead of dressing it up as the other thing.
  *
- * TODO(design): the frame has no state for a lesson that is still parsing or
- * that failed to parse, and no treatment for "needs review" on a library card.
- * TODO(api): a subject on the lesson, and assignment counts in the summary.
+ * Design drew all three card states on 31 Aug (needs-review badge, still
+ * parsing, couldn't process) and they are built. `subject` and
+ * `assignmentCount` shipped the same day; the footer uses the count, and
+ * treats ABSENT as different from zero because it is not a required field.
+ *
+ * `subject` is read but not filtered on: `POST /api/content/upload` takes
+ * only a file, so no lesson this console creates carries one and the pill row
+ * would be a single dead "All". Only the staged routes accept a subject.
  */
 
 export type CardStatus =

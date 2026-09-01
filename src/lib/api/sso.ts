@@ -8,12 +8,12 @@ import { api } from "./client";
  * connected one - that is the ordinary "nothing connected yet" state, not an
  * error, and the screen treats it as such.
  *
- * TODO(api): there is no endpoint that STARTS a connection. Disconnect,
- * reauthorise, roster-sync and status all exist, but the one action the
- * not-connected state offers - "Connect" - has nothing behind it.
- * `GET /api/v1/schools/{school_slug}/sso/{provider}/start` needs a slug that
- * only `status` returns, and `status` 404s precisely when you are not yet
- * connected. Raised with backend.
+ * TODO(api): CONNECT still has no way in, but not for the reason once
+ * recorded here - there are two start endpoints, `POST /api/v1/auth/sso/start`
+ * and `GET /api/v1/schools/{school_slug}/sso/{provider}/start`. Both require
+ * a `schoolSlug`, and the only thing that returns one is `status`, which 404s
+ * precisely while a school is not yet connected. So the chicken-and-egg is
+ * the slug, not a missing endpoint. Raised with backend.
  */
 
 export type SsoProvider = "microsoft" | "google";
