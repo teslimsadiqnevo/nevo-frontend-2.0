@@ -46,6 +46,17 @@ export interface SchoolVerification {
   classes: { id: string; name: string; yearGroup: string | null }[];
 }
 
+/** One open sign-in. No IP address and no device name in the contract. */
+export interface AuthSession {
+  id: string;
+  /** True for the session making the request. */
+  current: boolean;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+  active: boolean;
+}
+
 export const authApi = {
   /**
    * Resolve a school code during onboarding. Pre-auth by design - the child
@@ -65,6 +76,37 @@ export const authApi = {
    * their PIN, and their next sign-in checks it server-side.
    */
   setPin: (pin: string) => api.post<Record<string, string>>("/api/v1/auth/pin", { pin }),
+
+  /**
+   * Change your own password (D12c).
+   *
+   * `endOtherSessions` is what makes the screen's promise true - "changing
+   * this signs you out everywhere else. You'll stay signed in here." - so it
+   * is sent as `true`, not left to the server's default.
+   */
+  changePassword: (payload: {
+    currentPassword: string;
+    newPassword: string;
+    endOtherSessions?: boolean;
+  }) => api.post<void>("/api/v1/auth/password/change", payload),
+
+  /**
+   * Every session this account has open (D12c "Where you're signed in").
+   *
+   * Carries NO IP ADDRESS and no device name, which is half a happy accident:
+   * D12c is explicit that no IP addresses appear anywhere on this screen, and
+   * the contract cannot leak one because it does not have one. The missing
+   * device label is the unhappy half - see `AccountSettings`.
+   */
+  sessions: () => api.get<AuthSession[]>("/api/v1/auth/sessions"),
+
+  /** End one session. */
+  endSession: (sessionId: string) =>
+    api.del<void>(`/api/v1/auth/sessions/${sessionId}`),
+
+  /** End every session except this one. */
+  endOtherSessions: () =>
+    api.post<void>("/api/v1/auth/sessions/revoke-others"),
 
   /** Staff sign-in (teacher/admin) - email + password. */
   loginPassword: (payload: { email: string; password: string }) =>

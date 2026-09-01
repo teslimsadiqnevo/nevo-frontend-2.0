@@ -9,7 +9,7 @@ import {
   type AdminClass,
   type AssignedTeacher,
 } from "@/lib/api/classes";
-import { YEAR_GROUP_OPTIONS, yearGroupLabel, yearGroupOrder } from "@/lib/constants/yearGroups";
+import { yearGroupLabel, yearGroupOptions, yearGroupOrder } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import {
   CARD,
@@ -228,7 +228,7 @@ export function ClassesView() {
                   className="cursor-pointer appearance-none bg-transparent pr-1 outline-none"
                 >
                   <option value="">All years</option>
-                  {YEAR_GROUP_OPTIONS.map((o) => (
+                  {yearGroupOptions().map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>
