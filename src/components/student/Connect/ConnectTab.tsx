@@ -55,9 +55,16 @@ export function ConnectTab() {
   const active = threads.find((t) => t.id === activeId) ?? threads[0];
 
   // The list endpoint carries no message bodies, so opening one fetches it.
+  //
+  // ONLY WHEN LIVE. `useHasSession()` is false during hydration, so for one
+  // render a signed-in child gets the FIXTURE list - and this effect then
+  // asked the live API for a fixture thread id (`ms-okafor`), which is not a
+  // UUID and came back 422 on every visit to Connect. Silent to the child,
+  // but it is fixture data reaching the backend, which is the thing this
+  // whole pass has been removing.
   useEffect(() => {
-    if (active) fetchThread(active.id);
-  }, [active, fetchThread]);
+    if (live && active) fetchThread(active.id);
+  }, [live, active, fetchThread]);
 
   const setMessages = (threadId: string, fn: (m: Message[]) => Message[]) =>
     setThreads((ts) =>
