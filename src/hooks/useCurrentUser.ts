@@ -77,6 +77,23 @@ function resolveIdentity(userId: string): Promise<Identity | null> {
   return cache.promise;
 }
 
+/**
+ * Everyone currently rendering an identity.
+ *
+ * The cache above is resolved once per user, so a teacher who renames
+ * themselves would otherwise keep seeing the old name in the sidebar until a
+ * reload - the profile page would say one thing and the rail another. A save
+ * publishes the new identity here and every mounted consumer follows.
+ */
+const listeners = new Set<(next: Identity | null) => void>();
+
+/** Replace the resolved identity after a successful write. */
+export function publishIdentity(user: CurrentUser): void {
+  const next = toIdentity(user);
+  cache = { userId: next.userId, promise: Promise.resolve(next) };
+  listeners.forEach((fn) => fn(next));
+}
+
 export function useCurrentUser(): Identity | null {
   const [identity, setIdentity] = useState<Identity | null>(null);
 
@@ -87,8 +104,13 @@ export function useCurrentUser(): Identity | null {
     void resolveIdentity(session.userId).then((value) => {
       if (alive) setIdentity(value);
     });
+    const onPublish = (next: Identity | null) => {
+      if (alive) setIdentity(next);
+    };
+    listeners.add(onPublish);
     return () => {
       alive = false;
+      listeners.delete(onPublish);
     };
   }, []);
 

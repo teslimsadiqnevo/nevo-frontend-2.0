@@ -10,6 +10,8 @@ import {
   type TeacherProfile,
 } from "@/lib/mocks/teacherProfile";
 import { cn } from "@/lib/utils";
+import { publishIdentity } from "@/hooks/useCurrentUser";
+import { usersApi } from "@/lib/api/users";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTeacherSettings } from "@/hooks/useTeacherSettings";
@@ -219,9 +221,12 @@ export function ProfileSettings() {
               </>
             )}
           </div>
-          {/* Nothing to edit while there is nothing to show, and no endpoint
-              to persist it to either. */}
-          {!signedIn && (
+          {/* `PATCH /api/v1/users/me` shipped 1 Sep, so Edit is real for a
+              signed-in teacher now - it was hidden because `users/me` was
+              GET-only and there was nowhere to save to. Still hidden while
+              the identity is unresolved: there is nothing to edit until we
+              know what we are editing. */}
+          {(!signedIn || identity) && (
             <button
               type="button"
               onClick={() => setEditOpen(true)}
@@ -290,12 +295,54 @@ export function ProfileSettings() {
 
       {editOpen && (
         <EditProfileModal
-          profile={profile}
+          /* A signed-in teacher edits THEIR details. Seeding this from the
+             fixture would open the form on someone else's name, email and
+             subjects - and then save them. */
+          profile={
+            signedIn && identity
+              ? {
+                  ...profile,
+                  name: identity.name ?? "",
+                  email: identity.email ?? "",
+                  subjects: identity.subjects.join(", "),
+                }
+              : profile
+          }
           onCancel={() => setEditOpen(false)}
-          onSave={(next) => {
+          onSave={async (next) => {
             setProfile(next);
-            setEditOpen(false);
-            setDirty(true);
+            if (!signedIn) {
+              setEditOpen(false);
+              setDirty(true);
+              return true;
+            }
+            // One name field, two API fields: everything before the last
+            // space is the first name. Imperfect for some names, and better
+            // than refusing to save one.
+            const trimmed = next.name.trim();
+            const cut = trimmed.lastIndexOf(" ");
+            const firstName = cut === -1 ? trimmed : trimmed.slice(0, cut);
+            const lastName = cut === -1 ? "" : trimmed.slice(cut + 1);
+            try {
+              const saved = await usersApi.updateMe({
+                firstName,
+                lastName,
+                subjects: next.subjects
+                  .split(",")
+                  .map((x) => x.trim())
+                  .filter(Boolean),
+              });
+              // The rail renders the same identity, so it follows this write
+              // rather than showing the old name until a reload.
+              publishIdentity(saved);
+              setEditOpen(false);
+              setToast("Profile updated");
+              if (timer.current) clearTimeout(timer.current);
+              timer.current = setTimeout(() => setToast(""), TOAST_MS);
+              return true;
+            } catch {
+              return false;
+            }
           }}
         />
       )}

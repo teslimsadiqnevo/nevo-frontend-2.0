@@ -35,4 +35,27 @@ export interface CurrentUser {
 export const usersApi = {
   /** The signed-in user's own profile. GET /api/v1/users/me */
   me: () => api.get<CurrentUser>("/api/v1/users/me"),
+
+  /**
+   * Update the teacher's own name and subjects. Shipped 1 Sep; before it,
+   * `users/me` was GET-only and C11's Edit had nowhere to save to.
+   *
+   * MIND THE CASING. The request body is camelCase, the response is the
+   * snake_case `CurrentUser` - the auth surface keeps snake for backward
+   * compatibility and this endpoint sits on it. Sending `first_name` is a
+   * silent no-op, not an error.
+   *
+   * `email` is deliberately not writable: it is an authentication identifier
+   * and needs a verification flow rather than a silent change.
+   *
+   * `subjects` REPLACES the explicitly chosen list, but subjects inferred
+   * from a teacher's lessons are merged back into the response - so what you
+   * read back can legitimately be a superset of what you sent. That is not a
+   * failed write, and nothing may treat it as one.
+   */
+  updateMe: (payload: {
+    firstName?: string | null;
+    lastName?: string | null;
+    subjects?: string[] | null;
+  }) => api.patch<CurrentUser>("/api/v1/users/me", payload),
 };
