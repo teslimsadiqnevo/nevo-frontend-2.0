@@ -176,6 +176,24 @@ export function LiveLessonDetail({
    * backend tokens at a teacher - so the line says which section and leaves
    * the why to the callout below it.
    */
+  /**
+   * "Total: 12 min (Segment 1: 4 min, Segment 2: 3 min)" - design's own shape.
+   * The total is the lesson's pre-summed figure rather than a sum computed
+   * here, so the two cannot drift; the breakdown lists only segments that
+   * carry an estimate.
+   */
+  const durationLine = (() => {
+    const total = lesson.estimatedMinutes ?? 0;
+    if (!total) return "";
+    const parts = segments
+      .map((seg, i) => ({ n: i + 1, mins: seg.estimatedMinutes ?? 0 }))
+      .filter((x) => x.mins > 0)
+      .map((x) => `Segment ${x.n}: ${x.mins} min`);
+    return parts.length > 0
+      ? `Total: ${total} min (${parts.join(", ")})`
+      : `Total: ${total} min`;
+  })();
+
   const reviewLine = (() => {
     const flagged = segments
       .map((seg, i) => ({ seg, n: i + 1 }))
@@ -252,6 +270,15 @@ export function LiveLessonDetail({
             {needsReview > 0 && (
               <p className="mt-2 text-[14.5px] font-medium text-nevo-navy">
                 {reviewLine}
+              </p>
+            )}
+            {/* C06b's duration line: the pre-summed total, then the
+                per-segment breakdown design annotated on 1 Sep. Only segments
+                that actually carry an estimate are listed - a 0 is the
+                schema's default, not a measurement. */}
+            {durationLine && (
+              <p className="mt-1.5 text-[13.5px] text-nevo-near-black/55">
+                {durationLine}
               </p>
             )}
             <span className="mt-[5px] block text-[14.5px] text-nevo-near-black/60">

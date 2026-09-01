@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
+  conversationEvidenceApi,
+  type ConversationEvidence,
   studentsApi,
   type Accommodations,
   type ConceptMasteryRow,
@@ -41,9 +43,50 @@ export interface MasteryConcept {
   practiceCount: number;
 }
 
+/**
+ * C08's help-seeking line, or "" when there is nothing that may be said.
+ *
+ * The RULING (Olayinka, 30 Aug; design confirmed the wording 31 Aug): this is
+ * aggregate only, never per-question, and nothing appears below the server's
+ * own minimum. `privacy: "withheld_below_minimum"` is that decision arriving
+ * from the server, and it is honoured as-is rather than second-guessed with a
+ * local count - if it withholds, the line is absent entirely, not replaced by
+ * a "not enough yet" placeholder.
+ *
+ * "mostly about X" is dropped on a tie or an empty map, because "mostly"
+ * would then be a claim the data does not support.
+ */
+export function helpSeekingLine(
+  ev: {
+    interactionCount: number;
+    periodDays: number;
+    categories: Record<string, number>;
+    privacy: string;
+  } | null,
+): string {
+  if (!ev || ev.privacy !== "aggregate_only" || ev.interactionCount < 1) {
+    return "";
+  }
+  const period =
+    ev.periodDays === 7
+      ? "this week"
+      : ev.periodDays === 14
+        ? "this fortnight"
+        : ev.periodDays === 30 || ev.periodDays === 31
+          ? "this month"
+          : `in the last ${ev.periodDays} days`;
+  const times = `${ev.interactionCount} ${ev.interactionCount === 1 ? "time" : "times"}`;
+  const ranked = Object.entries(ev.categories ?? {}).sort((a, b) => b[1] - a[1]);
+  const clear = ranked.length > 0 && (ranked.length === 1 || ranked[0][1] > ranked[1][1]);
+  const tail = clear ? `, mostly about ${ranked[0][0]}` : "";
+  return `Asked Nevo for help ${times} ${period}${tail}.`;
+}
+
 export interface StudentProfileState {
   profile: StudentProfileResponse | null;
   concepts: MasteryConcept[];
+  /** C08's aggregate help-seeking line; "" when it may not be shown. */
+  helpSeeking: string;
   recommendations: Recommendation[];
   /** What Nevo adjusted, newest first, suppressed ones excluded. */
   adaptations: StudentAdaptation[];
@@ -63,6 +106,7 @@ const pct = (p: number) => Math.round(Math.max(0, Math.min(1, p)) * 100);
 export function useStudentProfile(studentId: string): StudentProfileState {
   const [profile, setProfile] = useState<StudentProfileResponse | null>(null);
   const [mastery, setMastery] = useState<ConceptMasteryRow[]>([]);
+  const [evidence, setEvidence] = useState<ConversationEvidence | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [adaptations, setAdaptations] = useState<StudentAdaptation[]>([]);
   const [sessions, setSessions] = useState<LessonProgress[]>([]);
@@ -96,6 +140,12 @@ export function useStudentProfile(studentId: string): StudentProfileState {
       .mastery(studentId)
       .then((rows) => {
         if (!cancelled) setMastery(rows);
+      })
+      .catch(() => {});
+    void conversationEvidenceApi
+      .forStudent(studentId)
+      .then((res) => {
+        if (!cancelled) setEvidence(res);
       })
       .catch(() => {});
     void studentsApi
@@ -142,6 +192,7 @@ export function useStudentProfile(studentId: string): StudentProfileState {
   }, [studentId]);
 
   return {
+    helpSeeking: helpSeekingLine(evidence),
     profile,
     concepts: mastery.map((m) => ({
       conceptId: m.conceptId,

@@ -304,6 +304,20 @@ export function LiveStudentProfile({
           </>
         )}
 
+        {/* C08's help-seeking line, per design (1 Sep): the activity section,
+            below the engagement data, one plain line at the surrounding scale
+            - not a card, not a badge.
+
+            Deliberately OUTSIDE the sessions block: a child can have asked
+            Nevo for help without a completed session in that list, and the
+            line is about their help-seeking, not their sessions. Aggregate
+            only, and absent entirely when the server withholds it. */}
+        {state.helpSeeking && (
+          <p className="mt-8 text-[14.5px] leading-[1.55] text-nevo-near-black/72">
+            {state.helpSeeking}
+          </p>
+        )}
+
         <div className="mt-8">
           <Link
             href="/teacher/connect"
