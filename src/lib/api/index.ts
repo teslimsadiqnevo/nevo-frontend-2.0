@@ -2,6 +2,15 @@
 export { api, request, ApiError, BASE_URL, type RequestOptions } from "./client";
 export { authApi } from "./auth";
 export {
+  schoolApi,
+  readOnboarding,
+  ONBOARDING_PROFILE_KEY,
+  type EnrolmentBand,
+  type OnboardingProfile,
+  type School,
+  type SchoolAuthMethod,
+} from "./school";
+export {
   invitesApi,
   type BulkInviteResult,
   type Invitation,

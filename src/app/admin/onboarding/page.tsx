@@ -1,9 +1,13 @@
+import type { Metadata } from "next";
+import { OnboardingWizard } from "@/components/admin/Onboarding/OnboardingWizard";
+
+// D1 School Onboarding (SCRUM-39). Pre-auth by design - `proxy.ts` exempts
+// this route, because it is what creates the session everything else needs.
+export const metadata: Metadata = {
+  title: "Set up your school - Nevo",
+  robots: { index: false, follow: false },
+};
+
 export default function AdminOnboardingPage() {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-2 py-24">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Admin</p>
-      <h1 className="text-xl font-medium text-nevo-navy">Onboarding</h1>
-      <p className="text-sm text-nevo-near-black/60">Placeholder - built per the UI/UX spec.</p>
-    </div>
-  );
+  return <OnboardingWizard />;
 }
