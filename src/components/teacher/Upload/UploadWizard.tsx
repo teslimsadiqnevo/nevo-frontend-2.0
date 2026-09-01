@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { contentApi, type ParseContentResponse } from "@/lib/api/content";
 import { ApiError } from "@/lib/api/client";
+import { useStagedUpload } from "@/hooks/useStagedUpload";
 import { getToken } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 import {
@@ -14,6 +15,7 @@ import {
 } from "./ParseFallback";
 import { PARSE_STAGES, ParseProgress } from "./ParseProgress";
 import { SectionReview } from "./SectionReview";
+import { LiveStructureTree } from "./LiveStructureTree";
 import { UploadResult } from "./UploadResult";
 
 /**
@@ -189,6 +191,7 @@ export function UploadWizard() {
   const [dragOver, setDragOver] = useState(false);
   /** The screen is showing fixture content, never the teacher's own file. */
   const [sample, setSample] = useState(false);
+  const staged = useStagedUpload();
   /** What the upload actually returned, when it was live. */
   const [parsed, setParsed] = useState<ParseContentResponse | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -248,11 +251,18 @@ export function UploadWizard() {
     setParsed(null);
     setPhase("processing");
 
-    // The block path has no BLOCK-level structure to render, and a signed-out
-    // visitor has no token - both keep the designed demo beat, each labelled
-    // with its own reason below.
-    if (isBlock || !getToken()) {
+    // A signed-out visitor has no token, so the designed demo beat stands.
+    if (!getToken()) {
       runMockBeats(file.name);
+      return;
+    }
+
+    // THE BLOCK PATH IS REAL NOW. `structure.lessons[]` shipped on 1 Sep, so
+    // a unit becoming several lessons can be expressed and rendered - which
+    // is the thing that kept this on a mock beat. It stages the file and
+    // polls; the structure view takes over from `staged`.
+    if (isBlock && scope) {
+      staged.start(file, scope);
       return;
     }
 
@@ -540,7 +550,58 @@ export function UploadWizard() {
             </div>
           )}
 
-          {phase === "processing" && isBlock && (
+          {/* A REAL staged upload takes over the block path. `ParseProgress`
+              keeps driving the signed-out demo, which still walks its beats. */}
+          {phase === "processing" && isBlock && staged.uploadId && (
+            <div className="w-full">
+              {staged.structure &&
+              (staged.status === "ready" || staged.status === "confirmed") ? (
+                <LiveStructureTree
+                  uploadId={staged.uploadId}
+                  structure={staged.structure}
+                  blockName={blockName}
+                />
+              ) : staged.failed ? (
+                <div className="max-w-[600px] rounded-[16px] bg-nevo-cream-elevated p-8 shadow-elevation-1">
+                  <h3 className="text-[17px] font-semibold text-nevo-near-black">
+                    We couldn&rsquo;t read that one
+                  </h3>
+                  <p className="mt-2 text-sm leading-[1.55] text-nevo-near-black/62">
+                    {/* The server's own reason when it gave one - it knows why
+                        and we do not. */}
+                    {staged.error ??
+                      "Nothing you did is lost. Try another file, and we’ll take it from there."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      staged.reset();
+                      setPhase("file");
+                    }}
+                    className="mt-5 h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
+                  >
+                    Try another file
+                  </button>
+                </div>
+              ) : (
+                <div className="flex max-w-[720px] items-center gap-5 rounded-[16px] bg-nevo-cream-elevated p-9 shadow-elevation-1">
+                  <span className="size-11 shrink-0 rounded-full border-4 border-nevo-navy/20 border-t-nevo-navy motion-safe:animate-spin motion-safe:[animation-duration:800ms]" />
+                  <div>
+                    <p className="text-[17px] font-semibold text-nevo-near-black">
+                      Nevo is reading your unit
+                    </p>
+                    <p className="mt-1.5 text-sm leading-[1.5] text-nevo-near-black/62">
+                      {staged.slow
+                        ? "This one is taking a while. It hasn’t stalled - a longer document takes longer to read."
+                        : "This can take a minute for a longer document."}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {phase === "processing" && isBlock && !staged.uploadId && (
             <ParseProgress stage={parseStage} />
           )}
 
