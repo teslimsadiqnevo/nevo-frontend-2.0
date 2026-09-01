@@ -20,6 +20,7 @@ import {
   StretchingCharacter,
   Switch,
 } from "@/components/shared";
+import { ChartsDemo } from "./_charts-demo";
 import { NavDemo } from "./_nav-demo";
 
 export const metadata: Metadata = {
@@ -268,6 +269,13 @@ export default function ComponentsPage() {
           note="Sidebar (chevron to collapse), bottom nav (mobile), top nav (landing/auth)."
         >
           <NavDemo />
+        </Section>
+
+        <Section
+          title="Charts"
+          note="The admin analytics forms. Navy/violet passes CVD separation at ΔE 32; the violet's sub-3:1 contrast is discharged with direct labels and a table view."
+        >
+          <ChartsDemo />
         </Section>
       </div>
     </main>
