@@ -38,9 +38,11 @@ export const SUBJECT_ICON: Record<string, LucideIcon> = {
 };
 
 /**
- * Mock lesson catalogue (Lessons Tab). TODO(api): `/api/content/lessons` is
- * deployed and typed - the teacher library already uses it - and this has not
- * been moved onto it. Replace with
+ * The Lessons Tab's SIGNED-OUT catalogue - the designed screen's content, and
+ * no longer pending work: a signed-in child's list comes from their own
+ * assignments via `useStudentLessons`. Kept because the walkthrough needs it.
+ *
+ * Historic note, since it explains the shape below. This once read "replace with
  * `GET /api/content/lessons`. Subject grouping, status and adaptive estimates
  * have no source there - the teacher library hides its subject filter for
  * exactly that reason - so those still need somewhere to come from.

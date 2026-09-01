@@ -12,9 +12,10 @@ import { useWarmUpDimension } from "@/hooks/useWarmUpDimension";
 import { WarmUpCard } from "@/components/student/Profiling/WarmUpCard";
 import { dimensionForToday } from "@/components/student/Profiling/WarmUpRun";
 
-// ── Mock data ───────────────────────────────────────────────────────────────
-// TODO(api): source "continue", "today's lessons" and the encouragement line
-// from the backend (in-progress state, assignments, profile) once contracts land.
+// ── Signed-out fixtures ─────────────────────────────────────────────────────
+// The designed screen's own content, and ONLY for a visitor with no session.
+// A signed-in child's continue card, today's lessons and encouragement line all
+// come from `useStudentDashboard` below - the contracts landed and are read.
 interface InProgress {
   lessonId: string;
   title: string;
