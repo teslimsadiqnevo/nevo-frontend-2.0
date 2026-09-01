@@ -1,17 +1,16 @@
-// Next.js 16: `params` is a Promise and must be awaited.
-export default async function AdminSencoStudentPage({
+import type { Metadata } from "next";
+import { LearnerProfileView } from "@/components/admin/Senco/LearnerProfileView";
+
+export const metadata: Metadata = {
+  title: "Learner profile - Nevo",
+};
+
+// D8b Learner Profile. Next.js 16: `params` is a Promise and must be awaited.
+export default async function AdminLearnerProfilePage({
   params,
 }: {
   params: Promise<{ studentId: string }>;
 }) {
   const { studentId } = await params;
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-2 py-24">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Admin</p>
-      <h1 className="text-xl font-medium text-nevo-navy">Learner support profile</h1>
-      <p className="text-sm text-nevo-near-black/60">
-        Placeholder for <span className="font-mono">{studentId}</span> - built per the UI/UX spec.
-      </p>
-    </div>
-  );
+  return <LearnerProfileView studentId={studentId} />;
 }

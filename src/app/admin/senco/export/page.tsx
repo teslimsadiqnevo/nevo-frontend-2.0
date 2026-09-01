@@ -1,9 +1,12 @@
-export default function AdminSencoExportPage() {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-2 py-24">
-      <p className="text-xs tracking-[0.2em] uppercase text-nevo-near-black/40">Admin</p>
-      <h1 className="text-xl font-medium text-nevo-navy">IEP exporter</h1>
-      <p className="text-sm text-nevo-near-black/60">Placeholder - built per the UI/UX spec.</p>
-    </div>
-  );
+import type { Metadata } from "next";
+import { IepExporterView } from "@/components/admin/Senco/IepExporterView";
+
+export const metadata: Metadata = {
+  title: "Progress report - Nevo",
+};
+
+// D8 IEP Exporter. Review is never skippable: a named member of staff reads
+// and checks the draft before anything reaches a family.
+export default function AdminIepExportPage() {
+  return <IepExporterView />;
 }
