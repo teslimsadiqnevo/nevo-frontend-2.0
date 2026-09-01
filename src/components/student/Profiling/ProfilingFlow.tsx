@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import { baselineApi } from "@/lib/api";
 import { ONBOARDING_SIGNAL_TYPES } from "@/lib/constants";
-import { bandForYearLabel, gridSpanConfig } from "@/lib/profiling/bands";
+import { bandForAge, bandForYearLabel, gridSpanConfig } from "@/lib/profiling/bands";
+import { getOnboardingDraft } from "@/lib/auth/onboarding";
 import {
   BaselineCapture,
   reduceGridSpan,
@@ -26,7 +27,8 @@ import { StretchInterstitial } from "./StretchInterstitial";
  * spans the run; on completion the raw stream is reduced to a feature vector,
  * submitted, and purged - raw interaction data never leaves the device.
  *
- * The age band comes from the student profile (mock: "Year 4" → P4-6) and
+ * The age band comes from the age the child gave at onboarding, falling back
+ * to the profile label (mock: "Year 4" → P4-6) when there is no draft, and
  * drives grid sizes, content and targets; the shells are shared.
  */
 export function ProfilingFlow({
@@ -48,7 +50,14 @@ export function ProfilingFlow({
     | "m4"
     | "complete"
   >("intro");
-  const band = bandForYearLabel(MOCK_STUDENT.subtitle);
+  // The child told us their age in Step 1. Use it - the fixture year label was
+  // standing in for a year group `users/me` does not carry, and it meant every
+  // child ran the same band whatever they had just typed. The label stays as
+  // the fallback for a run reached without a draft (a re-run from Profile).
+  const [band] = useState(() => {
+    const age = getOnboardingDraft().age;
+    return age ? bandForAge(age) : bandForYearLabel(MOCK_STUDENT.subtitle);
+  });
   const [capture] = useState(() => new BaselineCapture(`baseline-${randomId()}`));
   const submitted = useRef(false);
   // null while the submit is still resolving; false means it never reached
