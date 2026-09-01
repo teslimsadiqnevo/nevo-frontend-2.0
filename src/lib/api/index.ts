@@ -2,6 +2,15 @@
 export { api, request, ApiError, BASE_URL, type RequestOptions } from "./client";
 export { authApi } from "./auth";
 export {
+  invitesApi,
+  type BulkInviteResult,
+  type Invitation,
+  type InviteDraft,
+  type InviteRole,
+  type JoinLookup,
+  type RejectedInvitation,
+} from "./invites";
+export {
   teamApi,
   roleForScopes,
   type AcceptInvitationResponse,
