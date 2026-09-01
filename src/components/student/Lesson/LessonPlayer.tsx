@@ -127,6 +127,7 @@ export function LessonPlayer({
   review = false,
   live = false,
   startAt = 0,
+  lastWorkedAt = null,
 }: {
   lesson: Lesson;
   plan: AdaptationPlan | null;
@@ -141,6 +142,8 @@ export function LessonPlayer({
    * session always opens at the top regardless.
    */
   startAt?: number;
+  /** Passed to the review entry screen so its recency line is a fact. */
+  lastWorkedAt?: string | null;
   /**
    * Review session (37d): the same player as a spaced-retrieval variant. Adds
    * only an entry screen, the REVIEW pill during, and the "You strengthened
@@ -235,17 +238,30 @@ export function LessonPlayer({
     });
   }, [lesson, index, reportProgress]);
 
-  // Completion. Reported once, when the player reaches its final phase - the
-  // assessment sits between the last segment and this, so it must not fire on
-  // the last segment alone.
+  // Completion. Reported once, however the child leaves the finished lesson.
+  //
+  // This was keyed on `phase === "complete"` alone, which quietly missed a
+  // whole exit: from the assessment result a child can tap "Review answers"
+  // instead of "Done", which routes them away WITHOUT the phase ever reaching
+  // "complete". They had played every segment and answered every question, and
+  // the lesson stayed `in_progress` forever - while the review screen they
+  // landed on told them "Your progress is saved".
+  //
+  // So completion is a function both exits call, not a side effect of one of
+  // them. The ref keeps it idempotent.
   const completionReported = useRef(false);
-  useEffect(() => {
-    if (phase !== "complete" || completionReported.current) return;
+  const markComplete = useCallback(() => {
+    if (completionReported.current) return;
     completionReported.current = true;
     reportProgress(LESSON_STATUS.COMPLETED, {
       segment: Math.max(0, lesson.segments.length - 1),
     });
-  }, [phase, lesson, reportProgress]);
+  }, [lesson, reportProgress]);
+
+  useEffect(() => {
+    if (phase !== "complete") return;
+    markComplete();
+  }, [phase, markComplete]);
   // SCRUM-101: the segment index the player is about to enter across a module
   // boundary. Non-null takes over the screen with the boundary landing; the
   // student's continue (or break + "I'm ready") completes the move.
@@ -553,6 +569,7 @@ export function LessonPlayer({
     return (
       <ReviewEntryScreen
         lessonTitle={lesson.title}
+        lastWorkedAt={lastWorkedAt}
         onBegin={() => setPhase("segments")}
       />
     );
@@ -576,9 +593,12 @@ export function LessonPlayer({
           saveReviewAnswers(lesson.id, reviewAnswers.current);
         }}
         onFinish={() => setPhase("complete")}
-        onReviewAnswers={() =>
-          router.push(`${LESSONS_HREF}/${lesson.id}/review`)
-        }
+        onReviewAnswers={() => {
+          // The lesson IS finished at this point - reviewing is a way of
+          // leaving it, not of abandoning it.
+          markComplete();
+          router.push(`${LESSONS_HREF}/${lesson.id}/review`);
+        }}
       />
     );
   }
@@ -827,14 +847,30 @@ export function LessonPlayer({
               onAudioBusy={(phase) =>
                 trackBusy(BUSY_REASON.MEDIA_PLAYING, phase)
               }
-              onCalcSolved={() =>
-                setSolvedCalcs((prev) => new Set(prev).add(segment.id))
-              }
+              onCalcSolved={() => {
+                setSolvedCalcs((prev) => new Set(prev).add(segment.id));
+                // Solving the calculation is the centrepiece interaction of
+                // 17b and emitted NOTHING - the local set was the only trace.
+                trackEvent(SIGNAL_EVENT_TYPES.CALCULATION_COMPLETE, {
+                  segmentId: segment.id,
+                });
+              }}
               onCalcStep={(correct) =>
-                trackEvent(SIGNAL_EVENT_TYPES.COMPREHENSION_RESPONSE, {
-                  kind: "calculation",
+                // The ingest enum has a type for this. It was riding
+                // `comprehension_response` under a `kind` of our own invention,
+                // which obliges the engine to know our convention - and no
+                // batch had ever actually landed under it, so switching now
+                // costs no history.
+                trackEvent(SIGNAL_EVENT_TYPES.CALCULATION_STEP_RESPONSE, {
                   segmentId: segment.id,
                   correct,
+                })
+              }
+              onPiecePlaced={(placed, needed) =>
+                trackEvent(SIGNAL_EVENT_TYPES.MANIPULATIVE_PIECE_PLACED, {
+                  segmentId: segment.id,
+                  placed,
+                  needed,
                 })
               }
             />
@@ -872,7 +908,14 @@ export function LessonPlayer({
       <LeaveLessonDialog
         open={leaveOpen}
         onOpenChange={setLeaveOpen}
-        onLeave={() => router.push(LESSONS_HREF)}
+        onLeave={() => {
+          // `exited` is a status the contract defines and nothing ever sent.
+          // Leaving deliberately is not the same fact as drifting off mid
+          // segment, and the engine is entitled to tell them apart - the
+          // position is identical either way, the intent is not.
+          reportProgress(LESSON_STATUS.EXITED, { segment: index });
+          router.push(LESSONS_HREF);
+        }}
       />
 
       {/* Chevron nav — dims under anxiety; frustration guides the forward
@@ -914,6 +957,7 @@ function SegmentBody({
   onAudioBusy,
   onCalcSolved,
   onCalcStep,
+  onPiecePlaced,
 }: {
   segment: LessonSegment;
   modality: Modality;
@@ -924,6 +968,7 @@ function SegmentBody({
   onAudioBusy: (phase: BusyPhase) => void;
   onCalcSolved: () => void;
   onCalcStep: (correct: boolean) => void;
+  onPiecePlaced: (placed: number, needed: number) => void;
 }) {
   if (modality === MODALITY.TEXT && segment.text)
     return (
@@ -953,6 +998,7 @@ function SegmentBody({
           onSolved={onCalcSolved}
           onStepAnswered={onCalcStep}
           onReplay={onReplay}
+          onPiecePlaced={onPiecePlaced}
         />
       );
     if (segment.interactive)

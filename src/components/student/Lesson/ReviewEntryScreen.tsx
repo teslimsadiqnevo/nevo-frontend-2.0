@@ -7,17 +7,41 @@ import { Button } from "@/components/shared";
  * reinforce memory just as it starts to fade - not homework, not repetition.
  * A calm landing that names the lesson and why it's back, then hands over to
  * the ordinary player (the session itself reuses it wholesale).
+ *
+ * THE RECENCY LINE DEFAULTED TO "You worked on this two weeks ago" - a specific
+ * claim about the child, hardcoded, and never overridden by any caller. Every
+ * child was told two weeks whatever the truth was. It is now derived from the
+ * progress row when there is one, and when there is not it says nothing about
+ * timing rather than picking a number.
  */
+
+/** "two weeks ago", "yesterday" - only ever from a real timestamp. */
+function agoPhrase(iso: string): string | null {
+  const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000);
+  if (!Number.isFinite(days) || days < 0) return null;
+  if (days === 0) return "earlier today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  const weeks = Math.round(days / 7);
+  if (weeks === 1) return "a week ago";
+  if (days < 60) return `${weeks} weeks ago`;
+  return "a while back";
+}
+
 export function ReviewEntryScreen({
   lessonTitle,
-  note = "You worked on this two weeks ago. Let's see what's stuck.",
+  lastWorkedAt = null,
   onBegin,
 }: {
   lessonTitle: string;
-  /** Recency line - backend-supplied later; frame copy as the mock default. */
-  note?: string;
+  /** When they last worked on it. Null means we do not know, and say so. */
+  lastWorkedAt?: string | null;
   onBegin: () => void;
 }) {
+  const ago = lastWorkedAt ? agoPhrase(lastWorkedAt) : null;
+  const note = ago
+    ? `You worked on this ${ago}. Let's see what's stuck.`
+    : "This one's come back around. Let's see what's stuck.";
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-nevo-cream px-10 text-center text-nevo-near-black motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300">
       <span className="flex h-7 items-center rounded-[20px] bg-nevo-violet px-3 text-[11px] font-bold tracking-[0.16em] text-nevo-cream">
