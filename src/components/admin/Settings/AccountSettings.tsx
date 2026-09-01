@@ -1,0 +1,367 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { authApi, type AuthSession } from "@/lib/api/auth";
+import { permissionsApi } from "@/lib/api/permissions";
+import { usersApi, type CurrentUser } from "@/lib/api/users";
+import type { PermissionScope } from "@/lib/constants/permissions";
+import { cn } from "@/lib/utils";
+import { Avatar, CARD } from "../Roster/primitives";
+import {
+  NotBuiltNote,
+  S_FIELD,
+  S_LABEL,
+  SettingsSection,
+} from "./SettingsView";
+
+/**
+ * D12c Your account.
+ *
+ * CALLED "TWO-STEP SIGN-IN", NEVER MFA - the frame is explicit, and the reason
+ * is the same one that governs every screen in this console: a proprietor is
+ * not an IT specialist. The section is not built (no endpoint exists), but the
+ * name is used correctly in the note, because whoever builds it will read this
+ * file first.
+ *
+ * NO IP ADDRESSES ANYWHERE. D12c requires it, and it costs nothing to honour
+ * because `GET /api/v1/auth/sessions` does not return one. Do not add one if
+ * the contract later grows it.
+ *
+ * WHAT IS ABSENT, AND WHY:
+ *
+ *   - PROFILE EDITING. `GET /api/v1/users/me` is the only route on the users
+ *     resource - there is no write anywhere. Name, role title and email are
+ *     shown as the record holds them, and the screen says plainly that they
+ *     are changed by asking, rather than offering inputs that cannot save.
+ *   - TWO-STEP SIGN-IN. No enrolment, no secret, no verify, no recovery codes.
+ *     The whole flow - QR, six boxes, ten codes, "I've saved these somewhere
+ *     safe" - is drawn in D12c and backed by nothing.
+ *
+ * Password change and session management ARE live, and they are the two that
+ * matter most for account safety.
+ */
+
+type Load = "loading" | "ready" | "failed";
+type PwPhase = "idle" | "saving" | "done" | "mismatch" | "failed";
+
+const SCOPE_LABELS: Record<PermissionScope, string> = {
+  oversight: "General oversight",
+  roster: "Classes, teachers and students",
+  curriculum: "The lesson library and uploads",
+  senco: "Learning support",
+  it_sso: "Sign-in provider and roster sync",
+  billing: "Subscription and invoices",
+  teacher: "A teacher's own console",
+};
+
+function when(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function AccountSettings() {
+  const [load, setLoad] = useState<Load>("loading");
+  const [me, setMe] = useState<CurrentUser | null>(null);
+  const [scopes, setScopes] = useState<PermissionScope[]>([]);
+  const [sessions, setSessions] = useState<AuthSession[]>([]);
+
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [reveal, setReveal] = useState(false);
+  const [pw, setPw] = useState<PwPhase>("idle");
+  const [ended, setEnded] = useState(0);
+
+  const loadSessions = useCallback(() => {
+    authApi
+      .sessions()
+      .then(setSessions)
+      .catch(() => setSessions([]));
+  }, []);
+
+  useEffect(() => {
+    Promise.all([usersApi.me(), permissionsApi.me()])
+      .then(([u, p]) => {
+        setMe(u);
+        setScopes(p.scopes);
+        setLoad("ready");
+        loadSessions();
+      })
+      .catch(() => setLoad("failed"));
+  }, [loadSessions]);
+
+  if (load === "loading") {
+    return <div className={cn(CARD, "mt-5 h-[380px] animate-pulse")} />;
+  }
+
+  if (load === "failed" || !me) {
+    return (
+      <SettingsSection title="We couldn't load your account">
+        <p className="m-0 text-sm leading-[1.55] text-nevo-near-black/62">
+          Nothing has changed - this is only about showing it to you. Try again
+          in a moment.
+        </p>
+      </SettingsSection>
+    );
+  }
+
+  const changePassword = () => {
+    if (next !== confirm) {
+      setPw("mismatch");
+      return;
+    }
+    if (next.length < 10) return;
+    setPw("saving");
+    const others = sessions.filter((s) => !s.current && s.active).length;
+    authApi
+      .changePassword({
+        currentPassword: current,
+        newPassword: next,
+        // The screen promises this, so it is sent rather than assumed.
+        endOtherSessions: true,
+      })
+      .then(() => {
+        setPw("done");
+        setEnded(others);
+        setCurrent("");
+        setNext("");
+        setConfirm("");
+        loadSessions();
+      })
+      .catch(() => setPw("failed"));
+  };
+
+  const others = sessions.filter((s) => !s.current);
+
+  return (
+    <>
+      {/* ------------------------------------------------------------ PROFILE */}
+      <SettingsSection title="Your profile">
+        <div className="flex items-center gap-4">
+          <Avatar name={me.display_name} email={me.email} size={56} />
+          <div className="min-w-0">
+            <div className="text-[17px] font-semibold text-nevo-near-black">
+              {me.display_name}
+            </div>
+            {me.email ? (
+              <div className="truncate text-sm text-nevo-near-black/62">{me.email}</div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <NotBuiltNote>
+            Your name and email are changed by asking us, not here yet -
+            there&rsquo;s no way for the app to save them at the moment, so
+            we&rsquo;ve left the fields out rather than have them look editable.
+          </NotBuiltNote>
+        </div>
+      </SettingsSection>
+
+      {/* ------------------------------------------------------------ ACCESS */}
+      <SettingsSection
+        title="Your access"
+        note="Your access areas are set by your school's founding admin."
+      >
+        {scopes.length === 0 ? (
+          <p className="m-0 text-sm text-nevo-near-black/62">No access yet.</p>
+        ) : (
+          <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+            {scopes.map((s) => (
+              <li key={s} className="flex items-start gap-2.5 text-sm text-nevo-near-black/78">
+                <span
+                  aria-hidden="true"
+                  className="mt-[7px] size-[6px] flex-none rounded-full bg-nevo-violet"
+                />
+                {SCOPE_LABELS[s] ?? s}
+              </li>
+            ))}
+          </ul>
+        )}
+      </SettingsSection>
+
+      {/* ---------------------------------------------------------- PASSWORD */}
+      <SettingsSection title="Password">
+        <div className="flex flex-col gap-4">
+          <div>
+            <label htmlFor="pw-current" className={S_LABEL}>
+              Current password
+            </label>
+            <input
+              id="pw-current"
+              type={reveal ? "text" : "password"}
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+              autoComplete="current-password"
+              className={S_FIELD}
+            />
+          </div>
+          <div>
+            <label htmlFor="pw-new" className={S_LABEL}>
+              New password
+            </label>
+            <input
+              id="pw-new"
+              type={reveal ? "text" : "password"}
+              value={next}
+              onChange={(e) => {
+                setNext(e.target.value);
+                if (pw === "mismatch") setPw("idle");
+              }}
+              autoComplete="new-password"
+              className={S_FIELD}
+            />
+            <p className="mt-2 text-[12.5px] text-nevo-near-black/50">
+              At least 10 characters.
+            </p>
+          </div>
+          <div>
+            <label htmlFor="pw-confirm" className={S_LABEL}>
+              Confirm new password
+            </label>
+            <input
+              id="pw-confirm"
+              type={reveal ? "text" : "password"}
+              value={confirm}
+              onChange={(e) => {
+                setConfirm(e.target.value);
+                if (pw === "mismatch") setPw("idle");
+              }}
+              autoComplete="new-password"
+              className={S_FIELD}
+            />
+            {pw === "mismatch" ? (
+              <p className="mt-2 text-[12.5px] text-nevo-navy">
+                These two don&rsquo;t match yet.
+              </p>
+            ) : null}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setReveal((v) => !v)}
+            className="self-start cursor-pointer text-[13px] font-semibold text-nevo-navy hover:opacity-75"
+          >
+            {reveal ? "Hide" : "Show"}
+          </button>
+        </div>
+
+        <p className="m-0 mt-4 text-[13px] leading-[1.55] text-nevo-near-black/60">
+          Changing this signs you out everywhere else. You&rsquo;ll stay signed
+          in here.
+        </p>
+
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={changePassword}
+            disabled={
+              !current || next.length < 10 || !confirm || pw === "saving"
+            }
+            className="cursor-pointer rounded-[10px] bg-nevo-navy px-5 py-3 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:brightness-100"
+          >
+            {pw === "saving" ? "Changing it…" : "Change password"}
+          </button>
+          {pw === "done" ? (
+            <span className="text-[13px] font-semibold text-nevo-navy motion-safe:animate-nevo-reveal">
+              Password changed
+              {ended > 0
+                ? `. ${ended} other ${ended === 1 ? "session" : "sessions"} ended.`
+                : "."}
+            </span>
+          ) : null}
+          {pw === "failed" ? (
+            <span className="text-[13px] text-nevo-navy">
+              That didn&rsquo;t go through. Your password is unchanged - check
+              the current one and try again.
+            </span>
+          ) : null}
+        </div>
+      </SettingsSection>
+
+      {/* ----------------------------------------------------------- TWO-STEP */}
+      <SettingsSection title="Two-step sign-in">
+        <NotBuiltNote>
+          Two-step sign-in isn&rsquo;t available yet. When it is, you&rsquo;ll
+          enter a six-digit code from your phone as well as your password.
+          There&rsquo;s nothing to switch on for now.
+        </NotBuiltNote>
+      </SettingsSection>
+
+      {/* ----------------------------------------------------------- SESSIONS */}
+      <SettingsSection
+        title="Where you're signed in"
+        note="Sign out anywhere that isn't you."
+      >
+        {sessions.length === 0 ? (
+          <p className="m-0 text-sm text-nevo-near-black/62">
+            We couldn&rsquo;t list your sessions just now.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {sessions.map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center gap-3 rounded-[10px] border border-nevo-near-black/12 px-4 py-3.5"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-nevo-near-black">
+                    {s.current ? "This device" : "Another device"}
+                  </div>
+                  <div className="text-[12.5px] text-nevo-near-black/58">
+                    Last active {when(s.lastSeenAt)}
+                  </div>
+                </div>
+                {!s.current ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      authApi
+                        .endSession(s.id)
+                        .then(loadSessions)
+                        .catch(() => undefined)
+                    }
+                    className="flex-none cursor-pointer text-[13px] font-semibold text-nevo-navy hover:opacity-75"
+                  >
+                    End it
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {others.length > 0 ? (
+          <button
+            type="button"
+            onClick={() =>
+              authApi
+                .endOtherSessions()
+                .then(loadSessions)
+                .catch(() => undefined)
+            }
+            className="mt-4 cursor-pointer text-sm font-semibold text-nevo-navy hover:opacity-75"
+          >
+            Sign out everywhere else
+          </button>
+        ) : null}
+
+        {/* The contract has no device name, so every other row reads the same.
+            Said out loud, because a list of identical rows otherwise looks
+            like a bug. */}
+        {others.length > 0 ? (
+          <p className="m-0 mt-3 text-[12.5px] leading-[1.5] text-nevo-near-black/50">
+            We can tell you when each session was last active, but not what
+            device it is on - so if you don&rsquo;t recognise one, sign it out.
+          </p>
+        ) : null}
+      </SettingsSection>
+    </>
+  );
+}

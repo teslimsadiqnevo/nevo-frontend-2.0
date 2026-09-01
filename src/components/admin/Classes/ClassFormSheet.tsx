@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { classesApi, type AdminClass } from "@/lib/api/classes";
 import { teachersApi, type TeacherSummary } from "@/lib/api/teachers";
-import { YEAR_GROUP_OPTIONS } from "@/lib/constants/yearGroups";
+import { yearGroupOptions } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import {
   FailureLine,
@@ -182,7 +182,7 @@ export function ClassFormSheet({
           className={FIELD}
         >
           <option value="">Choose a year group</option>
-          {YEAR_GROUP_OPTIONS.map((o) => (
+          {yearGroupOptions().map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>
