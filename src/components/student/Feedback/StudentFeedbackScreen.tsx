@@ -20,8 +20,7 @@ const SENT_CLOSE_MS = 1500;
  * Full-screen view over a dimmed cream backdrop with a 44×44 back chevron,
  * matching the Student App's feedback view. On touch the note routes through the
  * Nevo Keyboard's multi-line composer (the keyboard covers the panel, so the
- * composer mirrors the note above the tray). TODO(api): submit to the real
- * feedback endpoint when it lands.
+ * composer mirrors the note above the tray).
  */
 export function StudentFeedbackScreen() {
   const router = useRouter();
