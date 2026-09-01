@@ -19,6 +19,21 @@ import { useTrialRunner } from "./useTrialRunner";
  * TODO(api): questions come from the adaptive IRT service, not this list.
  */
 
+/**
+ * NO ANSWER KEY, AND THAT IS THE POINT TO NOTICE.
+ *
+ * Module 4 exists to probe PRIOR KNOWLEDGE (BP-M4) and seed the Knowledge
+ * Graph's entry node per subject. This shape has no correct option, so the
+ * capture stream records which option a child tapped and how long they took
+ * and cannot say whether they were right - which is the one fact a knowledge
+ * probe is for. `reduceTrialModule` reports `accuracy: null` here for exactly
+ * that reason.
+ *
+ * It is not a wiring gap: the authored list is a stand-in for the adaptive IRT
+ * service, and the real questions would arrive scored. Worth stating plainly
+ * because "questions come from IRT later" undersells it - until then Module 4
+ * contributes response times to a knowledge measure and nothing else.
+ */
 interface ProbeQuestion {
   context?: string;
   picture?: string;

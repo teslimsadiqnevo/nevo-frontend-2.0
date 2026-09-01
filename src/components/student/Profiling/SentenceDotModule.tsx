@@ -235,8 +235,12 @@ export function SentenceDotModule({
               ))}
             </div>
             <div className="flex w-full max-w-[300px] flex-col gap-4 sm:w-auto sm:max-w-none sm:flex-row">
-              <DotButton label="Top" wide={pair.a} onClick={() => masked && pick(0, { a: pair.a, b: pair.b })} pressed={picked === 0} armed={masked} sideLabel="Left" />
-              <DotButton label="Bottom" wide={pair.b} onClick={() => masked && pick(1, { a: pair.a, b: pair.b })} pressed={picked === 1} armed={masked} sideLabel="Right" />
+              <DotButton label="Top" wide={pair.a} onClick={() =>
+                masked && pick(0, { a: pair.a, b: pair.b, correct: pair.a > pair.b })
+              } pressed={picked === 0} armed={masked} sideLabel="Left" />
+              <DotButton label="Bottom" wide={pair.b} onClick={() =>
+                masked && pick(1, { a: pair.a, b: pair.b, correct: pair.b > pair.a })
+              } pressed={picked === 1} armed={masked} sideLabel="Right" />
             </div>
           </>
         )}

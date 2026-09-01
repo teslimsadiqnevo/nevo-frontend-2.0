@@ -95,23 +95,41 @@ export class BaselineCapture {
  * TODO(api): reconcile field names with the ratified baseline contract.
  */
 /**
- * Reduce a trial-based module's stream (Modules 2-4): counts and mean response
- * time per activity, from `trial_pick` events carrying `{module, act, rtMs}`.
+ * Reduce a trial-based module's stream (Modules 2-4): counts, mean response
+ * time and - where the activity knows its own answer - accuracy, from
+ * `trial_pick` events carrying `{module, act, rtMs, correct?}`.
+ *
+ * Accuracy was absent entirely: the vector carried how FAST a child answered
+ * and never whether they were right. For the speed-and-attention modules that
+ * is arguably the measure; for a prior-knowledge probe it is not, and the
+ * probe is the one place the answer key does not exist to record. `accuracy`
+ * is null rather than 0 where nothing was scored, so "not measured" and "got
+ * none right" stay distinguishable.
  */
 export function reduceTrialModule(capture: BaselineCapture, module: string) {
   const picks = capture
     .ofKind("trial_pick")
     .filter((e) => e.payload?.module === module);
-  const byAct: Record<string, { trials: number; meanRtMs: number | null }> = {};
+  const byAct: Record<
+    string,
+    { trials: number; meanRtMs: number | null; accuracy: number | null }
+  > = {};
   for (const act of new Set(picks.map((p) => String(p.payload?.act)))) {
     const rts = picks
       .filter((p) => p.payload?.act === act)
       .map((p) => Number(p.payload?.rtMs))
       .filter((n) => Number.isFinite(n) && n > 0 && n < 60_000);
+    const inAct = picks.filter((p) => p.payload?.act === act);
+    const scored = inAct.filter((p) => typeof p.payload?.correct === "boolean");
     byAct[act] = {
-      trials: picks.filter((p) => p.payload?.act === act).length,
+      trials: inAct.length,
       meanRtMs: rts.length
         ? Math.round(rts.reduce((a, b) => a + b, 0) / rts.length)
+        : null,
+      // Null means the activity carries no answer key, not zero right.
+      accuracy: scored.length
+        ? scored.filter((p) => p.payload?.correct === true).length /
+          scored.length
         : null,
     };
   }
