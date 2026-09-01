@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { NevoKeyboard } from "@/components/shared";
-import { authApi } from "@/lib/api";
+import { ApiError, authApi } from "@/lib/api";
 import { getRememberedProfile, type RememberedProfile } from "@/lib/auth/session";
 import { useAuth } from "@/hooks";
 import { STUDENT_PIN_LENGTH, type UserRole } from "@/lib/constants";
@@ -24,7 +24,8 @@ const DONE_MS = 700;
  * "Welcome back" beat before the dashboard.
  *
  * Wired live: a full PIN submits to POST /auth/login/pin; a rejected PIN
- * clears the boxes with the frame's error copy. A device with no remembered
+ * clears the boxes with the frame's error copy. A failure that is NOT about
+ * the child's PIN says so instead - see `error`. A device with no remembered
  * profile has nothing to unlock - it routes to onboarding.
  */
 export default function LoginPage() {
@@ -32,7 +33,16 @@ export default function LoginPage() {
   const { signIn } = useAuth();
   const [profile, setProfile] = useState<RememberedProfile | null>(null);
   const [digits, setDigits] = useState("");
-  const [error, setError] = useState(false);
+  /**
+   * What went wrong, not merely THAT something did.
+   *
+   * "credentials" is the child's PIN being wrong. "ours" is everything else -
+   * a malformed request, a school code that no longer resolves, a server that
+   * did not answer. All of those used to render as "That PIN didn't match",
+   * which blames a child for our fault and hides the real cause: a 6-digit
+   * PIN truncated to 4 read exactly like a wrong PIN, and cost an evening.
+   */
+  const [error, setError] = useState<null | "credentials" | "ours">(null);
   const [checking, setChecking] = useState(false);
   const [done, setDone] = useState(false);
   const [kbOpen, setKbOpen] = useState(false);
@@ -65,6 +75,7 @@ export default function LoginPage() {
   const submit = useCallback(
     async (pin: string, remembered: RememberedProfile) => {
       setChecking(true);
+      setError(null);
       try {
         const session = await authApi.loginPin({
           school_code: remembered.schoolCode,
@@ -83,11 +94,15 @@ export default function LoginPage() {
           () => router.push("/student/dashboard"),
           DONE_MS,
         );
-      } catch {
-        // A wrong PIN and an unreachable backend read the same calm way; the
-        // copy is the frame's. Detail stays in the dev console via the client.
+      } catch (cause) {
         setDigits("");
-        setError(true);
+        // 401/403 is the server's answer about these credentials. A 422 means
+        // we sent a shape it rejects - the PIN length is the live example -
+        // and anything else is the network or the server. Only the first is
+        // about the child.
+        const status = cause instanceof ApiError ? cause.status : 0;
+        const credentials = status === 401 || status === 403;
+        setError(credentials ? "credentials" : "ours");
       } finally {
         setChecking(false);
       }
@@ -100,7 +115,7 @@ export default function LoginPage() {
       if (done || checking || !profile) return;
       const add = raw.replace(/[^0-9]/g, "");
       if (!add) return;
-      setError(false);
+      setError(null);
       setDigits((prev) => {
         const next = (prev + add).slice(0, PIN_LENGTH);
         if (next.length === PIN_LENGTH) void submit(next, profile);
@@ -111,7 +126,7 @@ export default function LoginPage() {
   );
 
   const backspace = useCallback(() => {
-    setError(false);
+    setError(null);
     setDigits((prev) => prev.slice(0, -1));
   }, []);
 
@@ -215,7 +230,10 @@ export default function LoginPage() {
               role="status"
               className="mt-[18px] min-h-5 max-w-[280px] text-sm leading-[1.4] text-nevo-violet"
             >
-              {error && "That PIN didn't match. Try again, or ask your teacher."}
+              {error === "credentials" &&
+                "That PIN didn't match. Try again, or ask your teacher."}
+              {error === "ours" &&
+                "We couldn't check that just now - that's on us, not you. Try again in a moment."}
             </p>
             <button
               type="button"
