@@ -15,10 +15,31 @@ export function EditProfileModal({
 }: {
   profile: TeacherProfile;
   onCancel: () => void;
-  onSave: (next: TeacherProfile) => void;
+  /** Resolves true once the write has actually landed. */
+  onSave: (next: TeacherProfile) => Promise<boolean> | boolean;
 }) {
   const [name, setName] = useState(profile.name);
   const [subjects, setSubjects] = useState(profile.subjects);
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  /**
+   * Nothing closes until the write lands. The modal used to call `onSave` and
+   * dismiss in the same breath, which would have reported a saved profile
+   * over a failed PATCH the moment there was a PATCH to fail.
+   */
+  const submit = async () => {
+    if (saving) return;
+    setSaving(true);
+    setFailed(false);
+    const ok = await onSave({
+      ...profile,
+      name: name.trim(),
+      subjects: subjects.trim(),
+    });
+    setSaving(false);
+    if (!ok) setFailed(true);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -91,6 +112,13 @@ export function EditProfileModal({
               className={field}
             />
           </label>
+          {failed && (
+            <p className="rounded-[10px] bg-nevo-violet/14 px-3.5 py-3 text-[13px] leading-[1.5] text-nevo-near-black/78">
+              We couldn&rsquo;t save that just now. Nothing has changed &ndash;
+              your edits are still here, so you can try again.
+            </p>
+          )}
+
           <div>
             <span className={label}>Email</span>
             <div className="mt-1.5 flex h-12 items-center justify-between gap-3 rounded-[10px] border border-nevo-near-black/10 bg-nevo-near-black/5 px-3.5 text-[15px] text-nevo-near-black/55">
@@ -106,11 +134,11 @@ export function EditProfileModal({
           <button
             type="button"
             onClick={() =>
-              onSave({ ...profile, name: name.trim(), subjects: subjects.trim() })
+              void submit()
             }
             className="h-12 flex-1 cursor-pointer rounded-[10px] bg-nevo-navy text-[15px] font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
           >
-            Save changes
+            {saving ? "Saving…" : failed ? "Try again" : "Save changes"}
           </button>
           <button
             type="button"
