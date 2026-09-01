@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { uploadsApi, type BatchResult } from "@/lib/api/uploads";
+import { getToken } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 
 /**
@@ -20,8 +22,19 @@ import { cn } from "@/lib/utils";
  * supersedes C07h, so it ships as designed; which affordance opens it is
  * design's call.
  *
- * TODO(api): the parse and the Drive/OneDrive imports; the mock beat sorts
- * the frame's 13 lessons.
+ * THE BATCH IS REAL. `POST /api/v1/uploads/batch` shipped 1 Sep - up to 20
+ * files, each reporting its own outcome - so the sorting beat that stood in
+ * for it is gone for a signed-in teacher. The signed-out demo keeps it.
+ *
+ * WHAT THE RESULTS ACTUALLY ARE. The frame lists LESSONS ("Introduction to
+ * Algebra - Week 1"); the endpoint reports FILES - a filename, whether it was
+ * accepted, and the server's reason when it was not. Lesson titles live
+ * inside each upload's structure, which would mean polling every accepted
+ * upload separately. So the results here are per-file and truthful, and the
+ * lesson-level list returns when one read can supply it.
+ *
+ * TODO(api): lesson titles for a batch without N polls. Drive/OneDrive
+ * imports are separately blocked on per-school credentials.
  */
 
 type Phase = "idle" | "parsing" | "results";
@@ -58,6 +71,9 @@ export function BulkIngestion() {
   const [sorted, setSorted] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [batch, setBatch] = useState<BatchResult | null>(null);
+  const [batchError, setBatchError] = useState("");
+  const [committing, setCommitting] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
@@ -66,7 +82,8 @@ export function BulkIngestion() {
     [],
   );
 
-  const startParse = () => {
+  /** The designed demo beat - signed-out only. */
+  const runDemo = () => {
     setPhase("parsing");
     setSorted(0);
     let n = 0;
@@ -82,6 +99,59 @@ export function BulkIngestion() {
     timer.current = setTimeout(tick, SORT_MS);
   };
 
+  const startParse = (files: File[]) => {
+    if (!getToken()) {
+      runDemo();
+      return;
+    }
+    setPhase("parsing");
+    setBatch(null);
+    setBatchError("");
+    // `scope: "term"` - this screen is the term flow by definition.
+    void uploadsApi
+      .batch(files, "term")
+      .then((res) => {
+        setBatch(res);
+        setPhase("results");
+      })
+      .catch(() => {
+        setBatchError(
+          "We couldn’t send those just now. Nothing has been added - try again in a moment.",
+        );
+        setPhase("idle");
+      });
+  };
+
+  /**
+   * One confirm per accepted upload, with `allSettled` so a single failure
+   * does not report the whole batch as unsent - and so a partial outcome can
+   * name what did land.
+   */
+  const addAll = async () => {
+    const accepted = (batch?.uploads ?? []).filter((u) => u.accepted && u.uploadId);
+    if (accepted.length === 0) return;
+    setCommitting(true);
+    setBatchError("");
+    const results = await Promise.allSettled(
+      accepted.map((u) => uploadsApi.confirm(u.uploadId as string)),
+    );
+    setCommitting(false);
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed === 0) {
+      close();
+      return;
+    }
+    if (failed === accepted.length) {
+      setBatchError(
+        "We couldn’t add those to your library just now. Nothing has changed - try again in a moment.",
+      );
+      return;
+    }
+    setBatchError(
+      `Added ${accepted.length - failed} of ${accepted.length}. The rest didn’t go through - reopen this to try them again.`,
+    );
+  };
+
   const close = () => router.push("/teacher/lessons");
 
   return (
@@ -95,11 +165,21 @@ export function BulkIngestion() {
             </span>
             <button
               type="button"
-              onClick={close}
-              className="flex h-[42px] cursor-pointer items-center rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93 xl:h-11 xl:px-[22px] xl:text-[14.5px]"
+              onClick={() => (batch ? void addAll() : close())}
+              disabled={committing || (batch !== null && batch.acceptedCount === 0)}
+              className={cn(
+                "flex h-[42px] items-center rounded-[10px] px-5 text-sm font-semibold xl:h-11 xl:px-[22px] xl:text-[14.5px]",
+                committing || (batch !== null && batch.acceptedCount === 0)
+                  ? "cursor-not-allowed bg-nevo-navy/18 text-nevo-near-black/40"
+                  : "cursor-pointer bg-nevo-navy text-nevo-cream transition-[filter] hover:brightness-93",
+              )}
             >
-              <span className="xl:hidden">Add all</span>
-              <span className="hidden xl:inline">Add all to library</span>
+              <span className="xl:hidden">
+                {committing ? "Adding…" : "Add all"}
+              </span>
+              <span className="hidden xl:inline">
+                {committing ? "Adding…" : "Add all to library"}
+              </span>
             </button>
           </>
         ) : (
@@ -143,7 +223,8 @@ export function BulkIngestion() {
               accept=".pdf,.doc,.docx,.ppt,.pptx"
               className="hidden"
               onChange={(e) => {
-                if (e.target.files?.length) startParse();
+                const files = Array.from(e.target.files ?? []);
+                if (files.length) startParse(files);
               }}
             />
             <button
@@ -157,7 +238,8 @@ export function BulkIngestion() {
               onDrop={(e) => {
                 e.preventDefault();
                 setDragOver(false);
-                if (e.dataTransfer.files?.length) startParse();
+                const dropped = Array.from(e.dataTransfer.files ?? []);
+                if (dropped.length) startParse(dropped);
               }}
               className={cn(
                 "flex w-full cursor-pointer flex-col items-center rounded-[16px] border-2 border-dashed bg-nevo-violet/8 px-7 py-9 text-center transition-[filter,border-color] hover:brightness-[0.99] xl:px-8 xl:py-11",
@@ -239,6 +321,65 @@ export function BulkIngestion() {
             <h2 className="text-[23px] font-semibold tracking-[-0.015em] xl:mt-2 xl:text-[26px]">
               Here&rsquo;s what we found
             </h2>
+            {batch ? (
+              <>
+                <p className="mt-[9px] text-[14.5px] leading-[1.55] text-nevo-near-black/66 xl:mt-2.5 xl:text-[15.5px]">
+                  {batch.rejectedCount === 0
+                    ? `All ${batch.acceptedCount} came through cleanly.`
+                    : `${batch.acceptedCount} came through cleanly. ${batch.rejectedCount} ${batch.rejectedCount === 1 ? "needs" : "need"} a quick look.`}
+                </p>
+
+                {batchError && (
+                  <p className="mt-3 rounded-[10px] bg-nevo-violet/14 px-[15px] py-3 text-[13px] leading-[1.5] text-nevo-near-black/78">
+                    {batchError}
+                  </p>
+                )}
+
+                {/* Per FILE, because that is what the endpoint reports. A
+                    rejected file carries the server's own reason and sits on
+                    its own line - it has not sunk the others. */}
+                <div className="mt-[22px] overflow-hidden rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)] xl:mt-6">
+                  {batch.uploads.map((u, i) => (
+                    <div
+                      key={`${u.filename}-${i}`}
+                      className={cn(
+                        "flex items-start gap-3 px-[18px] py-3.5",
+                        i < batch.uploads.length - 1 &&
+                          "border-b border-nevo-near-black/7",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "mt-px shrink-0",
+                          u.accepted ? "text-nevo-navy" : "text-nevo-violet",
+                        )}
+                      >
+                        {u.accepted ? (
+                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M20 6L9 17l-5-5" />
+                          </svg>
+                        ) : (
+                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M12 8v5M12 16h.01" />
+                          </svg>
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[14.5px] font-medium text-nevo-near-black">
+                          {u.filename}
+                        </div>
+                        {!u.accepted && (
+                          <div className="mt-[3px] text-[13px] leading-[1.45] text-nevo-near-black/62">
+                            {u.error ?? "Nevo couldn’t read this one."}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
             <p className="mt-[9px] text-[14.5px] leading-[1.55] text-nevo-near-black/66 xl:mt-2.5 xl:text-[15.5px]">
               <span className="xl:hidden">
                 Eleven came through cleanly. Two need a quick look.
@@ -248,7 +389,12 @@ export function BulkIngestion() {
                 from you before they&rsquo;re ready.
               </span>
             </p>
+            )}
 
+            {/* The frame's 13 lessons back the signed-out demo only - a
+                real batch reports files, and those render above. */}
+            {!batch && (
+            <>
             <div className="mt-[22px] flex items-center gap-2.5 xl:mt-6">
               <span className="text-nevo-navy">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -316,6 +462,8 @@ export function BulkIngestion() {
                 </div>
               ))}
             </div>
+            </>
+            )}
           </div>
         </div>
       )}
