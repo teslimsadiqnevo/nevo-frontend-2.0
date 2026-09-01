@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWarmUpDimension } from "@/hooks/useWarmUpDimension";
+import { useStudentDashboard } from "@/hooks/useStudentDashboard";
 import { ArrowRight, Check } from "lucide-react";
 import { cn, randomId } from "@/lib/utils";
 import { baselineApi } from "@/lib/api";
@@ -55,6 +56,16 @@ export function WarmUpRun({
   const [done, setDone] = useState(false);
   // null until the write settles; false means it never reached Nevo.
   const [saved, setSaved] = useState<boolean | null>(null);
+  // "Start today's lesson" sent every child to the mock photosynthesis lesson,
+  // whatever their teacher had actually set - the same hand-off onboarding had.
+  // A real assignment when there is one; their lessons list when there is not.
+  const { data: dashboard } = useStudentDashboard();
+  const assigned = dashboard?.assignments.find((a) => a.status !== "completed");
+  const todaysLesson = assigned
+    ? `/student/lessons/${assigned.lesson.id}`
+    : dashboard
+      ? "/student/lessons"
+      : `/student/lessons/${FIRST_LESSON_ID}`;
   const [capture] = useState(() => new BaselineCapture(`warmup-${randomId()}`));
   const startedAt = useRef(0);
   const submitted = useRef(false);
@@ -120,7 +131,7 @@ export function WarmUpRun({
           </div>
           <button
             type="button"
-            onClick={() => router.push(`/student/lessons/${FIRST_LESSON_ID}`)}
+            onClick={() => router.push(todaysLesson)}
             className="h-12 cursor-pointer rounded-[10px] bg-nevo-navy px-6 text-base font-semibold text-nevo-cream transition-[filter,transform] hover:brightness-109 active:scale-[0.985]"
           >
             Start today&apos;s lesson
