@@ -12,7 +12,20 @@ import { cn, randomId } from "@/lib/utils";
 
 /** The minimum "Nevo is thinking" beat - real answers never land jarringly
  *  fast, and the mock fallback keeps its original calm pacing. */
-const LIVE_TIMEOUT_MS = 15000;
+/**
+ * How long the live answer gets before the mock engine takes over.
+ *
+ * Raised from 15s. The backend's own documented range for an unauthenticated
+ * 401 is 1.0-5.6s and a Render cold start is far slower than that, so 15s sat
+ * inside ordinary latency rather than beyond it - and a response arriving at
+ * 15.1s was discarded in favour of a canned reply. Same shape as the six-second
+ * race cap that cost two PRs elsewhere in this codebase.
+ *
+ * A cap still belongs here, unlike in `useLiveQuery`: a child watching thinking
+ * dots forever is worse than a labelled sample answer. It just has to sit past
+ * a cold start, not inside one.
+ */
+const LIVE_TIMEOUT_MS = 30000;
 const THINKING_MS = 1600;
 /** Mic toast lifetime. */
 const TOAST_MS = 3200;

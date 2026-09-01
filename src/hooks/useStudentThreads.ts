@@ -26,6 +26,12 @@ export interface StudentThreads {
   threads: Thread[];
   live: boolean;
   loading: boolean;
+  /**
+   * The thread list could not be read. Kept apart from "no threads": this was
+   * set internally and never returned, so a child whose connection dropped was
+   * shown the empty state and told their teacher had never written to them.
+   */
+  failed: boolean;
   openThread: (threadId: string) => void;
 }
 
@@ -103,12 +109,13 @@ export function useStudentThreads(): StudentThreads {
   );
 
   if (!signedIn) {
-    return { threads: THREADS, live: false, loading: false, openThread };
+    return { threads: THREADS, live: false, loading: false, failed: false, openThread };
   }
   return {
     threads: live ?? [],
     live: true,
     loading: live === null && !failed,
+    failed,
     openThread,
   };
 }

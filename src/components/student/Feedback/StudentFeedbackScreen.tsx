@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, Check, X } from "lucide-react";
 import { NevoKeyboard, useNevoKeyboardDock } from "@/components/shared";
+import { feedbackApi } from "@/lib/api";
 
 const PROFILE_HREF = "/student/profile";
 /** The sent state closes on its own (frame: "auto-closes ~1.5s in-app"). */
@@ -24,8 +25,11 @@ const SENT_CLOSE_MS = 1500;
  */
 export function StudentFeedbackScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const [note, setNote] = useState("");
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [failed, setFailed] = useState(false);
   const kb = useNevoKeyboardDock();
 
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -35,9 +39,30 @@ export function StudentFeedbackScreen() {
 
   const back = () => router.push(PROFILE_HREF);
 
+  const ready = note.trim().length > 0;
+
   const submit = () => {
-    setSent(true);
-    closeTimer.current = setTimeout(back, SENT_CLOSE_MS);
+    if (!ready || sending || sent) return;
+    setSending(true);
+    setFailed(false);
+    void feedbackApi
+      .submit({
+        type: "feedback",
+        note: note.trim(),
+        // Where they were standing when they wrote it - the first question
+        // anyone triaging feedback asks, and the route answers it for free.
+        context: pathname ?? undefined,
+      })
+      .then(() => {
+        setSending(false);
+        // Only now. The thank-you has to mean something was stored.
+        setSent(true);
+        closeTimer.current = setTimeout(back, SENT_CLOSE_MS);
+      })
+      .catch(() => {
+        setSending(false);
+        setFailed(true);
+      });
   };
 
   return (
@@ -97,12 +122,23 @@ export function StudentFeedbackScreen() {
               className="mt-4 min-h-[80px] w-full resize-none rounded-[10px] border border-nevo-near-black/12 bg-nevo-cream-elevated p-3.5 text-sm leading-[1.5] text-nevo-near-black outline-none transition-colors placeholder:text-nevo-near-black/30 focus:border-nevo-navy"
             />
 
+            {failed && (
+              <p
+                role="alert"
+                className="mt-3 text-[13px] leading-[1.5] text-nevo-violet"
+              >
+                That didn&apos;t send just now &mdash; that&apos;s on us, not
+                you. Your words are still here; try again in a moment.
+              </p>
+            )}
+
             <button
               type="button"
               onClick={submit}
-              className="mt-4 flex h-11 w-full cursor-pointer items-center justify-center rounded-[10px] bg-nevo-navy text-[13px] font-semibold text-nevo-cream transition-[filter,transform] hover:brightness-106 active:scale-[0.98]"
+              disabled={!ready || sending}
+              className="mt-4 flex h-11 w-full items-center justify-center rounded-[10px] bg-nevo-navy text-[13px] font-semibold text-nevo-cream transition-[filter,transform] not-disabled:cursor-pointer hover:not-disabled:brightness-106 active:not-disabled:scale-[0.98] disabled:opacity-45"
             >
-              Send Feedback
+              {sending ? "Sending…" : failed ? "Try again" : "Send Feedback"}
             </button>
 
             <p className="mx-0.5 mt-3.5 text-xs leading-[1.5] text-nevo-near-black/50">

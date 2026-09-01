@@ -1,19 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Bell } from "lucide-react";
 import { useNotifications } from "@/hooks";
 import { cn } from "@/lib/utils";
 
 /**
  * Notifications (board 28) - a quiet bell opening a calm panel: the two-line
- * mock feed, or the settled "Nothing new right now" empty state on a cream
- * tile. A panel anchored under the bell (popover on tablet/desktop, the same
+ * feed, or the settled "Nothing new right now" empty state on a cream tile.
+ *
+ * Rows carry TITLE AND DESCRIPTION on two lines. The feed always had both and
+ * the context collapsed them to one, discarding half of every notification.
+ * A row with `navigatesTo` is a link and one without is not pretending to be -
+ * the field is nullable in the contract. A panel anchored under the bell (popover on tablet/desktop, the same
  * card sized to the viewport on mobile). Never a badge count - a single dot
  * marks unread, no numbers anywhere.
  */
 export function NotificationBell({ className }: { className?: string }) {
-  const { notifications, unreadCount } = useNotifications();
+  const { notifications, unreadCount, failed } = useNotifications();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -51,7 +56,17 @@ export function NotificationBell({ className }: { className?: string }) {
           <p className="px-3 pt-2 pb-1.5 text-[15px] font-semibold text-nevo-near-black">
             Notifications
           </p>
-          {notifications.length === 0 ? (
+          {failed ? (
+            /* Could not ask is not the same as nothing new. */
+            <div className="flex flex-col items-center px-4 pt-6 pb-8 text-center">
+              <span className="flex size-14 items-center justify-center rounded-[12px] bg-nevo-cream-elevated text-nevo-navy/50">
+                <Bell className="size-[26px]" strokeWidth={2} />
+              </span>
+              <p className="mt-3.5 text-sm text-nevo-near-black/60">
+                We couldn&rsquo;t load these just now
+              </p>
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center px-4 pt-6 pb-8 text-center">
               <span className="flex size-14 items-center justify-center rounded-[12px] bg-nevo-cream-elevated text-nevo-navy/50">
                 <Bell className="size-[26px]" strokeWidth={2} />
@@ -62,25 +77,47 @@ export function NotificationBell({ className }: { className?: string }) {
             </div>
           ) : (
             <div className="flex flex-col">
-              {notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className="flex items-start gap-3 rounded-[10px] px-3 py-3 transition-colors hover:bg-nevo-cream-elevated"
-                >
-                  <span
-                    className={cn(
-                      "mt-1.5 size-2 shrink-0 rounded-full",
-                      n.read ? "bg-transparent" : "bg-nevo-violet",
-                    )}
-                  />
-                  <p className="min-w-0 flex-1 text-sm leading-[1.45] text-nevo-near-black">
-                    {n.text}
-                  </p>
-                  <span className="shrink-0 text-[12px] text-nevo-near-black/45">
-                    {n.ago}
-                  </span>
-                </div>
-              ))}
+              {notifications.map((n) => {
+                const body = (
+                  <>
+                    <span
+                      className={cn(
+                        "mt-1.5 size-2 shrink-0 rounded-full",
+                        n.read ? "bg-transparent" : "bg-nevo-violet",
+                      )}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm leading-[1.4] font-medium text-nevo-near-black">
+                        {n.title}
+                      </span>
+                      {n.text && (
+                        <span className="mt-0.5 block text-[13px] leading-[1.45] text-nevo-near-black/62">
+                          {n.text}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-[12px] text-nevo-near-black/45">
+                      {n.ago}
+                    </span>
+                  </>
+                );
+                const row =
+                  "flex items-start gap-3 rounded-[10px] px-3 py-3 text-left transition-colors hover:bg-nevo-cream-elevated";
+                return n.href ? (
+                  <Link
+                    key={n.id}
+                    href={n.href}
+                    onClick={() => setOpen(false)}
+                    className={row}
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  <div key={n.id} className={row}>
+                    {body}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

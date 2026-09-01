@@ -14,16 +14,32 @@ import { useHasSession } from "@/hooks/useHasSession";
 
 export interface NotificationItem {
   id: string;
-  /** Plain-language line ("A new lesson is ready for you"). */
-  text: string;
+  /** The headline ("A new lesson is ready"). */
+  title: string;
+  /**
+   * The sentence under it. The feed carries BOTH a title and a description,
+   * and this used to collapse them to `description || title` - so every
+   * notification arrived with half of it discarded, and which half depended
+   * on whether the backend had written a description.
+   */
+  text?: string;
   /** Compact age label ("2h", "1d"). */
   ago: string;
   read?: boolean;
+  /** Where tapping the row goes. Nullable in the contract: a row without one
+   *  is not a link and must not pretend to be. */
+  href?: string | null;
 }
 
 export interface NotificationContextValue {
   unreadCount: number;
   notifications: NotificationItem[];
+  /**
+   * The feed could not be read. Kept apart from an empty feed: "Nothing new
+   * right now" is a claim, and it is the wrong one when we simply could not
+   * ask.
+   */
+  failed: boolean;
   refresh: () => void;
 }
 
@@ -40,8 +56,19 @@ export const NotificationContext = createContext<
  * the teacher console follows.
  */
 const MOCK_NOTIFICATIONS: NotificationItem[] = [
-  { id: "n1", text: "A new lesson is ready for you", ago: "2h" },
-  { id: "n2", text: "Ms Okafor sent you a message", ago: "1d", read: true },
+  {
+    id: "n1",
+    title: "A new lesson is ready",
+    text: "Adding Fractions is waiting for you",
+    ago: "2h",
+  },
+  {
+    id: "n2",
+    title: "Ms Okafor sent you a message",
+    text: "Lovely work on your fractions today",
+    ago: "1d",
+    read: true,
+  },
 ];
 
 /** The frame's compact stamp: "2h", "1d". */
@@ -58,12 +85,14 @@ function ago(iso: string): string {
 
 function toItem(n: Notification): NotificationItem {
   return {
-    // The feed carries a title and a description; the bell shows one line,
-    // and the description is the sentence.
     id: n.notificationId,
-    text: n.description || n.title,
+    // Both, on two lines - see `NotificationItem.text`. A description equal to
+    // the title is not a second line, it is the same line twice.
+    title: n.title,
+    text: n.description && n.description !== n.title ? n.description : undefined,
     ago: ago(n.createdAt),
     read: n.read,
+    href: n.navigatesTo,
   };
 }
 
@@ -71,6 +100,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const signedIn = useHasSession();
   const [feed, setFeed] = useState<Notification[] | null>(null);
   const [unread, setUnread] = useState(0);
+  const [failed, setFailed] = useState(false);
   /** Bumped by `refresh` to re-run the fetch. */
   const [nonce, setNonce] = useState(0);
 
@@ -83,12 +113,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         setFeed(res.notifications);
         setUnread(res.unreadCount);
+        setFailed(false);
       })
       .catch(() => {
-        // An unreachable feed is an empty bell, never the fixtures.
+        // Never the fixtures - but not a silent empty bell either. The panel
+        // says it could not load rather than claiming there is nothing new.
         if (!cancelled) {
           setFeed([]);
           setUnread(0);
+          setFailed(true);
         }
       });
     return () => {
@@ -103,15 +136,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       return {
         notifications: MOCK_NOTIFICATIONS,
         unreadCount: MOCK_NOTIFICATIONS.filter((n) => !n.read).length,
+        failed: false,
         refresh,
       };
     }
     return {
       notifications: (feed ?? []).map(toItem),
       unreadCount: unread,
+      failed,
       refresh,
     };
-  }, [signedIn, feed, unread, refresh]);
+  }, [signedIn, feed, unread, failed, refresh]);
 
   return (
     <NotificationContext.Provider value={value}>

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { useHasSession } from "@/hooks/useHasSession";
+import { useHydrated } from "@/hooks/useHydrated";
 import type {
   SessionRow,
   SubjectDetail as SubjectDetailData,
@@ -27,12 +29,47 @@ function smoothPath(points: [number, number][]): string {
  * from the Progress tab. A plain-language reflection, a gentle growth line with
  * session markers (direction, not data), and the lessons behind it. No numbers,
  * no score, no comparison.
+ *
+ * Gated exactly as the Progress tab is, and for the same reason: the prose here
+ * is invented reflection on a child's learning ("Fractions clicked this week"),
+ * and no endpoint carries the real thing. The tab no longer links here for a
+ * signed-in child, but a bookmark or a typed URL still reaches it.
  */
 export function SubjectDetail({ subject }: { subject: SubjectDetailData }) {
+  const signedIn = useHasSession();
+  const hydrated = useHydrated();
   // Session Detail sheet (Subject Detail frame): tapping a growth-line marker
   // opens the session behind it.
   const [session, setSession] = useState<SessionRow | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Same gate as the Progress tab, and hydration-safe for the same reason: SSR
+  // cannot see the token, so rendering first and correcting after would show a
+  // signed-in child a frame of invented reflection on their own learning.
+  if (!hydrated || signedIn) {
+    return (
+      <div className="mx-auto w-full max-w-[900px] px-5 py-3 pb-6 sm:px-8 sm:py-6">
+        <Link
+          href="/student/progress"
+          aria-label="Back to Progress"
+          className="flex size-11 items-center justify-center rounded-[10px] text-nevo-near-black transition-colors hover:bg-nevo-near-black/[0.06]"
+        >
+          <ChevronLeft className="size-6" strokeWidth={2} />
+        </Link>
+        {hydrated && signedIn && (
+          <div className="px-6 pt-8 text-center">
+            <h1 className="text-lg font-medium text-nevo-near-black">
+              Nothing to show here yet
+            </h1>
+            <p className="mx-auto mt-1.5 max-w-[320px] text-sm leading-[1.55] text-nevo-near-black/60">
+              Keep going with your lessons and Nevo will start showing you how
+              things are building.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // Markers run oldest → newest left-to-right; the lessons list is newest-first.
   // Map from the newest end so the most recent markers carry sessions; any
