@@ -32,7 +32,7 @@ export interface SettingRow {
 
 export const NOTIFICATION_SETTINGS: SettingRow[] = [
   {
-    id: "sudden",
+    id: "attention",
     label: "Something changed suddenly",
     sub: "A student's pattern shifts noticeably",
   },
@@ -42,7 +42,7 @@ export const NOTIFICATION_SETTINGS: SettingRow[] = [
     sub: "New replies in your threads",
   },
   {
-    id: "weekly",
+    id: "reports",
     label: "Weekly summary",
     sub: "A calm Monday overview of each class",
   },
@@ -63,9 +63,9 @@ export const ACCESSIBILITY_SETTINGS: SettingRow[] = [
 
 /** Frame defaults, verbatim. */
 export const DEFAULT_SETTINGS: Record<string, boolean> = {
-  sudden: true,
+  attention: true,
   messages: true,
-  weekly: false,
+  reports: false,
   reduceMotion: true,
   largerText: false,
 };

@@ -30,9 +30,9 @@ import { useHasSession } from "./useHasSession";
  */
 
 const DEFAULTS: TeacherNotificationSettings = {
-  sudden: DEFAULT_SETTINGS.sudden,
+  attention: DEFAULT_SETTINGS.attention,
   messages: DEFAULT_SETTINGS.messages,
-  weekly: DEFAULT_SETTINGS.weekly,
+  reports: DEFAULT_SETTINGS.reports,
 };
 
 export type SaveState = "idle" | "saving" | "saved" | "failed";

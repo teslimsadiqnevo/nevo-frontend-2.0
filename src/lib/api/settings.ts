@@ -32,12 +32,12 @@ import { api } from "./client";
  */
 
 export interface TeacherNotificationSettings {
-  /** A student's pattern shifts noticeably. */
-  sudden: boolean;
+  /** A student's pattern shifts noticeably. C11's "Something changed suddenly". */
+  attention: boolean;
   /** New replies in the teacher's threads. */
   messages: boolean;
-  /** The calm Monday overview. */
-  weekly: boolean;
+  /** The calm Monday overview. C11's "Weekly summary". */
+  reports: boolean;
 }
 
 export interface SettingsBag {
@@ -45,7 +45,24 @@ export interface SettingsBag {
   [key: string]: unknown;
 }
 
-export const NOTIFICATION_CATEGORIES = ["sudden", "messages", "weekly"] as const;
+/**
+ * The backend's `NotificationCategory` enum, exactly.
+ *
+ * These keys used to be ours - `sudden`, `messages`, `weekly` - and on
+ * 1 Sep 2026 backend enumerated the field, so two of the three became a 422
+ * and saving notification preferences broke outright. Our three toggles map
+ * onto theirs without a gap: "Something changed suddenly" is `attention` and
+ * "Weekly summary" is `reports`.
+ *
+ * The enum is wider than the console surfaces today (`assignments`, `consent`,
+ * `billing`, `account` have no switch in C11); we send only the three the
+ * frame draws, and leave the rest to whatever set them.
+ */
+export const NOTIFICATION_CATEGORIES = [
+  "attention",
+  "messages",
+  "reports",
+] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
 export interface NotificationPreference {
