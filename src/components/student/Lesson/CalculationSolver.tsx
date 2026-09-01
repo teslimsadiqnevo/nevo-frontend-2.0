@@ -29,6 +29,7 @@ export function CalculationSolver({
   onSolved,
   onStepAnswered,
   onReplay,
+  onPiecePlaced,
 }: {
   calculation: CalculationSegment;
   /** Fired once the answer assembles - the player opens the forward chevron. */
@@ -37,6 +38,13 @@ export function CalculationSolver({
   onStepAnswered?: (correct: boolean) => void;
   /** Audio narration replay (replay signal). */
   onReplay?: () => void;
+  /**
+   * A kinesthetic tile placed onto the scaffold. The ingest contract has a
+   * `manipulative_piece_placed` type for exactly this and nothing was ever
+   * emitting it - the placement is how a kinesthetic learner shows their
+   * thinking, and it was the one modality producing no evidence at all.
+   */
+  onPiecePlaced?: (placed: number, needed: number) => void;
 }) {
   const steps = calculation.steps;
   const lastIndex = steps.length - 1;
@@ -123,7 +131,13 @@ export function CalculationSolver({
   };
 
   const placeTile = () => {
-    setPlaced((p) => Math.min(sum, p + 1));
+    setPlaced((p) => {
+      const next = Math.min(sum, p + 1);
+      // Only a placement that actually moved the scaffold is a signal; tapping
+      // a full scaffold is not a new piece.
+      if (next !== p) onPiecePlaced?.(next, sum);
+      return next;
+    });
   };
 
   const commitManip = () => {

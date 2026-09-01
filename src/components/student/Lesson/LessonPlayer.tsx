@@ -843,14 +843,30 @@ export function LessonPlayer({
               onAudioBusy={(phase) =>
                 trackBusy(BUSY_REASON.MEDIA_PLAYING, phase)
               }
-              onCalcSolved={() =>
-                setSolvedCalcs((prev) => new Set(prev).add(segment.id))
-              }
+              onCalcSolved={() => {
+                setSolvedCalcs((prev) => new Set(prev).add(segment.id));
+                // Solving the calculation is the centrepiece interaction of
+                // 17b and emitted NOTHING - the local set was the only trace.
+                trackEvent(SIGNAL_EVENT_TYPES.CALCULATION_COMPLETE, {
+                  segmentId: segment.id,
+                });
+              }}
               onCalcStep={(correct) =>
-                trackEvent(SIGNAL_EVENT_TYPES.COMPREHENSION_RESPONSE, {
-                  kind: "calculation",
+                // The ingest enum has a type for this. It was riding
+                // `comprehension_response` under a `kind` of our own invention,
+                // which obliges the engine to know our convention - and no
+                // batch had ever actually landed under it, so switching now
+                // costs no history.
+                trackEvent(SIGNAL_EVENT_TYPES.CALCULATION_STEP_RESPONSE, {
                   segmentId: segment.id,
                   correct,
+                })
+              }
+              onPiecePlaced={(placed, needed) =>
+                trackEvent(SIGNAL_EVENT_TYPES.MANIPULATIVE_PIECE_PLACED, {
+                  segmentId: segment.id,
+                  placed,
+                  needed,
                 })
               }
             />
@@ -937,6 +953,7 @@ function SegmentBody({
   onAudioBusy,
   onCalcSolved,
   onCalcStep,
+  onPiecePlaced,
 }: {
   segment: LessonSegment;
   modality: Modality;
@@ -947,6 +964,7 @@ function SegmentBody({
   onAudioBusy: (phase: BusyPhase) => void;
   onCalcSolved: () => void;
   onCalcStep: (correct: boolean) => void;
+  onPiecePlaced: (placed: number, needed: number) => void;
 }) {
   if (modality === MODALITY.TEXT && segment.text)
     return (
@@ -976,6 +994,7 @@ function SegmentBody({
           onSolved={onCalcSolved}
           onStepAnswered={onCalcStep}
           onReplay={onReplay}
+          onPiecePlaced={onPiecePlaced}
         />
       );
     if (segment.interactive)

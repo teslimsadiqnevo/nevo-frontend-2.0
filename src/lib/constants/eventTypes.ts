@@ -18,6 +18,18 @@ export const SIGNAL_EVENT_TYPES = {
   SLOWER_TRIGGER: "slower_trigger",
   COMPREHENSION_RESPONSE: "comprehension_response",
   EXIT_ATTEMPT: "exit_attempt",
+  /**
+   * The calculation solver (17b). All three are in the backend's own ingest
+   * enum and none of them existed here, so the solver - the accessibility
+   * centrepiece, and the one component that teaches across every modality -
+   * produced no evidence of its own. Steps rode `comprehension_response`
+   * under a `kind` of our invention; solving emitted nothing at all; and a
+   * kinesthetic learner placing tiles, which is precisely how that learner
+   * shows their thinking, emitted nothing either.
+   */
+  CALCULATION_STEP_RESPONSE: "calculation_step_response",
+  CALCULATION_COMPLETE: "calculation_complete",
+  MANIPULATIVE_PIECE_PLACED: "manipulative_piece_placed",
   /** Module boundary screen shown (SCRUM-101) — payload { moduleId }. */
   MODULE_BOUNDARY_REACHED: "module_boundary_reached",
   /** The student's boundary choice — payload { moduleId, action: continue|break }. */
