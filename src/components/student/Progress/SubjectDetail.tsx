@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useHydrated } from "@/hooks/useHydrated";
+import { useStudentProgress } from "@/hooks/useStudentProgress";
 import type {
   SessionRow,
   SubjectDetail as SubjectDetailData,
@@ -30,46 +32,54 @@ function smoothPath(points: [number, number][]): string {
  * session markers (direction, not data), and the lessons behind it. No numbers,
  * no score, no comparison.
  *
- * Gated exactly as the Progress tab is, and for the same reason: the prose here
- * is invented reflection on a child's learning ("Fractions clicked this week"),
- * and no endpoint carries the real thing. The tab no longer links here for a
- * signed-in child, but a bookmark or a typed URL still reaches it.
+ * SIGNED IN, THIS READS LIVE. `GET /api/students/{id}/progress/{subject}`
+ * carries the concepts worked on and the lesson history with timestamps - the
+ * two things this screen is actually made of. The invented reflection
+ * ("Fractions clicked this week") has no field behind it and is simply not
+ * shown rather than generated from a score.
+ *
+ * The growth line stays DECORATIVE and `aria-hidden`, as designed. The
+ * contract gives a current understanding value per concept and no series over
+ * time, so drawing a trend from it would be inventing a shape the data does
+ * not have. Direction of travel, not data - the frame's own words.
  */
-export function SubjectDetail({ subject }: { subject: SubjectDetailData }) {
+export function SubjectDetail({
+  subject,
+  slug,
+}: {
+  /** The designed fixture, for the signed-out walkthrough. */
+  subject: SubjectDetailData | null;
+  /** Route slug - the live subject is matched against it. */
+  slug: string;
+}) {
   const signedIn = useHasSession();
   const hydrated = useHydrated();
+  const live = useStudentProgress();
+  const liveSubject = live.subjects.find((s) => s.slug === slug);
   // Session Detail sheet (Subject Detail frame): tapping a growth-line marker
   // opens the session behind it.
   const [session, setSession] = useState<SessionRow | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  // Same gate as the Progress tab, and hydration-safe for the same reason: SSR
-  // cannot see the token, so rendering first and correcting after would show a
-  // signed-in child a frame of invented reflection on their own learning.
-  if (!hydrated || signedIn) {
+  // Hydration-safe: SSR cannot see the token, so rendering the fixtures first
+  // and correcting after would show a signed-in child a frame of invented
+  // reflection on their own learning.
+  if (!hydrated || (signedIn && live.loading)) {
+    return <DetailShell />;
+  }
+  if (signedIn) {
     return (
-      <div className="mx-auto w-full max-w-[900px] px-5 py-3 pb-6 sm:px-8 sm:py-6">
-        <Link
-          href="/student/progress"
-          aria-label="Back to Progress"
-          className="flex size-11 items-center justify-center rounded-[10px] text-nevo-near-black transition-colors hover:bg-nevo-near-black/[0.06]"
-        >
-          <ChevronLeft className="size-6" strokeWidth={2} />
-        </Link>
-        {hydrated && signedIn && (
-          <div className="px-6 pt-8 text-center">
-            <h1 className="text-lg font-medium text-nevo-near-black">
-              Nothing to show here yet
-            </h1>
-            <p className="mx-auto mt-1.5 max-w-[320px] text-sm leading-[1.55] text-nevo-near-black/60">
-              Keep going with your lessons and Nevo will start showing you how
-              things are building.
-            </p>
-          </div>
-        )}
-      </div>
+      <LiveSubjectDetail
+        name={liveSubject?.name ?? subject?.name ?? "Progress"}
+        concepts={liveSubject?.concepts ?? []}
+        lessons={live.lessons}
+        failed={live.failed}
+      />
     );
   }
+
+  // Signed out with no fixture for this slug: nothing designed to show.
+  if (!subject) notFound();
 
   // Markers run oldest → newest left-to-right; the lessons list is newest-first.
   // Map from the newest end so the most recent markers carry sessions; any
@@ -189,5 +199,128 @@ export function SubjectDetail({ subject }: { subject: SubjectDetailData }) {
         onOpenChange={setSheetOpen}
       />
     </div>
+  );
+}
+
+/** Chrome shared by every state of this screen. */
+function DetailFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-full flex-col">
+      <div className="flex h-14 shrink-0 items-center px-3 sm:px-5">
+        <Link
+          href="/student/progress"
+          aria-label="Back to Progress"
+          className="flex size-11 items-center justify-center rounded-[10px] transition-colors hover:bg-nevo-near-black/[0.06]"
+        >
+          <ChevronLeft className="size-6 text-nevo-near-black" strokeWidth={2} />
+        </Link>
+        <span className="ml-1.5 text-sm text-nevo-near-black/60 max-sm:hidden">
+          Progress
+        </span>
+      </div>
+      <div className="mx-auto w-full max-w-[680px] px-6 pb-8 sm:px-8">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DetailShell() {
+  return (
+    <DetailFrame>
+      <div className="h-8 w-48 animate-pulse rounded bg-nevo-cream-elevated" />
+      <div className="mt-7 h-[132px] animate-pulse rounded-[12px] bg-nevo-cream-elevated" />
+    </DetailFrame>
+  );
+}
+
+/**
+ * The child's own subject, from `progress/{subject}`.
+ *
+ * Concepts and lesson history are real. The reflection paragraph is absent:
+ * nothing writes one, and composing it from `understanding` would be us making
+ * the claim. Dates are formatted from `updatedAt`, which is a fact.
+ */
+function LiveSubjectDetail({
+  name,
+  concepts,
+  lessons,
+  failed,
+}: {
+  name: string;
+  concepts: { conceptId: string; name: string }[];
+  lessons: { lessonId: string; title: string; updatedAt: string }[];
+  failed: boolean;
+}) {
+  if (failed) {
+    return (
+      <DetailFrame>
+        <h1 className="text-[26px] font-semibold tracking-[-0.01em] text-nevo-near-black sm:text-[30px]">
+          {name}
+        </h1>
+        <p className="mt-4 text-[15px] leading-[1.55] text-nevo-near-black/66">
+          We couldn&rsquo;t load this just now. Nothing is lost &mdash; give it a
+          moment and try again.
+        </p>
+      </DetailFrame>
+    );
+  }
+
+  return (
+    <DetailFrame>
+      <h1 className="text-[26px] font-semibold tracking-[-0.01em] text-nevo-near-black sm:text-[30px] lg:text-[32px]">
+        {name}
+      </h1>
+
+      {concepts.length > 0 && (
+        <>
+          <h2 className="mt-7 text-base font-semibold text-nevo-near-black">
+            What you&apos;ve been working on
+          </h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {concepts.map((c) => (
+              <span
+                key={c.conceptId}
+                className="rounded-full bg-nevo-violet/20 px-3 py-1.5 text-[13px] text-nevo-navy"
+              >
+                {c.name}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+
+      {lessons.length > 0 && (
+        <>
+          <h2 className="mt-7 text-base font-semibold text-nevo-near-black">
+            Lessons you&apos;ve done
+          </h2>
+          <ul className="mt-3">
+            {lessons.map((l) => (
+              <li
+                key={l.lessonId}
+                className="flex items-center justify-between gap-3 border-b border-nevo-near-black/8 py-3.5"
+              >
+                <span className="min-w-0 flex-1 truncate text-[15px] text-nevo-near-black">
+                  {l.title}
+                </span>
+                <span className="shrink-0 text-[13px] text-nevo-near-black/55">
+                  {new Date(l.updatedAt).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {concepts.length === 0 && lessons.length === 0 && (
+        <p className="mt-6 text-[15px] leading-[1.55] text-nevo-near-black/60">
+          Nothing here yet. Keep going with your lessons and this will fill in.
+        </p>
+      )}
+    </DetailFrame>
   );
 }
