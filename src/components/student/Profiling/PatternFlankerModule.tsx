@@ -104,8 +104,20 @@ export function PatternFlankerModule({
               ))}
             </div>
             <div className="flex w-full max-w-[300px] flex-col gap-3.5 sm:w-auto sm:max-w-none sm:flex-row">
-              <TrialButton label="Same" pressed={picked === 0} onClick={() => pick(0, { pair: patternTrial.same ? "same" : "different" })} />
-              <TrialButton label="Different" pressed={picked === 1} onClick={() => pick(1, { pair: patternTrial.same ? "same" : "different" })} />
+              <TrialButton label="Same" pressed={picked === 0} onClick={() =>
+                  pick(0, {
+                    pair: patternTrial.same ? "same" : "different",
+                    // Derivable here and nowhere downstream: "Same" is right
+                    // when the pair IS the same. The reducer had only speed.
+                    correct: patternTrial.same === true,
+                  })
+                } />
+              <TrialButton label="Different" pressed={picked === 1} onClick={() =>
+                  pick(1, {
+                    pair: patternTrial.same ? "same" : "different",
+                    correct: patternTrial.same === false,
+                  })
+                } />
             </div>
           </>
         ) : (
