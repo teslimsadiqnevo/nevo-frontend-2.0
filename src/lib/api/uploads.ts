@@ -71,6 +71,23 @@ export interface UploadCreated {
   stage: UploadStage;
 }
 
+/** One file's outcome inside a batch. */
+export interface BatchUpload {
+  uploadId: string | null;
+  filename: string;
+  accepted: boolean;
+  /** The server's own reason when it refused the file. */
+  error: string | null;
+  status: UploadStatus | null;
+  stage: UploadStage | null;
+}
+
+export interface BatchResult {
+  acceptedCount: number;
+  rejectedCount: number;
+  uploads: BatchUpload[];
+}
+
 export const uploadsApi = {
   /** Stage a file. `scope` is the unit size; `subject` is optional. */
   create: (file: File, scope: string, subject?: string) => {
@@ -79,6 +96,21 @@ export const uploadsApi = {
     form.append("scope", scope);
     if (subject) form.append("subject", subject);
     return api.post<UploadCreated>("/api/v1/uploads", form);
+  },
+
+  /**
+   * Stage up to 20 files at once - C07h's whole scheme of work.
+   *
+   * Each file reports its OWN outcome: one oversized or unreadable file is
+   * rejected on its own line rather than sinking the batch. That is the
+   * shape to render, and the reason `Promise.all` would have been wrong here.
+   */
+  batch: (files: File[], scope: string, subject?: string) => {
+    const form = new FormData();
+    files.forEach((f) => form.append("files", f));
+    form.append("scope", scope);
+    if (subject) form.append("subject", subject);
+    return api.post<BatchResult>("/api/v1/uploads/batch", form);
   },
 
   /** Where the parse has got to, and the structure once there is one. */
