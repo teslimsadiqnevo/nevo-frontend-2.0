@@ -19,6 +19,26 @@ export const AGE_BANDS = {
 export type AgeBand = (typeof AGE_BANDS)[keyof typeof AGE_BANDS];
 
 /** Resolve a band from the mock roster's "Year N" / "JSS N" / "SS N" subtitle. */
+/**
+ * The band for a stated age, which is what onboarding actually collects.
+ *
+ * Step 1 asks a child their age and wrote it to the onboarding draft, where
+ * nothing ever read it. The band - which decides grid size, span ceiling and
+ * whether the dual task runs - came from a FIXTURE year label instead, so a
+ * six-year-old and a fifteen-year-old sat the identical Primary 4-6 baseline.
+ * Calibrating the calibration run to a mock defeats the point of running it.
+ *
+ * Boundaries follow the Nigerian levels the year labels encode: P1-3 to about
+ * eight, P4-6 to eleven, JSS to fourteen, SS beyond.
+ */
+export function bandForAge(age: number): AgeBand {
+  if (!Number.isFinite(age)) return AGE_BANDS.P46;
+  if (age <= 8) return AGE_BANDS.P13;
+  if (age <= 11) return AGE_BANDS.P46;
+  if (age <= 14) return AGE_BANDS.JSS;
+  return AGE_BANDS.SS;
+}
+
 export function bandForYearLabel(label: string): AgeBand {
   const jss = /jss/i.test(label);
   const ss = /\bss\b/i.test(label) && !jss;

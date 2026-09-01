@@ -7,7 +7,7 @@ import { Check, ChevronLeft } from "lucide-react";
 import { NevoKeyboard, useNevoKeyboardDock } from "@/components/shared";
 import { cn } from "@/lib/utils";
 
-/** Mock class code. `POST /api/v1/connections/class-code` exists (the code
+/** Demo class code - the walkthrough's, not a validator. `POST /api/v1/connections/class-code` exists (the code
  *  rides a `class_code` query param on a POST - flagged) but is Bearer-only,
  *  and this step runs before any session exists - so a real join cannot
  *  happen here. The picked class rides the onboarding draft instead; flagged
@@ -323,8 +323,15 @@ function CodeMode({
           </p>
         )}
         {status === "error" && (
+          /* NOT "that code doesn't match a class" - we never checked a class.
+             The comparison is against a hardcoded demo code, because
+             `POST /api/v1/connections/class-code` is Bearer-only and this flow
+             runs before a child has a token. A real code fails here, and the
+             old copy told that child their code was wrong and sent them to
+             their teacher about it. Say what is actually true instead. */
           <p className="text-sm text-nevo-violet">
-            That code doesn&apos;t match a class. Check it with your teacher.
+            We can&apos;t check class codes just yet. Your teacher can add you
+            to the class instead - carry on and they&apos;ll sort it.
           </p>
         )}
       </div>
