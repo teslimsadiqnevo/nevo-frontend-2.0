@@ -156,7 +156,16 @@ function toCard(lesson: LessonSummary): LibraryCard {
     status: statusOf(lesson),
     kind,
     needsReview: needsReviewOf(lesson),
-    meta: `${n} ${n === 1 ? "section" : "sections"} · ${SOURCE_LABEL[lesson.sourceType] ?? lesson.sourceType}`,
+    // C06's meta line gained a duration on 1 Sep. 0 and absent both mean "no
+    // estimate" - the figure is floored per content type server-side, so a
+    // real lesson is never 0 minutes and "0 min" would be a claim.
+    meta: [
+      `${n} ${n === 1 ? "section" : "sections"}`,
+      SOURCE_LABEL[lesson.sourceType] ?? lesson.sourceType,
+      lesson.estimatedMinutes ? `${lesson.estimatedMinutes} min` : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
     footer: footerOf(lesson),
   };
 }

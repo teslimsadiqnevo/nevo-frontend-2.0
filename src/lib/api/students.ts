@@ -324,6 +324,32 @@ export interface ClassMasteryRow {
   masteryProbabilityReading: number;
 }
 
+/**
+ * Ask Nevo help-seeking, aggregate only.
+ *
+ * `privacy` is the SERVER's gate, not ours: `withheld_below_minimum` means it
+ * has decided there is too little here to say anything, and nothing may be
+ * rendered in that case - not a zero, not a "no data yet". `categories` is a
+ * name -> count map; there are no per-question rows in this response and there
+ * must never be. See the ruling at the top of this file.
+ */
+export interface ConversationEvidence {
+  studentId: string;
+  periodDays: number;
+  interactionCount: number;
+  categories: Record<string, number>;
+  helpfulResponseRate: number | null;
+  privacy: "aggregate_only" | "withheld_below_minimum";
+  minimumInteractions?: number;
+}
+
+export const conversationEvidenceApi = {
+  forStudent: (studentId: string) =>
+    api.get<ConversationEvidence>(
+      `/api/conversation-evidence/student/${studentId}`,
+    ),
+};
+
 export const classInsightsApi = {
   /**
    * Shared misconceptions. `minimumStudents` filters out one-offs.

@@ -55,11 +55,21 @@ export interface LessonSummary {
   assignmentCount?: number;
   /** Shipped 31 Aug. Free text; only the staged upload routes can set one. */
   subject?: string | null;
+  /**
+   * Shipped 1 Sep, pre-summed so a list view need not load segments.
+   * Estimated from word count at a school reading pace and floored per content
+   * type, so a real lesson is never 0 - which makes 0 (its schema default) and
+   * absent both mean "no estimate", and neither may be rendered as "0 min".
+   * Present it as approximate: it is a planning figure, not a measurement.
+   */
+  estimatedMinutes?: number;
   createdAt: string;
 }
 
 export interface LessonSegment {
   id: string;
+  /** Shipped 1 Sep. 0 or absent means no estimate - see `LessonSummary`. */
+  estimatedMinutes?: number;
   segmentKey: string;
   contentType: LessonContentType;
   sequenceOrder: number;
