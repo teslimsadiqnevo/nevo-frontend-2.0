@@ -17,11 +17,9 @@ import { useEffect, useState } from "react";
 export function ShareSheet({
   studentName,
   onCancel,
-  onSend,
 }: {
   studentName: string;
   onCancel: () => void;
-  onSend: (note: string) => void;
 }) {
   const [note, setNote] = useState("");
   const firstName = studentName.split(" ")[0];
@@ -67,12 +65,25 @@ export function ShareSheet({
             onClick={onCancel}
             className="flex h-[50px] flex-1 cursor-pointer items-center justify-center rounded-[10px] border-[1.5px] border-nevo-navy/30 text-[14.5px] font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6 xl:h-[52px] xl:text-[15px]"
           >
-            Cancel
+            Close
           </button>
+          <p className="mb-3 w-full text-[13px] leading-[1.5] text-nevo-near-black/62">
+            Sending to Learning Support isn&rsquo;t connected yet, so nothing
+            here reaches your SENCo. Please raise it with them directly.
+          </p>
+          {/* NO SEND. There is no transport for a teacher-to-SENCo note in
+              the contract - `POST /api/messages` constrains recipientType to
+              ^(student|class)$, the IEP share takes a parentId, and the flags
+              read is GET-only - so this button used to close the sheet and
+              assert the referral had happened. A safeguarding disclosure
+              reported as delivered when nothing left the browser is the worst
+              thing on this screen, so the claim is gone and the reason is
+              here instead. */}
           <button
             type="button"
-            onClick={() => onSend(note)}
-            className="flex h-[50px] flex-1 cursor-pointer items-center justify-center rounded-[10px] bg-nevo-navy text-[14.5px] font-semibold text-nevo-cream transition-[filter] hover:brightness-93 xl:h-[52px] xl:text-[15px]"
+            disabled
+            title="Escalations can't be sent from Nevo yet"
+            className="flex h-[50px] flex-1 cursor-not-allowed items-center justify-center rounded-[10px] bg-nevo-navy/18 text-[14.5px] font-semibold text-nevo-near-black/40 xl:h-[52px] xl:text-[15px]"
           >
             Send to Learning Support
           </button>
