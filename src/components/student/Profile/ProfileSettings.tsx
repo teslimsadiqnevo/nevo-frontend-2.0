@@ -274,9 +274,16 @@ export function ProfileSettings() {
           // The sheet promises "you can come back anytime with your PIN" -
           // onboarding has no route to the PIN unlock, so a remembered
           // device would have stranded them in the full setup flow.
-          router.push(
-            getRememberedProfile() ? "/auth/login" : "/student/onboarding",
-          );
+          const door = getRememberedProfile()
+            ? "/auth/login"
+            : "/student/onboarding";
+          // A HARD navigation, not router.push - the same race the teacher
+          // console hit in #176. The route guard reads the `nevo.role` cookie
+          // and a client-side push runs before the clear settles, so the guard
+          // still saw a student, bounced them back into the console, and the
+          // token dropped underneath them a moment later. Signing out landed
+          // you where you started and then quietly logged you out.
+          window.location.assign(door);
         }}
       />
 

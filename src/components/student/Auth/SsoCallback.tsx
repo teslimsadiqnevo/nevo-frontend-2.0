@@ -58,10 +58,29 @@ export function SsoCallback() {
   const resolve = useCallback(() => {
     if (resolveTimer.current) clearTimeout(resolveTimer.current);
     resolveTimer.current = setTimeout(() => {
-      // TODO(api): replace with authApi.ssoCallback(query) once the contract lands.
-      const result = resolveMockSso({
-        mock: searchParams.get("mock") ?? undefined,
-      });
+      // A REAL handshake, an EXPLICIT demo, or none.
+      //
+      // This used to resolve success by DEFAULT: landing here with no query at
+      // all fabricated an SSO student and routed them into onboarding, with
+      // `AuthContext.status === "authenticated"` while `useHasSession()` stayed
+      // false. It looked signed in and was not - the same shape the teacher
+      // callback was fixed for, though without its consequences, since the
+      // route guard covers teacher and admin only and a token-less student
+      // reaches nothing but fixtures.
+      //
+      // An identity provider returns `code` and `state`. With neither, and no
+      // explicit `?mock=`, there is no handshake to complete and nothing to
+      // sign in with, so the screen says so rather than inventing one.
+      // TODO(api): replace with authApi.ssoCallback(query) once the contract
+      // lands - the teacher side already calls it.
+      const demo = searchParams.get("mock") ?? undefined;
+      const hasHandshake =
+        Boolean(searchParams.get("code")) && Boolean(searchParams.get("state"));
+      if (!demo && !hasHandshake) {
+        setPhase("error");
+        return;
+      }
+      const result = resolveMockSso({ mock: demo });
 
       if (result.status === "error" || !result.user) {
         setPhase("error");

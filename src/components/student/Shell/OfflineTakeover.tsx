@@ -7,9 +7,17 @@ import { Button } from "@/components/shared";
 
 /**
  * Offline, full screen (board 28) - the calm takeover for network-backed
- * surfaces when the connection drops. The lesson player never uses this (the
- * cached lesson stays usable behind its quiet banner); the Downloads tab stays
- * reachable too, because that is exactly where "See saved lessons" points.
+ * surfaces when the connection drops. The lesson player never uses this: an
+ * open lesson stays readable behind its quiet banner.
+ *
+ * IT CLAIMED DOWNLOADED LESSONS THAT DO NOT EXIST. "Your downloaded lessons
+ * are still here" and a "See saved lessons" button pointing at Downloads -
+ * which caches nothing, and which now tells a signed-in child plainly that
+ * offline saving is not ready. The button led from a promise to its own
+ * retraction.
+ *
+ * Progress is a different matter and is now true: `useLessonProgress` holds the
+ * newest unsent position and re-sends it on reconnect.
  */
 export function OfflineTakeover() {
   const router = useRouter();
@@ -22,18 +30,11 @@ export function OfflineTakeover() {
         You&apos;re offline
       </h1>
       <p className="mt-2.5 max-w-[340px] text-[15px] leading-[1.55] text-nevo-near-black/66 sm:text-base">
-        No internet connection right now. Your progress is saved - and your
-        downloaded lessons are still here.
+        No internet connection right now. Anything you were part-way through is
+        safe, and it will save as soon as you&apos;re back.
       </p>
       <Button
         className="mt-7 w-full max-w-[300px]"
-        onClick={() => router.push("/student/downloads")}
-      >
-        See saved lessons
-      </Button>
-      <Button
-        variant="ghost"
-        className="mt-2 h-[46px] w-full max-w-[300px] text-[15px]"
         onClick={() => router.refresh()}
       >
         Try again
