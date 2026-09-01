@@ -68,6 +68,75 @@ export function readOnboarding(school: School): OnboardingProfile {
   return raw && typeof raw === "object" ? (raw as OnboardingProfile) : {};
 }
 
+/* -------------------------------------------------------------- SETTINGS */
+
+/**
+ * Data retention, and these are the API's own three values - the pattern on
+ * `SchoolPatch.retentionPolicy` is
+ * `^(contract|contract_plus_3_years|contract_plus_7_years)$`.
+ *
+ * D12 offers "12 months" as an option. There is no enum value for it, so it
+ * is not offered. Raised with backend rather than mapped onto something close.
+ */
+export type RetentionPolicy =
+  | "contract"
+  | "contract_plus_3_years"
+  | "contract_plus_7_years";
+
+/**
+ * The contact details D12 edits.
+ *
+ * Only `name` has a column of its own. Email, phone and location go into
+ * `profile` alongside the onboarding block - the same provisional-contract
+ * caveat applies, and for the same reason.
+ */
+export interface SchoolContact {
+  contactEmail?: string;
+  contactPhone?: string;
+  location?: string;
+}
+
+export const CONTACT_PROFILE_KEY = "contact" as const;
+
+export function readContact(school: School): SchoolContact {
+  const raw = school.profile?.[CONTACT_PROFILE_KEY];
+  return raw && typeof raw === "object" ? (raw as SchoolContact) : {};
+}
+
+/** One term in the school year (D12b). */
+export interface SchoolTerm {
+  id: string;
+  name: string;
+  start: string;
+  end: string;
+  halfTermBreak?: boolean;
+}
+
+/**
+ * The academic shape of a school year, and the per-school year-group labels
+ * SCRUM-99 owns.
+ *
+ * `academicConfig` is an untyped `object` on the contract, so this shape is
+ * ours - the third provisional contract in this codebase, after the onboarding
+ * block and the school contact. `yearGroupLabels` is the one the rest of the
+ * product has been waiting on: `lib/constants/yearGroups.ts` has carried a
+ * TODO for it since the roster screens, and reads it from here now.
+ */
+export interface AcademicConfig {
+  yearStart?: string;
+  yearEnd?: string;
+  terms?: SchoolTerm[];
+  /** Partial: only the levels a school has actually renamed. */
+  yearGroupLabels?: Record<string, string>;
+  /** Which preset the labels came from, so the UI can say "custom". */
+  taxonomyPreset?: string;
+}
+
+export function readAcademic(school: School): AcademicConfig {
+  const raw = school.academicConfig;
+  return raw && typeof raw === "object" ? (raw as AcademicConfig) : {};
+}
+
 export const schoolApi = {
   /**
    * Create the school and its founding admin. PUBLIC - this is the one call in
@@ -105,6 +174,24 @@ export const schoolApi = {
     const next = { ...readOnboarding(school), ...patch };
     return schoolApi.update({
       profile: { ...school.profile, [ONBOARDING_PROFILE_KEY]: next },
+    });
+  },
+
+
+  /** Merge into `profile.contact` without clobbering the rest of `profile`. */
+  saveContact: async (patch: SchoolContact) => {
+    const school = await schoolApi.get();
+    const next = { ...readContact(school), ...patch };
+    return schoolApi.update({
+      profile: { ...school.profile, [CONTACT_PROFILE_KEY]: next },
+    });
+  },
+
+  /** Merge into `academicConfig`, which we own wholesale. */
+  saveAcademic: async (patch: AcademicConfig) => {
+    const school = await schoolApi.get();
+    return schoolApi.update({
+      academicConfig: { ...readAcademic(school), ...patch },
     });
   },
 
