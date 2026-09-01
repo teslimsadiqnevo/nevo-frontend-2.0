@@ -8,6 +8,7 @@ import { classesApi, type AdminClass } from "@/lib/api/classes";
 import { studentsApi, type AdminStudentRow } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
+import { statusLabel, studentStatus } from "./status";
 import {
   Avatar,
   CARD,
@@ -269,7 +270,10 @@ export function StudentsView() {
               ) : (
                 visible.map((s, i) => {
                   const cls = classOf[s.id] ? classById.get(classOf[s.id]) : undefined;
-                  const deactivated = s.status.toLowerCase() !== "active";
+                  // Three states, not two - an invited child is not a
+                  // deactivated one. See ./status.
+                  const st = studentStatus(s.status);
+                  const deactivated = st === "deactivated";
                   return (
                     <button
                       key={s.id}
@@ -315,10 +319,14 @@ export function StudentsView() {
                         <span
                           className={cn(
                             "inline-flex flex-none items-center rounded-full px-3 py-1 text-[12.5px] font-semibold text-nevo-navy",
-                            deactivated ? "bg-nevo-near-black/[0.07] text-nevo-near-black/60" : "bg-nevo-navy/12",
+                            deactivated
+                              ? "bg-nevo-near-black/[0.07] text-nevo-near-black/60"
+                              : st === "invited"
+                                ? "bg-nevo-violet/24"
+                                : "bg-nevo-navy/12",
                           )}
                         >
-                          {deactivated ? "Deactivated" : "Active"}
+                          {statusLabel(s.status)}
                         </span>
                       </span>
                     </button>
