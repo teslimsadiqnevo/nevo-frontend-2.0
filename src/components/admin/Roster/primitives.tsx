@@ -277,12 +277,15 @@ export function Modal({
   onClose,
   children,
   footer,
+  /** D19's bulk preview needs room for a table; everything else wants 460. */
+  widthClass = "max-w-[460px]",
 }: {
   title: string;
   subtitle?: string | null;
   onClose: () => void;
   children: React.ReactNode;
   footer: React.ReactNode;
+  widthClass?: string;
 }) {
   const panel = useRef<HTMLDivElement>(null);
 
@@ -308,7 +311,10 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className="w-full max-w-[460px] rounded-2xl bg-nevo-cream p-7 shadow-[0_20px_56px_rgba(0,0,0,0.28)] outline-none motion-safe:animate-nevo-rise"
+        className={cn(
+          "flex max-h-full w-full flex-col overflow-y-auto rounded-2xl bg-nevo-cream p-7 shadow-[0_20px_56px_rgba(0,0,0,0.28)] outline-none motion-safe:animate-nevo-rise",
+          widthClass,
+        )}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
