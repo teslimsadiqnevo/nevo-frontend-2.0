@@ -22,9 +22,16 @@ const LESSONS_HREF = "/student/lessons";
  * their own language and always has a way back to their lessons - never a bare
  * error, never a technical one, and never a page that blames them.
  */
-export function LessonRoute({ lessonId }: { lessonId: string }) {
+export function LessonRoute({
+  lessonId,
+  review = false,
+}: {
+  lessonId: string;
+  /** Spaced-retrieval variant (37d) - the same player, different framing. */
+  review?: boolean;
+}) {
   const router = useRouter();
-  const { lesson, live, plan, loading, failed, empty, resumeAt } =
+  const { lesson, live, plan, loading, failed, empty, resumeAt, lastWorkedAt } =
     useStudentLesson(lessonId);
   const hydrated = useHydrated();
 
@@ -38,7 +45,9 @@ export function LessonRoute({ lessonId }: { lessonId: string }) {
         lesson={lesson}
         plan={plan}
         live={live}
+        review={review}
         startAt={resumeAt ?? 0}
+        lastWorkedAt={lastWorkedAt}
       />
     );
   }

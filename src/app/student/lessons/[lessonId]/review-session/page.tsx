@@ -1,25 +1,26 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { LessonPlayer } from "@/components/student/Lesson/LessonPlayer";
-import { getMockAdaptation, getMockLesson } from "@/lib/mocks";
+import { LessonRoute } from "@/components/student/Lesson/LessonRoute";
 
 export const metadata: Metadata = {
   title: "Review session - Nevo",
 };
 
-// Review session (37d): spaced retrieval that reuses the whole lesson player
-// as a variant. The backend schedules these and will link students in when a
+// Review session (37d): spaced retrieval that reuses the whole lesson player as
+// a variant. The backend schedules these and will link students in when a
 // concept is due; the route renders whatever lesson it is pointed at.
-// TODO(api): swap the mock getters for the scheduled-review contract.
+//
+// Resolution goes through `LessonRoute` exactly as the ordinary player does.
+// This route kept the mock-only `getMockLesson` + `notFound()` shape after the
+// main one moved off it, so a real lesson id 404'd here - the same bug, left
+// behind in the file next door.
+//
+// TODO(api): `GET /api/scheduler/due-reviews/{student_id}` is what should send
+// a student here in the first place; it is still unread.
 export default async function ReviewSessionPage({
   params,
 }: {
   params: Promise<{ lessonId: string }>;
 }) {
   const { lessonId } = await params;
-  const lesson = getMockLesson(lessonId);
-  if (!lesson) notFound();
-
-  const plan = getMockAdaptation(lessonId);
-  return <LessonPlayer lesson={lesson} plan={plan} review />;
+  return <LessonRoute lessonId={lessonId} review />;
 }

@@ -5,12 +5,21 @@ import { WifiOff } from "lucide-react";
 
 /**
  * Offline banner (Lesson Player frame) — a calm, violet-tinted strip shown when
- * the device drops offline mid-lesson. In the house style the system owns the
- * situation and reassures ("Your progress is saved"); it never blames the
- * learner or blocks the lesson (the cached content stays readable).
+ * the device drops offline mid-lesson. The house style has the system own the
+ * situation and never blame the learner or block the lesson.
  *
- * Driven by real connectivity (`navigator.onLine` + online/offline events), so
- * it works today without any backend.
+ * THE COPY USED TO CLAIM TWO THINGS THAT WERE NOT TRUE. "Showing your saved
+ * lesson" implied a cached copy: there is none, the lesson is in memory from
+ * the fetch that opened it, and a reload while offline gets nothing. "Your
+ * progress is saved" was asserted at the one moment it was least true, because
+ * every `PUT /progress` fails while offline.
+ *
+ * The second one is now true rather than merely softened - `useLessonProgress`
+ * holds the newest unsent position and re-sends it on reconnect. So the banner
+ * promises what actually happens: the lesson keeps working, and where they got
+ * to goes up when the connection does.
+ *
+ * Driven by real connectivity (`navigator.onLine` + online/offline events).
  */
 export function OfflineBanner() {
   // Assume online for the first paint (server render has no navigator); the
@@ -39,7 +48,8 @@ export function OfflineBanner() {
         <WifiOff className="size-[13px] text-nevo-navy" strokeWidth={2} />
       </span>
       <span className="text-[13px] font-medium leading-[1.4] text-nevo-near-black">
-        You&apos;re offline - showing your saved lesson. Your progress is saved.
+        You&apos;re offline. Your lesson keeps working, and we&apos;ll save
+        where you got to when you&apos;re back.
       </span>
     </div>
   );

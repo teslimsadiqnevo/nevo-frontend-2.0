@@ -32,6 +32,15 @@ import { getToken } from "@/lib/auth/session";
  * trade. The COMPLETION write is not - that is the one that decides whether
  * the lesson counts - so `completionFailed` is surfaced and the completion
  * screen says so, the way the daily warm-up already does.
+ *
+ * OFFLINE. "The next advance will re-send it" is true of a blip and false of a
+ * disconnection: offline, every write fails and there is no next advance that
+ * succeeds either. So the latest failed position is held and re-sent when the
+ * browser says it is back. One position, not a log - only where the child got
+ * to matters, and the newest answer is the only true one.
+ *
+ * This exists because the offline banner used to tell a child "your progress
+ * is saved" at the exact moment it was not.
  */
 
 export interface LessonProgressState {
@@ -79,6 +88,12 @@ export function useLessonProgress(
   } | null>(null);
   const seq = useRef(0);
   const landed = useRef(0);
+  /** The most recent write that did not land, held for a reconnect. */
+  const unsent = useRef<{
+    status: LessonStatus;
+    segment?: number;
+    module?: number;
+  } | null>(null);
   const [completionFailed, setCompletionFailed] = useState(false);
   const [completionSaved, setCompletionSaved] = useState(false);
 
@@ -107,12 +122,19 @@ export function useLessonProgress(
           // A stale response must not overwrite a newer position.
           if (ticket < landed.current) return;
           landed.current = ticket;
+          unsent.current = null;
           if (completing) {
             setCompletionSaved(true);
             setCompletionFailed(false);
           }
         })
         .catch(() => {
+          // Hold the newest unsent position for a reconnect. A completion
+          // outranks a segment position: it is the write that decides whether
+          // the lesson counts.
+          if (!unsent.current || completing) {
+            unsent.current = { status, ...position };
+          }
           // Only completion is worth telling a child about - see the docblock.
           if (completing) setCompletionFailed(true);
         });
@@ -146,6 +168,19 @@ export function useLessonProgress(
       cancelled = true;
     };
   }, [lessonId, enabled, write]);
+
+  // Back online: send whatever never landed.
+  useEffect(() => {
+    if (!enabled) return;
+    const flush = () => {
+      const held = unsent.current;
+      if (!held || !sessionId.current) return;
+      unsent.current = null;
+      write(held.status, held);
+    };
+    window.addEventListener("online", flush);
+    return () => window.removeEventListener("online", flush);
+  }, [enabled, write]);
 
   const report = useCallback<LessonProgressState["report"]>(
     (status, position) => {

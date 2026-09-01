@@ -61,6 +61,8 @@ export interface StudentLessonState {
    * there is none, or when the lesson is a mock (whose ids nothing records).
    */
   resumeAt: number | null;
+  /** ISO timestamp of their last activity on this lesson, when we know it. */
+  lastWorkedAt: string | null;
 }
 
 export function useStudentLesson(lessonId: string): StudentLessonState {
@@ -129,11 +131,13 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
   // trips - but it is clamped anyway, because a position past the end would
   // open an empty spine, and a lesson re-parsed with fewer segments is exactly
   // how that happens.
+  // Newest row for this lesson, whatever its status - recency is about when
+  // they last touched it, which a completed row answers just as well.
   const saved = dashboard?.recentProgress
-    .filter((r) => r.lessonId === lessonId && r.status === "in_progress")
+    .filter((r) => r.lessonId === lessonId)
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
   const resumeAt =
-    live && saved
+    live && saved && saved.status === "in_progress"
       ? Math.max(0, Math.min(saved.segmentPosition, live.segments.length - 1))
       : null;
 
@@ -141,6 +145,7 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
     lesson,
     live: Boolean(live),
     resumeAt,
+    lastWorkedAt: saved?.updatedAt ?? null,
     // The adaptation plan has no student-facing endpoint; a live lesson plays
     // unadapted rather than borrowing another lesson's plan.
     plan: live ? null : getMockAdaptation(lessonId),

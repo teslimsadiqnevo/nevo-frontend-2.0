@@ -127,6 +127,7 @@ export function LessonPlayer({
   review = false,
   live = false,
   startAt = 0,
+  lastWorkedAt = null,
 }: {
   lesson: Lesson;
   plan: AdaptationPlan | null;
@@ -141,6 +142,8 @@ export function LessonPlayer({
    * session always opens at the top regardless.
    */
   startAt?: number;
+  /** Passed to the review entry screen so its recency line is a fact. */
+  lastWorkedAt?: string | null;
   /**
    * Review session (37d): the same player as a spaced-retrieval variant. Adds
    * only an entry screen, the REVIEW pill during, and the "You strengthened
@@ -566,6 +569,7 @@ export function LessonPlayer({
     return (
       <ReviewEntryScreen
         lessonTitle={lesson.title}
+        lastWorkedAt={lastWorkedAt}
         onBegin={() => setPhase("segments")}
       />
     );
