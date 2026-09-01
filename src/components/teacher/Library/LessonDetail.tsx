@@ -49,10 +49,6 @@ export function LessonDetail({
 }) {
   const { detail } = lesson;
   const assigned = Boolean(detail.stats);
-  // C16d entry: open the variant review at the slowed section if there is
-  // one - that's where a teacher would want to look first.
-  const slowedAt = detail.sections.findIndex((s) => s.slowed);
-  const variantsHref = `/teacher/lessons/${lesson.id}/variants?section=${slowedAt >= 0 ? slowedAt + 1 : 1}`;
 
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
@@ -80,7 +76,9 @@ export function LessonDetail({
               {detail.metaLine}
             </span>
           </div>
-          <LessonDetailActions lessonId={lesson.id} variantsHref={variantsHref} />
+          {/* No "Review variants": C16d has no live source, so the demo does
+              not promise a capability the product cannot deliver. */}
+          <LessonDetailActions lessonId={lesson.id} />
         </div>
 
         {assigned && detail.stats && (
