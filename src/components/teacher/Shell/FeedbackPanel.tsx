@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { ApiError } from "@/lib/api/client";
 import { feedbackApi } from "@/lib/api/feedback";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,8 @@ import { cn } from "@/lib/utils";
 
 /** The frame's note: "auto-closes ~1.5s in-app". */
 const SENT_CLOSE_MS = 1500;
+/** `FeedbackRequest.note`: minLength 1, maxLength 5000. */
+const NOTE_MAX = 5000;
 
 type FeedbackType = "feedback" | "feature";
 
@@ -49,7 +52,18 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState("");
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
-  const [failed, setFailed] = useState(false);
+  /**
+   * Which KIND of failure, not just that there was one.
+   *
+   * "That didn't reach us" was shown for every rejection - including a 422,
+   * where it plainly did reach us and was refused, and a 500, where it
+   * reached us and our end broke. Only a transport failure (`ApiError.status
+   * 0`) is actually a delivery failure, and only the first two are worth a
+   * "try again": retrying a note the server refused for its length will fail
+   * every time.
+   */
+  const [failure, setFailure] = useState<"none" | "unreachable" | "refused" | "server">("none");
+  const failed = failure !== "none";
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -72,7 +86,7 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
   const send = () => {
     if (!ready || sent || sending) return;
     setSending(true);
-    setFailed(false);
+    setFailure("none");
     void feedbackApi
       .submit({ type, note: text.trim(), context: pathname ?? undefined })
       .then(() => {
@@ -81,9 +95,16 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
         setSent(true);
         closeTimer.current = setTimeout(onClose, SENT_CLOSE_MS);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         setSending(false);
-        setFailed(true);
+        const status = err instanceof ApiError ? err.status : undefined;
+        setFailure(
+          status === undefined || status === 0
+            ? "unreachable"
+            : status === 422
+              ? "refused"
+              : "server",
+        );
       });
   };
 
@@ -183,15 +204,28 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
                 ? "What would make Nevo better?"
                 : "What’s on your mind?"
             }
+            /* `FeedbackRequest.note` is capped at 5000 in the contract, so a
+               longer note 422s on every attempt - under copy inviting a retry
+               that could never succeed. The bound is now visible before Send
+               rather than discovered after it. */
+            maxLength={NOTE_MAX}
             className="mt-4 min-h-[120px] w-full resize-none rounded-[10px] border border-nevo-near-black/12 bg-nevo-cream-elevated px-3.5 py-3 text-sm leading-[1.5] text-nevo-near-black outline-none transition-colors placeholder:text-nevo-near-black/30 focus:border-nevo-navy"
           />
+          {text.length > NOTE_MAX - 200 && (
+            <p className="mt-1.5 text-right text-[12px] text-nevo-near-black/50">
+              {`${NOTE_MAX - text.length} characters left`}
+            </p>
+          )}
 
           {/* Ours, not the frame's: the note is kept so it can be sent again,
               and nothing is thanked for until something is stored. */}
           {failed && (
             <p className="mt-3 rounded-[10px] bg-nevo-violet/14 px-3.5 py-3 text-[13px] leading-[1.5] text-nevo-near-black/78">
-              That didn&rsquo;t reach us &ndash; your note is still here, so
-              you can try again in a moment.
+              {failure === "unreachable"
+                ? "That didn’t reach us – your note is still here, so you can try again in a moment."
+                : failure === "refused"
+                  ? "Nevo couldn’t accept that note – it may be too long. Your note is still here; shortening it should do it."
+                  : "It reached us, but something broke on our end. Your note is still here – try again in a moment."}
             </p>
           )}
 

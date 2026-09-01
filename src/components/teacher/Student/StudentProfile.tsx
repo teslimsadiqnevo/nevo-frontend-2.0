@@ -36,11 +36,17 @@ import { ShareSheet } from "./ShareSheet";
  * pill in place of the kebab, and drops Recent sessions entirely. Both
  * divergences are flagged to design rather than smoothed over.
  *
- * The escalation sheet resolves per C14 B5: it dismisses, a toast confirms,
+ * THE ESCALATION SHEET NO LONGER CONFIRMS ANYTHING. C14 B5 draws a toast and
+ * a quiet "Shared with Learning Support - today" note, and both were built
+ * over a handler that posted nothing - a safeguarding referral reported as
+ * delivered. There is no teacher-to-SENCo transport in the contract, so the
+ * sheet explains that and closes. The confirmation ritual returns with the
+ * endpoint, not before it.
+ *
+ * The frame's original resolution, for whoever wires it: it dismisses, a toast confirms,
  * and a quiet note settles under the student's name.
  */
 
-const TOAST_MS = 3200;
 
 const CHEVRON_LEFT = (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="xl:size-[17px]">
@@ -83,8 +89,6 @@ export function StudentProfile({
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [shared, setShared] = useState(false);
-  const [toast, setToast] = useState(false);
   const [session, setSession] = useState<SessionRow | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -101,13 +105,6 @@ export function StudentProfile({
   // Connect owns compose; the slug tells it who this is addressed to.
   const messageHref = `/teacher/connect?student=${student.id}`;
 
-  const send = () => {
-    setShareOpen(false);
-    setShared(true);
-    setToast(true);
-    // TODO(api): post the escalation note to the SENCo.
-    timer.current = setTimeout(() => setToast(false), TOAST_MS);
-  };
 
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
@@ -151,15 +148,6 @@ export function StudentProfile({
               <span className="mt-[3px] block text-sm text-nevo-near-black/60 xl:mt-[5px] xl:text-[14.5px]">
                 {student.meta}
               </span>
-              {/* C14 B5: the quiet note that settles after escalating. */}
-              {shared && (
-                <span className="mt-1.5 flex items-center gap-1.5 text-[12.5px] text-nevo-near-black/40">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M20 6L9 17l-5-5" />
-                  </svg>
-                  Shared with Learning Support &middot; today
-                </span>
-              )}
             </div>
           </div>
 
@@ -453,8 +441,7 @@ export function StudentProfile({
         <ShareSheet
           studentName={student.name}
           onCancel={() => setShareOpen(false)}
-          onSend={send}
-        />
+          />
       )}
 
       {session && (
@@ -465,23 +452,6 @@ export function StudentProfile({
           onRecommend={() => router.push(recommendHref)}
           onMessage={() => router.push(messageHref)}
         />
-      )}
-
-      {/* C14 B5 toast */}
-      {toast && (
-        <div
-          role="status"
-          className="fixed top-6 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2.5 rounded-full bg-nevo-navy py-3 pr-[22px] pl-[15px] shadow-[0_12px_32px_rgba(0,0,0,0.22)] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-2 motion-safe:duration-200"
-        >
-          <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-nevo-cream/20 text-nevo-cream">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M20 6L9 17l-5-5" />
-            </svg>
-          </span>
-          <span className="text-[14.5px] font-semibold text-nevo-cream">
-            Sent to Learning Support
-          </span>
-        </div>
       )}
     </div>
   );
