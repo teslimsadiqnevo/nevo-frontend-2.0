@@ -235,17 +235,30 @@ export function LessonPlayer({
     });
   }, [lesson, index, reportProgress]);
 
-  // Completion. Reported once, when the player reaches its final phase - the
-  // assessment sits between the last segment and this, so it must not fire on
-  // the last segment alone.
+  // Completion. Reported once, however the child leaves the finished lesson.
+  //
+  // This was keyed on `phase === "complete"` alone, which quietly missed a
+  // whole exit: from the assessment result a child can tap "Review answers"
+  // instead of "Done", which routes them away WITHOUT the phase ever reaching
+  // "complete". They had played every segment and answered every question, and
+  // the lesson stayed `in_progress` forever - while the review screen they
+  // landed on told them "Your progress is saved".
+  //
+  // So completion is a function both exits call, not a side effect of one of
+  // them. The ref keeps it idempotent.
   const completionReported = useRef(false);
-  useEffect(() => {
-    if (phase !== "complete" || completionReported.current) return;
+  const markComplete = useCallback(() => {
+    if (completionReported.current) return;
     completionReported.current = true;
     reportProgress(LESSON_STATUS.COMPLETED, {
       segment: Math.max(0, lesson.segments.length - 1),
     });
-  }, [phase, lesson, reportProgress]);
+  }, [lesson, reportProgress]);
+
+  useEffect(() => {
+    if (phase !== "complete") return;
+    markComplete();
+  }, [phase, markComplete]);
   // SCRUM-101: the segment index the player is about to enter across a module
   // boundary. Non-null takes over the screen with the boundary landing; the
   // student's continue (or break + "I'm ready") completes the move.
@@ -576,9 +589,12 @@ export function LessonPlayer({
           saveReviewAnswers(lesson.id, reviewAnswers.current);
         }}
         onFinish={() => setPhase("complete")}
-        onReviewAnswers={() =>
-          router.push(`${LESSONS_HREF}/${lesson.id}/review`)
-        }
+        onReviewAnswers={() => {
+          // The lesson IS finished at this point - reviewing is a way of
+          // leaving it, not of abandoning it.
+          markComplete();
+          router.push(`${LESSONS_HREF}/${lesson.id}/review`);
+        }}
       />
     );
   }
@@ -872,7 +888,14 @@ export function LessonPlayer({
       <LeaveLessonDialog
         open={leaveOpen}
         onOpenChange={setLeaveOpen}
-        onLeave={() => router.push(LESSONS_HREF)}
+        onLeave={() => {
+          // `exited` is a status the contract defines and nothing ever sent.
+          // Leaving deliberately is not the same fact as drifting off mid
+          // segment, and the engine is entitled to tell them apart - the
+          // position is identical either way, the intent is not.
+          reportProgress(LESSON_STATUS.EXITED, { segment: index });
+          router.push(LESSONS_HREF);
+        }}
       />
 
       {/* Chevron nav — dims under anxiety; frustration guides the forward
