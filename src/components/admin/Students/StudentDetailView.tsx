@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
+import { erasable, statusLabel, studentStatus, wasHere } from "./status";
 import {
   Avatar,
   CARD,
@@ -127,7 +128,17 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
     student.loginIdentifier ||
     "This student";
   const firstName = student.firstName ?? name.split(" ")[0];
-  const deactivated = student.status.toLowerCase() !== "active";
+  /*
+   * THREE states, not two. `UserStatus` is `active | invited | deactivated`,
+   * and this read `!== "active"` - so an INVITED child, who has never signed
+   * in, was shown the deactivated screen: described in the past tense, and
+   * offered the deactivated-only actions, which include the permanent
+   * `DELETE /api/v1/students/{id}`.
+   */
+  const status = studentStatus(student.status);
+  const deactivated = status === "deactivated";
+  const invited = status === "invited";
+  const canErase = erasable(student);
   const currentClass = classes.find((c) => student.classIds.includes(c.id)) ?? null;
 
   return (
@@ -154,7 +165,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
           </div>
           <div className="mt-[3px] truncate text-[14.5px] text-nevo-near-black/62">
             {currentClass
-              ? `${deactivated ? "Was in " : ""}${currentClass.name}`
+              ? `${wasHere(student.status) ? "Was in " : ""}${currentClass.name}`
               : "No class"}
           </div>
         </div>
@@ -190,7 +201,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                     deactivated ? "bg-nevo-near-black/35" : "bg-nevo-navy",
                   )}
                 />
-                {deactivated ? "Deactivated" : "Active"}
+                {statusLabel(student.status)}
               </span>
             }
           />
@@ -201,7 +212,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
           <p className="m-0 flex items-start gap-2 text-[13px] leading-[1.55] text-nevo-near-black/60">
             <LockGlyph />
             <span>
-              How {firstName} {deactivated ? "was" : "is"} getting on
+              How {firstName} {wasHere(student.status) ? "was" : "is"} getting on
               isn&rsquo;t shown here. That belongs to their teachers, and to
               Learning Support where a teacher has shared it.
             </span>
@@ -282,20 +293,42 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
               you move them.
             </p>
 
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={() => setErasing(true)}
-                className={TEXT_ACTION}
-              >
-                Erase this record permanently
-              </button>
-              <p className="mt-1.5 max-w-[520px] text-[13px] leading-[1.5] text-nevo-near-black/55">
-                Only possible now they&rsquo;re deactivated. This one
-                can&rsquo;t be undone.
-              </p>
-            </div>
+            {/* The erase modal's only safeguard is typing the student's name
+                back, and that name falls back to the constant "This student"
+                on a record with no name and no login identifier. A fence that
+                is the same string for every child in the school is not a
+                fence, so a record we cannot name is not erasable from here. */}
+            {canErase ? (
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={() => setErasing(true)}
+                  className={TEXT_ACTION}
+                >
+                  Erase this record permanently
+                </button>
+                <p className="mt-1.5 max-w-[520px] text-[13px] leading-[1.5] text-nevo-near-black/55">
+                  Only possible now they&rsquo;re deactivated. This one
+                  can&rsquo;t be undone.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6">
+                <p className="max-w-[520px] text-[13px] leading-[1.5] text-nevo-near-black/55">
+                  This record can&rsquo;t be erased here: it has no name or
+                  login on it, so there is nothing to confirm against.
+                </p>
+              </div>
+            )}
           </>
+        ) : invited ? (
+          /* An invited child has nothing to deactivate and nothing to erase -
+             they have never been here. Saying so beats offering an action
+             that does not apply to them. */
+          <p className="max-w-[520px] text-[13px] leading-[1.5] text-nevo-near-black/55">
+            {firstName} hasn&rsquo;t joined yet, so there&rsquo;s nothing to
+            deactivate. Their invitation is still open.
+          </p>
         ) : (
           <div className="flex flex-wrap gap-8">
             <div>
