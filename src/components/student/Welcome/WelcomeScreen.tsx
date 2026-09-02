@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { mergeOnboardingDraft } from "@/lib/auth/onboarding";
 import { Button, NevoLockup, SettlingCharacter } from "@/components/shared";
 import {
   Sheet,
@@ -21,8 +23,25 @@ const NEXT_STEP = "/student/onboarding/name";
  * Routes into onboarding or opens the teacher-join path. See design output
  * "01 Welcome".
  */
-export function WelcomeScreen({ linkError = false }: { linkError?: boolean }) {
+export function WelcomeScreen({
+  linkError = false,
+  joinToken,
+}: {
+  linkError?: boolean;
+  /**
+   * The token from a join link. `JoinLanding` has always sent students here
+   * as `/student/onboarding?token=...` and nothing read it, so the invitation
+   * was dropped on the doorstep - the child then onboarded as nobody, and the
+   * device remembered them under an identifier invented from their name.
+   * Held in the draft until PIN creation, which redeems it.
+   */
+  joinToken?: string;
+}) {
   const router = useRouter();
+
+  useEffect(() => {
+    if (joinToken) mergeOnboardingDraft({ joinToken });
+  }, [joinToken]);
 
   return (
     <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-nevo-cream px-6 text-nevo-near-black">

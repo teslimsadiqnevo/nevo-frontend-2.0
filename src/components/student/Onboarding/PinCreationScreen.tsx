@@ -14,10 +14,16 @@ import { cn } from "@/lib/utils";
  * lives in one place and rapid input (fast typing, held keys, quick taps) always
  * folds onto the latest state — no stale closures, no setState-in-effect.
  *
- * When a session exists the PIN is stored server-side before the flow
- * advances - the next sign-in checks it there, so celebrating first would be
- * a lie. Pure pre-auth onboarding has no token to send (`POST /auth/pin` is
- * Bearer-only, flagged to backend), so that path stays device-only.
+ * The PIN is stored somewhere real before the flow advances - the next
+ * sign-in checks it there, so celebrating first would be a lie.
+ *
+ * Two ways to store it, because there are two ways to arrive:
+ *   - with a session, `POST /auth/pin` (Bearer-only);
+ *   - with a join link and no session yet, `storePin` is supplied by the
+ *     caller and redeems the invitation, which is what creates the account.
+ *
+ * A path with neither is the one that cannot honestly promise anything, and
+ * it no longer pretends: see `onboarding.ts`.
  */
 type PinState = { digits: string; error: boolean; done: boolean };
 type PinAction =
@@ -64,9 +70,16 @@ function pinReducer(state: PinState, action: PinAction): PinState {
  */
 export function PinCreationScreen({
   sso = false,
+  storePin,
   onComplete,
 }: {
   sso?: boolean;
+  /**
+   * Store the PIN when there is no session to store it against - the join
+   * redemption. Rejecting keeps the child on this screen rather than
+   * advancing on a PIN that would be refused at the next sign-in.
+   */
+  storePin?: (pin: string) => Promise<void>;
   onComplete: () => void;
 }) {
   const [{ digits, error, done }, dispatch] = useReducer(pinReducer, {
@@ -80,6 +93,10 @@ export function PinCreationScreen({
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
+  const storePinRef = useRef(storePin);
+  useEffect(() => {
+    storePinRef.current = storePin;
+  }, [storePin]);
 
   // Stable handlers — dispatch never goes stale, so rapid input folds correctly.
   const pressDigit = useCallback((d: string) => {
@@ -111,11 +128,23 @@ export function PinCreationScreen({
     if (!done && !sso) return;
     let cancelled = false;
     const t = setTimeout(() => {
-      if (sso || !getToken()) {
+      if (sso) {
         onCompleteRef.current?.();
         return;
       }
-      void authApi.setPin(digits.slice(0, STUDENT_PIN_LENGTH)).then(
+      const pin = digits.slice(0, STUDENT_PIN_LENGTH);
+      const store = getToken()
+        ? () => authApi.setPin(pin).then(() => undefined)
+        : storePinRef.current
+          ? () => storePinRef.current!(pin)
+          : null;
+      if (!store) {
+        // Nowhere to put it. The caller decides what that means for the
+        // device; this screen's job is only not to claim it was saved.
+        onCompleteRef.current?.();
+        return;
+      }
+      void store().then(
         () => {
           if (!cancelled) onCompleteRef.current?.();
         },

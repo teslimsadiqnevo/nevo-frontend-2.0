@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, useSignals } from "@/hooks";
-import { rememberOnboardedStudent } from "@/lib/auth/onboarding";
+import { invitesApi } from "@/lib/api/invites";
+import {
+  getOnboardingDraft,
+  rememberOnboardedStudent,
+} from "@/lib/auth/onboarding";
 import { FIRST_LESSON_ID } from "@/lib/mocks";
 import { useStudentDashboard } from "@/hooks/useStudentDashboard";
 import { randomId } from "@/lib/utils";
@@ -26,6 +30,15 @@ export function ObservedInteractionSequence() {
   const router = useRouter();
   const { user } = useAuth();
   const isSso = user?.method === "sso";
+  /*
+   * The join token, and the identifier redeeming it hands back.
+   *
+   * A ref rather than state: it is written inside the PIN screen's own store
+   * step and read in the completion that immediately follows, so it must not
+   * wait for a re-render - and nothing renders from it.
+   */
+  const joinToken = getOnboardingDraft().joinToken;
+  const identifierRef = useRef<string | null>(null);
   // Where "You're In" hands off to. Read here rather than at the tap so the
   // answer is ready by the time a child gets to the last screen.
   const { data: dashboard } = useStudentDashboard();
@@ -61,11 +74,32 @@ export function ObservedInteractionSequence() {
     return (
       <PinCreationScreen
         sso={isSso}
+        /*
+         * A join-link child has no session yet, so there is nothing to
+         * `POST /auth/pin` against. Redeeming the invitation IS the account
+         * creation: it stores the PIN and hands back the login identifier the
+         * next sign-in will be checked against. Without a token there is
+         * nowhere to put the PIN, so none is claimed to be stored.
+         */
+        storePin={
+          joinToken
+            ? async (pin) => {
+                const draft = getOnboardingDraft();
+                const [first, ...rest] = (draft.name ?? "").trim().split(/\s+/);
+                const res = await invitesApi.acceptJoin(joinToken, {
+                  pin,
+                  firstName: first || null,
+                  lastName: rest.join(" ") || null,
+                });
+                identifierRef.current = res.loginIdentifier;
+              }
+            : undefined
+        }
         onComplete={() => {
-          // The device now belongs to this student: fold the onboarding draft
-          // into the remembered profile the PIN login unlocks against. SSO
-          // students re-enter through their provider, not a PIN.
-          if (!isSso) rememberOnboardedStudent();
+          // The device now belongs to this student - but only if the server
+          // issued an identifier it will recognise. SSO students re-enter
+          // through their provider, not a PIN.
+          if (!isSso) rememberOnboardedStudent(identifierRef.current);
           advance();
         }}
       />
