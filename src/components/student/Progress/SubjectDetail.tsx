@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useHydrated } from "@/hooks/useHydrated";
+import { useDueReviews } from "@/hooks/useDueReviews";
 import { useStudentProgress } from "@/hooks/useStudentProgress";
 import type {
   SessionRow,
@@ -252,6 +253,17 @@ function LiveSubjectDetail({
   lessons: { lessonId: string; title: string; updatedAt: string }[];
   failed: boolean;
 }) {
+  // Which of these concepts the scheduler says are ready again. A failed or
+  // still-running read simply leaves every concept where it was: the grouping
+  // is an addition to this screen, never a precondition for rendering it.
+  const review = useDueReviews();
+  const ready = review.due.size
+    ? concepts.filter((c) => review.due.has(c.conceptId))
+    : [];
+  const rest = ready.length
+    ? concepts.filter((c) => !review.due.has(c.conceptId))
+    : concepts;
+
   if (failed) {
     return (
       <DetailFrame>
@@ -272,13 +284,31 @@ function LiveSubjectDetail({
         {name}
       </h1>
 
-      {concepts.length > 0 && (
+      {ready.length > 0 && (
+        <>
+          <h2 className="mt-7 text-base font-semibold text-nevo-near-black">
+            Ready for another look
+          </h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {ready.map((c) => (
+              <span
+                key={c.conceptId}
+                className="rounded-full bg-nevo-navy/10 px-3 py-1.5 text-[13px] text-nevo-navy ring-1 ring-nevo-navy/20 ring-inset"
+              >
+                {c.name}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+
+      {rest.length > 0 && (
         <>
           <h2 className="mt-7 text-base font-semibold text-nevo-near-black">
             What you&apos;ve been working on
           </h2>
           <div className="mt-3 flex flex-wrap gap-2">
-            {concepts.map((c) => (
+            {rest.map((c) => (
               <span
                 key={c.conceptId}
                 className="rounded-full bg-nevo-violet/20 px-3 py-1.5 text-[13px] text-nevo-navy"
