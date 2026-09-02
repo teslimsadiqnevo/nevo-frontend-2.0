@@ -44,6 +44,16 @@ export function AfterLessonAssessment({
   const [selected, setSelected] = useState<string | null>(null);
   // A wrong confirm flips the question into its recovery state (violet, locked).
   const [revealed, setRevealed] = useState(false);
+  /*
+   * How many landed first time.
+   *
+   * `confirm` computed this and threw it away, so the result screen showed the
+   * navy success mark, "You're getting the hang of this", and every
+   * `masteredConcepts` entry ticked - to a child who had just got every
+   * question wrong. The two concepts they had failed were the two ticked as
+   * mastered.
+   */
+  const [gotRight, setGotRight] = useState(0);
 
   if (stage === "intro") {
     return <Intro count={assessment.questions.length} onStart={() => setStage("questions")} />;
@@ -51,6 +61,7 @@ export function AfterLessonAssessment({
   if (stage === "result") {
     return (
       <GrowthResult
+        landed={gotRight}
         assessment={assessment}
         onFinish={onFinish}
         onReviewAnswers={onReviewAnswers}
@@ -73,6 +84,7 @@ export function AfterLessonAssessment({
     if (!selected) return;
     const correct = selected === question.correctId;
     onAnswer?.({ questionIndex: qIndex, selectedId: selected, correct });
+    if (correct) setGotRight((n) => n + 1);
     if (correct) advance();
     else setRevealed(true);
   };
@@ -194,30 +206,76 @@ function Intro({ count, onStart }: { count: number; onStart: () => void }) {
   );
 }
 
-/** The growth result - what's taking hold and what we'll revisit. No score. */
+/**
+ * The growth result - what's taking hold and what we'll revisit. No score.
+ *
+ * ONE CASE DIVERGES FROM THE FRAME, and only one. The Lesson Check frame draws
+ * a single result state: the navy check, "You're getting the hang of this",
+ * and a mastered/revisit split. Its own note copy assumes a partial outcome -
+ * "You showed you understand what photosynthesis is... One idea - the word
+ * equation - we'll come back to together." Design drew no state for a child
+ * who got nothing right, so that state used to render the success mark and
+ * tick the very concepts they had just missed.
+ *
+ * So when NOTHING landed, the concepts move to the revisit treatment the frame
+ * already draws, and the mark and heading stop claiming progress. Every other
+ * outcome renders exactly as drawn - a child who got one of two right still
+ * sees design's screen, which is what its copy was written for.
+ *
+ * No score either way: still concepts, never numbers.
+ *
+ * TODO(design): the nothing-landed heading is ours, built from the frame's own
+ * "we'll come back to together". Confirm the wording.
+ * TODO(api): questions carry no concept id, so nothing maps an answer to the
+ * concept it evidences. Until they do, "which concept landed" cannot be
+ * answered and this can only tell all from none.
+ */
 function GrowthResult({
+  landed,
   assessment,
   onFinish,
   onReviewAnswers,
 }: {
+  /** How many questions landed first time. */
+  landed: number;
   assessment: Assessment;
   onFinish: () => void;
   onReviewAnswers?: () => void;
 }) {
-  const mastered = assessment.masteredConcepts ?? [];
-  const revisit = assessment.revisitConcepts ?? [];
+  const nothingLanded = landed === 0 && assessment.questions.length > 0;
+  const mastered = nothingLanded ? [] : (assessment.masteredConcepts ?? []);
+  const revisit = nothingLanded
+    ? [...(assessment.masteredConcepts ?? []), ...(assessment.revisitConcepts ?? [])]
+    : (assessment.revisitConcepts ?? []);
 
   return (
     <div className="flex min-h-[100dvh] flex-col justify-center bg-nevo-cream px-6 text-nevo-near-black">
       <div className="mx-auto w-full max-w-[300px] sm:max-w-[430px]">
         {/* Success mark: navy circle + cream check, one-shot pop (DS state pattern) */}
-        <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-nevo-navy motion-safe:animate-nevo-pop">
-          <Check className="size-[38px] text-nevo-cream" strokeWidth={2.6} />
-        </span>
+        {nothingLanded ? (
+          // The frame's own revisit mark, not the success check.
+          <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-nevo-violet/35 motion-safe:animate-nevo-pop">
+            <span className="size-[18px] rounded-full bg-nevo-violet" />
+          </span>
+        ) : (
+          <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-nevo-navy motion-safe:animate-nevo-pop">
+            <Check className="size-[38px] text-nevo-cream" strokeWidth={2.6} />
+          </span>
+        )}
         <h2 className="mt-[26px] text-center text-[23px] font-semibold tracking-[-0.01em] sm:text-[26px]">
-          You&apos;re getting the hang of this
+          {nothingLanded
+            ? "We’ll come back to this together"
+            : "You’re getting the hang of this"}
         </h2>
-        {assessment.resultNote && (
+        {/* The authored note says what the child SHOWED, so it is held back
+            when they showed none of it. */}
+        {nothingLanded && (
+          <p className="mt-3 text-center text-base leading-[1.6] text-nevo-near-black/72 sm:text-[17px]">
+            This one didn&rsquo;t land yet, and that&rsquo;s completely fine.
+            Nevo will bring it back when you&rsquo;re ready for it.
+          </p>
+        )}
+        {!nothingLanded && assessment.resultNote && (
           <p className="mt-3 text-center text-base leading-[1.6] text-nevo-near-black/72 sm:text-[17px]">
             {assessment.resultNote}
           </p>
