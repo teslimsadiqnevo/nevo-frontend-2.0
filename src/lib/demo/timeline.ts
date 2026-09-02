@@ -26,7 +26,12 @@ export type SceneId =
   | "closing";
 
 export interface Scene {
-  id: SceneId;
+  /**
+   * A plain string, not the teacher demo's own union: the student demo runs
+   * the same engine with its own scene set, and narrowing this to one story's
+   * ids would have forced a cast at every entry in the other's timeline.
+   */
+  id: string;
   /** Milliseconds the scene holds before the timeline advances. */
   duration: number;
   /**

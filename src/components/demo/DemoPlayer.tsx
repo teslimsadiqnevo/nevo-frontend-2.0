@@ -3,6 +3,7 @@
 
 import { ConsoleFrame } from "./ConsoleFrame";
 import { DemoStage } from "./DemoStage";
+import { TIMELINE } from "@/lib/demo/timeline";
 import { useDemoController } from "./DemoController";
 import { Caption, ProgressBar } from "./chrome";
 import { ActionScene } from "./scenes/ActionScene";
@@ -51,7 +52,9 @@ function sceneOpacity(withinMs: number, durationMs: number): number {
   return 1;
 }
 
-const SCENES = {
+type SceneComponent = (props: { progress: number }) => React.ReactElement;
+
+const SCENES: Record<string, SceneComponent> = {
   intro: IntroScene,
   dashboard: DashboardScene,
   insight: InsightScene,
@@ -60,7 +63,7 @@ const SCENES = {
   action: ActionScene,
   result: ResultScene,
   closing: ClosingScene,
-} as const;
+};
 
 export function DemoPlayer({ recording = false }: { recording?: boolean }) {
   const {
@@ -71,7 +74,7 @@ export function DemoPlayer({ recording = false }: { recording?: boolean }) {
     paused,
     runId,
     restart,
-  } = useDemoController();
+  } = useDemoController(TIMELINE);
 
   // Derived from the clock rather than held in state, so it cannot get out of
   // step with the timeline and a skip re-runs the fade automatically.

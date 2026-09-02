@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { TIMELINE, TOTAL_DURATION, sceneOffset, type Scene } from "@/lib/demo/timeline";
+import type { Scene } from "@/lib/demo/timeline";
 
 /**
  * The timeline engine.
@@ -42,6 +42,10 @@ import { TIMELINE, TOTAL_DURATION, sceneOffset, type Scene } from "@/lib/demo/ti
  *
  * Presenter keys are always live, even during autoplay: space pauses, arrows
  * step, R restarts, F fullscreens, Esc leaves.
+ *
+ * The timeline is a PARAMETER, not an import - the teacher and student demos
+ * are different stories on the same engine, and the alternative was a second
+ * copy of the clock with its own bugs.
  */
 
 /**
@@ -54,13 +58,17 @@ import { TIMELINE, TOTAL_DURATION, sceneOffset, type Scene } from "@/lib/demo/ti
  * concluded the controls were broken. Reading the clock at call time makes
  * every press count, however fast they come.
  */
-function indexAt(ms: number): number {
+function indexAt(timeline: Scene[], ms: number): number {
   let acc = 0;
-  for (let i = 0; i < TIMELINE.length; i++) {
-    acc += TIMELINE[i].duration;
+  for (let i = 0; i < timeline.length; i++) {
+    acc += timeline[i].duration;
     if (ms < acc) return i;
   }
-  return TIMELINE.length - 1;
+  return timeline.length - 1;
+}
+
+function offsetOf(timeline: Scene[], index: number): number {
+  return timeline.slice(0, index).reduce((sum, s) => sum + s.duration, 0);
 }
 
 /** Backstop cadence when rAF is unavailable or parked. */
@@ -78,12 +86,13 @@ export interface DemoState {
   runId: number;
 }
 
-export function useDemoController(): DemoState & {
+export function useDemoController(timeline: Scene[]): DemoState & {
   next: () => void;
   previous: () => void;
   toggle: () => void;
   restart: () => void;
 } {
+  const total = timeline.reduce((sum, s) => sum + s.duration, 0);
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
   const [runId, setRunId] = useState(0);
@@ -102,7 +111,7 @@ export function useDemoController(): DemoState & {
     let frame = 0;
     const read = () => {
       const base = since.current === null ? 0 : Date.now() - since.current;
-      setElapsed(Math.min(banked.current + base, TOTAL_DURATION));
+      setElapsed(Math.min(banked.current + base, total));
     };
     const loop = () => {
       read();
@@ -126,41 +135,44 @@ export function useDemoController(): DemoState & {
       clearInterval(backstop);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [paused]);
+  }, [paused, total]);
 
-  const index = indexAt(elapsed);
-  const scene = TIMELINE[index];
-  const within = elapsed - sceneOffset(index);
+  const index = indexAt(timeline, elapsed);
+  const scene = timeline[index];
+  const within = elapsed - offsetOf(timeline, index);
   const sceneProgress = Math.max(0, Math.min(1, within / scene.duration));
 
   /** Move the clock, keeping the wall-clock reference consistent with it. */
-  const seek = useCallback((ms: number) => {
-    banked.current = Math.max(0, Math.min(ms, TOTAL_DURATION));
-    since.current = Date.now();
-    setElapsed(banked.current);
-  }, []);
+  const seek = useCallback(
+    (ms: number) => {
+      banked.current = Math.max(0, Math.min(ms, total));
+      since.current = Date.now();
+      setElapsed(banked.current);
+    },
+    [total],
+  );
 
   const goto = useCallback(
     (i: number) => {
-      const clamped = Math.max(0, Math.min(TIMELINE.length - 1, i));
-      seek(sceneOffset(clamped));
+      const clamped = Math.max(0, Math.min(timeline.length - 1, i));
+      seek(offsetOf(timeline, clamped));
     },
-    [seek],
+    [seek, timeline],
   );
 
   /** The clock right now, independent of what the last render saw. */
   const readNow = useCallback(() => {
     const base = since.current === null ? 0 : Date.now() - since.current;
-    return Math.min(banked.current + base, TOTAL_DURATION);
-  }, []);
+    return Math.min(banked.current + base, total);
+  }, [total]);
 
   const next = useCallback(
-    () => goto(indexAt(readNow()) + 1),
-    [goto, readNow],
+    () => goto(indexAt(timeline, readNow()) + 1),
+    [goto, readNow, timeline],
   );
   const previous = useCallback(
-    () => goto(indexAt(readNow()) - 1),
-    [goto, readNow],
+    () => goto(indexAt(timeline, readNow()) - 1),
+    [goto, readNow, timeline],
   );
   const toggle = useCallback(() => {
     setPaused((p) => {
@@ -224,7 +236,7 @@ export function useDemoController(): DemoState & {
     scene,
     index,
     sceneProgress,
-    totalProgress: elapsed / TOTAL_DURATION,
+    totalProgress: elapsed / total,
     paused,
     runId,
     next,
