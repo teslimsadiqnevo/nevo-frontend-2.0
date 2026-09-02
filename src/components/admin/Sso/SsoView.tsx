@@ -519,16 +519,42 @@ export function SsoView() {
               ))}
             </ul>
 
+            {/*
+              * THE SCHOOL CODE, not the URL slug.
+              *
+              * This panel is the reason D10b routes disconnection through a
+              * confirmation at all - sign-in moves to the school code, so the
+              * code is shown before anyone commits. It rendered
+              * `status.school_url_slug`, which is the address slug
+              * ("brightgate"), never the code ("BGA-4827"), under the words
+              * "Staff and students enter this the next time they sign in".
+              * An admin who wrote that down and circulated it would have
+              * locked the school out of the very sign-in this dialog is
+              * promising them.
+              *
+              * `code` is nullable in the contract, and a school with none is
+              * exactly the school that must not be told to go and use it.
+              */}
             <div className="mt-5 rounded-[10px] bg-nevo-cream-elevated px-[18px] py-4">
               <span className="text-[12.5px] font-semibold tracking-[0.06em] text-nevo-near-black/55 uppercase">
                 Your school code
               </span>
-              <p className="mt-1 font-mono text-[19px] font-semibold text-nevo-near-black">
-                {status.school_url_slug}
-              </p>
-              <p className="mt-1 text-[13px] text-nevo-near-black/58">
-                Staff and students enter this the next time they sign in.
-              </p>
+              {school?.code ? (
+                <>
+                  <p className="mt-1 font-mono text-[19px] font-semibold text-nevo-near-black">
+                    {school.code}
+                  </p>
+                  <p className="mt-1 text-[13px] text-nevo-near-black/58">
+                    Staff and students enter this the next time they sign in.
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-[13px] leading-[1.5] text-nevo-near-black/58">
+                  We couldn&rsquo;t read your school code just now. Check it on
+                  your school record before you disconnect &ndash; it is what
+                  everyone will sign in with afterwards.
+                </p>
+              )}
             </div>
 
             <button

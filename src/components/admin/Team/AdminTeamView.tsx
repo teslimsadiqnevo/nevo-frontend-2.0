@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { teamApi, roleForScopes, type TeamMember } from "@/lib/api/team";
 import type { PermissionScope } from "@/lib/constants/permissions";
 import { cn } from "@/lib/utils";
+import { readOnboarding, schoolApi } from "@/lib/api/school";
 import {
-  ADMIN_SEAT_ALLOWANCE,
+  adminSeatAllowance,
   SCOPE_CATALOGUE,
   initialsFor,
   orderScopes,
@@ -59,6 +60,20 @@ export function AdminTeamView() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [inviting, setInviting] = useState(false);
+  /*
+   * The seat allowance follows the school's BAND, which onboarding recorded
+   * and quoted to them ("Mid-Market comes with 10 admin seats"). It was a
+   * hardcoded five for every school - see `adminScopes.ts`. Null means we
+   * could not read it, and then nothing is asserted and nothing is blocked.
+   */
+  const [seats, setSeats] = useState<number | null>(null);
+
+  useEffect(() => {
+    schoolApi
+      .get()
+      .then((sc) => setSeats(adminSeatAllowance(readOnboarding(sc).band)))
+      .catch(() => setSeats(null));
+  }, []);
 
   // No synchronous setState in the effect body (react-hooks/set-state-in-effect):
   // "loading" is already the initial state, so only a retry has to reset it.
@@ -131,7 +146,7 @@ export function AdminTeamView() {
         )}
 
         {phase === "ready" && team.length > 1 && (
-          <TeamList team={team} onInvite={() => setInviting(true)} />
+          <TeamList team={team} seats={seats} onInvite={() => setInviting(true)} />
         )}
       </div>
     </div>
@@ -154,10 +169,12 @@ function Heading({ count }: { count: number | null }) {
   );
 }
 
-function SeatsLine({ used }: { used: number }) {
+function SeatsLine({ used, seats }: { used: number; seats: number | null }) {
   return (
     <span className="text-[13px] text-nevo-near-black/55">
-      {`${used} of ${ADMIN_SEAT_ALLOWANCE} admin accounts`}
+      {seats === null
+        ? `${used} admin ${used === 1 ? "account" : "accounts"}`
+        : `${used} of ${seats} admin accounts`}
     </span>
   );
 }
@@ -228,12 +245,15 @@ function MemberRow({ m, last }: { m: TeamMember; last: boolean }) {
 
 function TeamList({
   team,
+  seats,
   onInvite,
 }: {
   team: TeamMember[];
+  /** The school's allowance, or null when it could not be read. */
+  seats: number | null;
   onInvite: () => void;
 }) {
-  const atAllowance = team.length >= ADMIN_SEAT_ALLOWANCE;
+  const atAllowance = seats !== null && team.length >= seats;
   return (
     <>
       <div className="flex items-start justify-between gap-6">
@@ -244,16 +264,17 @@ function TeamList({
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-4">
-        <SeatsLine used={team.length} />
+        <SeatsLine used={team.length} seats={seats} />
       </div>
 
       {atAllowance && (
         <div className={cn(CARD, "mt-3 px-[26px] py-6")}>
           <h3 className="text-[16px] font-semibold text-nevo-near-black">
-            All five admin accounts are in use
+            {`All ${seats} admin accounts are in use`}
           </h3>
           <p className="mt-2 max-w-[60ch] text-sm leading-[1.6] text-nevo-near-black/66">
-            This school includes five admin accounts as standard. Need another?
+            {`This school includes ${seats} admin accounts as standard.`}{" "}
+            Need another?
             We&rsquo;ll add it at no charge - just ask. Keeping the standing
             number small is a data-governance and security measure, not a
             billing one: the fewer accounts that can reach student data, the

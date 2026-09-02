@@ -1,3 +1,5 @@
+import type { EnrolmentBand } from "@/lib/api/school";
+
 import {
   ALL_PERMISSION_SCOPES,
   type PermissionScope,
@@ -83,14 +85,42 @@ export function orderScopes(scopes: PermissionScope[]): PermissionScope[] {
 }
 
 /**
- * D03: "Brightgate Academy includes five admin accounts as standard." Read as
- * a product standard rather than a per-school figure, because nothing in the
- * team response carries an allowance.
+ * D03: "Brightgate Academy includes five admin accounts as standard."
  *
- * TODO(api): a seat allowance on the team response, so this stops being a
- * constant the client asserts.
+ * FIVE IS THE BOUTIQUE NUMBER, NOT EVERY SCHOOL'S. Onboarding's band step
+ * tells a school its allowance in its own words - "Mid-Market comes with 10
+ * admin seats" - and this file then asserted five to all of them. A 10-seat
+ * school was told "All five admin accounts are in use" at its fifth admin and
+ * had the Invite button taken away; a school already holding six read "6 of 5
+ * admin accounts" with six rows listed underneath it.
+ *
+ * The band is the school's own answer, written at onboarding and readable from
+ * the school record, so the allowance is derived from it.
+ *
+ * TODO(api): a seat allowance on the team response. The table below is the
+ * client's copy of a commercial fact it does not own, and it is only right for
+ * as long as the two agree.
  */
-export const ADMIN_SEAT_ALLOWANCE = 5;
+
+/** Must match `BANDS` in `Onboarding/BandStep.tsx` - the same v1 defaults. */
+const SEATS_BY_BAND: Record<EnrolmentBand, number> = {
+  boutique: 5,
+  mid_market: 10,
+  premium: 15,
+  enterprise: 25,
+};
+
+/**
+ * The school's allowance, or null when we cannot say.
+ *
+ * Null is not a number to fall back on. A school whose band we could not read
+ * gets no cap asserted and no invite path closed, because guessing low locks
+ * an admin out of their own team and guessing high promises seats they may
+ * not have.
+ */
+export function adminSeatAllowance(band: EnrolmentBand | undefined): number | null {
+  return band ? (SEATS_BY_BAND[band] ?? null) : null;
+}
 
 /** "Mrs. F. Adebayo" -> "FA"; falls back to the email's first letter. */
 export function initialsFor(name: string, email: string | null): string {
