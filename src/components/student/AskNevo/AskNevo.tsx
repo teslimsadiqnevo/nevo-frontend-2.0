@@ -17,9 +17,11 @@ import { cn, randomId } from "@/lib/utils";
  *
  * Raised from 15s. The backend's own documented range for an unauthenticated
  * 401 is 1.0-5.6s and a Render cold start is far slower than that, so 15s sat
- * inside ordinary latency rather than beyond it - and a response arriving at
- * 15.1s was discarded in favour of a canned reply. Same shape as the six-second
- * race cap that cost two PRs elsewhere in this codebase.
+ * inside ordinary latency rather than beyond it.
+ *
+ * The cap now ABORTS the request rather than racing it. A race left the request
+ * in flight and discarded an answer that had already arrived; aborting means the
+ * mock engine only ever stands in for a request that genuinely ended.
  *
  * A cap still belongs here, unlike in `useLiveQuery`: a child watching thinking
  * dots forever is worse than a labelled sample answer. It just has to sit past
