@@ -31,8 +31,25 @@ export const TOSSE_ROLES = [
 export type TosseRole = (typeof TOSSE_ROLES)[number];
 
 /**
- * The three intent cards. `value` is the SCRUM-117 enum; `label` is the frame's
- * copy, which is fixed - it is the wording schools read at the booth.
+ * The three intent cards. `label` is the frame's copy, which is fixed - it is
+ * the wording schools read at the booth.
+ *
+ * THE VALUES BELOW ARE NOT AGREED AND TWO OF THEM WILL 422.
+ *
+ * This file used to cite "the SCRUM-117 enum". There is no SCRUM-117: it does
+ * not exist anywhere in the design set or its history, and the specs stop at
+ * 105. The only TOSSE artifact is a landing frame that stores the choice as a
+ * bare array index and names no values at all, so these three slugs were
+ * invented here and attributed to a spec that was never written.
+ *
+ * The live endpoint takes `founding_partner | pilot | learn_more`. Only the
+ * first matches, and anything else rejects the WHOLE submission - so two of
+ * the three cards currently lose the lead they were drawn to capture.
+ *
+ * Backend has offered to rename the enum to whatever the cards mean rather
+ * than have the client map around it. Until that lands these stay as they
+ * are, because guessing which of `pilot` and `learn_more` a walkthrough is
+ * would be inventing the contract a second time.
  */
 export const TOSSE_INTENTS = [
   { value: "founding_partner", label: "I want to become a Founding Partner" },
@@ -42,21 +59,45 @@ export const TOSSE_INTENTS = [
 
 export type TosseIntent = (typeof TOSSE_INTENTS)[number]["value"];
 
-/** Request body per the SCRUM-117 contract. Every field is required. */
+/**
+ * The live request body (backend, 3 Sep). camelCase, like the rest of the
+ * product API - this posted `school_name` and `student_count`, which the
+ * endpoint does not know.
+ *
+ * Only `name` and `schoolName` are required server-side: a partial form still
+ * captures the lead, which at a booth is worth more than a complete one that
+ * never got sent. The FORM is stricter than the API for now - see the note on
+ * `complete` in TosseInterestPage - and relaxing it is a design call.
+ */
 export interface TosseInterest {
   name: string;
-  role: string;
-  school_name: string;
-  student_count: number;
-  phone: string;
-  email: string;
-  intent: TosseIntent;
+  schoolName: string;
+  role?: string;
+  studentCount?: number;
+  phone?: string;
+  email?: string;
+  intent?: TosseIntent;
 }
 
-/** 201 response per SCRUM-117: `{ id, status }`. */
+/** 201: `{ id, received: true }`. */
 export interface TosseInterestReceipt {
   id: string;
-  status: string;
+  received: boolean;
+}
+
+/**
+ * The endpoint's error body: `{ detail: { code, message } }`, where `message`
+ * is written to be shown to a headteacher. `ApiError.detail` carries it
+ * through untouched, so this narrows it rather than throwing it away - a 422
+ * used to render "check your connection", which describes none of the things
+ * that actually go wrong.
+ */
+export function tosseErrorMessage(detail: unknown): string | null {
+  if (!detail || typeof detail !== "object") return null;
+  const inner = (detail as { detail?: unknown }).detail;
+  if (!inner || typeof inner !== "object") return null;
+  const message = (inner as { message?: unknown }).message;
+  return typeof message === "string" && message.trim() ? message.trim() : null;
 }
 
 export const tosseApi = {

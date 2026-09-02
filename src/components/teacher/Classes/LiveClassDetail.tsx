@@ -25,12 +25,15 @@ import { ClassQrDialog, ClassQrScreen } from "./ClassQr";
  * Rows link to the student's profile, which reads live since the student
  * endpoints were wired.
  *
- * `observations` and `seatContext` shipped on 31 Aug and reach this screen,
- * but are not drawn: `observations` is an untyped `string[]` with no enum,
- * description or bound, so its CONTENTS have to be read against a real class
- * before any of it goes in front of a teacher - the field-name check that
- * satisfied the Zero-Tag rulings says nothing about what is inside. Until
- * then these stay ordinary roster rows rather than C16b observation rows.
+ * `observations` and `seatContext` reach this screen but are not drawn.
+ * `observations` is no longer the untyped `string[]` that blocked it - it is
+ * `{pattern, count}` over a closed five-value enum (backend, 3 Sep), so its
+ * contents are now guaranteed by the schema rather than by an assurance, and
+ * the phrasing for each pattern is the client's to write.
+ *
+ * What remains is a DESIGN question, not a contract one: C16b's observation
+ * rows are not drawn on this screen, so these stay ordinary roster rows until
+ * design says what an observation row looks like here.
  */
 export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
   const [qr, setQr] = useState<"none" | "dialog" | "screen">("none");
