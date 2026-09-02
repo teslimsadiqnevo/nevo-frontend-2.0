@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { authApi, teamApi } from "@/lib/api";
+import { invitesApi } from "@/lib/api/invites";
 
 /**
  * Set Password (`Nevo Set Password`) - one component behind two flows:
@@ -146,6 +147,8 @@ export function SetPasswordForm({
   /** The accept response carries no email, so the link has to. The prop is the
    *  fallback that keeps the designed screen viewable on its own. */
   const inviteEmail = params.get("email") ?? email ?? "";
+  /** Set by the join landing: this token belongs to the product-access flow. */
+  const viaJoin = params.get("via") === "join";
   const activation = mode === "activation";
   const met = REQUIREMENTS.map((r) => r.test(password));
   const allMet = met.every(Boolean);
@@ -199,11 +202,32 @@ export function SetPasswordForm({
       return;
     }
 
+    /*
+     * TWO ACCEPT ENDPOINTS, and the token says which.
+     *
+     * `POST /api/v1/admin/team/invitations/accept` redeems an ADMIN TEAM
+     * invitation, keyed on `invitation_token`. `POST /api/v1/join/{token}/
+     * accept` redeems a PRODUCT ACCESS join link - a different namespace, a
+     * different tag in the spec, and the token in the path rather than the
+     * body.
+     *
+     * `NewInviteModal` builds its links as `/join/{token}`, and the join
+     * landing sent those here - so every teacher invited from the admin
+     * console arrived at a screen that posted their join token to the
+     * admin-team endpoint, which does not know it. The link could not be
+     * redeemed at all.
+     *
+     * `?via=join` is set by the join landing and says which this is.
+     */
     try {
-      await teamApi.acceptInvitation({
-        invitation_token: token,
-        password,
-      });
+      if (viaJoin) {
+        await invitesApi.acceptJoin(token, { password });
+      } else {
+        await teamApi.acceptInvitation({
+          invitation_token: token,
+          password,
+        });
+      }
     } catch {
       setPhase("form");
       setError(
