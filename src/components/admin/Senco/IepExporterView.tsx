@@ -73,6 +73,8 @@ export function IepExporterView() {
   const [draft, setDraft] = useState<IepExport | null>(null);
   const [content, setContent] = useState("");
   const [guardians, setGuardians] = useState<ParentLink[]>([]);
+  const [guardiansFailed, setGuardiansFailed] = useState(false);
+  const [shareFailed, setShareFailed] = useState(false);
   const [savedAt, setSavedAt] = useState(false);
 
   // The clock is read in an effect, never during render. Default period is the
@@ -101,11 +103,24 @@ export function IepExporterView() {
   const student = students.find((s) => s.id === studentId);
   const firstName = student?.name.split(" ").filter(Boolean)[0] ?? "this learner";
 
+  /*
+   * A failed guardian read is NOT a child without a family.
+   *
+   * This used to catch to `setGuardians([])`, which renders "There's no
+   * guardian account on {firstName}'s record yet, so there's nobody to send
+   * this to." - an assertion about a child's family record produced by a
+   * failed GET. The realistic outcome is a finalised IEP that never reaches a
+   * guardian because the SENCo was told there was nobody to reach.
+   */
   const loadGuardians = useCallback((id: string) => {
+    setGuardiansFailed(false);
     studentsApi
       .parentLinks(id)
-      .then(setGuardians)
-      .catch(() => setGuardians([]));
+      .then((rows) => {
+        setGuardians(rows);
+        setGuardiansFailed(false);
+      })
+      .catch(() => setGuardiansFailed(true));
   }, []);
 
   const generate = () => {
@@ -154,10 +169,18 @@ export function IepExporterView() {
   const share = (parentId: string) => {
     if (!draft) return;
     setPhase("sharing");
+    setShareFailed(false);
     exportApi
       .share(draft.id, { parentId })
       .then(() => setPhase("shared"))
-      .catch(() => setPhase("failed"));
+      .catch(() => {
+        // A failed SHARE is the one write here whose outcome the client
+        // genuinely cannot know: a transport failure (ApiError status 0) can
+        // leave a share committed server-side. Generate, save and finalise
+        // can honestly say nothing happened; this cannot.
+        setShareFailed(true);
+        setPhase("failed");
+      });
   };
 
   return (
@@ -370,6 +393,21 @@ export function IepExporterView() {
                     Shared. It&rsquo;s in their account now.
                   </span>
                 </div>
+              ) : guardiansFailed ? (
+                <div className="mt-4 text-sm text-nevo-near-black/62">
+                  <p className="m-0">
+                    We couldn&rsquo;t read {firstName}&rsquo;s guardian record
+                    just now. Don&rsquo;t take this as nobody to send to
+                    &ndash; we haven&rsquo;t been able to check.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => studentId && loadGuardians(studentId)}
+                    className="mt-2.5 cursor-pointer text-[13.5px] font-semibold text-nevo-navy"
+                  >
+                    Try again
+                  </button>
+                </div>
               ) : guardians.length === 0 ? (
                 <p className="m-0 mt-4 text-sm text-nevo-near-black/62">
                   There&rsquo;s no guardian account on {firstName}&rsquo;s
@@ -422,8 +460,9 @@ export function IepExporterView() {
               Something went wrong. We&rsquo;re on it.
             </h3>
             <p className="mt-2 max-w-[52ch] text-sm leading-[1.55] text-nevo-near-black/62">
-              Nothing has been shared, and anything you had written is still
-              here. Please give it another try.
+              {shareFailed
+                ? "Anything you had written is still here. We couldn’t confirm whether the share reached them, so check their account before sending it again."
+                : "Nothing has been shared, and anything you had written is still here. Please give it another try."}
             </p>
             <button
               type="button"

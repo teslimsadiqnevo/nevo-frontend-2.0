@@ -60,6 +60,40 @@ function humanise(value: string): string {
     .replace(/^./, (c) => c.toUpperCase());
 }
 
+/**
+ * What a section shows when its OWN read did not answer.
+ *
+ * The wording matters: it has to say the absence is unknown rather than
+ * established, because the sections around it state real absences in almost
+ * the same shape, and a SENCo reading this is deciding what goes into an IEP.
+ */
+function ReadFailed({
+  firstName,
+  what,
+  onRetry,
+}: {
+  firstName: string;
+  what: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="m-0 text-sm text-nevo-near-black/62">
+      <p className="m-0">
+        We couldn&rsquo;t read {firstName}&rsquo;s {what} just now, so
+        there&rsquo;s nothing to show here yet &ndash; this is not a record that
+        it&rsquo;s empty.
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-2.5 cursor-pointer text-[13.5px] font-semibold text-nevo-navy"
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+
 export function LearnerProfileView({ studentId }: { studentId: string }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [student, setStudent] = useState<AdminStudentDetail | null>(null);
@@ -67,6 +101,24 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
   const [accommodations, setAccommodations] = useState<Accommodations | null>(null);
   const [mastery, setMastery] = useState<ConceptMasteryRow[]>([]);
   const [adaptations, setAdaptations] = useState<StudentAdaptation[]>([]);
+  /*
+   * A read that FAILED is not a child with nothing on their record.
+   *
+   * These three used to end `.catch(() => undefined)`, leaving state at its
+   * initial empty value - so a 500 rendered as four signed statements that
+   * Nevo is adjusting nothing, has noticed nothing, has no concepts with
+   * practice behind them, and has never adapted a lesson. On the screen a
+   * SENCo reads while drafting an IEP, directly above copy calling it "the
+   * accommodation record for the IEP".
+   *
+   * The comment that used to sit here said each section owns its own failure.
+   * It does now.
+   */
+  const [failed, setFailed] = useState({
+    accommodations: false,
+    mastery: false,
+    adaptations: false,
+  });
 
   const load = useCallback(() => {
     Promise.all([studentsApi.get(studentId), classesApi.list(true)])
@@ -74,11 +126,22 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
         setStudent(s);
         setClasses(c);
         setPhase("ready");
-        // Each section owns its own failure: a profile is still worth showing
-        // when one of the three intelligence reads does not answer.
-        studentsApi.accommodations(studentId).then(setAccommodations).catch(() => undefined);
-        studentsApi.mastery(studentId).then(setMastery).catch(() => undefined);
-        studentsApi.adaptations(studentId).then(setAdaptations).catch(() => undefined);
+        // A profile is still worth showing when one of the three intelligence
+        // reads does not answer - but that section says so rather than
+        // reporting an absence it has not established.
+        setFailed({ accommodations: false, mastery: false, adaptations: false });
+        studentsApi
+          .accommodations(studentId)
+          .then(setAccommodations)
+          .catch(() => setFailed((f) => ({ ...f, accommodations: true })));
+        studentsApi
+          .mastery(studentId)
+          .then(setMastery)
+          .catch(() => setFailed((f) => ({ ...f, mastery: true })));
+        studentsApi
+          .adaptations(studentId)
+          .then(setAdaptations)
+          .catch(() => setFailed((f) => ({ ...f, adaptations: true })));
       })
       .catch(() => setPhase("failed"));
   }, [studentId]);
@@ -158,7 +221,9 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
 
       <SectionLabel>Current accommodations</SectionLabel>
       <div className={cn(CARD, "mt-2.5 px-6 py-[22px]")}>
-        {active.length === 0 ? (
+        {failed.accommodations ? (
+          <ReadFailed firstName={firstName} what="accommodations" onRetry={load} />
+        ) : active.length === 0 ? (
           <p className="m-0 text-sm text-nevo-near-black/62">
             Nevo isn&rsquo;t adjusting anything for {firstName} at the moment.
           </p>
@@ -182,7 +247,9 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
 
       <SectionLabel>What Nevo has noticed</SectionLabel>
       <div className={cn(CARD, "mt-2.5 px-6 py-[22px]")}>
-        {signals.length === 0 ? (
+        {failed.accommodations ? (
+          <ReadFailed firstName={firstName} what="signals" onRetry={load} />
+        ) : signals.length === 0 ? (
           <p className="m-0 text-sm text-nevo-near-black/62">
             Nothing consistent enough to describe yet. This fills in as{" "}
             {firstName} works through more lessons.
@@ -210,7 +277,11 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
           barrier is the text, not the concept - the distinction this profile
           exists to draw.
         </p>
-        {mastery.length === 0 ? (
+        {failed.mastery ? (
+          <div className="border-t border-nevo-near-black/8 px-6 py-6">
+            <ReadFailed firstName={firstName} what="concept record" onRetry={load} />
+          </div>
+        ) : mastery.length === 0 ? (
           <p className="m-0 border-t border-nevo-near-black/8 px-6 py-6 text-sm text-nevo-near-black/62">
             No concepts have enough practice behind them yet.
           </p>
@@ -248,7 +319,11 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
 
       <SectionLabel>Recent adaptations</SectionLabel>
       <div className={cn(CARD, "mt-2.5")}>
-        {adaptations.length === 0 ? (
+        {failed.adaptations ? (
+          <div className="px-6 py-6">
+            <ReadFailed firstName={firstName} what="adaptation history" onRetry={load} />
+          </div>
+        ) : adaptations.length === 0 ? (
           <p className="m-0 px-6 py-6 text-sm text-nevo-near-black/62">
             Nevo hasn&rsquo;t needed to adjust a lesson for {firstName} yet.
           </p>
