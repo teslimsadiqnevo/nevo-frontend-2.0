@@ -42,8 +42,19 @@ import {
  *
  * The frame's outer chrome - 844px fixed height, 24px radius, drop shadow on a
  * #2b2b2f page - is canvas presentation of a 390x844 phone, not page design.
- * SCRUM-117 confirms it ("Page background: Cream #f7f1e6"), so the real page is
- * full-bleed cream with a 390px content column and natural document scroll.
+ * SCRUM-117 confirms it ("Page background: Cream #f7f1e6"), so on a phone the
+ * real page is full-bleed cream with a 390px content column and natural
+ * document scroll.
+ *
+ * BEYOND THE PHONE there is no frame to follow - the design ships one artboard,
+ * and the QR code means nearly all real traffic arrives on a phone anyway. So
+ * wider viewports do not get an invented layout: the column keeps its drawn
+ * metrics exactly and instead takes back the frame's own chrome (24px radius,
+ * hairline, a soft lift) from 600px up, which is the one desktop treatment the
+ * design actually implies. The shadow is restated over cream - the frame's
+ * `rgba(0,0,0,0.35)` was tuned for a #2b2b2f canvas and would read as dirt here.
+ * Two-column and other wide compositions were deliberately not attempted: they
+ * would be new design shipping the same day, with no review.
  */
 
 const NAVY = "#3b3f6e";
@@ -93,8 +104,11 @@ const cardBase: CSSProperties = {
   justifyContent: "center",
   textAlign: "center",
   width: "100%",
-  height: 56,
-  padding: "0 14px",
+  // minHeight, not height: at 320px the longest label wraps to two lines, and a
+  // fixed 56px would clip it. At the drawn 390px nothing wraps, so the card is
+  // still exactly the 56px the frame specifies.
+  minHeight: 56,
+  padding: "10px 14px",
   borderRadius: 12,
   fontFamily: "inherit",
   fontSize: 15,
@@ -227,17 +241,52 @@ export function TosseInterestPage() {
   }
 
   return (
-    <main style={{ flex: 1, minHeight: "100dvh", background: CREAM }}>
+    <main className="tosse-page">
       <style>{`
+        .tosse-page { flex: 1; min-height: 100dvh; background: ${CREAM}; }
+        .tosse-panel { width: 100%; max-width: 390px; margin: 0 auto; background: ${CREAM}; }
+        .tosse-confirm { min-height: 640px; }
+
         .tosse-in::placeholder { color: rgba(43,43,47,0.3); font-size: 14px; }
         .tosse-in:focus { background: #fdfcf9; border-color: ${NAVY}; }
         .tosse-phone:focus-within { background: #fdfcf9; border-color: ${NAVY}; }
         .tosse-role:focus-visible { background: #fdfcf9; border-color: ${NAVY}; }
         .tosse-role-row:hover { background: rgba(154,156,203,0.12); }
         .tosse-submit:hover:not(:disabled) { background: ${VIOLET}; }
+        /* Unselected cards only - the violet fill is the selected state and a
+           hover must not read as a second selection. Pointer devices only, so a
+           touch does not leave a card looking hovered after the finger lifts. */
+        @media (hover: hover) {
+          .tosse-card[aria-pressed="false"]:hover { border-color: rgba(59,63,110,0.7); }
+        }
+
+        /* The design ships ONE 390x844 artboard - there is no desktop frame. So
+           rather than invent a wide layout, the panel keeps the drawn metrics
+           exactly and takes on the frame's OWN chrome (24px radius, hairline,
+           soft lift) once there is room for it. A laptop then reads as
+           deliberate instead of as a phone page stretched across the viewport. */
+        @media (min-width: 600px) {
+          .tosse-page {
+            padding: 48px 24px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+          }
+          .tosse-panel {
+            border-radius: 24px;
+            border: 1px solid rgba(59,63,110,0.12);
+            box-shadow: 0 24px 60px rgba(59,63,110,0.10);
+            overflow: hidden;
+          }
+        }
+        @media (min-width: 1024px) { .tosse-page { padding: 72px 24px; } }
+
+        /* Landscape phones: a 640px confirmation column would force a scroll on
+           a viewport with nothing below to scroll to. */
+        @media (max-height: 760px) { .tosse-confirm { min-height: 60vh; } }
       `}</style>
 
-      <div style={{ width: "100%", maxWidth: 390, margin: "0 auto" }}>
+      <div className="tosse-panel">
         <header
           style={{
             background: CREAM,
@@ -266,8 +315,8 @@ export function TosseInterestPage() {
         <div style={{ padding: "32px 24px 48px" }}>
           {submitted ? (
             <div
+              className="tosse-confirm"
               style={{
-                minHeight: 640,
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
@@ -586,6 +635,7 @@ export function TosseInterestPage() {
                       <button
                         key={option.value}
                         type="button"
+                        className="tosse-card"
                         aria-pressed={selected}
                         onClick={() => setIntent(option.value)}
                         style={{
@@ -630,7 +680,10 @@ export function TosseInterestPage() {
                 disabled={!complete || sending}
                 style={{
                   width: "100%",
-                  height: 52,
+                  // See the intent cards: minHeight so the label can wrap on a
+                  // 320px screen without clipping, 52px everywhere it fits.
+                  minHeight: 52,
+                  padding: "10px 16px",
                   marginTop: 32,
                   border: "none",
                   borderRadius: 12,
