@@ -21,6 +21,12 @@ export interface OnboardingDraft {
   /** The class the student picked (or the only one there was). */
   classId?: string;
   className?: string;
+  /**
+   * The join-link token, when the child arrived by one. Redeeming it at PIN
+   * creation is what creates the account - and what returns the only login
+   * identifier the server will actually recognise.
+   */
+  joinToken?: string;
 }
 
 export function getOnboardingDraft(): OnboardingDraft {
@@ -62,20 +68,39 @@ function initialsOf(name: string): string {
 /**
  * Fold the draft into the device's remembered profile - called when the
  * student finishes creating their PIN (the moment this device becomes theirs).
- * No-ops without a name; the login screen then keeps routing to onboarding.
+ *
+ * THE IDENTIFIER MUST BE THE SERVER'S. This used to derive one from the child's
+ * name - `"Amara Kalu"` became `"amara.kalu"` - and remember the device against
+ * it. Nothing had told the server that name meant anything, so the returning
+ * child was shown their own avatar and "Welcome back", typed the PIN they were
+ * told to remember, and got a 401 they could do nothing about. A remembered
+ * profile the server cannot authenticate is worse than no remembered profile:
+ * it turns a child who never had an account into a child who thinks they are
+ * locked out of one.
+ *
+ * `POST /api/v1/join/{token}/accept` now returns `loginIdentifier`, and it is
+ * public, so a join-link child gets a real one before this is called.
+ *
+ * Returns whether the device was remembered. Without a name or without a
+ * server-issued identifier it remembers nothing, and the login screen keeps
+ * routing to onboarding - which is the truth about that device.
  */
-export function rememberOnboardedStudent(): void {
+export function rememberOnboardedStudent(
+  loginIdentifier: string | null | undefined,
+): boolean {
   const draft = getOnboardingDraft();
   const name = draft.name?.trim();
-  if (!name) return;
+  const identifier = loginIdentifier?.trim();
+  if (!name || !identifier) {
+    clearOnboardingDraft();
+    return false;
+  }
   rememberProfile({
     schoolCode: draft.schoolCode ?? "",
-    // TODO(api): the real login identifier comes from account provisioning
-    // (roster/invites); until then the device derives one from the name so
-    // the PIN screen can exercise the live login path.
-    loginIdentifier: name.toLowerCase().replace(/\s+/g, "."),
+    loginIdentifier: identifier,
     displayName: name.split(/\s+/)[0],
     initials: initialsOf(name),
   });
   clearOnboardingDraft();
+  return true;
 }
