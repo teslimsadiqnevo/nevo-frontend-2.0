@@ -130,10 +130,31 @@ export function SsoView() {
     ssoApi
       .rosterSync()
       .then((r) => {
+        /*
+         * READ THE STATUS. `RosterSyncStatus` is
+         * `completed | partial_manual_review | failed`, and this used to
+         * branch only on `missing_teacher_class_mappings` - so a run the
+         * server reported as FAILED still told the admin "Synced.", on an
+         * operation that creates, matches and deactivates student and staff
+         * records. A sync that did not happen must never read as one that did.
+         */
+        const manual = r.missing_teacher_class_mappings;
+        const imported = `${r.imported_students} students and ${r.imported_teachers} staff imported`;
         setNotice(
-          r.missing_teacher_class_mappings > 0
-            ? `Synced. ${r.missing_teacher_class_mappings} teacher-class assignments still need doing by hand.`
-            : `Synced. ${r.imported_students} students and ${r.imported_teachers} staff imported.`,
+          r.status === "failed"
+            ? /*
+               * Don't promise "nothing changed" - the response still carries
+               * counts on a failure, because a run can fail partway through
+               * having already written records. Only say it when they're zero.
+               */
+              r.imported_students + r.imported_teachers === 0
+              ? "That sync didn’t complete, and nothing was changed. Try again, and if it keeps failing your provider connection may need reauthorising."
+              : `That sync didn’t complete. ${imported} before it stopped, so the roster is part-updated - run it again, and if it keeps failing your provider connection may need reauthorising.`
+            : r.status === "partial_manual_review"
+              ? `Partly synced: ${imported}. Some records need a look before the rest can go through${manual > 0 ? `, and ${manual} teacher-class assignments still need doing by hand` : ""}.`
+              : manual > 0
+                ? `Synced. ${manual} teacher-class assignments still need doing by hand.`
+                : `Synced. ${imported}.`,
         );
         load();
       })
@@ -327,14 +348,20 @@ export function SsoView() {
                   <div className="flex items-start justify-between gap-5">
                     <div className="min-w-0">
                       <span className="text-[16px] font-semibold text-nevo-near-black">
+                        {/* "Healthy" was asserted from the connection state
+                            alone, while `failed_runs` was fetched and thrown
+                            away - so a school whose last five syncs failed
+                            read as healthy so long as the connection held. */}
                         {needsAttention
                           ? "Paused until we're reconnected"
-                          : "Healthy"}
+                          : (history?.failed_runs ?? 0) > 0
+                            ? "Syncing, with failures to look at"
+                            : "Healthy"}
                       </span>
                       <p className="mt-1 text-sm text-nevo-near-black/62">
                         {`Last synced ${timeAgo(status.last_successful_sync_at)}`}
                         {history
-                          ? ` · ${history.successful_runs} successful run${history.successful_runs === 1 ? "" : "s"} in the last ${history.window_days} days`
+                          ? ` · ${history.successful_runs} successful run${history.successful_runs === 1 ? "" : "s"}${history.failed_runs > 0 ? ` and ${history.failed_runs} failed` : ""} in the last ${history.window_days} days`
                           : ""}
                       </p>
                     </div>
