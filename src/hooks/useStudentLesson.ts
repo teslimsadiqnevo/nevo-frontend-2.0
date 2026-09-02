@@ -136,8 +136,14 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
   const saved = dashboard?.recentProgress
     .filter((r) => r.lessonId === lessonId)
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+  // `exited` resumes too. The status records HOW a child left, not whether
+  // they are done, and #217 already made Home show exited lessons on Pick
+  // Back Up - so leaving this on `in_progress` alone produced a card reading
+  // "About halfway in" that then opened the lesson at segment one. The same
+  // half-fix twice: the display was corrected and the resume was not.
+  const resumable = saved?.status === "in_progress" || saved?.status === "exited";
   const resumeAt =
-    live && saved && saved.status === "in_progress"
+    live && saved && resumable
       ? Math.max(0, Math.min(saved.segmentPosition, live.segments.length - 1))
       : null;
 
