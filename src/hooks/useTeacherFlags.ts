@@ -26,14 +26,22 @@ import { useStudentDirectory } from "./useStudentDirectory";
  * deferred the flag card's sparkline AND its second action to v1.5 - so the
  * card ships without them deliberately, and neither field is read.
  *
- * `acknowledged` has a write now (`POST /api/intelligence/flags/{id}/
- * acknowledge`) and this hook already filters acknowledged flags out, but
- * NOTHING on C03 acknowledges one: the card's second slot is navigation, and
- * design deferred it. The endpoint has no caller until a control is drawn.
+ * ACKNOWLEDGEMENT IS THE TAP. Design ruled on 2 Sep that there is no
+ * acknowledge control and there never will be one: tapping the flag card
+ * opens the student's profile AND marks the flag seen, in the same action.
+ * "The teacher doesn't know, doesn't care." So this hook's existing filter is
+ * what gives the write its effect - an acknowledged flag drops out of "Worth
+ * your attention" the next time the section loads, which is precisely the
+ * "it stops asking" the endpoint was built for.
+ *
+ * That is why `studentId` is carried through: the card needs somewhere to go,
+ * and the flag endpoint names a student by id only.
  */
 
 export interface TeacherFlag {
   id: string;
+  /** Where the tap goes. The flag names a student by id and nothing else. */
+  studentId: string;
   /** The student's name, or null when the directory could not resolve it. */
   name: string | null;
   /** Their class, when known. */
@@ -80,6 +88,7 @@ export function useTeacherFlags(): TeacherFlags {
         const student = byId.get(f.studentId);
         return {
           id: f.id,
+          studentId: f.studentId,
           name: student?.name ?? null,
           context: student?.className ?? null,
           note: f.description,

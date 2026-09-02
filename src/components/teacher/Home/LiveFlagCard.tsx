@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import type { TeacherFlag } from "@/hooks/useTeacherFlags";
+import { intelligenceApi } from "@/lib/api/intelligence";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,9 +13,23 @@ import { cn } from "@/lib/utils";
  * series, no target - so this card keeps what is real: the accent, who it is
  * about, what Nevo noticed, when, and the one action that works.
  *
- * The student profile is not linked. `/teacher/students/{id}` resolves against
- * fixtures and would 404 on a real student id, and a flag that dead-ends is
- * worse than a flag that only offers what it can.
+ * THE CARD IS THE ACKNOWLEDGEMENT. Design ruled on 2 Sep that a teacher never
+ * sees an acknowledge button: tapping the card opens the student's profile and
+ * marks the flag seen in the same action. So the tap fires
+ * `POST /api/intelligence/flags/{id}/acknowledge` and navigates, and
+ * `useTeacherFlags` already filters acknowledged flags out - which is what
+ * makes the flag stop asking.
+ *
+ * The write is deliberately not awaited and its failure is deliberately
+ * silent. There is no UI for an outcome the teacher was never told about, and
+ * blocking navigation on a background write would make a tap feel broken. A
+ * failed acknowledge simply leaves the flag where it was, to be shown again -
+ * which is the safe direction to fail in.
+ *
+ * An earlier note here said the profile could not be linked because
+ * `/teacher/students/{id}` resolved against fixtures and would 404 on a real
+ * id. That is no longer true: `StudentRoute` resolves live first and falls
+ * back to a fixture only when the live read fails.
  */
 
 const DROP_GLYPH = (
@@ -38,7 +55,7 @@ function noticedWhen(iso: string): string {
 
 export function LiveFlagCard({ flag }: { flag: TeacherFlag }) {
   return (
-    <div className="relative flex gap-3.5 rounded-[12px] bg-nevo-cream-elevated py-4 pr-[18px] pl-[22px] shadow-elevation-1 xl:gap-[18px] xl:py-[22px] xl:pr-6 xl:pl-7">
+    <div className="relative flex gap-3.5 rounded-[12px] bg-nevo-cream-elevated py-4 pr-[18px] pl-[22px] shadow-elevation-1 transition-shadow focus-within:shadow-elevation-2 hover:shadow-elevation-2 xl:gap-[18px] xl:py-[22px] xl:pr-6 xl:pl-7">
       {/* Navy for a sudden change, violet for a pattern - C03's own rule. */}
       <span
         className={cn(
@@ -65,10 +82,29 @@ export function LiveFlagCard({ flag }: { flag: TeacherFlag }) {
         <p className="mt-[7px] text-[14.5px] leading-[1.5] text-nevo-near-black/82 xl:mt-[9px] xl:text-[15.5px] xl:leading-[1.55]">
           {flag.note}
         </p>
+        {/*
+          * The whole card is the link, so the profile is reachable from
+          * anywhere on it - which is what design described as "tapping the
+          * flag card". It is stretched with a pseudo-element rather than
+          * wrapping the card, because "Send them a message" is itself an
+          * anchor and an anchor may not contain another one.
+          */}
+        <Link
+          href={`/teacher/students/${flag.studentId}`}
+          onClick={() => {
+            void intelligenceApi.acknowledgeFlag(flag.id).catch(() => {});
+          }}
+          className="text-[13.5px] font-semibold text-nevo-navy after:absolute after:inset-0 after:rounded-[12px] after:content-[''] focus-visible:outline-none xl:text-[14.5px]"
+        >
+          <span className="sr-only">
+            {`Open ${flag.name ?? "this student"}’s profile`}
+          </span>
+        </Link>
         <div className="mt-3 xl:mt-[18px]">
+          {/* Above the stretched link, so it stays its own action. */}
           <Link
             href="/teacher/connect"
-            className="text-[13.5px] font-semibold text-nevo-navy transition-transform active:scale-[0.985] xl:text-[14.5px]"
+            className="relative z-10 text-[13.5px] font-semibold text-nevo-navy transition-transform active:scale-[0.985] xl:text-[14.5px]"
           >
             Send them a message
             <span className="ml-1.5">&rarr;</span>
