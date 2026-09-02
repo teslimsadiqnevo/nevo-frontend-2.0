@@ -80,6 +80,7 @@ export {
   type RosterSyncHistory,
 } from "./sso";
 export { askNevoApi, asUuid } from "./askNevo";
+export { schedulerApi, type ConceptSchedule } from "./scheduler";
 export { consentsApi, type ConsentGateStatus } from "./consents";
 export { notificationsApi } from "./notifications";
 export { analyticsApi } from "./analytics";
