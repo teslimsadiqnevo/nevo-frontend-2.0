@@ -9,8 +9,23 @@ import { api } from "./client";
  * nothing resolves to a name, so it cannot be rendered.
  */
 
+/**
+ * One thing the scan turned up, as a locator into the store.
+ *
+ * The spec's shape exactly: four required strings, no severity and no
+ * category, so findings cannot be ranked or graded - the screen may only
+ * count them.
+ *
+ * CAUTION: `term` is the matched text. On a scan for diagnostic labels that
+ * is likely to BE a diagnostic label, which is the one category of string
+ * this product may never put on screen. Nothing renders a finding's contents
+ * today, and nothing should start without design ruling on `term` first.
+ */
 export interface ComplianceFinding {
-  [key: string]: unknown;
+  table: string;
+  recordId: string;
+  field: string;
+  term: string;
 }
 
 export interface ComplianceAudit {

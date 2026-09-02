@@ -7,6 +7,7 @@ import {
   type ComplianceAudit,
 } from "@/lib/api/schoolIntelligence";
 import { cn } from "@/lib/utils";
+import { labelHero } from "../Compliance/ndpaClaims";
 import { NARRATIVE_SAMPLE, WORTH_A_GLANCE } from "./overviewSample";
 
 /**
@@ -164,20 +165,23 @@ export function OverviewView() {
               )}
             </div>
 
-            {/* The compliance card is fully real, and is the point of the page. */}
+            {/* The compliance card is fully real, and is the point of the
+                page. Its copy comes from `ndpaClaims.ts` because D22 states
+                the same claim and the two used to word it independently -
+                both asserting that nothing of the kind is held, above a live
+                count that can come back non-zero. One source now, so they
+                cannot drift apart again. */}
             <div className={cn(CARD, "mt-4 px-[26px] py-7")}>
               <div className="flex items-baseline gap-3">
                 <span className="text-[38px] leading-none font-semibold text-nevo-navy">
                   {audit.diagnosticLabelsStored}
                 </span>
                 <span className="text-[15px] font-semibold text-nevo-near-black">
-                  Diagnostic labels stored
+                  {labelHero(audit.diagnosticLabelsStored, "overview").unit}
                 </span>
               </div>
               <p className="mt-3 max-w-[62ch] text-sm leading-[1.6] text-nevo-near-black/66">
-                Nevo adapts to how each student is learning right now. It never
-                records a diagnosis or a label, so there is nothing of that kind
-                held about your students.
+                {labelHero(audit.diagnosticLabelsStored, "overview").body}
               </p>
               <p className="mt-3 text-[13px] text-nevo-near-black/50">
                 {`Checked ${new Date(audit.generatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`}
