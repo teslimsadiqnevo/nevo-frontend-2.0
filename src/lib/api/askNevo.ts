@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api, type RequestOptions } from "./client";
 
 /**
  * Ask Nevo endpoints (FE Architecture §1; Student B.12) - wired to the live
@@ -61,8 +61,8 @@ export interface AskNevoAnswer {
 }
 
 export const askNevoApi = {
-  ask: (payload: AskNevoRequest) =>
-    api.post<AskNevoAnswer>("/api/v1/ask-nevo", payload),
+  ask: (payload: AskNevoRequest, options?: RequestOptions) =>
+    api.post<AskNevoAnswer>("/api/v1/ask-nevo", payload, options),
 
   /** The frame set has no vote control yet (flagged to design); the seam is
    *  ready for it. 204 on success. */

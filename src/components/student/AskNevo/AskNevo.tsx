@@ -167,24 +167,27 @@ export function AskNevo() {
     // (no session yet, offline). The answer lands no earlier than the
     // thinking beat, so a fast response never arrives jarringly.
     const beat = new Promise<void>((resolve) => later(resolve, THINKING_MS));
-    // Capped: a cold backend must never leave the dots spinning forever -
-    // the mock engine answers instead.
-    const live = askNevoApi
-      .ask({
-        role: "student",
-        currentPage: pathname,
-        contextIds: {
-          studentId: asUuid(user?.id),
-          lessonId: asUuid(lessonId),
-          threadId: asUuid(threadId.current),
+    // Capped by ABORTING the request, not by racing it. A race leaves the
+    // request in flight and throws away an answer that did arrive - so a
+    // merely slow reply got replaced by a canned one. Aborting means the only
+    // thing the mock engine ever stands in for is a genuine failure.
+    const controller = new AbortController();
+    later(() => controller.abort(), LIVE_TIMEOUT_MS);
+    const answer = askNevoApi
+      .ask(
+        {
+          role: "student",
+          currentPage: pathname,
+          contextIds: {
+            studentId: asUuid(user?.id),
+            lessonId: asUuid(lessonId),
+            threadId: asUuid(threadId.current),
+          },
+          question: text,
         },
-        question: text,
-      })
+        { signal: controller.signal },
+      )
       .catch(() => null);
-    const answer = Promise.race([
-      live,
-      new Promise<null>((resolve) => later(() => resolve(null), LIVE_TIMEOUT_MS)),
-    ]);
     void Promise.all([answer, beat]).then(([res]) => {
       if (!alive.current) return;
       setMessages((m) => [
