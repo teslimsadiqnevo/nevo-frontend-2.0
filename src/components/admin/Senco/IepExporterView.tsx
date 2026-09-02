@@ -37,6 +37,24 @@ import {
  * prevent - so the field is absent, and the person pressing Finalise is the
  * person named. Raised with design.
  *
+ * WHAT THE SCREEN MAY SAY ABOUT SHARING. Nothing reads share state back.
+ * An export carries `status` (draft|final) and its three review fields and
+ * NOTHING about who it went to; shares live on a separate record that exactly
+ * one endpoint writes and none reads. So the client knows only what it did
+ * itself, this session, and every claim here is scoped to that.
+ *
+ * The draft banner's "Not shared with anyone" is design's own draft-only pill
+ * (D08:130) and now renders only while the export's own status is "draft",
+ * rather than while the phase happens to be a draft-ish one. That distinction
+ * is the bug: a failed share is the only route back to the share card, and
+ * the way back ran through the draft editor, so a FINALISED and possibly
+ * shared report was displayed under a banner saying it had gone to nobody -
+ * with Save and Finalise re-armed on it, against design's rule that
+ * finalisation is irreversible.
+ *
+ * TODO(api): no endpoint lists an export's shares, so a reload cannot tell a
+ * SENCo whether a report already reached a guardian. Raised with backend.
+ *
  * TODO(api): "Download PDF" has no endpoint. `exports/iep` has no `.pdf`
  * route - the only PDF in the whole API is the compliance audit's - so the
  * action is absent rather than a button that fails. Sharing with the guardian
@@ -145,7 +163,9 @@ export function IepExporterView() {
       .then((d) => {
         setDraft(d);
         setSavedAt(true);
-        setPhase("draft");
+        // Same rule as everywhere else here: the export's own status decides
+        // which screen we are on. This used to set "draft" unconditionally.
+        setPhase(d.status === "final" ? "final" : "draft");
         setTimeout(() => setSavedAt(false), 2000);
       })
       .catch(() => setPhase("failed"));
@@ -286,17 +306,32 @@ export function IepExporterView() {
         ) : null}
 
         {/* ---------------------------------------------------------- DRAFT */}
-        {draft && (phase === "draft" || phase === "saving" || phase === "finalising") ? (
+        {draft && draft.status !== "final" && (phase === "draft" || phase === "saving" || phase === "finalising") ? (
           <>
             {/* Persistent, and it does not scroll away. */}
-            <div className="mt-4 rounded-xl bg-nevo-violet/24 px-5 py-4">
-              <p className="m-0 text-[14.5px] font-semibold text-nevo-navy">
-                Draft - review before sharing
-              </p>
-              <p className="m-0 mt-1 text-[13.5px] leading-[1.55] text-nevo-navy/85">
-                A named member of staff must read and check this before
-                it&rsquo;s finalised. Not shared with anyone.
-              </p>
+            <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-xl bg-nevo-violet/24 px-5 py-4">
+              <div className="min-w-0">
+                <p className="m-0 text-[14.5px] font-semibold text-nevo-navy">
+                  Draft - review before sharing
+                </p>
+                <p className="m-0 mt-1 text-[13.5px] leading-[1.55] text-nevo-navy/85">
+                  A named member of staff must read and check this before
+                  it&rsquo;s finalised.
+                </p>
+              </div>
+              {/*
+                * Design draws this as a pill of its own (D08:130), draft-only,
+                * beside the instruction rather than inside it. The build had
+                * merged the two into one sentence, which is how a statement
+                * about SHARE STATE ended up rendering wherever the review
+                * instruction did. It is now a sibling of the block above, and
+                * the block only renders while the export's own status is
+                * "draft" - so it cannot appear over a finalised report, no
+                * matter how the phase got here.
+                */}
+              <span className="shrink-0 rounded-full bg-nevo-navy/12 px-[11px] py-1 text-[12px] font-semibold text-nevo-navy">
+                Not shared with anyone
+              </span>
             </div>
 
             <div className={cn(CARD, "mt-4 px-6 py-[26px]")}>
@@ -350,7 +385,7 @@ export function IepExporterView() {
         ) : null}
 
         {/* ---------------------------------------------------------- FINAL */}
-        {draft && (phase === "final" || phase === "sharing" || phase === "shared") ? (
+        {draft && draft.status === "final" && phase !== "failed" ? (
           <>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center rounded-full bg-nevo-navy px-3 py-1 text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-cream">
@@ -383,6 +418,25 @@ export function IepExporterView() {
                 Sends a copy to {firstName}&rsquo;s linked guardian.
                 They&rsquo;ll see it in their Nevo account.
               </p>
+
+              {/*
+                * The unconfirmed share follows the SENCo to the place they
+                * would repeat it. "Go back" now returns a finalised export
+                * here rather than to the draft editor, and the warning lived
+                * only on the failure panel they just left - so without this
+                * they would be one click from sending a second copy of
+                * something that may already have arrived. Nothing can read
+                * share state back: the API has no endpoint that lists shares,
+                * so this session's own memory of the attempt is the only
+                * record there is.
+                */}
+              {shareFailed && phase !== "shared" ? (
+                <p className="m-0 mt-3 rounded-[10px] bg-nevo-violet/24 px-4 py-3 text-[13.5px] leading-[1.55] text-nevo-navy">
+                  The last attempt didn&rsquo;t confirm. It may still have
+                  reached them &ndash; check their account before sending
+                  again.
+                </p>
+              ) : null}
 
               {phase === "shared" ? (
                 <div className="mt-5 flex items-center gap-2.5">
@@ -464,9 +518,22 @@ export function IepExporterView() {
                 ? "Anything you had written is still here. We couldn’t confirm whether the share reached them, so check their account before sending it again."
                 : "Nothing has been shared, and anything you had written is still here. Please give it another try."}
             </p>
+            {/*
+              * Back to where the export ACTUALLY is, not to the editor.
+              *
+              * This read only `draft ? "draft" : "picking"`, so the one route
+              * back from a failed share - and it is the only route, a failed
+              * share unmounts the whole final block - dropped a FINALISED
+              * report into the draft editor. Design's rule is that
+              * finalisation is terminal ("Finalize -> irreversible, status
+              * draft -> final"), and this re-armed Save and Finalise on a
+              * locked report, because their only guard is `phase !== "draft"`.
+              */}
             <button
               type="button"
-              onClick={() => setPhase(draft ? "draft" : "picking")}
+              onClick={() =>
+                setPhase(!draft ? "picking" : draft.status === "final" ? "final" : "draft")
+              }
               className={cn(PRIMARY_BTN, "mt-5")}
             >
               Go back
