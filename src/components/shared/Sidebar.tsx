@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react";
@@ -56,9 +57,28 @@ export function Sidebar({
           collapsed ? "justify-center" : "px-3",
         )}
       >
-        <span className="font-brand text-2xl font-bold tracking-[-0.03em] text-nevo-navy">
-          {collapsed ? "N" : "Nevo"}
-        </span>
+        {collapsed ? (
+          /* Icon crop out of the padded 1080² file, as TeacherSidebar does. */
+          <span className="relative block size-[22px] overflow-hidden">
+            <Image
+              src="/brand/logo-icon-purple.png"
+              alt="Nevo"
+              width={1080}
+              height={1080}
+              priority
+              className="absolute block h-[135px] w-[135px] max-w-none -translate-x-[56.5px] -translate-y-[59.4px]"
+            />
+          </span>
+        ) : (
+          <Image
+            src="/brand/nevo-wordmark.png"
+            alt="Nevo"
+            width={344}
+            height={116}
+            priority
+            className="h-[18px] w-auto"
+          />
+        )}
       </div>
 
       {items.map((item) => {
