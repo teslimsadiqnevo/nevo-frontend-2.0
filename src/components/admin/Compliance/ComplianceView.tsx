@@ -9,7 +9,7 @@ import {
 } from "@/lib/api/schoolIntelligence";
 import { getToken } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
-import { NDPA_CLAIMS } from "./ndpaClaims";
+import { labelHero, ndpaClaims } from "./ndpaClaims";
 
 /**
  * D22 NDPA compliance audit - the drill-down that turns the Overview's
@@ -17,7 +17,10 @@ import { NDPA_CLAIMS } from "./ndpaClaims";
  * or a regulator.
  *
  * The hero is the whole point: not zero shown, zero STORED. Every other claim
- * on the page exists to protect that one.
+ * on the page exists to protect that one - which is why it is now derived
+ * from the count rather than asserted beside it. See `ndpaClaims.ts`: the
+ * prose here used to say "Nevo has never assigned or recorded a diagnostic
+ * category" directly beneath a live number that can come back non-zero.
  *
  * Claim states are honest about their own provenance - see `ndpaClaims.ts`.
  * Only "zero diagnostic labels" is verified from live data; three claims
@@ -93,6 +96,10 @@ export function ComplianceView() {
       .catch(() => setExporting("failed"));
   };
 
+  const labels = audit?.diagnosticLabelsStored ?? 0;
+  const hero = labelHero(labels, "audit");
+  const claims = ndpaClaims(labels);
+
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
       <div className="mx-auto max-w-[820px]">
@@ -166,23 +173,31 @@ export function ComplianceView() {
                   {audit.diagnosticLabelsStored}
                 </span>
                 <span className="text-[15px] font-semibold text-nevo-near-black">
-                  diagnostic labels stored
+                  {hero.unit}
                 </span>
               </div>
               <p className="mt-3 max-w-[64ch] text-sm leading-[1.65] text-nevo-near-black/70">
-                Not zero shown &ndash; zero stored. Nevo has never assigned or
-                recorded a diagnostic category for any learner in this school.
-                This is the claim every other item below exists to protect.
+                {hero.body}
               </p>
             </div>
 
-            {audit.findings.length > 0 && (
+            {/* Also when the server says the check did not pass. `compliant`
+                was fetched and never read, so an audit the backend marked
+                false rendered as a clean page whenever `findings` was empty.
+                The spec documents no meaning for the flag, so this reports it
+                as the server's own verdict and interprets nothing.
+                Findings' CONTENTS stay off screen - see ComplianceFinding. */}
+            {(audit.findings.length > 0 || !audit.compliant) && (
               <div className={cn(CARD, "mt-4 px-[26px] py-6")}>
                 <h3 className="text-[16px] font-semibold text-nevo-near-black">
-                  {`${audit.findings.length} finding${audit.findings.length === 1 ? "" : "s"} from the last check`}
+                  {audit.findings.length > 0
+                    ? `${audit.findings.length} finding${audit.findings.length === 1 ? "" : "s"} from the last check`
+                    : "The last check didn’t pass"}
                 </h3>
                 <p className="mt-2 text-sm leading-[1.55] text-nevo-near-black/66">
-                  Your data officer should look at these before the next audit.
+                  {audit.findings.length > 0
+                    ? "Your data officer should look at these before the next audit."
+                    : "The audit reported this school as not yet compliant without listing what to look at. Your data officer should follow it up before the next audit."}
                 </p>
               </div>
             )}
@@ -191,7 +206,7 @@ export function ComplianceView() {
               Verifiable claims
             </h3>
             <div className={cn(CARD, "mt-3 overflow-hidden")}>
-              {NDPA_CLAIMS.map((c, i) => {
+              {claims.map((c, i) => {
                 const verified =
                   c.verification === "labels"
                     ? audit.diagnosticLabelsStored === 0
@@ -205,7 +220,7 @@ export function ComplianceView() {
                     key={c.title}
                     className={cn(
                       "px-[22px] py-[18px]",
-                      i < NDPA_CLAIMS.length - 1 &&
+                      i < claims.length - 1 &&
                         "border-b border-nevo-near-black/7",
                     )}
                   >

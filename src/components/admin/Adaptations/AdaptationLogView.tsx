@@ -76,6 +76,21 @@ export function AdaptationLogView() {
   const [rangeIdx, setRangeIdx] = useState(0);
   const [shown, setShown] = useState(PAGE);
   const [expanded, setExpanded] = useState<string | null>(null);
+  /*
+   * The footer used to end "· 0 diagnostic labels in this or any log" - a
+   * hardcoded zero, on a screen that never asked. Design's build rules are
+   * explicit that this number must be a real query and not cosmetic, so it
+   * comes from the compliance audit. Null means we could not reach it, and
+   * then the footer says nothing rather than asserting a zero we do not have.
+   */
+  const [labels, setLabels] = useState<number | null>(null);
+
+  useEffect(() => {
+    schoolIntelligenceApi
+      .complianceAudit()
+      .then((a) => setLabels(a.diagnosticLabelsStored))
+      .catch(() => setLabels(null));
+  }, []);
 
   const range = RANGES[rangeIdx];
 
@@ -230,10 +245,17 @@ export function AdaptationLogView() {
                         <p className="mt-1.5 max-w-[62ch] text-sm leading-[1.6] text-nevo-near-black/72">
                           {r.trigger}
                         </p>
+                        {/* Was "No diagnostic category, no confidence score,
+                            no named student" - a guarantee about the contents
+                            of `r.trigger`, which is a backend string this
+                            client never inspects. What follows is true of the
+                            product and of this log's own rendering, both of
+                            which we can stand behind. */}
                         <p className="mt-3 max-w-[62ch] text-[13px] leading-[1.5] text-nevo-near-black/50">
-                          No diagnostic category, no confidence score, no named
-                          student &ndash; the signal describes behaviour in the
-                          moment, nothing more.
+                          The signal describes behaviour in the moment. Nevo
+                          records no diagnostic category and no confidence
+                          score, and this log never shows a learner&rsquo;s
+                          name.
                         </p>
                       </div>
                     )}
@@ -244,7 +266,12 @@ export function AdaptationLogView() {
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <span className="text-[13px] text-nevo-near-black/55">
-                {`Showing ${rows.length} of ${total.toLocaleString("en-GB")} · 0 diagnostic labels in this or any log`}
+                {`Showing ${rows.length} of ${total.toLocaleString("en-GB")}`}
+                {labels === null
+                  ? ""
+                  : labels === 0
+                    ? " · the last compliance check found no diagnostic labels stored"
+                    : ` · the last compliance check found ${labels} diagnostic label${labels === 1 ? "" : "s"} stored`}
               </span>
               {rows.length < total && (
                 <button
