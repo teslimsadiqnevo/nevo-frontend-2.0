@@ -91,3 +91,12 @@ export {
   type PartnerInquiryReceipt,
   type InquiryRoleLabel,
 } from "./partner-inquiries";
+export {
+  tosseApi,
+  TOSSE_INTENTS,
+  TOSSE_ROLES,
+  type TosseIntent,
+  type TosseInterest,
+  type TosseInterestReceipt,
+  type TosseRole,
+} from "./tosse";
