@@ -40,10 +40,18 @@ export const usersApi = {
    * Update the teacher's own name and subjects. Shipped 1 Sep; before it,
    * `users/me` was GET-only and C11's Edit had nowhere to save to.
    *
-   * MIND THE CASING. The request body is camelCase, the response is the
-   * snake_case `CurrentUser` - the auth surface keeps snake for backward
-   * compatibility and this endpoint sits on it. Sending `first_name` is a
-   * silent no-op, not an error.
+   * MIND THE CASING, but not as previously recorded here. This said that
+   * sending `first_name` was a silent no-op; it is not. `ProfilePatch` sets
+   * `populate_by_name=True`, so the request accepts BOTH spellings and a
+   * client sending snake_case round-trips correctly - confirmed against the
+   * deployed API by backend, 2 Sep 2026.
+   *
+   * What is real is the asymmetry on the way back: the response has no alias
+   * generator, so this endpoint returns the snake_case `CurrentUser`
+   * (`user_id`, `first_name`) while the rest of the product API is camelCase.
+   * The auth surface keeps snake for backward compatibility and this endpoint
+   * sits on it. Send camelCase to match the rest of the client; expect snake
+   * coming back.
    *
    * `email` is deliberately not writable: it is an authentication identifier
    * and needs a verification flow rather than a silent change.
