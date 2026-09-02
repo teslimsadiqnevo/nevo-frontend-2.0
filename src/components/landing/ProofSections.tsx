@@ -404,11 +404,10 @@ export function JoinSection() {
               textWrap: "pretty",
             }}
           >
-            Every school that joins Nevo this first year becomes a Founding
-            Partner. You secure a significantly reduced rate, locked for three
-            years, and always pay below our standard rate for as long as you
-            stay with Nevo. Founding Partner status is the lasting reward for
-            being early.
+            Schools that join Nevo in our first year become Founding Partners.
+            Your rate is locked for three years, and you receive permanent
+            preferential pricing for as long as you stay with Nevo. Founding
+            Partner status is how we honour the schools that believed first.
           </p>
           <button
             data-scroll="nv-form-sec"
