@@ -9,6 +9,7 @@ import {
   type SsoProvider,
   type SsoStatus,
 } from "@/lib/api/sso";
+import { schoolApi, type School } from "@/lib/api/school";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,12 +26,24 @@ import { cn } from "@/lib/utils";
  * nothing - it freezes the roster and moves sign-in to the school code, and the
  * confirmation exists to say exactly that.
  *
- * TWO THINGS THE API CANNOT DO, both raised rather than faked:
- * - There is no endpoint that starts a connection, so "Connect" would be a
- *   button to nowhere. The cards say what is true instead.
- * - The school code is only carried on the status response, which 404s exactly
- *   when nothing is connected - so the not-connected state, which is the one
- *   state that wants to show it, cannot.
+ * CONNECT EXPLAINS, IT DOES NOT ACT - and that is the spec, not a shortfall.
+ * SCRUM-97 is explicit: "The button stays present and pressable on a card the
+ * school did not choose, and pressing it explains rather than acts... Never a
+ * disabled button, never a silent no-op, never a dead end", with the done
+ * criterion "No affordance implies the school can switch auth method here."
+ * Auth method is chosen once at onboarding and is irreversible in v1.
+ *
+ * The API agrees. Nothing creates or configures an SSO connection: every one
+ * of the ten `sso` operations presupposes a connection that already exists,
+ * and nothing anywhere accepts a tenant id, client id, secret or provider
+ * choice. The two SSO `start` endpoints are UNAUTHENTICATED pre-login
+ * sign-in handovers - they send a user to the provider, they do not enrol a
+ * school - so wiring one to this button would be wrong twice over.
+ *
+ * The school code, by contrast, WAS a real gap and is now closed. It used to
+ * be reachable only from the status response, which 404s exactly when nothing
+ * is connected; `GET /api/v1/school` carries `code` and `slug` for any school
+ * actor with no SSO dependency.
  *
  * TODO(api): a raw sync log. D10 puts server-rendered text verbatim in a
  * <pre> behind "View technical details"; the run response carries structured
@@ -93,6 +106,23 @@ export function SsoView() {
   const [busy, setBusy] = useState<Busy>("");
   const [confirming, setConfirming] = useState(false);
   const [notice, setNotice] = useState("");
+  /** Which provider's Connect has been pressed. Explains, never acts. */
+  const [asked, setAsked] = useState<SsoProvider | null>(null);
+  const [school, setSchool] = useState<School | null>(null);
+
+  /*
+   * The school record is fetched ALONGSIDE the SSO status, not inside it.
+   * `sso/status` 404s for a school that never connected a provider, and the
+   * school code is wanted in exactly that state - chaining it behind the
+   * status would guarantee it was missing whenever it mattered. This call
+   * carries no SSO dependency and answers for any school actor.
+   */
+  useEffect(() => {
+    schoolApi
+      .get()
+      .then(setSchool)
+      .catch(() => setSchool(null));
+  }, []);
 
   const load = useCallback(() => {
     ssoApi
@@ -260,10 +290,11 @@ export function SsoView() {
                   <div
                     key={p}
                     className={cn(
-                      "flex items-center gap-4 px-[22px] py-[18px]",
+                      "px-[22px] py-[18px]",
                       i === 0 && "border-b border-nevo-near-black/7",
                     )}
                   >
+                    <div className="flex items-center gap-4">
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="text-[15px] font-semibold text-nevo-near-black">
                         {PROVIDER_LABELS[p]}
@@ -283,19 +314,56 @@ export function SsoView() {
                             : "off"
                       }
                     />
+                    {!isActive && (
+                      <button
+                        type="button"
+                        onClick={() => setAsked(asked === p ? null : p)}
+                        aria-expanded={asked === p}
+                        className="shrink-0 cursor-pointer rounded-[10px] border-[1.5px] border-nevo-navy/50 px-[18px] py-[9px] text-sm font-semibold text-nevo-navy transition-colors hover:bg-nevo-navy/6"
+                      >
+                        Connect
+                      </button>
+                    )}
+                    </div>
+                    {asked === p && (
+                      <div className="mt-3 rounded-[10px] bg-nevo-violet/14 px-[15px] py-[13px]">
+                        <p className="m-0 max-w-[62ch] text-[13.5px] leading-[1.5] text-nevo-near-black/76">
+                          {`Your school is set up with a school code. Switching to ${PROVIDER_LABELS[p]} needs our help; it isn’t something you can do here.`}
+                        </p>
+                        <a
+                          href="mailto:support@nevolearning.com"
+                          className="mt-2 inline-block text-[13.5px] font-semibold text-nevo-navy hover:underline"
+                        >
+                          Contact us
+                        </a>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
 
-            {/* No endpoint starts a connection - see the docblock. Saying so
-                beats a Connect button that goes nowhere. */}
-            {!connected && !needsAttention && (
-              <p className="mt-3 max-w-[62ch] text-[13px] leading-[1.55] text-nevo-near-black/55">
-                Connecting a provider is set up with us directly for now &ndash;
-                talk to your Nevo contact and we&rsquo;ll switch it on. Until
-                then your school code keeps working, with no setup needed.
-              </p>
+            {/*
+              * D10:133's violet panel, which needs the school CODE - and the
+              * code used to be reachable only from `sso/status`, which 404s
+              * precisely while nothing is connected. `GET /api/v1/school`
+              * carries it and does not depend on SSO at all, so the one state
+              * that most wants to show the code finally can.
+              *
+              * Only when we actually have it. `code` is nullable in the
+              * contract (an SSO school has none), and a panel offering a
+              * school code without naming one is worse than no panel.
+              */}
+            {!connected && !needsAttention && school?.code && (
+              <div className="mt-3 rounded-[10px] bg-nevo-violet/14 px-[15px] py-[13px]">
+                <p className="m-0 max-w-[62ch] text-[13.5px] leading-[1.5] text-nevo-near-black/76">
+                  Prefer to manage sign-in yourself? Your school code{" "}
+                  <span className="font-semibold text-nevo-near-black">
+                    {school.code}
+                  </span>{" "}
+                  works right now &ndash; no setup needed.
+                </p>
+              </div>
             )}
 
             {needsAttention && (
