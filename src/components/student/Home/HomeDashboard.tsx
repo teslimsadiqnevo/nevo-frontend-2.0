@@ -105,7 +105,17 @@ export function HomeDashboard() {
     if (live) {
       const byLesson = new Map(live.assignments.map((a) => [a.lesson.id, a]));
       const ip = [...live.recentProgress]
-        .filter((r) => r.status === "in_progress")
+        // `exited` counts. A child who deliberately left a lesson is still
+        // partway through it - the status records HOW they left, not whether
+        // they are done. Filtering it out meant tapping "Leave for now" removed
+        // the lesson from Pick Back Up altogether, and sent it back to Today's
+        // lessons as though it had never been opened.
+        //
+        // The regression arrived with the exited write in #199: before that,
+        // leaving wrote nothing, so the row stayed `in_progress` and the card
+        // survived. `useStudentLessons` already folds the two statuses
+        // together for its calm indicator; this filter did not.
+        .filter((r) => r.status === "in_progress" || r.status === "exited")
         .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
         .find((r) => byLesson.get(r.lessonId));
       const ipLesson = ip ? byLesson.get(ip.lessonId)!.lesson : null;
