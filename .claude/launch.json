@@ -9,12 +9,12 @@
       "autoPort": true
     },
     {
-      "name": "dev-student",
+      "name": "demo-3100",
       "runtimeExecutable": "node",
       "runtimeArgs": [
-        "../nevo-2.0-student/node_modules/next/dist/bin/next",
-        "dev",
-        "../nevo-2.0-student",
+        "../nevo-2.0-demo/node_modules/next/dist/bin/next",
+        "start",
+        "../nevo-2.0-demo",
         "-p",
         "3100"
       ],

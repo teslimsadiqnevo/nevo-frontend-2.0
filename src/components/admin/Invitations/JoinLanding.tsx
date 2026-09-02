@@ -76,8 +76,15 @@ export function JoinLanding({ token }: { token: string }) {
   const invalid = phase === "failed" || (phase === "ready" && outcome === "invalid");
 
   const isTeacher = (lookup?.role ?? "").toLowerCase() === "teacher";
+  /*
+   * `via=join` matters. The activation screen serves two token namespaces -
+   * admin-team invitations and product-access join links - and posts to a
+   * different endpoint for each. Without this flag it posted join tokens to
+   * the admin-team accept, which does not know them, so a teacher invited
+   * from the admin console could never redeem their link.
+   */
   const onward = isTeacher
-    ? `/auth/teacher/activate?token=${encodeURIComponent(token)}`
+    ? `/auth/teacher/activate?token=${encodeURIComponent(token)}&via=join`
     : `/student/onboarding?token=${encodeURIComponent(token)}`;
 
   return (
