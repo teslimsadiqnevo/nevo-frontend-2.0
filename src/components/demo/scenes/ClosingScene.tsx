@@ -1,5 +1,6 @@
 "use client";
 
+import { DemoLockup } from "../DemoLockup";
 import { Reveal } from "../chrome";
 
 /**
@@ -45,11 +46,12 @@ export function ClosingScene({ progress }: { progress: number }) {
         </Reveal>
 
         <Reveal show={progress > 0.42} delay={160}>
-          <div className="mt-20 flex items-center gap-5">
-            <span className="flex size-[62px] items-center justify-center rounded-[18px] bg-nevo-navy text-[26px] font-semibold text-nevo-cream">
-              N
-            </span>
-            <span className="text-[40px] font-semibold tracking-[-0.024em] text-nevo-near-black">
+          {/* The real lockup, and it reads as one phrase: the Nevo mark and
+              wordmark, then the product name. */}
+          <div className="mt-[86px] flex items-center gap-6">
+            <DemoLockup width={300} />
+            <span className="h-[46px] w-px bg-nevo-near-black/20" />
+            <span className="text-[38px] font-semibold tracking-[-0.024em] text-nevo-near-black">
               Teacher Console
             </span>
           </div>

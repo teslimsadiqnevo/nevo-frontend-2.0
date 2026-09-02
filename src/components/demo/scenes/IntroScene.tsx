@@ -1,5 +1,6 @@
 "use client";
 
+import { DemoLockup } from "../DemoLockup";
 import { Reveal } from "../chrome";
 
 /**
@@ -13,6 +14,12 @@ import { Reveal } from "../chrome";
  *
  * The cream ground is the product's own, not a dark "tech launch" backdrop,
  * so the cut into the console is a continuation rather than a jolt.
+ *
+ * The mark is the REAL Nevo lockup from `public/brand`. An earlier version of
+ * this scene drew a rounded navy square with an "N" in it, which was invented
+ * - the actual mark is a linked-node glyph beside the wordmark, and putting a
+ * made-up logo on the opening frame of a conference video is about the worst
+ * place to get branding wrong.
  */
 export function IntroScene({ progress }: { progress: number }) {
   return (
@@ -30,13 +37,11 @@ export function IntroScene({ progress }: { progress: number }) {
 
       <div className="relative flex flex-col items-center">
         <Reveal show={progress > 0.06} delay={0}>
-          <span className="flex size-[92px] items-center justify-center rounded-[26px] bg-nevo-navy text-[38px] font-semibold text-nevo-cream">
-            N
-          </span>
+          <DemoLockup width={560} priority />
         </Reveal>
 
         <Reveal show={progress > 0.16} delay={80}>
-          <h1 className="m-0 mt-11 text-[86px] font-semibold leading-none tracking-[-0.034em] text-nevo-near-black">
+          <h1 className="m-0 mt-14 text-[86px] font-semibold leading-none tracking-[-0.034em] text-nevo-near-black">
             Teacher Console
           </h1>
         </Reveal>
