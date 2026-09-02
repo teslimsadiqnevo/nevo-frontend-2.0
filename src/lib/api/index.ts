@@ -94,6 +94,7 @@ export {
 } from "./partner-inquiries";
 export {
   tosseApi,
+  tosseErrorMessage,
   TOSSE_INTENTS,
   TOSSE_ROLES,
   type TosseIntent,

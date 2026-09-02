@@ -42,6 +42,25 @@ export interface AssignedTeacher {
  */
 export type ProfileStatus = "observed" | "not_observed_yet";
 
+/**
+ * The closed set of patterns the roster may report. Derived server-side from
+ * lesson sessions and signal events - never free text, never model output,
+ * never anything the learner wrote, which is what lets it pass Zero-Tag on
+ * contents and not merely on field names.
+ */
+export type ObservationPattern =
+  | "completed_lessons"
+  | "revisited_content"
+  | "steadier_pace"
+  | "tried_another_format"
+  | "no_recent_pattern";
+
+export interface LearnerObservation {
+  pattern: ObservationPattern;
+  /** How many times, over the window the pattern was derived from. */
+  count: number;
+}
+
 export interface ClassStudent {
   studentId: string;
   firstName: string | null;
@@ -53,8 +72,18 @@ export interface ClassStudent {
   status: string;
   profileStatus: ProfileStatus | (string & {});
   latestSessionAt: string | null;
-  /** Free-text notes the roster carries; absent on older rows. */
-  observations?: string[];
+  /**
+   * What Nevo has noticed about this learner recently - now BOUNDED, and a
+   * breaking change from the `string[]` this used to be (backend, 3 Sep).
+   *
+   * The old shape handed the client pre-phrased sentences and asked it to
+   * trust the contents; nothing rendered them, because an untyped string is
+   * exactly what the Zero-Tag rulings say must not reach a teacher sight
+   * unseen. It is now a closed enum plus a count, so the WORDING is ours to
+   * compose and the guarantee lives in the schema rather than in an
+   * assurance. At most three, over a 30-day window.
+   */
+  observations?: LearnerObservation[];
   /** Which seat the student occupies against the school's allowance. */
   seatContext: string;
 }

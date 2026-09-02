@@ -9,16 +9,18 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
+import { ApiError } from "@/lib/api/client";
 import {
   TOSSE_INTENTS,
   TOSSE_ROLES,
   tosseApi,
+  tosseErrorMessage,
   type TosseIntent,
   type TosseRole,
 } from "@/lib/api";
 
 /**
- * TOSSE Founding Partner interest capture (SCRUM-117), built from
+ * TOSSE Founding Partner interest capture, built from
  * `nevo-design-outputs/TOSSE-Founding-Partner-Landing 1.html` - the canvas
  * holds ONE `TOSSE Frame` component rendered in three modes (empty / filled /
  * confirm), which are the three "frames" the brief names. Values below are
@@ -150,6 +152,8 @@ export function TosseInterestPage() {
 
   const [roleOpen, setRoleOpen] = useState(false);
   const [activeRole, setActiveRole] = useState(0);
+  /** The endpoint's own words, when it sent any. */
+  const [serverMessage, setServerMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
   const [submitted, setSubmitted] = useState(false);
 
@@ -220,19 +224,28 @@ export function TosseInterestPage() {
     // `complete` narrows `role` and `intent` off their empty-string states, so
     // the payload below needs no further guarding.
     if (!complete || sending) return;
+    setServerMessage(null);
     setStatus("sending");
     try {
       await tosseApi.submit({
         name: name.trim(),
+        schoolName: school.trim(),
         role,
-        school_name: school.trim(),
-        student_count: studentCount,
+        studentCount,
         phone: `${code.trim()} ${phone.trim()}`.replace(/\s+/g, " ").trim(),
         email: email.trim(),
         intent,
       });
       setSubmitted(true);
-    } catch {
+    } catch (err: unknown) {
+      // The endpoint sends `{detail:{code,message}}` and says the message is
+      // safe to put in front of a headteacher. It used to be discarded, so a
+      // rejected submission read as "check your connection" - which describes
+      // a transport failure and none of the reasons a lead is actually
+      // refused. Ours stays as the fallback for when there is no message.
+      setServerMessage(
+        err instanceof ApiError ? tosseErrorMessage(err.detail) : null,
+      );
       // A booth lead IS the page, so a failure is shown and retried rather than
       // swallowed - the opposite of the marketing form's fire-and-forget, where
       // a silent drop costs one of many leads. Here the visitor is standing
@@ -681,8 +694,8 @@ export function TosseInterestPage() {
                   color: NAVY,
                 }}
               >
-                We couldn&apos;t send that just then. Please check your connection and
-                try again - nothing you typed has been lost.
+                {serverMessage ??
+                  "We couldn’t send that just then. Please check your connection and try again - nothing you typed has been lost."}
               </p>
             )}
 

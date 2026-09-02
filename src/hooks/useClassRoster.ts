@@ -17,11 +17,16 @@ import { useLiveQuery } from "./useLiveQuery";
  * genuinely empty (nobody has joined yet), and we could not load it. The
  * last one must never render as the second.
  *
- * `observations` and `seatContext` SHIPPED on 31 Aug and are on every roster
- * row. They are not rendered yet: `observations` is an untyped `string[]`
- * with no enum, description or bound, so what it actually contains has to be
- * eyeballed against a real class before any of it goes in front of a teacher
- * - see the Zero-Tag rulings in `lib/api/students.ts`. Read, not drawn.
+ * `observations` and `seatContext` are on every roster row. `observations` is
+ * now BOUNDED - `{pattern, count}` with a closed five-value enum, replacing
+ * the untyped `string[]` it shipped as on 31 Aug (backend, 3 Sep). The reason
+ * it was never drawn is the reason it changed: an untyped string is exactly
+ * what the Zero-Tag rulings say must not reach a teacher sight unseen, and
+ * the guarantee now lives in the schema rather than in an assurance.
+ *
+ * Still not drawn, and that is a design question rather than a contract one:
+ * C05's roster has no row drawn for it, and the wording for each pattern is
+ * ours to write. Read, not drawn - but no longer blocked.
  */
 
 export interface ClassRoster {
