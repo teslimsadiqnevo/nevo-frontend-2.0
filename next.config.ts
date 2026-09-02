@@ -11,6 +11,10 @@ const allowedDevOrigins = process.env.ALLOWED_DEV_ORIGINS
   .filter(Boolean);
 
 const nextConfig: NextConfig = {
+  // The dev-mode indicator sits bottom-left, which is inside the /demo stage
+  // and inside any screen recording of it. Off, so a rehearsal in `next dev`
+  // frames identically to the production build.
+  devIndicators: false,
   ...(allowedDevOrigins?.length ? { allowedDevOrigins } : {}),
 };
 
