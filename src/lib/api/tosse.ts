@@ -26,6 +26,8 @@ export type TosseRoleValue =
   | "senco"
   | "head_of_learning"
   | "head_teacher"
+  | "teacher"
+  | "parent"
   | "other";
 
 /**
@@ -46,18 +48,21 @@ export type TosseRoleValue =
  *   422 "Input should be 'school_owner', 'proprietor', 'senco',
  *        'head_of_learning', 'head_teacher' or 'other'"
  *
- * TWO OPTIONS HAVE NO HONEST TARGET. A teacher and a parent both collapse to
- * `other`, because the enum has nothing else for them. That loses exactly the
- * distinction Lydia needs at the booth, so `message` carries the option they
- * actually chose - see `roleNote`. It is a workaround for a missing enum
- * value, not a use of that field, and it comes out the moment backend adds
- * `teacher` and `parent`.
+ * Teacher and Parent used to collapse to `other` with the real answer smuggled
+ * through `message`, because the enum had nothing else for them. Backend added
+ * `teacher` and `parent` on 3 Sep, so every option now maps to a value that
+ * means what it says and the workaround is gone.
+ *
+ * Two labels still map to a choice rather than an equivalent: the enum offers
+ * both `school_owner` and `proprietor` for one dropdown row, and both
+ * `head_of_learning` and `head_teacher` for another. The nearest term wins;
+ * nothing downstream distinguishes them today.
  */
 export const TOSSE_ROLES = [
   { value: "proprietor", label: "School Proprietor / Owner" },
   { value: "head_teacher", label: "Academic Director / Head of School" },
-  { value: "other", label: "Teacher" },
-  { value: "other", label: "Parent" },
+  { value: "teacher", label: "Teacher" },
+  { value: "parent", label: "Parent" },
   { value: "other", label: "Other" },
 ] as const satisfies readonly { value: TosseRoleValue; label: string }[];
 
@@ -65,14 +70,12 @@ export type TosseRoleLabel = (typeof TOSSE_ROLES)[number]["label"];
 export type TosseRole = TosseRoleValue;
 
 /**
- * What the person actually picked, preserved because the enum cannot say it.
- *
- * Returns null where the value already carries the answer, so a proprietor
- * does not arrive with a note restating their own role.
+ * Kept as the seam for anything the enum genuinely cannot express. Nothing
+ * collapses today, so it always returns null - the `message` field goes out
+ * empty rather than carrying a note restating a role the value already says.
  */
-export function roleNote(label: TosseRoleLabel): string | null {
-  const collapsed: string[] = ["Teacher", "Parent"];
-  return collapsed.includes(label) ? `Role selected: ${label}` : null;
+export function roleNote(_label: TosseRoleLabel): string | null {
+  return null;
 }
 
 /**
