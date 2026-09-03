@@ -20,15 +20,60 @@ const SAME_ORIGIN =
  * bare string (unlike `intent`, which it gives as an enum), so the display
  * label is what goes on the wire.
  */
-export const TOSSE_ROLES = [
-  "School Proprietor / Owner",
-  "Academic Director / Head of School",
-  "Teacher",
-  "Parent",
-  "Other",
-] as const;
+export type TosseRoleValue =
+  | "school_owner"
+  | "proprietor"
+  | "senco"
+  | "head_of_learning"
+  | "head_teacher"
+  | "other";
 
-export type TosseRole = (typeof TOSSE_ROLES)[number];
+/**
+ * SCRUM-117's five dropdown options, each carrying the value the endpoint
+ * will actually accept.
+ *
+ * The LABEL is the ticket's, verbatim, and is what a headteacher reads. The
+ * VALUE is `PartnerInquiryRole` - an enum the TOSSE endpoint borrows from the
+ * partner-inquiry surface, which is the root of the mismatch: it was built for
+ * a different audience, so it carries `senco`, `head_of_learning` and
+ * `head_teacher` that this form never asks about, and has no `teacher` or
+ * `parent` that this form does.
+ *
+ * This file used to put the LABEL on the wire. `role` is a required enum, so
+ * every submission was rejected before anything else was even read - a booth
+ * capturing nothing at all. Confirmed against the deployed API, 3 Sep:
+ *
+ *   422 "Input should be 'school_owner', 'proprietor', 'senco',
+ *        'head_of_learning', 'head_teacher' or 'other'"
+ *
+ * TWO OPTIONS HAVE NO HONEST TARGET. A teacher and a parent both collapse to
+ * `other`, because the enum has nothing else for them. That loses exactly the
+ * distinction Lydia needs at the booth, so `message` carries the option they
+ * actually chose - see `roleNote`. It is a workaround for a missing enum
+ * value, not a use of that field, and it comes out the moment backend adds
+ * `teacher` and `parent`.
+ */
+export const TOSSE_ROLES = [
+  { value: "proprietor", label: "School Proprietor / Owner" },
+  { value: "head_teacher", label: "Academic Director / Head of School" },
+  { value: "other", label: "Teacher" },
+  { value: "other", label: "Parent" },
+  { value: "other", label: "Other" },
+] as const satisfies readonly { value: TosseRoleValue; label: string }[];
+
+export type TosseRoleLabel = (typeof TOSSE_ROLES)[number]["label"];
+export type TosseRole = TosseRoleValue;
+
+/**
+ * What the person actually picked, preserved because the enum cannot say it.
+ *
+ * Returns null where the value already carries the answer, so a proprietor
+ * does not arrive with a note restating their own role.
+ */
+export function roleNote(label: TosseRoleLabel): string | null {
+  const collapsed: string[] = ["Teacher", "Parent"];
+  return collapsed.includes(label) ? `Role selected: ${label}` : null;
+}
 
 /**
  * The three intent cards. `label` is the frame's copy, which is fixed - it is
@@ -73,18 +118,22 @@ export type TosseIntent = (typeof TOSSE_INTENTS)[number]["value"];
  * change to the ticket - recorded here so the next person reading the ticket
  * does not assume this file drifted from it.
  *
- * Optionality is the one to keep: a partial form still captures the lead,
- * which at a booth beats a complete one that never got sent. The FORM is
- * still stricter than the API, and relaxing it is a design call.
+ * On optionality specifically, backend's message and the deployed API
+ * disagree: the message said everything bar name and schoolName was optional,
+ * while `TosseInterestRequest.required` on the live spec lists all seven.
+ * The spec wins - it is what rejects the request - so all seven are required
+ * here, which also matches SCRUM-117.
  */
 export interface TosseInterest {
   name: string;
   schoolName: string;
-  role?: string;
-  studentCount?: number;
-  phone?: string;
-  email?: string;
-  intent?: TosseIntent;
+  role: TosseRoleValue;
+  studentCount: number;
+  phone: string;
+  email: string;
+  intent: TosseIntent;
+  /** Optional. Carries the role the enum cannot express - see `roleNote`. */
+  message?: string | null;
 }
 
 /** 201: `{ id, received: true }`. */
