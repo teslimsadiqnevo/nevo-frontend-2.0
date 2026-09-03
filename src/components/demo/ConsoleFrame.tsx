@@ -67,9 +67,19 @@ const RAIL_ICONS: Record<string, React.ReactNode> = {
   Connect: <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.5A8 8 0 1 1 21 12z" />,
 };
 
+/** The rail's model. Defaults to the teacher console's five tabs. */
+export interface RailIdentity {
+  initials: string;
+  name: string;
+  school: string;
+}
+
 export function ConsoleFrame({
   /** Which rail tab reads as current, per scene. */
   active,
+  /** Override the rail for a different console - the admin demo passes its own. */
+  nav,
+  identity,
   /** How much to enlarge the console. 1.3 keeps 14px type at ~18px on stage. */
   scale = 1.3,
   /**
@@ -82,13 +92,17 @@ export function ConsoleFrame({
   children,
   className,
 }: {
-  active: "Home" | "Classes" | "Library" | "Insights" | "Connect";
+  active: string;
+  nav?: { name: string; href: string }[];
+  identity?: RailIdentity;
   scale?: number;
   pan?: number;
   panWindow?: readonly [number, number];
   children: React.ReactNode;
   className?: string;
 }) {
+  const railNav = nav ?? TEACHER_NAV;
+  const who = identity ?? MOCK_TEACHER;
   const viewport = useRef<HTMLElement>(null);
   const inner = useRef<HTMLDivElement>(null);
 
@@ -116,20 +130,20 @@ export function ConsoleFrame({
       <aside className="flex w-[248px] flex-none flex-col bg-nevo-cream-sidebar px-4 py-6">
         <div className="flex items-center gap-3 px-2">
           <span className="flex size-10 flex-none items-center justify-center rounded-[10px] bg-nevo-navy text-[15px] font-semibold text-nevo-cream">
-            {MOCK_TEACHER.initials}
+            {who.initials}
           </span>
           <span className="min-w-0">
             <span className="block truncate text-[15px] font-semibold text-nevo-near-black">
-              {MOCK_TEACHER.name}
+              {who.name}
             </span>
             <span className="block text-[12px] leading-[1.35] text-nevo-near-black/55">
-              {MOCK_TEACHER.school}
+              {who.school}
             </span>
           </span>
         </div>
 
         <nav className="mt-8 flex flex-1 flex-col gap-1">
-          {TEACHER_NAV.map((item) => {
+          {railNav.map((item) => {
             const on = item.name === active;
             return (
               <span
@@ -160,7 +174,7 @@ export function ConsoleFrame({
                     strokeLinejoin="round"
                     aria-hidden="true"
                   >
-                    {RAIL_ICONS[item.name]}
+                    {RAIL_ICONS[item.name] ?? <circle cx="12" cy="12" r="7" />}
                   </svg>
                 </span>
                 <span
