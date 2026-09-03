@@ -13,10 +13,11 @@ import { ApiError } from "@/lib/api/client";
 import {
   TOSSE_INTENTS,
   TOSSE_ROLES,
+  roleNote,
   tosseApi,
   tosseErrorMessage,
   type TosseIntent,
-  type TosseRole,
+  type TosseRoleLabel,
 } from "@/lib/api";
 
 /**
@@ -142,7 +143,7 @@ function Chevron() {
 
 export function TosseInterestPage() {
   const [name, setName] = useState("");
-  const [role, setRole] = useState<TosseRole | "">("");
+  const [role, setRole] = useState<TosseRoleLabel | "">("");
   const [school, setSchool] = useState("");
   const [students, setStudents] = useState("");
   const [code, setCode] = useState("+234");
@@ -187,14 +188,14 @@ export function TosseInterestPage() {
 
   const sending = status === "sending";
 
-  function pickRole(next: TosseRole) {
+  function pickRole(next: TosseRoleLabel) {
     setRole(next);
     setRoleOpen(false);
   }
 
   function openRoleMenu() {
     setRoleOpen(true);
-    setActiveRole(role === "" ? 0 : TOSSE_ROLES.indexOf(role));
+    setActiveRole(role === "" ? 0 : TOSSE_ROLES.findIndex((o) => o.label === role));
   }
 
   function onRoleKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
@@ -214,7 +215,7 @@ export function TosseInterestPage() {
     }
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      if (roleOpen) pickRole(TOSSE_ROLES[activeRole]);
+      if (roleOpen) pickRole(TOSSE_ROLES[activeRole].label);
       else openRoleMenu();
     }
   }
@@ -227,10 +228,14 @@ export function TosseInterestPage() {
     setServerMessage(null);
     setStatus("sending");
     try {
+      // The wire takes the enum VALUE; the dropdown holds the LABEL. Sending
+      // the label is what made every submission 422.
+      const picked = TOSSE_ROLES.find((o) => o.label === role);
       await tosseApi.submit({
         name: name.trim(),
         schoolName: school.trim(),
-        role,
+        role: picked?.value ?? "other",
+        message: picked ? roleNote(picked.label) : null,
         studentCount,
         phone: `${code.trim()} ${phone.trim()}`.replace(/\s+/g, " ").trim(),
         email: email.trim(),
@@ -479,15 +484,15 @@ export function TosseInterestPage() {
                       }}
                     >
                       {TOSSE_ROLES.map((option, i) => {
-                        const selected = role === option;
+                        const selected = role === option.label;
                         return (
                           <div
-                            key={option}
+                            key={option.label}
                             id={optionId(i)}
                             role="option"
                             aria-selected={selected}
                             className="tosse-role-row"
-                            onClick={() => pickRole(option)}
+                            onClick={() => pickRole(option.label)}
                             onMouseEnter={() => setActiveRole(i)}
                             style={{
                               display: "flex",
@@ -506,7 +511,7 @@ export function TosseInterestPage() {
                                   : "transparent",
                             }}
                           >
-                            <span>{option}</span>
+                            <span>{option.label}</span>
                             <span
                               aria-hidden="true"
                               style={

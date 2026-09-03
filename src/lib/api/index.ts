@@ -100,5 +100,8 @@ export {
   type TosseIntent,
   type TosseInterest,
   type TosseInterestReceipt,
+  roleNote,
   type TosseRole,
+  type TosseRoleLabel,
+  type TosseRoleValue,
 } from "./tosse";
