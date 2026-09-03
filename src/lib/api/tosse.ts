@@ -34,22 +34,25 @@ export type TosseRole = (typeof TOSSE_ROLES)[number];
  * The three intent cards. `label` is the frame's copy, which is fixed - it is
  * the wording schools read at the booth.
  *
- * THE VALUES BELOW ARE NOT AGREED AND TWO OF THEM WILL 422.
+ * THE VALUES BELOW ARE SCRUM-117's, AND TWO OF THEM CURRENTLY 422.
  *
- * This file used to cite "the SCRUM-117 enum". There is no SCRUM-117: it does
- * not exist anywhere in the design set or its history, and the specs stop at
- * 105. The only TOSSE artifact is a landing frame that stores the choice as a
- * bare array index and names no values at all, so these three slugs were
- * invented here and attributed to a spec that was never written.
+ * SCRUM-117 (Jira, not a file in the design repo) specifies the enum
+ * verbatim: `founding_partner | schedule_walkthrough | contact_me`, one value
+ * per card in the order drawn. These three are correct against the ticket.
  *
- * The live endpoint takes `founding_partner | pilot | learn_more`. Only the
- * first matches, and anything else rejects the WHOLE submission - so two of
- * the three cards currently lose the lead they were drawn to capture.
+ * The DEPLOYED endpoint takes `founding_partner | pilot | learn_more`, which
+ * matches the ticket on the first card and nothing else - so cards two and
+ * three reject the whole submission and lose the lead they were drawn to
+ * capture. The divergence is the endpoint's, not this file's.
  *
- * Backend has offered to rename the enum to whatever the cards mean rather
- * than have the client map around it. Until that lands these stay as they
- * are, because guessing which of `pilot` and `learn_more` a walkthrough is
- * would be inventing the contract a second time.
+ * Backend has offered to rename rather than have the client map around it,
+ * and the ticket is the reason to take that offer. Until it lands these stay
+ * as SCRUM-117 wrote them.
+ *
+ * (An earlier revision of this comment claimed SCRUM-117 did not exist. It
+ * does; the search behind that claim only covered the design-outputs
+ * filesystem, where SCRUM specs appear as derived documents rather than as
+ * the tickets themselves.)
  */
 export const TOSSE_INTENTS = [
   { value: "founding_partner", label: "I want to become a Founding Partner" },
@@ -60,14 +63,19 @@ export const TOSSE_INTENTS = [
 export type TosseIntent = (typeof TOSSE_INTENTS)[number]["value"];
 
 /**
- * The live request body (backend, 3 Sep). camelCase, like the rest of the
- * product API - this posted `school_name` and `student_count`, which the
- * endpoint does not know.
+ * The DEPLOYED request body (backend, 3 Sep), which is what this must match
+ * for a lead to land at all.
  *
- * Only `name` and `schoolName` are required server-side: a partial form still
- * captures the lead, which at a booth is worth more than a complete one that
- * never got sent. The FORM is stricter than the API for now - see the note on
- * `complete` in TosseInterestPage - and relaxing it is a design call.
+ * It is not what SCRUM-117 specifies. The ticket gives `school_name` and
+ * `student_count` in snake_case, a `{id, status}` receipt, and "All fields
+ * required"; the endpoint shipped camelCase, `{id, received}`, and everything
+ * bar name and school optional. Four divergences, none of them raised as a
+ * change to the ticket - recorded here so the next person reading the ticket
+ * does not assume this file drifted from it.
+ *
+ * Optionality is the one to keep: a partial form still captures the lead,
+ * which at a booth beats a complete one that never got sent. The FORM is
+ * still stricter than the API, and relaxing it is a design call.
  */
 export interface TosseInterest {
   name: string;
