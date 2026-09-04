@@ -8,12 +8,19 @@ import { api } from "./client";
  * connected one - that is the ordinary "nothing connected yet" state, not an
  * error, and the screen treats it as such.
  *
- * TODO(api): CONNECT still has no way in, but not for the reason once
- * recorded here - there are two start endpoints, `POST /api/v1/auth/sso/start`
- * and `GET /api/v1/schools/{school_slug}/sso/{provider}/start`. Both require
- * a `schoolSlug`, and the only thing that returns one is `status`, which 404s
- * precisely while a school is not yet connected. So the chicken-and-egg is
- * the slug, not a missing endpoint. Raised with backend.
+ * TODO(api): CONNECT still has no way in, and the slug is NOT the reason -
+ * that was the previous note here and it is wrong. `GET /api/v1/school`
+ * carries `slug` for any school actor with no SSO dependency, so the
+ * chicken-and-egg is closed (backend confirmed 3 Sep, and `SsoView` has read
+ * it that way since).
+ *
+ * What is missing is enrolment. All ten `sso` operations presuppose a
+ * connection that already exists, and nothing anywhere accepts a tenant id,
+ * client id, secret or provider choice. The two `start` endpoints are
+ * unauthenticated pre-login sign-in handovers - they send a USER to the
+ * provider, they do not enrol a SCHOOL - so pointing the Connect button at
+ * one would be wrong twice over. See the reasoning in
+ * `components/admin/Sso/SsoView.tsx`, which is the authority on this.
  */
 
 export type SsoProvider = "microsoft" | "google";

@@ -560,6 +560,7 @@ export function UploadWizard() {
                 <LiveStructureTree
                   uploadId={staged.uploadId}
                   structure={staged.structure}
+                  segments={staged.segments}
                   blockName={blockName}
                 />
               ) : staged.failed ? (
