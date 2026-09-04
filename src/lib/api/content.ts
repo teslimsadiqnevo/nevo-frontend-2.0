@@ -1,5 +1,12 @@
 import { api } from "./client";
 import type { ComprehensionCheckpoint } from "./checkpoints";
+import type {
+  AudioVariant,
+  CalculationVariant,
+  InteractiveVariant,
+  TextVariant,
+  VisualVariant,
+} from "./variants";
 
 /**
  * Lesson content endpoints.
@@ -62,11 +69,16 @@ export interface ParsedLessonSegment {
   body: string;
   availableModalities: ContentModality[];
   comprehensionCheckpoints: ComprehensionCheckpoint[];
-  textVariant: Record<string, unknown> | null;
-  visualVariant: Record<string, unknown> | null;
-  audioVariant: Record<string, unknown> | null;
-  interactiveVariant: Record<string, unknown> | null;
-  calculationVariant: Record<string, unknown> | null;
+  /**
+   * Typed as of 3 Sep - see `api/variants.ts`. `interactiveVariant.answerKey`
+   * is nullable exactly as a checkpoint's is, and `markInteractive` is the
+   * only thing that should judge it.
+   */
+  textVariant: TextVariant | null;
+  visualVariant: VisualVariant | null;
+  audioVariant: AudioVariant | null;
+  interactiveVariant: InteractiveVariant | null;
+  calculationVariant: CalculationVariant | null;
   needsReview: boolean;
   reviewReasons: string[];
 }
