@@ -8,12 +8,21 @@ import { api } from "./client";
  * finished lesson. The staged flow is: upload -> poll -> edit the structure ->
  * confirm, with an undo, and it is the only route that accepts a `subject`.
  *
- * ONE GAP TO KNOW ABOUT. A module carries `segmentIds` and nothing else -
- * no titles, no durations - and the status response has no segments on it.
- * So the structure can be drawn down to the SECTION, and the segments under
- * it can be counted but not named. C07d draws named segment rows; until the
- * upload can hand back the segments themselves, that third level is a count.
- * Raised with backend.
+ * TWO THINGS LANDED ON 3 SEP that this file was waiting on.
+ *
+ * `segments` and `lessonTitle` are now on the status response, so C07d's
+ * third level can NAME its rows instead of counting them, and a batch screen
+ * can show lesson titles from the poll it already makes rather than one extra
+ * request per upload. Modules still point at segments by key, so `segments`
+ * is the lookup table for `segmentIds`.
+ *
+ * `lessonId` is now OPTIONAL on a structure lesson. Omitting it is how a
+ * split is expressed: send a lesson with no id and the server mints one, then
+ * hands the ids back from confirm as `lessonIds`, positionally aligned with
+ * the `lessons` that were sent. The client no longer has to invent identity
+ * for a row it does not own - and confirm was previously discarding any id it
+ * was given and generating its own, so a client-minted id would have named
+ * nothing that existed.
  */
 
 /** `UploadStatus` in the spec. */
@@ -38,7 +47,12 @@ export interface StructureModule {
 
 /** One lesson inside a staged unit. */
 export interface StructureLesson {
-  lessonId: string;
+  /**
+   * ABSENT MEANS NEW. The server mints an id for any lesson that arrives
+   * without one and returns it in `lessonIds`, so a split writes its new
+   * halves with this omitted rather than guessing a uuid.
+   */
+  lessonId?: string;
   title: string;
   sequenceOrder: number;
   modules: StructureModule[];
@@ -57,10 +71,33 @@ export interface UploadStructure {
   reviewNotes?: unknown[];
 }
 
+/**
+ * A named row for the structure review screen. Modules reference these by
+ * `segmentKey`, so this is what turns C07d's third level from a count into a
+ * list of titles.
+ */
+export interface UploadSegment {
+  segmentKey: string;
+  /** Nullable in the contract - a parse can produce an untitled section. */
+  title: string | null;
+  contentType: string;
+  sequenceOrder: number;
+  estimatedMinutes: number;
+  needsReview: boolean;
+}
+
 export interface UploadStatusResponse {
   id: string;
   status: UploadStatus;
   stage: UploadStage;
+  /** The unit's own title, when the parse found one. */
+  lessonTitle?: string | null;
+  /**
+   * Optional in the contract - `required` does not list it - so an older
+   * upload can come back with no segments at all. Callers must treat absent
+   * and empty the same way and fall back to counting.
+   */
+  segments?: UploadSegment[];
   structure: UploadStructure;
   error: string | null;
 }
@@ -130,9 +167,16 @@ export const uploadsApi = {
       `/api/v1/uploads/${uploadId}/undo`,
     ),
 
-  /** Commit the unit to the library. */
+  /**
+   * Commit the unit to the library.
+   *
+   * `lessonIds` is the split's other half: one id per lesson that was sent,
+   * in the same order, including the ones the server minted for lessons that
+   * arrived without an id. `lessonId` remains the first, for callers that
+   * only ever expected one.
+   */
   confirm: (uploadId: string) =>
-    api.post<{ lessonId: string; status: string }>(
+    api.post<{ lessonId: string; lessonIds?: string[]; status: UploadStatus }>(
       `/api/v1/uploads/${uploadId}/confirm`,
     ),
 
@@ -162,4 +206,29 @@ export function lessonsOf(structure: UploadStructure): StructureLesson[] {
       modules: structure.modules ?? [],
     },
   ];
+}
+
+/**
+ * Name the segments a module points at.
+ *
+ * Modules carry `segmentIds` - keys, not titles - so drawing C07d's third
+ * level means joining them against the status response's `segments`. A key
+ * with no matching row, or a row whose title is null, yields null rather than
+ * a placeholder: the caller decides whether that is "Section 3" or a count,
+ * because inventing a title here would put words in the parse's mouth.
+ */
+export function namedSegments(
+  segmentIds: string[],
+  segments: UploadSegment[] | undefined,
+): { key: string; title: string | null; minutes: number; needsReview: boolean }[] {
+  const byKey = new Map((segments ?? []).map((seg) => [seg.segmentKey, seg]));
+  return segmentIds.map((key) => {
+    const found = byKey.get(key);
+    return {
+      key,
+      title: found?.title?.trim() ? found.title.trim() : null,
+      minutes: found?.estimatedMinutes ?? 0,
+      needsReview: found?.needsReview ?? false,
+    };
+  });
 }

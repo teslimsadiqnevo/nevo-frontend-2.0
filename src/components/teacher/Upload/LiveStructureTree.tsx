@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
   lessonsOf,
+  namedSegments,
   uploadsApi,
   type StructureLesson,
+  type UploadSegment,
   type UploadStructure,
 } from "@/lib/api/uploads";
 import { cn } from "@/lib/utils";
@@ -19,15 +21,20 @@ import { cn } from "@/lib/utils";
  * renaming a lesson or a section, reordering either, moving a section to the
  * lesson beside it, and folding a lesson into the one before it.
  *
- * SPLIT IS NOT HERE, and that is a contract limit rather than a shortcut.
- * Starting a new lesson at a boundary means creating a lesson, and
- * `lessonId` is `format: uuid` - a server-assigned identity. Minting one on
- * this side would either be rejected or, worse, accepted as an orphan. Asked
- * of backend; until it answers, the control is absent rather than broken.
+ * SPLIT IS HERE as of 3 Sep, and the way it works is worth knowing. It used
+ * to be absent because starting a new lesson meant minting a `format: uuid`
+ * identity this side of the wire, which would have been rejected or - worse -
+ * accepted as an orphan. `lessonId` is now OPTIONAL on a structure lesson:
+ * a split writes the new half with NO id, the server mints one, and confirm
+ * returns them in `lessonIds` aligned with the lessons that were sent. The
+ * client never invents identity for a row it does not own.
  *
- * The third level is a COUNT, not a list. A module carries `segmentIds` and
- * nothing else, and the status response has no segments, so there is nothing
- * to name beneath a section.
+ * The third level NAMES its rows, also as of 3 Sep. `segments` on the status
+ * response carries `{segmentKey, title, estimatedMinutes, needsReview}` and
+ * modules point at them by key, so a section can list what is under it. The
+ * count remains the fallback: `segments` is optional in the contract, and a
+ * segment's `title` is nullable, so anything unnamed stays a count rather
+ * than becoming an invented title.
  *
  * NOTHING IS COMMITTED THAT THE SERVER HAS NOT SEEN. Confirm is refused while
  * there are unsaved edits: the commit acts on the stored structure, so
@@ -40,10 +47,13 @@ type Saving = "idle" | "saving" | "saved" | "failed";
 export function LiveStructureTree({
   uploadId,
   structure,
+  segments,
   blockName,
 }: {
   uploadId: string;
   structure: UploadStructure;
+  /** Named rows for the third level. Absent on an older upload. */
+  segments?: UploadSegment[];
   blockName: string;
 }) {
   const router = useRouter();
@@ -108,6 +118,32 @@ export function LiveStructureTree({
   };
 
   /** Fold a lesson's sections into the one before it. */
+  /**
+   * Split a lesson at a section boundary: everything from `mi` onward becomes
+   * a new lesson directly after this one.
+   *
+   * The new lesson carries NO `lessonId`. That is the whole mechanism - the
+   * server mints identity for a lesson that arrives without it, and hands the
+   * ids back from confirm. Minting one here would name nothing that exists.
+   *
+   * Splitting at the first section would leave an empty lesson behind, so the
+   * control is offered from the second section down.
+   */
+  const splitLessonAt = (li: number, mi: number) => {
+    if (mi <= 0) return;
+    const lesson = draft[li];
+    const next = [...draft];
+    next[li] = { ...lesson, modules: lesson.modules.slice(0, mi) };
+    next.splice(li + 1, 0, {
+      // no lessonId - the server assigns it
+      title: "",
+      sequenceOrder: lesson.sequenceOrder + 1,
+      modules: lesson.modules.slice(mi),
+    });
+    // Sequence is positional, so renumber rather than leave a duplicate.
+    edit(next.map((l, i) => ({ ...l, sequenceOrder: i + 1 })));
+  };
+
   const mergeLessonUp = (li: number) => {
     if (li === 0) return;
     const next = [...draft];
@@ -245,7 +281,9 @@ export function LiveStructureTree({
 
         {draft.map((lesson, li) => (
           <div
-            key={lesson.lessonId}
+            /* A split lesson has no id until the server mints one, so the
+               key falls back to position rather than going undefined. */
+            key={lesson.lessonId ?? `new-${li}`}
             className="mb-3 rounded-[12px] bg-nevo-cream-elevated px-[18px] py-4 shadow-elevation-1"
           >
             <div className="flex items-center gap-2.5">
@@ -280,8 +318,8 @@ export function LiveStructureTree({
 
             <div className="mt-2.5 flex flex-col gap-2">
               {lesson.modules.map((m, mi) => (
+                <Fragment key={`${lesson.lessonId ?? "new"}-${li}-${mi}`}>
                 <div
-                  key={`${lesson.lessonId}-${mi}`}
                   className="flex items-center gap-2.5 rounded-[10px] bg-nevo-cream-inset px-3.5 py-2.5"
                 >
                   <span className="shrink-0 font-mono text-[10px] font-bold tracking-[0.1em] text-nevo-near-black/45">
@@ -294,7 +332,8 @@ export function LiveStructureTree({
                     placeholder="Untitled section"
                     className={cn(titleInput, "text-[14px] text-nevo-near-black")}
                   />
-                  {/* A count, not a list: the contract gives ids, not titles. */}
+                  {/* Named where the parse named them, counted where it did
+                      not - never an invented title. */}
                   <span className="shrink-0 text-[12.5px] text-nevo-near-black/55">
                     {plural(m.segmentIds.length, "segment", "segments")}
                   </span>
@@ -314,7 +353,47 @@ export function LiveStructureTree({
                       <path d="M9 10l-4 4 4 4M5 14h9a5 5 0 0 0 5-5V5" />
                     </svg>
                   </button>
+                  {/* Split here. Disabled on the first section, where it would
+                      leave an empty lesson behind rather than divide one. */}
+                  <button type="button" onClick={() => splitLessonAt(li, mi)} disabled={mi === 0} aria-label="Start a new lesson at this section" title="Start a new lesson here" className={iconBtn}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M3 12h18M8 7l-3 5 3 5M16 7l3 5-3 5" />
+                    </svg>
+                  </button>
                 </div>
+                {/* The third level. Only the named ones are listed; a section
+                    whose keys resolve to nothing keeps its count above and
+                    says nothing here. */}
+                {(() => {
+                  const named = namedSegments(m.segmentIds, segments).filter(
+                    (seg) => seg.title !== null,
+                  );
+                  if (named.length === 0) return null;
+                  return (
+                    <ul className="mb-1 ml-9 mt-0.5 list-none space-y-0.5 p-0">
+                      {named.map((seg) => (
+                        <li
+                          key={seg.key}
+                          className="flex items-center gap-2 text-[12.5px] leading-[1.5] text-nevo-near-black/62"
+                        >
+                          <span className="size-1 shrink-0 rounded-full bg-nevo-near-black/28" aria-hidden />
+                          <span className="min-w-0 truncate">{seg.title}</span>
+                          {seg.minutes > 0 && (
+                            <span className="shrink-0 text-nevo-near-black/45">
+                              {seg.minutes} min
+                            </span>
+                          )}
+                          {seg.needsReview && (
+                            <span className="shrink-0 rounded-full bg-nevo-violet/16 px-1.5 py-0.5 text-[11px] text-nevo-near-black/70">
+                              needs a look
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })()}
+                </Fragment>
               ))}
               {lesson.modules.length === 0 && (
                 <p className="text-[13px] text-nevo-near-black/55">

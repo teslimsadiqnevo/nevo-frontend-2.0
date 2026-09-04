@@ -6,6 +6,7 @@ import {
   type UploadStage,
   type UploadStatus,
   type UploadStructure,
+  type UploadSegment,
 } from "@/lib/api/uploads";
 import { getToken } from "@/lib/auth/session";
 
@@ -33,6 +34,15 @@ export interface StagedUpload {
   status: UploadStatus | null;
   stage: UploadStage | null;
   structure: UploadStructure | null;
+  /**
+   * The named rows under each section. Modules point at these by key, so this
+   * is what turns the review screen's third level from a count into a list.
+   * Undefined - not empty - when the upload predates the field, so a caller
+   * can tell "no segments reported" from "a section with none".
+   */
+  segments: UploadSegment[] | undefined;
+  /** The unit's own title, when the parse found one. */
+  lessonTitle: string | null;
   /** The parse failed, or the request did. */
   failed: boolean;
   /** The server's own reason, when it gave one. */
@@ -48,6 +58,8 @@ export function useStagedUpload(): StagedUpload {
   const [status, setStatus] = useState<UploadStatus | null>(null);
   const [stage, setStage] = useState<UploadStage | null>(null);
   const [structure, setStructure] = useState<UploadStructure | null>(null);
+  const [segments, setSegments] = useState<UploadSegment[] | undefined>(undefined);
+  const [lessonTitle, setLessonTitle] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [slow, setSlow] = useState(false);
@@ -67,6 +79,8 @@ export function useStagedUpload(): StagedUpload {
     setStatus(null);
     setStage(null);
     setStructure(null);
+    setSegments(undefined);
+    setLessonTitle(null);
     setFailed(false);
     setError(null);
     setSlow(false);
@@ -106,6 +120,11 @@ export function useStagedUpload(): StagedUpload {
           setStatus(res.status);
           setStage(res.stage);
           setStructure(res.structure ?? null);
+          // Both landed on 3 Sep. `segments` is what lets the review screen
+          // NAME its third level instead of counting it; absent on an older
+          // upload, so it stays undefined rather than becoming [].
+          setSegments(res.segments);
+          setLessonTitle(res.lessonTitle ?? null);
           setError(res.error);
           if (res.status === "failed") setFailed(true);
           if (startedAt.current) {
@@ -129,6 +148,8 @@ export function useStagedUpload(): StagedUpload {
     status,
     stage,
     structure,
+    segments,
+    lessonTitle,
     failed,
     error,
     slow,
