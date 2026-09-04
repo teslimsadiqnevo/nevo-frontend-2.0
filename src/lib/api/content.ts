@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { ComprehensionCheckpoint } from "./checkpoints";
 
 /**
  * Lesson content endpoints.
@@ -60,7 +61,7 @@ export interface ParsedLessonSegment {
   title: string | null;
   body: string;
   availableModalities: ContentModality[];
-  comprehensionCheckpoints: Record<string, unknown>[];
+  comprehensionCheckpoints: ComprehensionCheckpoint[];
   textVariant: Record<string, unknown> | null;
   visualVariant: Record<string, unknown> | null;
   audioVariant: Record<string, unknown> | null;

@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { ComprehensionCheckpoint } from "./checkpoints";
 
 /**
  * Parsed lesson content - the library and one lesson's segments.
@@ -76,8 +77,12 @@ export interface LessonSegment {
   title: string | null;
   body: string;
   availableModalities: ContentModality[];
-  /** Untyped in the spec - shape unknown, so it is not read yet. */
-  comprehensionCheckpoints: unknown[];
+  /**
+   * Typed as of 3 Sep. `answerKey` is NULLABLE for lessons parsed before the
+   * contract existed - see `api/checkpoints.ts`, which is the only thing that
+   * should mark one.
+   */
+  comprehensionCheckpoints: ComprehensionCheckpoint[];
   needsReview: boolean;
   reviewReasons: string[];
 }
