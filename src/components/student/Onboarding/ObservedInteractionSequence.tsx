@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, useSignals } from "@/hooks";
+import { authApi } from "@/lib/api";
 import { invitesApi } from "@/lib/api/invites";
 import {
   getOnboardingDraft,
@@ -81,20 +82,51 @@ export function ObservedInteractionSequence() {
          * next sign-in will be checked against. Without a token there is
          * nowhere to put the PIN, so none is claimed to be stored.
          */
-        storePin={
-          joinToken
-            ? async (pin) => {
-                const draft = getOnboardingDraft();
-                const [first, ...rest] = (draft.name ?? "").trim().split(/\s+/);
-                const res = await invitesApi.acceptJoin(joinToken, {
-                  pin,
-                  firstName: first || null,
-                  lastName: rest.join(" ") || null,
-                });
-                identifierRef.current = res.loginIdentifier;
-              }
-            : undefined
-        }
+        storePin={async (pin) => {
+          const draft = getOnboardingDraft();
+          const [first, ...rest] = (draft.name ?? "").trim().split(/\s+/);
+          const firstName = first || null;
+          const lastName = rest.join(" ") || null;
+
+          // A join link redeems the invitation; that IS the account creation
+          // and it carries its own identity.
+          if (joinToken) {
+            const res = await invitesApi.acceptJoin(joinToken, {
+              pin,
+              firstName,
+              lastName,
+            });
+            identifierRef.current = res.loginIdentifier;
+            return;
+          }
+
+          /*
+           * Otherwise the child came in by school and class code. Both halves
+           * of this went public on 3 Sep; before that there was nowhere to put
+           * the PIN and no identifier to remember, so this path onboarded a
+           * child who then had no account.
+           *
+           * The connection token is fetched HERE rather than when the class
+           * was chosen: it lives 20 minutes, and the profiling probes and
+           * consent gate sit in between. Asking for it at the moment it is
+           * spent means it cannot go stale in a child's hands.
+           */
+          const connection = await authApi.connectClassCode({
+            classId: draft.classId,
+            schoolCode: draft.schoolCode,
+          });
+          if (!connection.onboardingToken) {
+            throw new Error("no onboarding token");
+          }
+          const res = await authApi.completeAccount({
+            pin,
+            onboardingToken: connection.onboardingToken,
+            firstName,
+            lastName,
+            age: draft.age ?? null,
+          });
+          identifierRef.current = res.loginIdentifier;
+        }}
         onComplete={() => {
           // The device now belongs to this student - but only if the server
           // issued an identifier it will recognise. SSO students re-enter
