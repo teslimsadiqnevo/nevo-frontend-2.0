@@ -26,7 +26,12 @@ export {
   type InvitedTeamMember,
   type TeamMember,
 } from "./team";
-export { signalsApi, type SignalEvent } from "./signals";
+export {
+  signalsApi,
+  type SignalEvent,
+  type SignalSessionEnvelope,
+  type SignalSessionType,
+} from "./signals";
 export { intelligenceApi, type AttentionFlag } from "./intelligence";
 export { contentApi, type ParseContentRequest, type ParseContentResponse } from "./content";
 export { exportApi, type IepExport, type IepExportShare } from "./export";

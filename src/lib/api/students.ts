@@ -149,6 +149,16 @@ export interface StudentProgress {
     practiceCount: number;
   }[];
   lessons: LessonProgress[];
+  /**
+   * Backend-authored, student-facing prose (3 Sep). Both are REQUIRED in the
+   * contract, so there is always something to render.
+   *
+   * Written by the backend from recorded lesson, practice and mastery
+   * aggregates in deliberately non-diagnostic language - it is meant to be
+   * shown to the child, not summarised or re-worded here. Render it as given.
+   */
+  reflection: string;
+  highlights: string[];
 }
 
 /** One row of the student's own recent lesson activity. */

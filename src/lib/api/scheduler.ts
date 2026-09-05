@@ -35,6 +35,13 @@ export interface ConceptSchedule {
   lastReview: string;
   reviewCount: number;
   nextReviewDue: string;
+  /**
+   * The lesson that can actually be played for this concept, when one is
+   * linked (backend, 3 Sep). Null where the concept has no playable lesson -
+   * so a review can be DUE without being openable, and a caller must check
+   * rather than assume a route exists.
+   */
+  lessonId: string | null;
 }
 
 export const schedulerApi = {

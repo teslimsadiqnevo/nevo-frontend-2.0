@@ -67,6 +67,20 @@ export const messagesApi = {
   markThreadRead: (threadId: string) =>
     api.post<MessageThread>(`/api/messages/threads/${threadId}/read`),
 
+  /**
+   * Reply into a thread the caller can already read.
+   *
+   * This is the STUDENT's way into a conversation, and the reason it is not
+   * `send`: `send` addresses a recipient and creates a thread, which a student
+   * cannot do. Access is the thread itself - a student may reply only where
+   * they can already read - so there is no recipient to name and no way to
+   * start a conversation with someone who has not started one with them.
+   *
+   * `content` is capped at 5000 characters by the contract.
+   */
+  reply: (threadId: string, content: string) =>
+    api.post<ChatMessage>(`/api/messages/threads/${threadId}/reply`, { content }),
+
   /** Send, creating the thread if this is the first message. */
   send: (payload: {
     recipientId: string;

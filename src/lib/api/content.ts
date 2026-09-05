@@ -95,7 +95,28 @@ export interface ParseContentResponse {
   segments: ParsedLessonSegment[];
 }
 
+/** 200 of POST /api/content/media/url. */
+export interface MediaUrl {
+  storagePath: string;
+  url: string;
+  /** Null means the fresh URL does not expire. */
+  expiresInSeconds: number | null;
+}
+
 export const contentApi = {
+  /**
+   * Mint a fresh URL for a stored media object.
+   *
+   * Generated narration and images live in private Supabase storage behind
+   * URLs that AGE OUT - `audioVariant` and `visualVariant` both carry
+   * `urlExpiresInSeconds`. An expired one is a dead player or a missing
+   * image, so `mediaUrlExpired` in `api/variants.ts` decides when to call
+   * this, and `storagePath` - not the stale URL - is what identifies the
+   * object.
+   */
+  mediaUrl: (storagePath: string) =>
+    api.post<MediaUrl>("/api/content/media/url", { storagePath }),
+
   /** Parse already-extracted text. POST /api/content/parse */
   parse: (payload: ParseContentRequest) =>
     api.post<ParseContentResponse>("/api/content/parse", payload),
