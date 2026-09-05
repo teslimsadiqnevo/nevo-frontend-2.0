@@ -27,14 +27,20 @@ import { cn } from "@/lib/utils";
  * for it is gone for a signed-in teacher. The signed-out demo keeps it.
  *
  * WHAT THE RESULTS ACTUALLY ARE. The frame lists LESSONS ("Introduction to
- * Algebra - Week 1"); the endpoint reports FILES - a filename, whether it was
- * accepted, and the server's reason when it was not. Lesson titles live
- * inside each upload's structure, which would mean polling every accepted
- * upload separately. So the results here are per-file and truthful, and the
- * lesson-level list returns when one read can supply it.
+ * Algebra - Week 1"); the batch endpoint reports FILES - a filename, whether
+ * it was accepted, and the server's reason when it was not.
  *
- * TODO(api): lesson titles for a batch without N polls. Drive/OneDrive
- * imports are separately blocked on per-school credentials.
+ * The lesson TITLE now arrives too. `lessonTitle` landed on the upload status
+ * response on 3 Sep, so each accepted upload can be asked what the parse
+ * decided it was called, and a teacher sees "Simplifying Expressions" rather
+ * than "wk2-final-v3.docx".
+ *
+ * That is still one read per upload. It is done ONCE, after the batch settles,
+ * and every failure is absorbed - a title is an improvement on the filename,
+ * never a precondition for showing the row. A file whose title cannot be
+ * fetched keeps its filename, which is what the screen showed before.
+ *
+ * TODO(api): Drive/OneDrive imports remain blocked on per-school credentials.
  */
 
 type Phase = "idle" | "parsing" | "results";
@@ -72,6 +78,33 @@ export function BulkIngestion() {
   const fileInput = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [batch, setBatch] = useState<BatchResult | null>(null);
+  /** uploadId -> the parse's own title for it. Absent until it arrives. */
+  const [titles, setTitles] = useState<Record<string, string>>({});
+
+  /**
+   * Ask each accepted upload what the parse called it.
+   *
+   * Every read is settled independently and failures are swallowed: this is
+   * an improvement on the filename, not a precondition for showing the row,
+   * and one slow or missing title must not hold up the other twelve. Titles
+   * are merged in as a batch so the list does not repaint per response.
+   */
+  const loadTitles = async (res: BatchResult) => {
+    const accepted = res.uploads.filter((u) => u.accepted && u.uploadId);
+    if (accepted.length === 0) return;
+    const settled = await Promise.allSettled(
+      accepted.map((u) => uploadsApi.status(u.uploadId as string)),
+    );
+    const found: Record<string, string> = {};
+    settled.forEach((r, i) => {
+      if (r.status !== "fulfilled") return;
+      const title = r.value.lessonTitle?.trim();
+      if (title) found[accepted[i].uploadId as string] = title;
+    });
+    if (Object.keys(found).length > 0) {
+      setTitles((prev) => ({ ...prev, ...found }));
+    }
+  };
   const [batchError, setBatchError] = useState("");
   const [committing, setCommitting] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -106,6 +139,7 @@ export function BulkIngestion() {
     }
     setPhase("parsing");
     setBatch(null);
+    setTitles({});
     setBatchError("");
     // `scope: "term"` - this screen is the term flow by definition.
     void uploadsApi
@@ -113,6 +147,7 @@ export function BulkIngestion() {
       .then((res) => {
         setBatch(res);
         setPhase("results");
+        void loadTitles(res);
       })
       .catch(() => {
         setBatchError(
@@ -366,9 +401,18 @@ export function BulkIngestion() {
                         )}
                       </span>
                       <div className="min-w-0 flex-1">
+                        {/* The parse's own title when it has one, with the
+                            filename kept beneath it - a teacher recognises
+                            what they dragged in, and sees what Nevo made of
+                            it. Filename alone until the title arrives. */}
                         <div className="truncate text-[14.5px] font-medium text-nevo-near-black">
-                          {u.filename}
+                          {(u.uploadId && titles[u.uploadId]) || u.filename}
                         </div>
+                        {u.uploadId && titles[u.uploadId] && (
+                          <div className="mt-[3px] truncate text-[12.5px] text-nevo-near-black/50">
+                            {u.filename}
+                          </div>
+                        )}
                         {!u.accepted && (
                           <div className="mt-[3px] text-[13px] leading-[1.45] text-nevo-near-black/62">
                             {u.error ?? "Nevo couldn’t read this one."}
