@@ -20,11 +20,25 @@ export interface SignalEvent {
   payload?: Record<string, unknown>;
 }
 
+/**
+ * What a stream of signals belongs to.
+ *
+ * Onboarding and profiling are not lessons, and used to be sent with a made-up
+ * lesson tag in `lessonId` because the field was required. `lessonId` is now
+ * nullable and this says what the stream actually is (backend, 3 Sep).
+ */
+export type SignalSessionType = "lesson" | "onboarding" | "profiling" | "sso";
+
 /** The session envelope the ingest endpoint requires with every batch. */
 export interface SignalSessionEnvelope {
   sessionId: string;
-  /** The lesson this stream belongs to; flow tag for non-lesson streams. */
-  lessonId: string;
+  /**
+   * The lesson this stream belongs to. NULL for a stream that is not a lesson
+   * - see `sessionType`, which is how the backend tells them apart now.
+   */
+  lessonId: string | null;
+  /** Defaults to "lesson" server-side, so non-lesson streams must say so. */
+  sessionType?: SignalSessionType;
   /** ISO timestamp of the session's first event capture. */
   startedAt: string;
 }
@@ -86,6 +100,7 @@ export const signalsApi = {
       session: {
         sessionId: session.sessionId,
         lessonId: session.lessonId,
+        sessionType: session.sessionType ?? "lesson",
         startedAt: session.startedAt,
       },
       events: known.map((e) => ({

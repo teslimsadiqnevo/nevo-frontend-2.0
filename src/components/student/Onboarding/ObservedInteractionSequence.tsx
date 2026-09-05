@@ -43,11 +43,22 @@ export function ObservedInteractionSequence() {
   // Where "You're In" hands off to. Read here rather than at the tap so the
   // answer is ready by the time a child gets to the last screen.
   const { data: dashboard } = useStudentDashboard();
-  // One profile-seeding session spans the whole sequence; useSignals batches the
-  // events and flushes on completion (unmount). TODO(api): the backend may issue
-  // a real onboarding session id / dedicated endpoint — swap in here.
-  const [sessionId] = useState(() => `onboarding-${randomId()}`);
-  const { trackEvent } = useSignals(sessionId);
+  /*
+   * One profile-seeding session spans the whole sequence.
+   *
+   * The id used to be `onboarding-${uuid}`, and the prefix was fatal: the
+   * ingest contract declares `sessionId` as `format: uuid`, so every
+   * onboarding batch failed the client's own UUID guard and was held until
+   * the screen unmounted, taking the child's whole profiling stream with it.
+   * A bare UUID plus `sessionType: "onboarding"` is what the 3 Sep contract
+   * asks for, and it says the same thing honestly.
+   *
+   * These events are captured BEFORE the account exists. `useSignals` holds
+   * them rather than throwing them at a Bearer-only endpoint, and they go out
+   * on the first flush after PIN completion creates the session.
+   */
+  const [sessionId] = useState(() => randomId());
+  const { trackEvent, flush } = useSignals(sessionId, undefined, "onboarding");
   const [phase, setPhase] = useState<"transition" | "activities">("transition");
   const [index, setIndex] = useState(0);
 
@@ -126,6 +137,15 @@ export function ObservedInteractionSequence() {
             age: draft.age ?? null,
           });
           identifierRef.current = res.loginIdentifier;
+
+          /*
+           * The session now exists, so the onboarding stream that has been
+           * held since before the account did can finally be addressed.
+           * Flushing HERE rather than leaving it to unmount matters: the
+           * child is about to be routed into a lesson, and an unmount flush
+           * races that navigation.
+           */
+          flush();
         }}
         onComplete={() => {
           // The device now belongs to this student - but only if the server
