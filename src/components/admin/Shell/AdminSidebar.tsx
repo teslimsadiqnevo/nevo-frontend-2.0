@@ -139,7 +139,7 @@ function IconWrap({ on, children }: { on: boolean; children: React.ReactNode }) 
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const { scopes, resolved } = usePermissions();
+  const { scopes, resolved, status, refresh } = usePermissions();
   const signedIn = useHasSession();
   const [expanded, setExpanded] = useState(true);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -173,6 +173,10 @@ export function AdminSidebar() {
   // shows its chrome and no rows rather than a nav that rearranges itself
   // under the reader a moment later.
   const items = resolved ? navForScopes(scopes) : [];
+  // A failed read is not an answer about this admin's access, so the footer
+  // offers a retry instead of `scopeSummary`'s "No access yet" - which was a
+  // claim about them produced by a broken GET.
+  const scopesFailed = status === "failed";
 
   return (
     <aside
@@ -346,11 +350,32 @@ export function AdminSidebar() {
                   : "truncate text-xs text-nevo-near-black/55"
               }
             >
-              {signedIn ? scopeSummary(scopes) : "Proprietor · General oversight"}
+              {!signedIn
+                ? "Proprietor · General oversight"
+                : scopesFailed
+                  ? "Couldn't load your access"
+                  : scopeSummary(scopes)}
             </span>
           </span>
         )}
       </button>
+
+      {signedIn && scopesFailed && expanded && (
+        /* A sibling of the account button, never a child of it: nesting a
+           control inside a <button> is invalid and screen readers do not
+           expose the inner one. */
+        <button
+          type="button"
+          onClick={refresh}
+          className={cn(
+            "mx-3 mt-1 shrink-0 cursor-pointer rounded-[8px] px-2 py-1 text-left",
+            "text-xs font-semibold text-nevo-navy transition-colors hover:bg-nevo-navy/6",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nevo-navy",
+          )}
+        >
+          Try loading your access again
+        </button>
+      )}
 
       {signOutOpen && <AdminSignOutModal onStay={() => setSignOutOpen(false)} />}
     </aside>
