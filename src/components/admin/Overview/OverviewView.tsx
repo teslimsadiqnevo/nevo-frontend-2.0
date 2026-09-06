@@ -8,6 +8,11 @@ import {
 } from "@/lib/api/schoolIntelligence";
 import { cn } from "@/lib/utils";
 import { labelHero } from "../Compliance/ndpaClaims";
+import {
+  STEP_STUDENTS,
+  STEP_WORKSPACE,
+  gettingStartedSteps,
+} from "./overviewGettingStarted";
 import { NARRATIVE_SAMPLE, WORTH_A_GLANCE } from "./overviewSample";
 
 /**
@@ -32,6 +37,15 @@ import { NARRATIVE_SAMPLE, WORTH_A_GLANCE } from "./overviewSample";
  * The early state is chosen by a real signal: a school with nothing in the
  * adaptation log has not started teaching yet, and the frame's early copy is
  * simply true of it - so that variant is NOT marked as a sample.
+ *
+ * That gate used to cover the narrative ONLY. The roll-up below it always
+ * rendered "Worth a glance", so a school with no students was told "6 students
+ * are waiting on parent consent" and "2 classes haven't run a lesson yet" -
+ * three invented counts, under a note admitting they were invented. D04 draws
+ * a different roll-up for that school ("Getting started"), and now so does
+ * this: the sample roll-up is live-school only, and the early school gets the
+ * checklist. See `overviewGettingStarted.ts` for what a tick is allowed to
+ * claim.
  *
  * TODO(api): a narrative/summary endpoint, a roll-up of things needing a
  * decision, and class/teacher activity counts.
@@ -234,8 +248,76 @@ export function OverviewView() {
             </div>
 
             <h3 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
-              Worth a glance
+              {early ? "Getting started" : "Worth a glance"}
             </h3>
+
+            {early ? (
+              <div className={cn(CARD, "mt-3 overflow-hidden")}>
+                {gettingStartedSteps(school).map((k, i) => {
+                  // A tick is a claim about this school, so it is only ever set
+                  // from a signal we hold. The rest carry no mark at all rather
+                  // than an unticked box, which would assert the school has not
+                  // done something we cannot see.
+                  const done =
+                    i === STEP_WORKSPACE ||
+                    (i === STEP_STUDENTS && audit.studentsProfiled > 0);
+                  const row = (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+                          done
+                            ? "bg-nevo-navy text-nevo-cream"
+                            : "border border-nevo-near-black/20 text-transparent",
+                        )}
+                      >
+                        {done ? "✓" : ""}
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="text-[15px] font-semibold text-nevo-near-black">
+                          {k.title}
+                          {done && <span className="sr-only"> (done)</span>}
+                        </span>
+                        <span className="mt-0.5 text-[13px] text-nevo-near-black/58">
+                          {k.sub}
+                        </span>
+                      </span>
+                      {k.cta && (
+                        <span
+                          className={cn(
+                            "shrink-0 text-[13.5px] font-semibold",
+                            k.href
+                              ? "text-nevo-navy"
+                              : "text-nevo-near-black/45",
+                          )}
+                        >
+                          {k.cta}
+                          {k.href ? " →" : ""}
+                        </span>
+                      )}
+                    </>
+                  );
+                  const shell = cn(
+                    "flex items-start gap-4 px-[22px] py-[18px]",
+                    i < 4 && "border-b border-nevo-near-black/7",
+                  );
+                  return k.href ? (
+                    <Link
+                      key={k.title}
+                      href={k.href}
+                      className={cn(shell, "transition-[filter] hover:brightness-[0.985]")}
+                    >
+                      {row}
+                    </Link>
+                  ) : (
+                    <div key={k.title} className={shell}>
+                      {row}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
             <div className={cn(CARD, "mt-3 overflow-hidden")}>
               {WORTH_A_GLANCE.map((g, i) => (
                 <Link
@@ -261,11 +343,14 @@ export function OverviewView() {
                 </Link>
               ))}
             </div>
-            <SampleNote>
-              These three are a sample. Nothing yet rolls up what actually needs
-              a decision at {school}, so the counts above are not yours &ndash;
-              the links go to the real screens.
-            </SampleNote>
+            )}
+            {!early && (
+              <SampleNote>
+                These three are a sample. Nothing yet rolls up what actually
+                needs a decision at {school}, so the counts above are not yours
+                &ndash; the links go to the real screens.
+              </SampleNote>
+            )}
           </>
         )}
       </div>
