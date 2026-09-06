@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, Send } from "lucide-react";
 import { NevoKeyboard, useNevoKeyboardDock } from "@/components/shared";
-import { useStudentThreads } from "@/hooks/useStudentThreads";
+import { useHydrated } from "@/hooks/useHydrated";
+import {
+  MESSAGE_MAX_LENGTH,
+  useStudentThreads,
+} from "@/hooks/useStudentThreads";
 import { cn } from "@/lib/utils";
 import { type Message, type Thread } from "./connectData";
 
@@ -15,14 +19,15 @@ const DELIVER_MS = 1100;
  * once the teacher adds one, a parent). Two panes on tablet/desktop (thread list
  * + conversation); a single pane with a back button on mobile.
  *
- * Threads and messages are live from `/api/messages/*`. SENDING IS NOT, and
- * not by omission: `POST /api/messages` constrains `recipientType` to
- * `^(student|class)$` - there is no `teacher` value - so a student cannot
- * address their teacher through the contract at all. The composer says so
- * rather than dropping a child's message into a request that cannot be
- * addressed. Fixtures keep the optimistic send for the designed screens.
+ * Threads, messages AND replies are live from `/api/messages/*`. Sending was
+ * switched off here for a real reason - `POST /api/messages` has no `teacher`
+ * recipient type, so a child could not address their teacher at all - and
+ * `POST /messages/threads/{id}/reply` (3 Sep) is what opened it: a child writes
+ * into a thread they can already read, and still cannot start one.
  *
- * TODO(api): a student-to-teacher recipient. Logged as a student blocker.
+ * The signed-out walkthrough keeps its SIMULATED send. That is deliberate:
+ * those threads are fixtures with no backend behind them, so a composer that
+ * posted for real would have nowhere to post to.
  */
 export function ConnectTab() {
   // Live threads read from the API; the fixtures back the designed screens
@@ -33,6 +38,8 @@ export function ConnectTab() {
     loading,
     failed,
     openThread: fetchThread,
+    reply: sendLive,
+    retry: retryLive,
   } = useStudentThreads();
   const [fixtureThreads, setFixtureThreads] = useState<Thread[]>(sourceThreads);
   const threads = live ? sourceThreads : fixtureThreads;
@@ -42,6 +49,12 @@ export function ConnectTab() {
   const [mobileView, setMobileView] = useState<"list" | "thread">("list");
   const [draft, setDraft] = useState("");
   const kb = useNevoKeyboardDock();
+  // The server cannot see the token, so `live` is false for the first render
+  // of a signed-in child. That used to mean a frame of someone else's threads;
+  // now that the composer is real it would mean worse - the child could type
+  // into a FIXTURE thread and `send()` would take the simulated branch and
+  // tell them it was delivered. Nothing renders until we know who is looking.
+  const hydrated = useHydrated();
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const nextId = useRef(0);
@@ -88,6 +101,13 @@ export function ConnectTab() {
   const send = () => {
     const text = draft.trim();
     if (!text) return;
+    // Live: the hook owns the message's whole life, including its failure.
+    // Fixtures: no backend to post to, so the delivery stays simulated.
+    if (live) {
+      setDraft("");
+      void sendLive(active.id, text);
+      return;
+    }
     const id = `m-${nextId.current++}`;
     setMessages(active.id, (m) => [
       ...m,
@@ -98,6 +118,10 @@ export function ConnectTab() {
   };
 
   const retry = (msgId: string) => {
+    if (live) {
+      void retryLive(active.id, msgId);
+      return;
+    }
     setMessages(active.id, (m) =>
       m.map((x) => (x.id === msgId ? { ...x, status: "sending" } : x)),
     );
@@ -114,7 +138,7 @@ export function ConnectTab() {
 
   // A live student can genuinely have no threads, which the fixtures never
   // could - and every pane below assumes an active one.
-  if (live && (loading || failed || !active)) {
+  if (!hydrated || (live && (loading || failed || !active))) {
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="px-5 pt-5 pb-3">
@@ -122,7 +146,10 @@ export function ConnectTab() {
             Connect
           </h1>
         </div>
-        {loading ? (
+        {!hydrated || loading ? (
+          /* Not yet hydrated is a kind of loading, not an empty inbox: falling
+             through to the empty state here would tell a child their teacher
+             had never written to them, before we had even looked. */
           <div className="space-y-2 px-3">
             {[0, 1, 2].map((i) => (
               <div
@@ -206,7 +233,10 @@ export function ConnectTab() {
                   )}
                 </span>
                 <span className="mt-0.5 block truncate text-[13px] text-nevo-near-black/60">
-                  {thread.messages[thread.messages.length - 1]?.text}
+                  {/* Once opened, the newest real message; before that, the
+                      list's own preview - which is all a live row has. */}
+                  {thread.messages[thread.messages.length - 1]?.text ??
+                    thread.preview}
                 </span>
               </span>
             </button>
@@ -245,20 +275,10 @@ export function ConnectTab() {
           ))}
         </div>
 
-        {live ? (
-          /* Not a disabled input: a child should be told why, not left
-             poking at something inert. */
-          <div className="shrink-0 border-t border-nevo-near-black/8 px-4 py-3.5">
-            <p className="text-[13.5px] leading-[1.45] text-nevo-near-black/60">
-              You can read messages from your teacher here. Replying isn&apos;t
-              switched on yet.
-            </p>
-          </div>
-        ) : (
         <div className="flex shrink-0 items-center gap-2.5 border-t border-nevo-near-black/8 px-4 py-3">
           <input
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => setDraft(e.target.value.slice(0, MESSAGE_MAX_LENGTH))}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -267,6 +287,10 @@ export function ConnectTab() {
             }}
             onFocus={kb.onFocus}
             onBlur={kb.onBlur}
+            // The contract caps `content` at 5000. Held at the input rather
+            // than rejected on send: a child should not lose a long message
+            // to a limit nothing told them about.
+            maxLength={MESSAGE_MAX_LENGTH}
             // A.12: Nevo Keyboard on touch; hardware keyboard on desktop.
             inputMode="none"
             placeholder="Type a message"
@@ -282,13 +306,18 @@ export function ConnectTab() {
             <Send className="size-5" strokeWidth={2} />
           </button>
         </div>
-        )}
 
         {/* Message entry on touch - docked below the composer so it stays visible. */}
-        {!live && kb.open && (
+        {kb.open && (
           <NevoKeyboard
             layout="qwerty"
-            onKey={(c) => setDraft((d) => d + c)}
+            // Clamped here too, not just on the input. `inputMode="none"`
+            // means this keyboard IS the way a child types on a tablet, so a
+            // cap enforced only by the input's `maxLength` is no cap at all -
+            // it would let them past 5000 and the send would 422 on them.
+            onKey={(c) =>
+              setDraft((d) => (d + c).slice(0, MESSAGE_MAX_LENGTH))
+            }
             onBackspace={() => setDraft((d) => d.slice(0, -1))}
             onReturn={send}
             className="shrink-0 lg:hidden"

@@ -19,6 +19,13 @@ export interface Thread {
   /** Avatar tint — navy or violet. */
   accent: "navy" | "violet";
   unread: boolean;
+  /**
+   * The list row's one-line preview, from the thread list's own
+   * `latestPreview`. The list endpoint carries no message bodies, so without
+   * this a live row has nothing to show until the thread is opened. Absent on
+   * fixtures, which have their messages inline already.
+   */
+  preview?: string;
   messages: Message[];
 }
 

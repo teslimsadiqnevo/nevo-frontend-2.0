@@ -9,17 +9,20 @@ import { useHasSession } from "./useHasSession";
 /**
  * The student's conversations, from `/api/messages/*`.
  *
- * READ ONLY, and not by omission. `POST /api/messages` constrains
- * `recipientType` to `^(student|class)$` - there is no `teacher` value - so a
- * student cannot address their teacher through the messaging contract at all.
- * The model is one-directional today: staff write to a student or a class.
- * Until that changes, the composer says so rather than dropping a child's
- * message into a request that cannot be addressed. Logged as a student
- * blocker.
+ * A CHILD CAN NOW REPLY. This was read-only for a real reason, not by
+ * omission: `POST /api/messages` constrains `recipientType` to
+ * `^(student|class)$` with no `teacher` value, so a student could not address
+ * their teacher through the contract at all. `POST /messages/threads/{id}/reply`
+ * (3 Sep) is the way in, and it is a different shape on purpose - there is no
+ * recipient to name. Access IS the thread: a child may write only where they
+ * can already read, and still cannot start a conversation with anyone.
  *
  * As on the teacher side, the thread list carries no message bodies, so a
- * thread is fetched when first opened and kept. Threads carry no unread
- * state either - the dot is off until an endpoint reports one.
+ * thread is fetched when first opened and kept. What the list DOES carry, and
+ * what this used to throw away, is `latestPreview`, `unread` and `unreadCount`
+ * - all three required on `MessageThreadResponse`. A live row therefore had an
+ * empty preview line until the child opened it, and the unread dot was
+ * hardcoded off under a comment claiming no unread state existed. It does.
  */
 
 export interface StudentThreads {
@@ -33,7 +36,24 @@ export interface StudentThreads {
    */
   failed: boolean;
   openThread: (threadId: string) => void;
+  /**
+   * Write into a thread the child can already read.
+   *
+   * The message appears immediately as `sending` and is only marked
+   * `delivered` once the backend has actually stored it - the send is never
+   * reported before the write returns. A rejected send becomes `failed`, which
+   * the bubble already renders and offers a retry on, rather than vanishing or
+   * pretending to have arrived.
+   *
+   * Resolves true when the backend accepted it.
+   */
+  reply: (threadId: string, content: string) => Promise<boolean>;
+  /** Re-send a message that failed, by its id. */
+  retry: (threadId: string, messageId: string) => Promise<boolean>;
 }
+
+/** The contract's cap on `content`. */
+export const MESSAGE_MAX_LENGTH = 5000;
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -47,6 +67,15 @@ export function useStudentThreads(): StudentThreads {
   const [failed, setFailed] = useState(false);
   const requested = useRef<Set<string>>(new Set());
   const selfId = getSession()?.userId;
+  // `retry` needs the message's text, and reading it from `live` through the
+  // callback's closure would read whatever was current when the callback was
+  // built. A ref mirrors it without making `retry` re-created on every change.
+  const liveRef = useRef<Thread[] | null>(live);
+  useEffect(() => {
+    liveRef.current = live;
+  }, [live]);
+  /** Local ids for messages the backend has not issued one for yet. */
+  const nextLocalId = useRef(0);
 
   useEffect(() => {
     if (!getToken()) return;
@@ -62,8 +91,10 @@ export function useStudentThreads(): StudentThreads {
             initials: initialsOf(t.title),
             // No accent in the contract; the frame alternates, so we do too.
             accent: i % 2 === 0 ? ("navy" as const) : ("violet" as const),
-            // No unread state exists - see the docblock.
-            unread: false,
+            unread: t.unread,
+            // Required on the wire but nullable: a thread with no messages yet
+            // has no preview, and an empty row is correct there.
+            preview: t.latestPreview ?? undefined,
             messages: [],
           })),
         );
@@ -108,8 +139,106 @@ export function useStudentThreads(): StudentThreads {
     [selfId],
   );
 
+  /** Mark one of our own messages, by id, within one thread. */
+  const setStatus = useCallback(
+    (threadId: string, messageId: string, next: Message["status"]) =>
+      setLive(
+        (cur) =>
+          cur?.map((t) =>
+            t.id === threadId
+              ? {
+                  ...t,
+                  messages: t.messages.map((m) =>
+                    m.id === messageId ? { ...m, status: next } : m,
+                  ),
+                }
+              : t,
+          ) ?? cur,
+      ),
+    [],
+  );
+
+  /**
+   * POST the text, then settle the placeholder that is already on screen.
+   *
+   * The backend's own `messageId` replaces the local one on success, so a
+   * later refetch of the thread does not render the same message twice.
+   */
+  const post = useCallback(
+    async (threadId: string, localId: string, content: string) => {
+      try {
+        const saved = await messagesApi.reply(threadId, content);
+        setLive(
+          (cur) =>
+            cur?.map((t) =>
+              t.id === threadId
+                ? {
+                    ...t,
+                    messages: t.messages.map((m) =>
+                      m.id === localId
+                        ? { ...m, id: saved.messageId, status: "delivered" }
+                        : m,
+                    ),
+                  }
+                : t,
+            ) ?? cur,
+        );
+        return true;
+      } catch {
+        setStatus(threadId, localId, "failed");
+        return false;
+      }
+    },
+    [setStatus],
+  );
+
+  const reply = useCallback(
+    async (threadId: string, content: string) => {
+      const text = content.trim();
+      if (!getToken() || !text) return false;
+      // Local id only until the backend issues the real one.
+      const localId = `pending-${nextLocalId.current++}`;
+      setLive(
+        (cur) =>
+          cur?.map((t) =>
+            t.id === threadId
+              ? {
+                  ...t,
+                  messages: [
+                    ...t.messages,
+                    { id: localId, who: "me", text, status: "sending" },
+                  ],
+                }
+              : t,
+          ) ?? cur,
+      );
+      return post(threadId, localId, text);
+    },
+    [post],
+  );
+
+  const retry = useCallback(
+    async (threadId: string, messageId: string) => {
+      if (!getToken()) return false;
+      const thread = liveRef.current?.find((t) => t.id === threadId);
+      const message = thread?.messages.find((m) => m.id === messageId);
+      if (!message) return false;
+      setStatus(threadId, messageId, "sending");
+      return post(threadId, messageId, message.text);
+    },
+    [post, setStatus],
+  );
+
   if (!signedIn) {
-    return { threads: THREADS, live: false, loading: false, failed: false, openThread };
+    return {
+      threads: THREADS,
+      live: false,
+      loading: false,
+      failed: false,
+      openThread,
+      reply,
+      retry,
+    };
   }
   return {
     threads: live ?? [],
@@ -117,5 +246,7 @@ export function useStudentThreads(): StudentThreads {
     loading: live === null && !failed,
     failed,
     openThread,
+    reply,
+    retry,
   };
 }
