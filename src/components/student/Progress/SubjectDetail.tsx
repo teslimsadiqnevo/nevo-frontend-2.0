@@ -8,6 +8,7 @@ import { useHasSession } from "@/hooks/useHasSession";
 import { useHydrated } from "@/hooks/useHydrated";
 import { useDueReviews } from "@/hooks/useDueReviews";
 import { useStudentProgress } from "@/hooks/useStudentProgress";
+import { useSubjectProgress } from "@/hooks/useSubjectProgress";
 import type {
   SessionRow,
   SubjectDetail as SubjectDetailData,
@@ -57,6 +58,11 @@ export function SubjectDetail({
   const hydrated = useHydrated();
   const live = useStudentProgress();
   const liveSubject = live.subjects.find((s) => s.slug === slug);
+  // The subject's OWN reflection comes from the narrowed route; the
+  // whole-student read above is about all of a child's learning and must not
+  // sit under one subject's heading. Both requests fire on the same tick, so
+  // waiting for this one costs max(a, b), not a + b.
+  const own = useSubjectProgress(liveSubject?.name ?? null);
   // Session Detail sheet (Subject Detail frame): tapping a growth-line marker
   // opens the session behind it.
   const [session, setSession] = useState<SessionRow | null>(null);
@@ -64,14 +70,17 @@ export function SubjectDetail({
 
   // Hydration-safe: SSR cannot see the token, so rendering the fixtures first
   // and correcting after would show a signed-in child a frame of invented
-  // reflection on their own learning.
-  if (!hydrated || (signedIn && live.loading)) {
+  // reflection on their own learning. The reflection read gates on `loading`
+  // only, never `failed`: a paragraph that could not be fetched leaves its
+  // slot empty and must not blank the screen around it.
+  if (!hydrated || (signedIn && (live.loading || own.loading))) {
     return <DetailShell />;
   }
   if (signedIn) {
     return (
       <LiveSubjectDetail
         name={liveSubject?.name ?? subject?.name ?? "Progress"}
+        reflection={own.reflection}
         concepts={liveSubject?.concepts ?? []}
         lessons={live.lessons}
         failed={live.failed}
@@ -238,17 +247,21 @@ function DetailShell() {
 /**
  * The child's own subject, from `progress/{subject}`.
  *
- * Concepts and lesson history are real. The reflection paragraph is absent:
- * nothing writes one, and composing it from `understanding` would be us making
- * the claim. Dates are formatted from `updatedAt`, which is a fact.
+ * Concepts and lesson history are real. So, since 3 Sep, is the reflection:
+ * the backend writes it about this subject in non-diagnostic language, and it
+ * is rendered exactly as given in the slot the frame drew for `prose`. Null
+ * while unread or unreadable, in which case the slot is simply empty - it is
+ * never composed from `understanding` here. Dates come from `updatedAt`.
  */
 function LiveSubjectDetail({
   name,
+  reflection,
   concepts,
   lessons,
   failed,
 }: {
   name: string;
+  reflection: string | null;
   concepts: { conceptId: string; name: string }[];
   lessons: { lessonId: string; title: string; updatedAt: string }[];
   failed: boolean;
@@ -283,6 +296,12 @@ function LiveSubjectDetail({
       <h1 className="text-[26px] font-semibold tracking-[-0.01em] text-nevo-near-black sm:text-[30px] lg:text-[32px]">
         {name}
       </h1>
+
+      {reflection?.trim() && (
+        <p className="mt-[18px] text-base leading-[1.65] text-nevo-near-black sm:text-[17px]">
+          {reflection}
+        </p>
+      )}
 
       {ready.length > 0 && (
         <>

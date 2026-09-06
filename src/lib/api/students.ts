@@ -308,6 +308,20 @@ export const studentsApi = {
   progress: (studentId: string) =>
     api.get<StudentProgress>(`/api/students/${studentId}/progress`),
 
+  /**
+   * The same shape narrowed to one subject. Worth its own call despite the
+   * whole-student read above: `reflection` here is written about THIS
+   * subject, where the unnarrowed one is written about all of them.
+   *
+   * `subject` is the backend's own string for it, exactly as returned on each
+   * concept row. The contract documents no slug, so what it gave us is what
+   * goes back.
+   */
+  subjectProgress: (studentId: string, subject: string) =>
+    api.get<StudentProgress>(
+      `/api/students/${studentId}/progress/${encodeURIComponent(subject)}`,
+    ),
+
   /** Active accommodations and the evidence behind them. */
   accommodations: (studentId: string) =>
     api.get<Accommodations>(`/api/intelligence/accommodations/${studentId}`),
