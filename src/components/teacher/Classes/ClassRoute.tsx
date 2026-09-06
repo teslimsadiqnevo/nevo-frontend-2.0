@@ -7,6 +7,7 @@ import { getToken } from "@/lib/auth/session";
 import type { TeacherClass } from "@/lib/mocks/teacherClasses";
 import { ClassDetail } from "./ClassDetail";
 import { LiveClassDetail } from "./LiveClassDetail";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 
 /**
  * Resolves a class route. Most ids are fixture-backed and render the full
@@ -45,7 +46,12 @@ export function ClassRoute({
   if (assigned) return <LiveClassDetail klass={assigned} />;
 
   // Fixtures back the designed screens only while there is no live data.
-  if (!live && fixture) return <ClassDetail klass={fixture} />;
+  if (!live && fixture)
+    return (
+      <SampleRegion kind="teacher:class-detail">
+        <ClassDetail klass={fixture} />
+      </SampleRegion>
+    );
 
   // Resolved and still unknown - THAT is a 404. `sample` is not resolution:
   // it means the class list could not be read, which is not evidence the

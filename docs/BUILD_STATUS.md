@@ -469,9 +469,73 @@ publishes — which is precisely what both of them once failed to do:
   Nevo looked and found nothing worth raising, when Nevo never looked. `failed` is
   checked before `empty`, and a state that is both renders as failed.
 
+## End-to-end testing — prerequisites
+
+E2E was sequenced last for one reason: **the fixture fallback would make it
+dishonest.** An E2E asserting "the teacher signs in and sees their class list"
+PASSES when the live read 401s, because the fallback renders a class list, which is
+exactly what the assertion looks for. The suite goes green while the console shows
+sample children to a real teacher.
+
+### Prerequisite 1 — sample data is now detectable. DONE 7 Sep.
+
+Rather than removing the fallback (it is load-bearing for the signed-out demo), every
+fixture render carries a mark:
+
+- `lib/sampleData.ts` — `SAMPLE_ATTR`, `sampleMark(kind)`, `sampleRegions(root)`
+- `components/shared/SampleRegion.tsx` — wraps a fallback render. `display: contents`,
+  so it takes part in no layout and changes nothing about the design.
+
+Applied at the teacher lane's three fixture handoffs: `ClassRoute`, `LessonRoute`,
+`StudentRoute`. The detector has its own tests, because an E2E built on a broken
+detector would pass while the thing it guards against was happening.
+
+**The single most valuable E2E is therefore not a flow test.** It is:
+
+> sign in, walk the console, assert `sampleRegions()` is empty everywhere.
+
+That catches the failure this architecture actually has. Forty flow tests would not,
+because the fallback satisfies them.
+
+**FOR THE STUDENT AND ADMIN SESSIONS:** please wrap your own fixture handoffs in
+`<SampleRegion kind="student:...">` / `kind="admin:..."`. The E2E is only as good as
+the marks, and an unmarked fallback is invisible to it.
+
+### Prerequisite 2 — a seeded tenant. NOT DONE, and needs a person.
+
+`scripts/shape-probe.mjs` records that the demo account holds **real school staff and
+children**. A write-path E2E — assign a lesson, send a message, upload a unit —
+mutates real people's records. So E2E needs its own school before it runs once.
+
+`POST /api/v1/schools/register` is PUBLIC and takes
+`{ schoolName, adminName, email, password }`, so this is a few minutes of work — but
+it creates an account with a password, which is Olayinka's to do, not Claude's.
+
+What it needs to be:
+
+- a school named unmistakably for the purpose, e.g. `E2E DO NOT USE — automated tests`
+- an admin address on a domain nobody reads
+- credentials in CI secrets, never in the repo
+- ideally one teacher, one class and two students inside it, so the console has
+  something real to render
+
+Until that exists, E2E can cover **read-only, signed-out** surfaces only.
+
+### Prerequisite 3 — Playwright, when the above is ready
+
+Deliberately NOT installed yet. It is the heaviest install in the ecosystem (browser
+binaries) and this lockfile is shared by three sessions, so it should land when the
+tenant exists and the first spec is actually being written — not before.
+
+Auth will need the programmatic route: the token lives in **localStorage**, invisible
+to the server, so `storageState` alone will not carry a session. Sign in via the API,
+then seed localStorage before first paint.
+
 ### Next, in order
 
-1. The E2E prerequisites — a fallback-disabled build mode, then a seeded tenant.
+1. Olayinka creates the E2E tenant (above).
+2. Playwright lands with the first spec — the no-samples assertion.
+3. Then a small number of flow tests as deployment canaries, not defect detectors.
 3. Then full E2E - which needs a fallback-disabled build mode and a seeded tenant
    first, because `shape-probe.mjs` records that the demo account holds real school
    staff and children.
@@ -493,11 +557,11 @@ publishes — which is precisely what both of them once failed to do:
 
 | item | state |
 |---|---|
-| **Tests** | 97 as of 7 Sep — four shared primitives, the marking logic, and five judgement screens including both hook-driven ones. See **Testing**. |
+| **Tests** | 102 as of 7 Sep — four shared primitives, the marking logic, and five judgement screens including both hook-driven ones. See **Testing**. |
 | **Landing performance** | **41** on mobile (was 62 on 18 Aug). 2,800 ms total blocking time, 3,658 ms style & layout, 3.3 s script evaluation on a 398 KB page. The server responds in 60 ms — this is client JS, not network. Two chunks carry most of it. |
 | **Lint** | Green as of 5 Sep (0 errors, 1 warning). Now enforced by CI. |
 | **Contract** | Green as of 6 Sep. `npm run contract`, enforced by CI. |
-| **Tests** | 97, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
+| **Tests** | 102, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
 | **TOSSE** | Working end to end and deployed. One test lead — `27ac8e8a-a46b-45e0-befe-50787d3b9eb9`, "DO NOT CONTACT" — still needs deleting from the booth list. |
 
 ---
