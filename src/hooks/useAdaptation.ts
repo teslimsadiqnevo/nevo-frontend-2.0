@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { intelligenceApi, ApiError } from "@/lib/api";
+import type { AdaptSegment } from "@/lib/api/intelligence";
 import type { AdaptationPlan } from "@/lib/types";
 
 /**
@@ -13,13 +14,15 @@ import type { AdaptationPlan } from "@/lib/types";
 export function useAdaptation(
   studentId: string | undefined,
   lessonId: string | undefined,
+  /** The lesson's segments. Required by the contract - see `getAdaptation`. */
+  segments: AdaptSegment[] | undefined,
 ) {
   const [plan, setPlan] = useState<AdaptationPlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!studentId || !lessonId) return;
+    if (!studentId || !lessonId || !segments?.length) return;
     let active = true;
     // Placeholder fetch-on-mount. TODO: migrate to the real data layer
     // (React Query / SWR / Suspense); the synchronous setState below is an
@@ -27,7 +30,7 @@ export function useAdaptation(
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     intelligenceApi
-      .getAdaptation(studentId, lessonId)
+      .getAdaptation(studentId, lessonId, segments)
       .then((res) => {
         if (active) {
           // TODO(api): validate the shape once the backend contract is ratified;
@@ -47,7 +50,7 @@ export function useAdaptation(
     return () => {
       active = false;
     };
-  }, [studentId, lessonId]);
+  }, [studentId, lessonId, segments]);
 
   return { plan, loading, error };
 }

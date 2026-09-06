@@ -1,0 +1,46 @@
+name: CI
+
+# The repo had no CI at all until now, which is why a lint error sat on `main`
+# for a day and a contract mismatch reached production twice. Three checks,
+# fast, on every push and PR.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # A new push supersedes the run in flight for the same ref - three sessions
+  # push to this repo, and queued duplicate runs help nobody.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: types and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+
+  contract:
+    name: contract against the deployed spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Reaches the live API to fetch its OpenAPI document, so it fails when
+      # the backend is down as well as when we disagree with it. That is
+      # deliberate for now - a silent skip would let real drift through - but
+      # if backend downtime starts blocking merges, make this job
+      # `continue-on-error: true` rather than deleting it.
+      - run: npm run contract
