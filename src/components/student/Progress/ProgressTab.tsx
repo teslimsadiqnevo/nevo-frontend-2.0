@@ -25,11 +25,13 @@ import { GROWTH_SUMMARY, SUBJECTS, type SubjectSummary } from "./progressData";
  * understanding, and a lesson history. A signed-in child was being shown
  * "nothing yet" while their real data sat behind an already-typed client.
  *
- * What is still absent is the PROSE. No field carries "Getting faster at
- * solving problems", so the live cards carry no note rather than a generated
- * one — a sentence composed from a number is still a claim about a child.
- * What they read instead is which concepts they have actually worked on,
- * which is a fact.
+ * THE PROSE ARRIVED ON 3 SEP. The backend now writes `reflection` - a warm,
+ * whole-picture sentence in non-diagnostic language - and it takes the slot
+ * the designed GROWTH_SUMMARY drew. It is rendered as given, never reworded.
+ * The per-card note ("Getting faster at solving problems") still has no field:
+ * `highlights` is a student-level list, not a note per subject, so mapping it
+ * onto the cards would be fabrication. The live cards carry concept names
+ * instead, which are facts, and `highlights` waits on a designed slot.
  *
  * No numbers reach the screen (screen 22: no percentile, no score, no
  * comparison, direction of travel only). `understanding` orders the concepts
@@ -38,7 +40,7 @@ import { GROWTH_SUMMARY, SUBJECTS, type SubjectSummary } from "./progressData";
 export function ProgressTab() {
   const signedIn = useHasSession();
   const hydrated = useHydrated();
-  const { subjects, loading, failed, live } = useStudentProgress();
+  const { subjects, reflection, loading, failed, live } = useStudentProgress();
 
   // The server cannot read the token, so SSR would render the fixtures and
   // hydration would swap them out - meaning a signed-in child sees a frame of
@@ -50,7 +52,7 @@ export function ProgressTab() {
     if (failed) return <CouldNotLoad />;
     // Live and genuinely empty: a child who has not worked on anything yet.
     if (!live || subjects.length === 0) return <NothingYet />;
-    return <LiveProgress subjects={subjects} />;
+    return <LiveProgress subjects={subjects} reflection={reflection} />;
   }
 
   return (
@@ -76,9 +78,15 @@ export function ProgressTab() {
 /** The child's own subjects, from their concept rows. */
 function LiveProgress({
   subjects,
+  reflection,
 }: {
   subjects: ReturnType<typeof useStudentProgress>["subjects"];
+  reflection: string | null;
 }) {
+  // The contract requires a reflection, but an empty string is still a
+  // possible payload, and an empty paragraph is not what the frame drew. The
+  // fallback is claim-free: it says nothing about the child.
+  const summary = reflection?.trim() || "Here’s what you’ve been working on.";
   return (
     <div className="mx-auto w-full max-w-[900px] px-5 py-2 pb-6 sm:px-8 sm:py-6 lg:py-8">
       <h1 className="text-2xl font-semibold tracking-[-0.01em] text-nevo-near-black sm:text-[30px] lg:text-[32px]">
@@ -86,7 +94,7 @@ function LiveProgress({
       </h1>
 
       <p className="mt-5 max-w-[300px] text-base leading-[1.55] text-nevo-near-black/72 sm:mt-6 sm:max-w-[560px] sm:text-[18px] lg:mt-7 lg:max-w-[640px] lg:text-[19px]">
-        Here&rsquo;s what you&rsquo;ve been working on.
+        {summary}
       </p>
 
       <div className="-mx-5 mt-6 flex gap-3.5 overflow-x-auto px-5 pb-1 sm:mx-0 sm:mt-9 sm:grid sm:grid-cols-2 sm:gap-5 sm:overflow-visible sm:px-0 lg:mt-10 lg:grid-cols-3 [&::-webkit-scrollbar]:hidden">

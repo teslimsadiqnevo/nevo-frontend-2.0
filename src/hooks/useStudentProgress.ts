@@ -16,10 +16,14 @@ import { useLiveQuery } from "./useLiveQuery";
  * lesson history with timestamps. `studentsApi.progress` was already typed and
  * already in use by the teacher console.
  *
- * WHAT IS GENUINELY ABSENT is the PROSE. "Getting faster at solving problems"
- * has no field behind it, and neither does the subject reflection on the detail
- * screen. So those stay unwritten rather than generated: a sentence we compose
- * from a number is still us making a claim about a child.
+ * THE PROSE ARRIVED ON 3 SEP. `reflection` and `highlights` are backend-
+ * authored, required in the contract, and written in deliberately non-
+ * diagnostic language for the child to read. They are rendered as given -
+ * never summarised, reworded or composed from a number here. The whole-student
+ * read's `reflection` is about all of a child's learning and belongs on the
+ * tab; the subject screen reads its own from the narrowed route, see
+ * `useSubjectProgress`. The per-card note ("Getting faster at solving
+ * problems") still has no field.
  *
  * AND NO NUMBERS REACH THE SCREEN. Screen 22 is explicit - no percentile, no
  * score, no comparison, only direction of travel - so `understanding` and
@@ -47,6 +51,17 @@ export interface StudentProgressState {
   subjects: SubjectProgress[];
   /** Lesson history, newest first. */
   lessons: StudentProgress["lessons"];
+  /**
+   * The backend's reflection on the child's learning as a whole. Null until
+   * read; the contract requires it, so a successful read always carries one.
+   */
+  reflection: string | null;
+  /**
+   * Backend-authored highlights. Typed and carried, NOT yet placed: neither
+   * Progress screen has a designed slot for a list of them, and inventing one
+   * is design's call. Flagged.
+   */
+  highlights: string[];
   loading: boolean;
   failed: boolean;
   /** Signed in and read - fixtures must not show. */
@@ -111,6 +126,8 @@ export function useStudentProgress(): StudentProgressState {
   return {
     subjects,
     lessons,
+    reflection: data?.reflection ?? null,
+    highlights: data?.highlights ?? [],
     loading: Boolean(studentId) && loading,
     failed,
     live: Boolean(data),

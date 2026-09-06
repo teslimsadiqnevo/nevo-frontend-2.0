@@ -1,6 +1,9 @@
 // ── Progress mock data ────────────────────────────────────────────────────────
-// TODO(api): source the growth summary, per-subject prose, timeline and session
-// list from the profile / progress backend. All framing is plain-language and
+// These are the SIGNED-OUT walkthrough's sentences. A signed-in child never
+// sees them: the growth summary and the per-subject prose come from the
+// backend's own `reflection` (3 Sep), read by `useStudentProgress` and
+// `useSubjectProgress`. TODO(api): the timeline and the session list still
+// have no field and remain fixture-only. All framing is plain-language and
 // qualitative — never a percentile, score, or peer comparison.
 
 /** Warm, whole-picture summary shown at the top of the Progress tab. */
