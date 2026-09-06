@@ -18,9 +18,23 @@ Keep this current. Two rules make it useful rather than decorative:
 ## Coordination — read this first
 
 Three sessions build in this SAME worktree in parallel: **student**, **admin**, and
-**teacher + cross-cutting**. One `.git`, one `package.json`, one lockfile. This file
-is the handoff surface between them — put work here rather than doing it in another
-console's files.
+**teacher + cross-cutting**. One `.git`, one `package.json`, one lockfile.
+
+**THIS FILE IS HOW THE SESSIONS TALK TO EACH OTHER.** Agreed 6 Sep and in force from
+now on. A chat message reaches one session and dies when its context compacts; a note
+here survives, and every session already reads the repo. So:
+
+- Found something that belongs to another console? **Write it under Handoffs** rather
+  than fixing it in their files or mentioning it only in chat.
+- About to do something the others would trip over — a dependency, a shared-file
+  change, a rename? **Say so here before you push.**
+- Starting work? **Read this file first.** It is the current state of all three
+  consoles, and it is kept accurate deliberately.
+- Finished something another session was waiting on? **Move it out of Handoffs** so
+  nobody does it twice.
+
+Re-read before you edit: two other sessions may have written to it since you last
+looked.
 
 ### The shared lockfile
 
@@ -36,10 +50,13 @@ else's. So:
 - **If you do hit a lockfile conflict, take the incoming file wholesale** and re-run
   the install. Never hand-merge a lockfile.
 
-**PENDING:** the teacher session needs `vitest`, `jsdom` and `@testing-library/react`
-as devDependencies for step 2 of the testing plan (see **Testing** below). That is
-the only dependency change currently planned by any session. It will be one commit,
-announced first.
+**DONE 6 Sep — pull and run `npm ci`.** The test dependencies landed in one commit:
+`vitest`, `jsdom`, `@testing-library/react`, `@testing-library/dom`,
+`@testing-library/jest-dom`, `@vitejs/plugin-react`. `@types/node` moved `^20 -> ^22`
+because vitest 5 requires it and the runtime here is already Node 22 — the types were
+older than the thing they described. The whole project still typechecks.
+
+No further dependency change is planned by any session.
 
 ### Whose files are whose
 
@@ -267,13 +284,39 @@ sat on `main` for a day. Two jobs: types + lint, and the contract gate.
 - Advisory, unread by any client type: `ask-nevo` returns `plainText` and
   `answerFormat`; `baseline/submit` returns `baselineProfile` and `engineConfig`.
 
+### Step 2 done — 17 tests, `npm test`
+
+Vitest with two projects: `node` for pure logic (fast, no DOM) and `dom` for
+hooks and components. A `*.dom.test.ts` suffix opts a `lib/` file into jsdom —
+the session store is `localStorage` and `document.cookie`, so it is not pure.
+
+Covered so far:
+
+| primitive | why it is first |
+|---|---|
+| `useLiveQuery` | exists because FOUR hooks independently grew the same race — treating a slow answer as a failed one, stranding a teacher on sample data while their real class list had already arrived |
+| `useSignals` | where the silent 401 data-loss lived |
+| session store | expiry is the only thing between a stale localStorage token and a rendered roster |
+
+**The suite is mutation-tested, not just green.** Removing the pre-auth guard from
+`useSignals` fails exactly the test written for it; restoring it passes. A test that
+cannot fail is decoration.
+
+Two environment notes, both of which cost an hour to find:
+
+- **Do not redefine `window.location` in the setup file.** It hangs the jsdom worker
+  for 60s with a timeout that points nowhere near the cause. jsdom lacks
+  `matchMedia`, and ADDING that is fine — it is replacing what jsdom already
+  implements that breaks.
+- `vite-tsconfig-paths` is unnecessary: Vite resolves the `@/*` alias from
+  tsconfig.json natively via `resolve.tsconfigPaths`. One fewer shared dependency.
+
 ### Next, in order
 
-1. Unit tests on four shared primitives - `useLiveQuery`, `useSignals`,
-   `client.ts`'s auth latch, the session store. `useLiveQuery` exists because four
-   hooks independently grew the same race; the auth latch fixed a bug that sent a
-   TEACHER to a child's session screen. Needs vitest + jsdom + RTL: **one lockfile
-   commit, announced to the other two sessions first.**
+1. `client.ts`'s auth latch — the fourth primitive, not yet covered. It fixed a race
+   where concurrent 401s cleared the session, lost the role, and sent a TEACHER to
+   the child's sign-in screen. Needs the navigation stub that must NOT go in the
+   setup file.
 2. Component tests only on screens rendering a judgement about a child.
 3. Then full E2E - which needs a fallback-disabled build mode and a seeded tenant
    first, because `shape-probe.mjs` records that the demo account holds real school
@@ -296,10 +339,11 @@ sat on `main` for a day. Two jobs: types + lint, and the contract gate.
 
 | item | state |
 |---|---|
-| **Tests** | **Zero.** No `*.test.*`, no `*.spec.*`, no `__tests__` anywhere. Everything shipped 3–5 Sep was verified by throwaway probes that were then deleted. `markCheckpoint`, `markInteractive`, `mediaUrlExpired` and the signal-buffering guard are pure functions that need no browser. |
+| **Tests** | 17 as of 6 Sep, covering three shared primitives — see **Testing**. Still uncovered: `client.ts`'s auth latch, every screen, and the pure functions in `checkpoints.ts`/`variants.ts` (which need no browser and are cheap wins). |
 | **Landing performance** | **41** on mobile (was 62 on 18 Aug). 2,800 ms total blocking time, 3,658 ms style & layout, 3.3 s script evaluation on a 398 KB page. The server responds in 60 ms — this is client JS, not network. Two chunks carry most of it. |
 | **Lint** | Green as of 5 Sep (0 errors, 1 warning). Now enforced by CI. |
 | **Contract** | Green as of 6 Sep. `npm run contract`, enforced by CI. |
+| **Tests** | 17, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
 | **TOSSE** | Working end to end and deployed. One test lead — `27ac8e8a-a46b-45e0-befe-50787d3b9eb9`, "DO NOT CONTACT" — still needs deleting from the booth list. |
 
 ---
