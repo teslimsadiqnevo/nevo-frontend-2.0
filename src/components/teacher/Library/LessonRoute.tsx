@@ -10,6 +10,7 @@ import type {
 } from "@/lib/mocks/teacherLibrary";
 import { LessonDetail } from "./LessonDetail";
 import { LiveLessonDetail } from "./LiveLessonDetail";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 
 /**
  * Resolves a lesson route, live first.
@@ -104,7 +105,12 @@ export function LessonRoute({
   }
 
   // Fixtures back the designed screen only when there is no live data at all.
-  if (!getToken() && fixture) return <LessonDetail lesson={fixture} />;
+  if (!getToken() && fixture)
+    return (
+      <SampleRegion kind="teacher:lesson-detail">
+        <LessonDetail lesson={fixture} />
+      </SampleRegion>
+    );
 
   if (missing || !getToken()) notFound();
 

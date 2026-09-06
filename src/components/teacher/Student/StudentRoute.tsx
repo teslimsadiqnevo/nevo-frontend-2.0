@@ -7,6 +7,7 @@ import { getToken } from "@/lib/auth/session";
 import type { StudentProfileData } from "@/lib/mocks/teacherStudents";
 import { LiveStudentProfile } from "./LiveStudentProfile";
 import { StudentProfile } from "./StudentProfile";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 
 /**
  * Resolves a student route, live first - the same shape as the class and
@@ -87,7 +88,11 @@ export function StudentRoute({
 
   // Fixtures back the designed screen only when there is no live data at all.
   if (!getToken() && fixture)
-    return <StudentProfile student={fixture} recommendOpen={recommendOpen} />;
+    return (
+      <SampleRegion kind="teacher:student-profile">
+        <StudentProfile student={fixture} recommendOpen={recommendOpen} />
+      </SampleRegion>
+    );
 
   if (state.missing || !getToken()) notFound();
 
