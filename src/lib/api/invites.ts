@@ -23,6 +23,20 @@ export type InviteRole = "teacher" | "student";
  *   would be inventing a TTL we were never told.
  * Both are flagged on `InvitationsView` and raised with backend.
  */
+/**
+ * Whether the invitation email actually went out - the spec's own words:
+ * "`email_not_configured` is deliberately distinct from `sent`: the invitation
+ * exists and its link is valid, but nobody was emailed, so the caller has to
+ * deliver it another way."
+ *
+ * Typed rather than `string`, because the screens branch on it to decide
+ * whether to tell an admin they must deliver the link themselves.
+ */
+export type InvitationDeliveryStatus =
+  | "not_requested"
+  | "sent"
+  | "email_not_configured";
+
 export interface Invitation {
   id: string;
   /** The join token. Present on create, which is what makes copy-link work. */
@@ -33,7 +47,7 @@ export interface Invitation {
   /** "pending" | "joined" | "expired" in the frame's vocabulary. */
   status: string | null;
   expiresAt: string;
-  deliveryStatus: string | null;
+  deliveryStatus: InvitationDeliveryStatus | null;
 }
 
 /**

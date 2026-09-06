@@ -156,12 +156,17 @@ export function BulkImportModal({
             {skipped} {skipped === 1 ? "row was" : "rows were"} skipped due to
             errors.
             {isStudent && result.created.length > 0
-              ? " Each parent has been sent a consent request."
+              ? " Each student's parent contact was recorded; none can begin lessons until consent is confirmed."
               : ""}
           </p>
         ) : isStudent && result.created.length > 0 ? (
+          /* Was: "Each parent has been sent a consent request." The bulk
+             response is `{created, rejected}` and carries no delivery state at
+             all, so this had even less behind it than the single-invite claim.
+             See `deliveryCopy.ts` - nothing in the product requests consent. */
           <p className="mt-4 text-center text-[14.5px] leading-[1.6] text-nevo-near-black/72">
-            Each parent has been sent a consent request.
+            Each student&rsquo;s parent contact was recorded. None can begin
+            lessons until consent is confirmed.
           </p>
         ) : null}
 
@@ -314,7 +319,7 @@ export function BulkImportModal({
       title={title}
       subtitle={
         isStudent
-          ? "Upload a CSV with your roster. We'll create an invite for each row and send each parent a consent request."
+          ? "Upload a CSV with your roster. We'll create an invite for each row and record each parent's contact."
           : "Upload a CSV with your roster. We'll create an invite for each row."
       }
       onClose={onClose}

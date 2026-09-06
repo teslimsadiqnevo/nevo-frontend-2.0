@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { AdminClass } from "@/lib/api/classes";
 import { invitesApi, type Invitation, type InviteRole } from "@/lib/api/invites";
 import { cn } from "@/lib/utils";
+import { deliveryLine, parentConsentLine } from "./deliveryCopy";
 import {
   CheckIcon,
   GHOST_BTN,
@@ -144,11 +145,13 @@ export function NewInviteModal({
         {isStudent ? (
           <p className="mt-4 text-center text-[14.5px] leading-[1.6] text-nevo-near-black/72">
             {parentContact ? (
-              <>
-                A consent request is on its way to {parentContact}.{" "}
-                {sent.name ?? "They"} can begin once it&rsquo;s confirmed -
-                confirming also creates the parent account.
-              </>
+              /* Was: "A consent request is on its way to {parentContact}."
+                 Nothing sends one. The invitation response carries no consent
+                 field, consent has its own endpoint against a STUDENT id that
+                 does not exist until the invite is accepted, and
+                 `requestParentConsent` has no caller anywhere. The claim came
+                 from the contact the admin had just typed. */
+              <>{parentConsentLine(parentContact, sent.name)}</>
             ) : (
               "The invitation has been created."
             )}
@@ -176,10 +179,11 @@ export function NewInviteModal({
               </button>
             </div>
             <p className={HINT}>
-              {/* Reporting what happened, not what was requested. */}
-              {sent.deliveryStatus
-                ? `Delivery: ${sent.deliveryStatus}. You can share this link yourself as well.`
-                : "You can share this link yourself if it doesn't reach them."}
+              {/* Reporting what happened, not what was requested - and in the
+                  admin's language. This used to interpolate the enum raw, so a
+                  school with no mail configured read
+                  "Delivery: email_not_configured." */}
+              {deliveryLine(sent.deliveryStatus)}
             </p>
           </div>
         ) : null}
@@ -224,7 +228,7 @@ export function NewInviteModal({
   return (
     <Modal
       title={isStudent ? "Invite a student" : "Invite a teacher"}
-      subtitle="They will receive a link to join your school on Nevo"
+      subtitle="You'll get a link to join your school on Nevo, to send on or share"
       onClose={onClose}
       footer={
         phase === "sending" ? (
@@ -323,9 +327,12 @@ export function NewInviteModal({
               className={FIELD}
             />
             <p className={HINT}>
-              The parent or guardian will receive a notice about how Nevo
-              processes their child&rsquo;s data. Required for all students; the
-              consent request goes here.
+              {/* "will receive a notice" was the same promise as the consent
+                  claim above - nothing sends one, and no screen can currently
+                  tell an admin a parent has been contacted. This says who the
+                  contact is FOR, which is true today. */}
+              Who Nevo contacts about this child&rsquo;s data, and who confirms
+              consent before they can begin lessons. Required for all students.
             </p>
           </div>
         ) : null}
