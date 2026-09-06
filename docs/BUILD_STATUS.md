@@ -106,6 +106,30 @@ older than the thing they described. The whole project still typechecks.
 
 No further dependency change is planned by any session.
 
+### The shared `nevo.role` cookie — new consequence as of 7 Sep
+
+All three consoles are served from the same origin in development, so there is
+**one `nevo.role` cookie between them**. Signing in as an admin in one tab makes
+every tab in that browser an admin, including the ones you left on a student or
+teacher screen.
+
+That was merely confusing until #265. Now `/student/*` is guarded too, so it
+BITES: with `nevo.role=senco_admin`, `/student/dashboard` redirects to
+`/auth/login`, and it looks like the student app is broken rather than that you
+are signed in as somebody else. The same is already true in the other direction
+for `/teacher/*` and `/admin/*`.
+
+If a console bounces you to a door you did not expect, read the cookie before
+debugging the guard:
+
+```js
+document.cookie.split(';').map(s => s.trim()).find(c => c.startsWith('nevo.role='))
+```
+
+Two browsers, or one profile per console, avoids it entirely. Worth knowing that
+`useDisplayName` prefers the device-remembered name, so a signed-OUT student
+screen can still greet you by name — the greeting is not evidence of a session.
+
 ### Whose files are whose
 
 | area | owner |
@@ -121,19 +145,26 @@ sweeps up whatever another session has in flight.
 
 ### Handoffs currently waiting
 
-**For the student session** — all found while scoping other work, none of it started:
+**For the student session — ALL FIVE ARE DONE, 7 Sep.** Left here as a record of
+what closed, because two of them were wrong about *why* they mattered:
 
-- `src/lib/lessons/fromContent.ts` is the chokepoint: it discards
-  `comprehensionCheckpoints` and all five typed variants, so a live lesson plays as
-  text and every other modality renders "This modality is coming next" to a child.
-  Five already-built pieces are behind it.
-- `/student` 404s — no `page.tsx`. Same defect as `/teacher`, fixed 5 Sep; copy that.
-- `/student/*` is unguarded by `proxy.ts`.
-- `POST /api/intelligence/adapt` **returns** `modality_suggestion`, `break_suggestion`
-  and `proactive_adjustment`. `useStudentLesson.ts:155` says the adaptation plan has
-  no student-facing endpoint — that may be it.
-- `messagesApi.reply(threadId, content)` exists and is typed. `useStudentThreads`
-  still says "READ ONLY"; that comment predates the endpoint.
+- ~~`fromContent.ts` chokepoint~~ — **#253**. The seam was one file up from where
+  this said: the variants were typed on 3 Sep but only on `content.ts`'s PARSE
+  response, whose sole consumer is the teacher upload wizard. The player reads
+  `LessonSegment` in `lessons.ts`, which declared none of them, so the bytes
+  arrived and the TYPE erased them.
+- ~~`/student` 404s~~ — **#255**.
+- ~~`/student/*` unguarded~~ — **#265**. Not for the reason assumed; see the
+  trap below.
+- ~~`intelligence/adapt` may be the student-facing plan~~ — **#260 / #262**. It is.
+  Bearer with no role restriction; a student's own token returns 200, checked
+  against the deployed API.
+- ~~`messagesApi.reply` unused~~ — **#250**.
+
+**Still open for the student session:** wrap the student lane's fixture fallbacks
+in `<SampleRegion>` (see ACTION NEEDED at the top). Note the guard from #265 does
+NOT make this unnecessary — the fallbacks still fire when a live read fails while
+signed in, which is exactly the case that makes an E2E lie.
 
 **For any session:** `npm run contract` now fails the build when the client and the
 deployed spec disagree. It runs in CI on every push and PR. If it fails on your
@@ -192,20 +223,35 @@ receive anything we send**, and that sits upstream of every invite and consent f
 
 ---
 
-## Student app — the next focus
+## Student app
 
-### The chokepoint
+### THE CHOKEPOINT IS OPEN. The gap is now CONTENT. — 7 Sep
 
-`src/lib/lessons/fromContent.ts` is the only adapter between `lessonsApi.detail()`
-and the player, and **it discards `comprehensionCheckpoints` and all five typed
-variants**. Its `RENDERABLE` list is `[TEXT]`, so a live lesson plays as text and
-every other modality falls through to `ModalityPlaceholder` — the literal string
-"This modality is coming next", shown to real children.
+`fromContent.ts` carries checkpoints through (#253) and `lessons.ts` declares the
+five variants, so the wiring no longer stands in the way. What does:
 
-Its docblock still describes the pre-3-September contract ("every one of them is
-typed `Record<string, unknown>`"). That is no longer true.
+```
+GET /api/content/lessons  →  librarySize: 1
+  Fractions Lesson 3      →  segments: 2
+                             totalCheckpoints: 0
+                             segmentsWithAnyVariant: 0
+                             modalitiesClaimed: ["text", "visual"]
+```
 
-**Everything in the next section is behind that one file.**
+**The entire content library is one lesson, and it carries no checkpoint and no
+variant of any kind.** `toQuickCheck` is wired and waiting for a checkpoint that
+does not exist. Visual and audio map cleanly and could be written this afternoon —
+against nothing to look at.
+
+So the five pieces below are behind CONTENT as well as wiring, and that half needs
+a producer, not a frontend change. **This is now the single largest gap in the
+student app.**
+
+**A live trap in that last line.** The segments CLAIM `visual` in
+`availableModalities` while `visualVariant` is null. Anything that switches a
+modality on from `availableModalities` alone draws an empty visual frame *today*.
+`fromContent` and `lib/lessons/adaptation.ts` both gate on payload presence
+instead — keep it that way.
 
 ### Typed, working, wired to nothing — BUILDABLE
 
@@ -217,27 +263,43 @@ Shipped 4–5 Sep as API-layer work. All have logic and no UI consumer:
 | `markInteractive` / `mediaUrlExpired` | `lib/api/variants.ts` | `fromContent` to read the five variants |
 | `contentApi.mediaUrl` | `lib/api/content.ts` | a caller — `mediaUrlExpired` decides when |
 | `useDueReviews().playable` | `hooks/useDueReviews.ts` | `SubjectDetail` pills to become links into `/review-session` |
-| `reflection` / `highlights` | `lib/api/students.ts` | `useStudentProgress` to return them; two screens to render them |
+| ~~`reflection` / `highlights`~~ | `lib/api/students.ts` | **DONE #247.** `reflection` renders on both Progress screens, read per-subject from the narrowed route — the two routes' `reflection` mean different things, so the tab's would be a claim about all of a child's learning under one subject's heading. `highlights` is carried and NOT placed: it is a student-level list and the only nearby slot is the per-subject card note, so mapping it by index would be fabrication. **Needs a designed slot.** |
 
 Neither `checkpoints.ts` nor `variants.ts` is exported from `lib/api/index.ts`.
 
-### Stale comments that now contradict the contract — BUILDABLE
+### Stale comments that now contradict the contract
 
-Each asserts a gap backend closed on 3 Sep, and will mislead the next reader:
+Each asserted a gap backend closed on 3 Sep. **The student ones are all corrected**
+(#247, #253, #260); one teacher-lane comment is still outstanding:
 
-- `lib/lessons/fromContent.ts:16-35` — "every one of them is typed `Record<string, unknown>`"
-- `hooks/useStudentProgress.ts:19-22` — "WHAT IS GENUINELY ABSENT is the PROSE"
-- `components/student/Progress/ProgressTab.tsx:28-31` — "No field carries…"
-- `components/student/Progress/SubjectDetail.tsx:37-40`, `:241-243` — "nothing writes one"
-- `components/teacher/Library/VariantReviewRoute.tsx:14-15` — still calls the variants "free-form"
+- ~~`lib/lessons/fromContent.ts:16-35`~~ — corrected #253.
+- ~~`hooks/useStudentProgress.ts:19-22`~~ — corrected #247.
+- ~~`components/student/Progress/ProgressTab.tsx:28-31`~~ — corrected #247.
+- ~~`components/student/Progress/SubjectDetail.tsx:37-40`, `:241-243`~~ — corrected #247.
+- `components/teacher/Library/VariantReviewRoute.tsx:14-15` — **still open**, still
+  calls the variants "free-form". Teacher lane.
 
-### Routing and auth — BUILDABLE
+Also corrected: `useStudentLesson.ts` no longer says the adaptation plan has no
+student-facing endpoint, and `useStudentThreads.ts` no longer says "READ ONLY".
 
-- **`/student` 404s.** No `page.tsx` at `src/app/student/`. Same defect as
-  `/teacher`, fixed 5 Sep — apply the same redirect to `/student/dashboard`.
-- **`/student/*` is unguarded.** `proxy.ts` covers only `/teacher*`, `/admin*`
-  and the two staff sign-in doors. `app/student/layout.tsx:17` notes the
-  layout-level check is still owed.
+### Routing and auth
+
+- ~~**`/student` 404s**~~ — **DONE #255.**
+- ~~**`/student/*` is unguarded**~~ — **DONE #265, and the reason was not the
+  obvious one.** A signed-out student render leaks no real data at all: every
+  screen already gates live reads behind `useHasSession`/`useHydrated`, and the
+  server markup was checked rather than assumed. The teacher/admin argument
+  (never serve someone else's roster) does not apply here.
+
+  What it fixes is this: `getSession()` clears itself once `expiresAt` passes, so
+  no token is sent, so nothing 401s, so `handleAuthFailure` never fires and never
+  sends anyone to the door. **A child returning the next morning got the full
+  designed walkthrough — another child's name, another child's lessons —
+  presented as their own.** The role cookie expires with the session, so its
+  absence is the signal that case needs.
+
+  `/student/onboarding/*` stays open: it is the flow that CREATES the session
+  (`completeAccount` → `setSession` → first lesson). Do not guard it.
 - **`/student/lessons/[lessonId]/review-session` is an orphan** — nothing links
   to it. `playable` is its entry point.
 
@@ -252,21 +314,62 @@ Each asserts a gap backend closed on 3 Sep, and will mislead the next reader:
 
 | thing | why |
 |---|---|
-| Student → teacher messaging | `POST /api/messages` constrains `recipientType` to `^(student\|class)$`. There is no `teacher` value, so a child cannot address their teacher at all. Read works; send does not. |
+| ~~Student → teacher messaging~~ | **DONE #250.** `POST /api/messages` still has no `teacher` recipient — but `POST /messages/threads/{id}/reply` (3 Sep) is the door, and deliberately a different shape: access IS the thread, so a child may write only where they can already read and still cannot start a conversation. |
 | Thread unread state | No endpoint reports it; the dot stays off. |
 | Student SSO sign-in | Entirely mock (`resolveMockSso`). `authApi.ssoCallback` exists and the teacher side calls it. |
 | Teacher-join class code | Pre-auth join still compares a hard-coded `VALID_CODE`. **Re-check:** `connections/class-code` went public on 3 Sep, so this may now be closable. |
 | Per-concept assessment result | Questions carry no concept id, so the after-lesson result can only tell *all* from *none*. |
-| Adaptation plan | No student-facing endpoint; a live lesson plays unadapted. |
-| Backend-triggered breaks | `useBreakMonitor` is time-threshold only. |
+| ~~Adaptation plan~~ | **DONE #260. The "no student-facing endpoint" claim was wrong.** `POST /api/intelligence/adapt` is Bearer with no role restriction and returns 200 to a student's own token. Per-segment `scaffolding` now drives the indicator, which previously drew 2-of-4 support dots from a hardcoded `?? "light"` on every live lesson. |
+| ~~Backend-triggered breaks~~ | **DONE #262.** `in_lesson` mode at segment boundaries. `useBreakMonitor`'s TODO is answered; the client timer stays as the priming fallback. Only OBSERVED facts are sent — see the Zero-Tag note below. |
 | Boredom escalation | The tap spends the offer and asks nothing. |
 | Downloads / offline | Endpoints exist; the device half is a Service Worker project. Hidden from signed-in children, honestly. |
 | Baseline Module 4 items | No IRT service; items are authored mocks. |
 | Ask Nevo scoping | The console holds no student or lesson UUID to send. |
 | Narration audio | 4 × `TODO(audio)` — the assets do not exist. Playback is a simulated progress bar with no `<audio>` element. |
 
+### Traps in the adaptation engine — do not relearn these
+
+**The segment-type enums are different, and a pass-through 422s on 100% of real
+content.** `ContentSegmentRequest.segmentType` (`ContentSegmentType`) and a
+lesson's `contentType` (`LessonContentType`) share only `worked_example`,
+`definition` and `summary`. Both segments of the only lesson that exists are
+`explanatory_text`, which the engine rejects. Translation lives in
+`lib/lessons/adaptation.ts` — use it, do not inline another.
+
+**`calculation` has no engine equivalent.** Mapped to `worked_example` as the
+nearest honest neighbour, not a translation. **Question for backend.**
+
+**Density does NOT map.** The engine's `DensityLevel` (low/medium/high) is how
+dense the content should be; the player's `Density` (simplify/expand/slower) is
+which authored RESHAPE to show. Parsed content has one body and no reshapes.
+Carrying one into the other asks the player to render a variant that does not
+exist.
+
+**Zero-Tag applies to what we SEND, not only what we render.**
+`RuntimeSignalsRequest` accepts `engagementScore`, `comprehensionScore`,
+`consecutiveErrors`, `accuracyBelowBaseline` and more. None are sent: nothing
+defines engagement client-side, there is no baseline, and comprehension needs
+marked checkpoints that no lesson carries. Measured against the live engine —
+observable facts alone (`continuousMinutes: 25`) earn `mild` / `movement` /
+`["time_threshold"]`; adding invented scores escalates to `high` / `full`. A
+child would get a longer break on the strength of a number we made up.
+
+**`modality_suggestion` returned `null` under every combination tried,** including
+deliberately extreme ones. Nothing is wired to it. **Question for backend: what
+triggers it?**
+
 ### NEEDS DESIGN
 
+- **`InteractiveVariant` does not map to `InteractiveContent`.** The wire is a
+  QUESTION (`prompt`, `options`, `answerKey`); the player's is tickable STEPS
+  with an outcome. Two different things sharing a name — a design decision, not
+  wiring.
+- **`CalculationVariant` is partial** — `CalculationSegment` needs `scaffold`
+  (kind/parts/rows) and `problem.answer`; the wire carries neither. Note
+  `CalculationVariant` and `CalculationStep` exist in BOTH `types/lesson.ts` and
+  `api/variants.ts` with different meanings — alias on import.
+- **`highlights` has no slot.** Backend-authored and required; carried by
+  `useStudentProgress` and rendered nowhere.
 - After-lesson "nothing landed" heading — ours, built from the frame's own
   wording. Needs sign-off.
 - Forgot-PIN — `POST /api/v1/auth/pin/reset` exists and is deliberately not
@@ -414,11 +517,13 @@ sat on `main` for a day. Two jobs: types + lint, and the contract gate.
 - **FIXED:** `POST /api/intelligence/adapt` requires `segments` and the client sent
   `{studentId, lessonId}` only - every call would have 422'd. Not noticed because its
   only caller, `useAdaptation`, has no consumers.
-- **FOR THE STUDENT SESSION:** that same endpoint RETURNS `modality_suggestion`,
-  `break_suggestion` and `proactive_adjustment`. `useStudentLesson.ts:155` says "the
-  adaptation plan has no student-facing endpoint" and a live lesson therefore plays
-  unadapted. That may be the missing plan - worth a look before building around its
-  absence.
+- **RESOLVED 7 Sep (#260 / #262):** that same endpoint RETURNS `modality_suggestion`,
+  `break_suggestion` and `proactive_adjustment`, and it IS the missing plan — Bearer
+  with no role restriction, 200 to a student's own token, checked against the deployed
+  API rather than inferred. `useAdaptation` now has a consumer, and the cast it used
+  to do (`res as AdaptationPlan`, snake_case wire onto a camelCase type) is replaced
+  by a real translation. See the adaptation traps in the student section before
+  touching it.
 - Advisory, unread by any client type: `ask-nevo` returns `plainText` and
   `answerFormat`; `baseline/submit` returns `baselineProfile` and `engineConfig`.
 
