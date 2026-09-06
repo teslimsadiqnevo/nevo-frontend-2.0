@@ -1,6 +1,6 @@
 # Nevo frontend — what is left
 
-Last updated **6 September 2026**. Written from a survey of the source and the
+Last updated **7 September 2026**. Written from a survey of the source and the
 deployed OpenAPI document, not from tickets.
 
 Keep this current. Two rules make it useful rather than decorative:
@@ -12,6 +12,46 @@ Keep this current. Two rules make it useful rather than decorative:
    before believing a summary.
 2. **Say which pile a thing is in.** "Not done" hides the difference between work
    we can do today and work nobody can do yet.
+
+---
+
+## ACTION NEEDED — student and admin sessions
+
+**Wrap your fixture fallbacks in `<SampleRegion>`.** Ten minutes each, and the
+end-to-end suite is worthless without it.
+
+Every console falls back to fixture data when a live read fails. That is intentional
+for the signed-out demo, and it is also what makes an E2E lie: a test asserting "the
+teacher signs in and sees their class list" PASSES when the read 401s, because the
+fallback renders a class list — which is exactly what the assertion looks for. The
+suite goes green while the console shows invented children to a real person.
+
+The fix is a mark the fallback carries, so a test can see it:
+
+```tsx
+// before
+if (!getToken() && fixture) return <StudentProfile student={fixture} />;
+
+// after
+if (!getToken() && fixture)
+  return (
+    <SampleRegion kind="student:profile">
+      <StudentProfile student={fixture} />
+    </SampleRegion>
+  );
+```
+
+`import { SampleRegion } from "@/components/shared/SampleRegion";`
+
+It renders `display: contents`, so it joins no layout and changes nothing visually.
+`kind` names the surface, so a failure says WHICH screen fell back.
+
+The planned E2E signs in and asserts no mark appears anywhere. **An unmarked fallback
+is invisible to it** — the test walks past reporting success, which is worse than not
+having the test at all.
+
+Teacher lane is done: `ClassRoute`, `LessonRoute`, `StudentRoute`. Find yours by
+grepping your lane for `fixture` and for `sample`.
 
 ---
 
