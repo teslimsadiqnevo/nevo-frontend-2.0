@@ -47,6 +47,14 @@ else's. So:
 - **After someone lands one: `git pull`, then `npm ci` — not `npm install`.** `npm ci`
   installs exactly what the lockfile says. `npm install` may rewrite it and start the
   fight again.
+- **STOP YOUR DEV SERVER FIRST.** `npm ci` deletes `node_modules` wholesale, and Windows
+  locks a native `.node` addon for the lifetime of the process that loaded it. With a dev
+  server up, the delete fails PART WAY: the tree is left broken for every session, and a
+  retry cannot repair it either. This happened on 6 Sep — `npm ci` after the vitest commit
+  died on `EPERM … unlink lightningcss.win32-x64-msvc.node` with six Next dev workers
+  alive, taking `next` and `vitest` with it until those were killed and `npm ci` re-run.
+  **If you see `EPERM` on a `.node` file, that is what it means — find the process, do not
+  retry.**
 - **If you do hit a lockfile conflict, take the incoming file wholesale** and re-run
   the install. Never hand-merge a lockfile.
 
@@ -91,6 +99,46 @@ sweeps up whatever another session has in flight.
 deployed spec disagree. It runs in CI on every push and PR. If it fails on your
 branch, the client is wrong about the API — read the finding before assuming the gate
 is.
+
+---
+
+## Blockers that are DEAD — verified 6 Sep, do not plan around these
+
+Re-verified against the deployed spec (168 paths / 182 operations / 132 consumed) by a
+six-dimension audit, each claim adversarially re-checked. **The biggest risk on this
+project right now is not the open gaps — it is quoting a closed one.** Fourteen recorded
+blockers are dead; these are the ones most likely to be repeated:
+
+- **The whole pre-auth student onboarding chain exists.** `POST /api/v1/auth/pin` and
+  `POST /api/v1/connections/class-code` BOTH carry `security: []` in the document — they
+  are explicitly unauthenticated. The recorded blocker "a child cannot store a PIN or join
+  a class during onboarding" is wrong, and `TeacherJoin.tsx` still validates against a
+  hard-coded `VALID_CODE` for no reason.
+- **All five lesson variants are typed** (`TextVariant`, `VisualVariant`, `AudioVariant`,
+  `InteractiveVariant`, `CalculationVariant`) and carried on both lesson reads. Teacher
+  variant review was never blocked; PR #253 is taking the student half.
+- **Message threads carry `unread` and `unreadCount`** (since 31 Aug), and a student CAN
+  reply to a thread. Shipped in PR #250.
+- **`availableFrom` landed on assignment 31 Aug** — SCRUM-114 is not waiting on backend.
+- **Adaptive scaffolding is fully deployed**: attempt, history and state endpoints, with a
+  ready-to-render `studentMessage` and a four-value intensity ladder. Zero consumers.
+- **`GET /api/v1/permissions/me` returns a `navigation` array**, typed in this repo and
+  then discarded by `PermissionContext`.
+- **The child's own consent gate is live and wired.** The broad claim "nothing carries
+  per-student consent" is wrong — what is missing is reading consent for *another*
+  student, which is a narrower and different ask.
+- **`docs/blocked-items-handoff.md` is six weeks stale** and every backend contract in it
+  is live. It is the single most likely source of a wrong blocker quote here.
+- **Nine Jira tickets describe work already on main.** The board is desynchronised in both
+  directions — SCRUM-117 sits in Idea while the TOSSE page shipped 2 Sep.
+
+Seventeen further items believed blocked are pure wiring against endpoints that already
+exist and are already typed in `src/lib/api`.
+
+**Two honest unknowns**, neither closed by that audit: whether the backend enforces
+`PermissionScope` server-side (needs a two-account probe), and outbound email/SMS delivery
+— `InvitationDeliveryStatus` reports `email_not_configured`, which means **nobody can
+receive anything we send**, and that sits upstream of every invite and consent flow.
 
 ---
 
@@ -222,9 +270,59 @@ Each asserts a gap backend closed on 3 Sep, and will mislead the next reader:
 
 ## Admin console
 
-**43 `TODO(api)` in components** — the largest single block in the codebase,
-spread across Students, Onboarding, Teachers, Senco, Invitations and Classes.
-Not surveyed in detail. Standing rule: teacher before admin.
+Surveyed in depth 6 Sep (eight-dimension audit at `87192e8`, every blocker
+adversarially re-verified; the quality and ops dimensions did not report, so test debt
+and deploy/monitoring are still unassessed). **43 `TODO(api)` in components** remain the
+largest single block in the codebase, spread across Students, Onboarding, Teachers, Senco,
+Invitations and Classes.
+
+18 of 27 buildable `Dxx` screens have a real component (~67%; ~78% counting the honest
+partials D04, D07, D20). 17 of 21 admin routes call live endpoints. About half the
+day-one flows complete end to end: register, sign in, invite a teacher, redeem the join
+link, manage classes/teachers/students, SSO management, IEP export and compliance audit
+all work. Reset a password, see per-student consent, see an invoice, or change any
+setting do not.
+
+### BUILDABLE — nothing blocks these
+
+- **Sign out.** Was absent entirely; the footer was a non-interactive `div` while the
+  Bearer token survived a tab close in `localStorage`. Shipped as PR #251.
+- **Overview renders D04's fixture "Worth a glance" counts to every school**, including a
+  brand-new one with zero students — "6 students are waiting on parent consent" to a
+  school that has none. Gate the glance card and narrative on the `early` signal.
+- **Both invite flows assert a parent consent request was sent** regardless of
+  `deliveryStatus`, which the backend reports as `not_requested` / `email_not_configured`.
+  The consent request is the legal gate before a child can begin lessons.
+- **`PermissionProvider` resolves once, swallows the failure, and never re-asks**, so a
+  founding admin who finishes the wizard lands on a rail showing one placeholder row and
+  the words "No access yet". A cold-start 502 does the same thing to any admin.
+- **A 403 is treated as a dead session**: `client.ts` clears the session and redirects to
+  "your session has ended… for your security", so a scope denial reads as an inactivity
+  timeout and logs the admin out. Scope filtering is client-side only.
+- **Billing plumbing** — invoice list, invoice PDF, upcoming charge, billing-contact write
+  — is buildable against nine live endpoints today. Only the pricing figures are disputed.
+- **Failed reads rendered as established absences**, the shape #218 fixed one file over:
+  Student detail says "No guardian on the record", SSO reads "Healthy", Reports says "not
+  enough lessons yet", Notifications says "You're all caught up" — all on a FAILED read.
+
+### NEEDS BACKEND
+
+| thing | why |
+|---|---|
+| Per-student consent | No GET returns consent for any student but the child themselves, and `ConsentStatus` is `[pending, confirmed]` where D07 needs four pills. Withdrawal is causable via the parent rights endpoint with **no way to read it back**. Blocks D07's column, count and row action, D07b's consent card, and the D5b roster pill. |
+| Admin notification events | `NotificationType` carries no admin events, so the inbox and popover are empty on day one. |
+| School narrative | Nothing writes a school's own board summary; D04 leads with a card whose own note says the figures are not this school's. |
+| DPA acceptance | Schools accept 0.9-draft wording and the only record — version + timestamp, no admin id — is written into the untyped `school.profile.onboarding` blob. |
+| Scope enforcement | **UNKNOWN, not confirmed.** `proxy.ts` is optimistic and checks role, never scope. One request with a roster-only token against `/admin/team` settles it. |
+
+### NEEDS DESIGN
+
+- Where a non-oversight admin lands. SCRUM-39 lists Overview for billing-only; D17 IT Home
+  and D18 Finance Home have no route. A bursar currently has nowhere to go.
+- D03 draws no way to change an existing admin's scopes, though the endpoint is live.
+- The NDPA non-zero compliance state is drawn nowhere school-facing.
+- Three of the four `inferred` nav scopes are actually settled by SCRUM-39's own item map;
+  only Settings remains genuinely unmapped.
 
 ---
 
