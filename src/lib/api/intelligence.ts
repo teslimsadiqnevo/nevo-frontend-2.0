@@ -34,12 +34,38 @@ export interface AttentionFlag {
   /** Where an admin can act. Absent means the flag is informational. */
   actionTargets?: string[];
 }
+/**
+ * One segment as the adaptation engine needs to see it (`ContentSegmentRequest`).
+ * Deliberately the engine's shape, not the player's - a lesson segment carries
+ * far more, and none of the rest is read here.
+ */
+export interface AdaptSegment {
+  id: string;
+  segmentType: string;
+  /** At least one - the contract sets minItems: 1. */
+  availableModalities: string[];
+  conceptId?: string | null;
+  estimatedMinutes?: number | null;
+}
+
 export const intelligenceApi = {
   getProfile: (studentId: string) =>
     api.get(`/api/intelligence/profile/${studentId}`),
-  /** Fetch the adapted lesson structure for a student (§4). */
-  getAdaptation: (studentId: string, lessonId: string) =>
-    api.post("/api/intelligence/adapt", { studentId, lessonId }),
+  /**
+   * Fetch the adapted lesson structure for a student (§4).
+   *
+   * `segments` is REQUIRED by `AdaptRequest` and was not being sent, so every
+   * call would have 422'd - found by `scripts/contract-check.mjs` rather than
+   * by anyone running it, because the only caller is currently unused. The
+   * engine adapts a lesson it is shown, so the segments are the lesson: at
+   * least one, each with an id, a type and the modalities it can be rendered
+   * in.
+   */
+  getAdaptation: (
+    studentId: string,
+    lessonId: string,
+    segments: AdaptSegment[],
+  ) => api.post("/api/intelligence/adapt", { studentId, lessonId, segments }),
   getFlags: (params?: {
     classId?: string;
     studentId?: string;

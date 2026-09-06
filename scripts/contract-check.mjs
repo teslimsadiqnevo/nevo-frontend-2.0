@@ -1,0 +1,327 @@
+/**
+ * Fail the build when this client and the deployed contract disagree.
+ *
+ *   node scripts/contract-check.mjs           # exits 1 on any finding
+ *   node scripts/contract-check.mjs --warn    # report, always exit 0
+ *
+ * A GATE, not a report - `api-audit.mjs` is the report and exits 0 by design.
+ *
+ * WHY THIS EXISTS. `client.ts` ends in `return (await response.json()) as T`.
+ * That is a cast, not a validation, so every hand-written interface in
+ * `lib/api` is an assertion the compiler will never check and "TypeScript
+ * catches contract drift" is false here by construction. The spec is the only
+ * thing that knows the truth, it is published, and it now types 154 of 182
+ * operations - so the drift is machine-detectable and simply was not being
+ * detected.
+ *
+ * Two real defects motivate the two checks, and both shipped to users:
+ *
+ *   REQUEST  the TOSSE form posted `school_name` and `student_count` to an
+ *            endpoint whose contract is camelCase, so every booth submission
+ *            422'd. A key-level diff finds that in milliseconds.
+ *   RESPONSE `POST /join/{token}/accept` returns `loginIdentifier`, and the
+ *            client invented its own from the child's name instead - the
+ *            server never recognised it, and the child could not sign in.
+ *            Nothing on the client could have caught that: the only evidence
+ *            was a field in the spec that no client type read.
+ *
+ * Parsing is done with the TypeScript AST rather than a regex window. The
+ * regex version flagged seven call sites and most were false positives, which
+ * is how a gate teaches people to ignore it. `typescript` is already a
+ * dependency, so this adds nothing to package.json - which matters, because
+ * three sessions share this lockfile.
+ */
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join, relative } from "node:path";
+import ts from "typescript";
+
+const BASE = process.env.NEVO_API_URL ?? "https://api.nevolearning.com";
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const API_DIR = join(ROOT, "src", "lib", "api");
+const WARN_ONLY = process.argv.includes("--warn");
+
+const spec = await fetch(`${BASE}/openapi.json`, {
+  signal: AbortSignal.timeout(180_000),
+}).then((r) => {
+  if (!r.ok) throw new Error(`spec fetch failed: ${r.status}`);
+  return r.json();
+});
+
+const SCHEMAS = spec.components?.schemas ?? {};
+const findings = [];
+const note = (kind, where, message) => findings.push({ kind, where, message });
+
+/** Follow a $ref to the schema it names. */
+function deref(schema, seen = new Set()) {
+  if (!schema) return null;
+  if (!schema.$ref) return schema;
+  const name = schema.$ref.split("/").pop();
+  if (seen.has(name)) return null;
+  return deref(SCHEMAS[name], new Set([...seen, name]));
+}
+
+/**
+ * Property names a schema offers, following the anyOf/allOf a nullable field
+ * is expressed with. Returns null - meaningfully different from an empty set -
+ * when the schema names no properties at all, so a caller can tell "no fields"
+ * from "not describable".
+ */
+function propertiesOf(schema, seen = new Set()) {
+  const s = deref(schema, seen);
+  if (!s) return null;
+  if (s.properties) return s.properties;
+  for (const branch of s.allOf ?? s.anyOf ?? s.oneOf ?? []) {
+    const found = propertiesOf(branch, seen);
+    if (found) return found;
+  }
+  return null;
+}
+
+/** Every operation in the spec, flattened and keyed by normalised path. */
+const OPS = [];
+for (const [path, methods] of Object.entries(spec.paths ?? {})) {
+  for (const [method, op] of Object.entries(methods)) {
+    if (!["get", "post", "put", "patch", "delete"].includes(method)) continue;
+    OPS.push({ path, method, op });
+  }
+}
+
+/** `${lessonId}` and `{lesson_id}` both collapse so the two sides can meet. */
+const norm = (p) =>
+  p
+    .replace(/\$\{[^}]*\}/g, "{}")
+    .replace(/\{[^}]+\}/g, "{}")
+    .replace(/\/+$/, "");
+
+function walk(dir) {
+  return readdirSync(dir).flatMap((n) => {
+    const f = join(dir, n);
+    return statSync(f).isDirectory() ? walk(f) : [f];
+  });
+}
+
+const FILES = walk(API_DIR).filter((f) => /\.tsx?$/.test(f));
+
+/* ------------------------------------------------------------------ *
+ * CHECK 1 - request bodies                                            *
+ *                                                                     *
+ * Find every api.post/put/patch(path, payload) and compare the keys of *
+ * the payload object literal against the operation's requestBody.      *
+ * ------------------------------------------------------------------ */
+
+/** The literal text of a path argument, whether quoted or a template. */
+function pathText(node) {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+    return node.text;
+  }
+  if (ts.isTemplateExpression(node)) {
+    return (
+      node.head.text +
+      node.templateSpans.map((s) => "${}" + s.literal.text).join("")
+    );
+  }
+  return null;
+}
+
+/**
+ * Keys of an object literal, and whether the shape is fully knowable.
+ *
+ * A spread (`...payload`) means the real keys are decided elsewhere, so the
+ * object is reported as UNKNOWABLE rather than as the subset that is visible.
+ * Guessing there is how a gate produces false positives and gets ignored.
+ */
+function literalKeys(node) {
+  if (!node || !ts.isObjectLiteralExpression(node)) return null;
+  const keys = [];
+  for (const prop of node.properties) {
+    if (ts.isSpreadAssignment(prop)) return null;
+    const name = prop.name;
+    if (!name) return null;
+    if (ts.isIdentifier(name) || ts.isStringLiteral(name)) keys.push(name.text);
+    else return null;
+  }
+  return keys;
+}
+
+for (const file of FILES) {
+  const text = readFileSync(file, "utf8");
+  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+  const where = (node) => {
+    const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
+    return `${relative(ROOT, file).replace(/\\/g, "/")}:${line + 1}`;
+  };
+
+  const visit = (node) => {
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+      const method = node.expression.name.text;
+      if (["post", "put", "patch"].includes(method)) {
+        const raw = pathText(node.arguments[0]);
+        /*
+         * A call carrying `baseUrl` targets one of OUR OWN Next route
+         * handlers, not the backend - the same-origin proxy the marketing
+         * and TOSSE forms post through because the backend serves no CORS
+         * headers. Those paths are ours to name and are correctly absent
+         * from the backend spec, so checking them against it reports a
+         * defect that is not one. This was the gate's first false positive
+         * and it is exactly the kind that gets a gate switched off.
+         */
+        const sameOrigin = (node.arguments[2] &&
+          ts.isObjectLiteralExpression(node.arguments[2]) &&
+          node.arguments[2].properties.some(
+            (pr) => pr.name && pr.name.getText(sf).replace(/["']/g, "") === "baseUrl",
+          )) || false;
+        if (raw && raw.startsWith("/api/") && !sameOrigin) {
+          const target = norm(raw);
+          const match = OPS.find(
+            (o) => norm(o.path) === target && o.method === method,
+          );
+          if (!match) {
+            note(
+              "unknown-path",
+              where(node),
+              `${method.toUpperCase()} ${raw} is not in the deployed spec`,
+            );
+          } else {
+            const body = match.op.requestBody?.content?.["application/json"]?.schema;
+            const props = propertiesOf(body);
+            const keys = literalKeys(node.arguments[1]);
+            if (props && keys) {
+              const allowed = new Set(Object.keys(props));
+              const required = new Set(
+                (deref(body)?.required ?? []).filter((r) => allowed.has(r)),
+              );
+              for (const k of keys) {
+                if (!allowed.has(k)) {
+                  note(
+                    "unknown-field",
+                    where(node),
+                    `${method.toUpperCase()} ${match.path} has no field "${k}" — accepts: ${[...allowed].join(", ")}`,
+                  );
+                }
+              }
+              for (const r of required) {
+                if (!keys.includes(r)) {
+                  note(
+                    "missing-required",
+                    where(node),
+                    `${method.toUpperCase()} ${match.path} requires "${r}", not sent`,
+                  );
+                }
+              }
+              // Enum literals: a string sent where the spec names a closed set.
+              const obj = node.arguments[1];
+              for (const prop of obj.properties) {
+                if (!ts.isPropertyAssignment(prop)) continue;
+                const key = prop.name.getText(sf).replace(/["']/g, "");
+                const schema = deref(props[key]);
+                const values = schema?.enum;
+                if (!values) continue;
+                const init = prop.initializer;
+                if (!ts.isStringLiteral(init)) continue;
+                if (!values.includes(init.text)) {
+                  note(
+                    "bad-enum",
+                    where(prop),
+                    `${match.path} field "${key}" = "${init.text}" is not one of ${JSON.stringify(values)}`,
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+}
+
+/* ------------------------------------------------------------------ *
+ * CHECK 2 - response fields the client never reads                     *
+ *                                                                      *
+ * This is the check that would have caught the invented login           *
+ * identifier: the server was already returning the right answer and     *
+ * nothing on the client named it. A field the spec declares and the     *
+ * whole client layer never mentions is either dead weight on the wire   *
+ * or - the expensive case - something we are recomputing badly.         *
+ * ------------------------------------------------------------------ */
+
+const clientText = FILES.map((f) => readFileSync(f, "utf8")).join("\n");
+/** Identifiers named anywhere in the API layer, however they are used. */
+const named = new Set(clientText.match(/[A-Za-z_$][A-Za-z0-9_$]*/g) ?? []);
+
+/** Paths the client actually calls, so unconsumed endpoints stay quiet. */
+const called = new Set();
+for (const file of FILES) {
+  for (const m of readFileSync(file, "utf8").matchAll(/["'`](\/api\/[^"'`\s]*)["'`]/g)) {
+    called.add(norm(m[1]));
+  }
+}
+
+/** Fields too generic to be evidence of anything. */
+const UNREMARKABLE = new Set([
+  "id", "status", "type", "name", "title", "url", "message", "detail",
+  "count", "total", "data", "items", "results", "value", "label", "code",
+]);
+
+const unread = [];
+for (const { path, method, op } of OPS) {
+  if (!called.has(norm(path))) continue;
+  for (const [code, res] of Object.entries(op.responses ?? {})) {
+    if (!code.startsWith("2")) continue;
+    let schema = res.content?.["application/json"]?.schema;
+    const arr = deref(schema);
+    if (arr?.type === "array") schema = arr.items;
+    const props = propertiesOf(schema);
+    if (!props) continue;
+    for (const field of Object.keys(props)) {
+      if (UNREMARKABLE.has(field)) continue;
+      if (!named.has(field)) {
+        unread.push(`${method.toUpperCase()} ${path} → "${field}"`);
+      }
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Report                                                              *
+ * ------------------------------------------------------------------ */
+
+console.log(`${spec.info?.title} ${spec.info?.version} — ${BASE}`);
+console.log(`${OPS.length} operations, ${called.size} paths called by the client.\n`);
+
+const byKind = {};
+for (const f of findings) (byKind[f.kind] ??= []).push(f);
+
+const TITLES = {
+  "unknown-path": "Calls a path the spec does not have",
+  "unknown-field": "Sends a field the endpoint does not accept",
+  "missing-required": "Omits a field the endpoint requires",
+  "bad-enum": "Sends a value outside the spec's enum",
+};
+
+for (const [kind, list] of Object.entries(byKind)) {
+  console.log(`## ${TITLES[kind] ?? kind}  (${list.length})`);
+  for (const f of list) console.log(`   ${f.where}\n     ${f.message}`);
+  console.log();
+}
+
+if (unread.length) {
+  console.log(`## Declared by the spec, named nowhere in the client  (${unread.length})`);
+  console.log("   Advisory. A field here is either dead weight on the wire, or");
+  console.log("   something the client is recomputing for itself - which is how");
+  console.log("   a child once got a login identifier the server never knew.\n");
+  for (const u of unread.slice(0, 40)) console.log(`   ${u}`);
+  if (unread.length > 40) console.log(`   … and ${unread.length - 40} more`);
+  console.log();
+}
+
+if (findings.length === 0) {
+  console.log("No contract violations.");
+}
+
+// Only the request-side checks gate. The unread-field list is advisory: a
+// backend may legitimately return more than any one screen needs, and failing
+// on that would train people to pass `--warn` permanently.
+process.exit(findings.length > 0 && !WARN_ONLY ? 1 : 0);

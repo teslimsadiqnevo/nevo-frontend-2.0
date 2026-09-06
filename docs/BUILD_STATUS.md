@@ -149,13 +149,95 @@ Not surveyed in detail. Standing rule: teacher before admin.
 
 ---
 
+## Testing
+
+Strategy is **defect-targeted first, full end-to-end second** - decided 6 Sep after
+researching how comparable consoles are tested and scoring each option against the
+four defects that actually shipped this week.
+
+The finding that set the order: **the fixture fallback makes E2E structurally
+dishonest here until it can be switched off.** `useLiveQuery` sets `failed` on any
+rejection, 70 component files branch on it, and 31 import 2,541 lines of fixtures -
+so an E2E asserting "the teacher sees their class list" PASSES when the live read
+401s, because the fallback renders a class list. A green suite would ship a console
+showing sample children to a real teacher.
+
+Scored against the four real defects:
+
+| defect | caught by | not caught by |
+|---|---|---|
+| Child congratulated for every answer wrong | one component test (sad path) | contract checks, MSW, snapshots, happy-path E2E |
+| snake_case posted to a camelCase endpoint | the contract gate, in seconds | unit/component/coverage - **MSW would have hidden it** |
+| Signals dropped on 401 | one hook test on `flush()` | E2E cannot - the screen is pixel-identical |
+| Login identifier invented client-side | the gate's unread-field check | everything else |
+
+0 of 4 caught by E2E-against-mocks; 1 of 4 by E2E-against-a-real-backend.
+
+### Done
+
+**`scripts/contract-check.mjs`** - `npm run contract`, exits 1 on a violation, and
+runs in CI. Adds NO dependency: it parses the TypeScript AST with the compiler that
+is already installed, so the shared lockfile is untouched.
+
+It exists because `client.ts:197` is `return (await response.json()) as T` - a cast,
+not a validation - so every hand-written interface in `lib/api` is an assertion the
+compiler never checks. The deployed spec types 154 of 182 operations, so the drift is
+machine-detectable and simply was not being detected.
+
+Three checks: request keys against `requestBody.properties`, string literals against
+the spec's enums, and response fields the spec declares that no client type names.
+Calls carrying `baseUrl` are skipped - those target our own Next route handlers, and
+checking them against the backend spec was the gate's first false positive.
+
+**`.github/workflows/ci.yml`** - the repo had no CI at all, which is how a lint error
+sat on `main` for a day. Two jobs: types + lint, and the contract gate.
+
+### What the gate found on its first run
+
+- **FIXED:** `POST /api/intelligence/adapt` requires `segments` and the client sent
+  `{studentId, lessonId}` only - every call would have 422'd. Not noticed because its
+  only caller, `useAdaptation`, has no consumers.
+- **FOR THE STUDENT SESSION:** that same endpoint RETURNS `modality_suggestion`,
+  `break_suggestion` and `proactive_adjustment`. `useStudentLesson.ts:155` says "the
+  adaptation plan has no student-facing endpoint" and a live lesson therefore plays
+  unadapted. That may be the missing plan - worth a look before building around its
+  absence.
+- Advisory, unread by any client type: `ask-nevo` returns `plainText` and
+  `answerFormat`; `baseline/submit` returns `baselineProfile` and `engineConfig`.
+
+### Next, in order
+
+1. Unit tests on four shared primitives - `useLiveQuery`, `useSignals`,
+   `client.ts`'s auth latch, the session store. `useLiveQuery` exists because four
+   hooks independently grew the same race; the auth latch fixed a bug that sent a
+   TEACHER to a child's session screen. Needs vitest + jsdom + RTL: **one lockfile
+   commit, announced to the other two sessions first.**
+2. Component tests only on screens rendering a judgement about a child.
+3. Then full E2E - which needs a fallback-disabled build mode and a seeded tenant
+   first, because `shape-probe.mjs` records that the demo account holds real school
+   staff and children.
+
+### Traps found while scoping (do not relearn these)
+
+- `useLiveQuery`'s effect begins `if (!getToken()) return;` - a hook test with no
+  token exercises zero network logic and passes having tested an early return.
+- MSW handlers authored alongside the code inherit its bugs. A handler for the TOSSE
+  form would have accepted `school_name`, because that is what the form sent.
+- Coverage is misleading here: `src/lib/mocks` is 2,541 lines of trivially coverable
+  static data, and defect #3's drop path WAS covered - it was simply wrong.
+- Snapshots would have locked in defect #1: there was one snapshot, the success
+  state, and it was correct. The bug was a state never rendered at all.
+
+---
+
 ## Cross-cutting
 
 | item | state |
 |---|---|
 | **Tests** | **Zero.** No `*.test.*`, no `*.spec.*`, no `__tests__` anywhere. Everything shipped 3–5 Sep was verified by throwaway probes that were then deleted. `markCheckpoint`, `markInteractive`, `mediaUrlExpired` and the signal-buffering guard are pure functions that need no browser. |
 | **Landing performance** | **41** on mobile (was 62 on 18 Aug). 2,800 ms total blocking time, 3,658 ms style & layout, 3.3 s script evaluation on a 398 KB page. The server responds in 60 ms — this is client JS, not network. Two chunks carry most of it. |
-| **Lint** | Green as of 5 Sep (0 errors, 1 warning). |
+| **Lint** | Green as of 5 Sep (0 errors, 1 warning). Now enforced by CI. |
+| **Contract** | Green as of 6 Sep. `npm run contract`, enforced by CI. |
 | **TOSSE** | Working end to end and deployed. One test lead — `27ac8e8a-a46b-45e0-befe-50787d3b9eb9`, "DO NOT CONTACT" — still needs deleting from the booth list. |
 
 ---

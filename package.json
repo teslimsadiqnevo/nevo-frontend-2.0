@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "contract": "node scripts/contract-check.mjs",
+    "contract:warn": "node scripts/contract-check.mjs --warn"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
