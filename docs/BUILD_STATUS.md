@@ -297,27 +297,32 @@ Covered so far:
 | `useLiveQuery` | exists because FOUR hooks independently grew the same race — treating a slow answer as a failed one, stranding a teacher on sample data while their real class list had already arrived |
 | `useSignals` | where the silent 401 data-loss lived |
 | session store | expiry is the only thing between a stale localStorage token and a rendered roster |
+| `client.ts` auth latch | concurrent 401s once cleared the session, lost the role, and sent a TEACHER to the child's sign-in screen |
 
 **The suite is mutation-tested, not just green.** Removing the pre-auth guard from
 `useSignals` fails exactly the test written for it; restoring it passes. A test that
 cannot fail is decoration.
 
-Two environment notes, both of which cost an hour to find:
+Environment notes, each of which cost real time to find:
 
-- **Do not redefine `window.location` in the setup file.** It hangs the jsdom worker
-  for 60s with a timeout that points nowhere near the cause. jsdom lacks
-  `matchMedia`, and ADDING that is fine — it is replacing what jsdom already
-  implements that breaks.
+- **`window.location` cannot be observed under jsdom 30, at all.** Redefining it
+  hangs the worker for 60s with a timeout naming no file near the cause — from the
+  setup file AND from inside a test, so placement is not the issue. Spying instead
+  fails outright: `Cannot redefine property: assign`. When a redirect destination
+  needs testing, **extract the choice into a pure function** and test that; see
+  `sessionExpiredDoor` in `client.ts`.
+- jsdom lacks `matchMedia` and ADDING it is fine — it is replacing what jsdom
+  already implements that breaks.
 - `vite-tsconfig-paths` is unnecessary: Vite resolves the `@/*` alias from
   tsconfig.json natively via `resolve.tsconfigPaths`. One fewer shared dependency.
 
+**All four primitives are now covered — 24 tests.** Each was chosen for having a
+defect history, and each suite is mutation-tested: removing the guard it was written
+for fails that test and only that test.
+
 ### Next, in order
 
-1. `client.ts`'s auth latch — the fourth primitive, not yet covered. It fixed a race
-   where concurrent 401s cleared the session, lost the role, and sent a TEACHER to
-   the child's sign-in screen. Needs the navigation stub that must NOT go in the
-   setup file.
-2. Component tests only on screens rendering a judgement about a child.
+1. Component tests only on screens rendering a judgement about a child.
 3. Then full E2E - which needs a fallback-disabled build mode and a seeded tenant
    first, because `shape-probe.mjs` records that the demo account holds real school
    staff and children.
@@ -339,11 +344,11 @@ Two environment notes, both of which cost an hour to find:
 
 | item | state |
 |---|---|
-| **Tests** | 17 as of 6 Sep, covering three shared primitives — see **Testing**. Still uncovered: `client.ts`'s auth latch, every screen, and the pure functions in `checkpoints.ts`/`variants.ts` (which need no browser and are cheap wins). |
+| **Tests** | 24 as of 6 Sep, covering all four shared primitives — see **Testing**. Still uncovered: every screen, and the pure functions in `checkpoints.ts`/`variants.ts` (which need no browser and are cheap wins). |
 | **Landing performance** | **41** on mobile (was 62 on 18 Aug). 2,800 ms total blocking time, 3,658 ms style & layout, 3.3 s script evaluation on a 398 KB page. The server responds in 60 ms — this is client JS, not network. Two chunks carry most of it. |
 | **Lint** | Green as of 5 Sep (0 errors, 1 warning). Now enforced by CI. |
 | **Contract** | Green as of 6 Sep. `npm run contract`, enforced by CI. |
-| **Tests** | 17, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
+| **Tests** | 24, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
 | **TOSSE** | Working end to end and deployed. One test lead — `27ac8e8a-a46b-45e0-befe-50787d3b9eb9`, "DO NOT CONTACT" — still needs deleting from the booth list. |
 
 ---

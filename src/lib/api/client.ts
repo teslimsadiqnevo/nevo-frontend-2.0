@@ -68,6 +68,23 @@ async function getAuthToken(): Promise<string | undefined> {
  * its 401 is expected, not a death.
  */
 /**
+ * Which session-expired screen a role belongs on.
+ *
+ * Exported and pure so it can be tested directly: jsdom makes
+ * `window.location.assign` non-configurable, so neither a stub nor a spy can
+ * observe where `handleAuthFailure` actually sent someone. Extracting the
+ * choice moves the half that can be wrong somewhere it can be checked.
+ *
+ * The backend's admin roles are `senco_admin` and `other_admin`, never a plain
+ * "admin" - which is why this asks `isAdminRole` rather than comparing.
+ */
+export function sessionExpiredDoor(role: string | undefined): string {
+  if (role === "teacher") return "/auth/teacher/session-expired";
+  if (isAdminRole(role)) return "/auth/admin/session-expired";
+  return "/auth/session-expired";
+}
+
+/**
  * One dead token, one redirect.
  *
  * A console screen has several reads in flight at once, so a token that has
@@ -94,13 +111,8 @@ function handleAuthFailure(path: string, sentToken: boolean): void {
   // `clearSession` above, which is the only moment it is still known, and it
   // picks the door the screen offers. The backend's admin roles are
   // `senco_admin` and `other_admin`, never a plain "admin".
-  const door = role === "teacher"
-    ? "/auth/teacher/session-expired"
-    : isAdminRole(role)
-      ? "/auth/admin/session-expired"
-      : "/auth/session-expired";
   redirecting = true;
-  window.location.assign(door);
+  window.location.assign(sessionExpiredDoor(role));
 }
 
 type QueryValue = string | number | boolean | null | undefined;
