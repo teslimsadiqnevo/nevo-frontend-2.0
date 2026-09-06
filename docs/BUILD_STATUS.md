@@ -432,6 +432,8 @@ Step 3 added:
 | `FlagCard` — 7 tests | first component test. "Worth your attention" is a judgement about a child shown to their teacher |
 | `MasteryDualTrack` — 11 tests | "Reading support needed" is a label a teacher may act on for months |
 | `LiveFlagCard` — 12 tests | the live card, where the tap IS the acknowledgement |
+| `HomeClasses` — 8 tests | showed other teachers' classes during every load |
+| `LiveClassInsights` — 7 tests | "still gathering" over a failure is a false claim about real children |
 
 `FlagCard` tests what a teacher can READ and ACT ON — the name, the note explaining
 the flag, the evidence behind it, where each action goes. **Not styling**: the design
@@ -453,11 +455,23 @@ Two behaviours in these are worth knowing about, because both fail SILENTLY:
   the gap becomes a decision with a failing test attached rather than a silent change
   to who gets offered support.
 
+**The hook-driven components mock the HOOK, not the network.** `useLiveQuery` is
+tested directly, so what these assert is that a component reads the flags its hook
+publishes — which is precisely what both of them once failed to do:
+
+- **`HomeClasses`** rendered fixture classes for the whole in-flight window, because
+  `data === null` covers "not back yet" as well as "never coming" and the component
+  read neither flag. A signed-in teacher saw JSS 2A, JSS 2B and SSS 1 Sciences —
+  with invented headcounts — for the 1.0–5.6s the backend takes to answer. Now
+  pinned: `loading` wins even when fixture classes are in hand.
+- **`LiveClassInsights`** must never say "Still gathering insights for Year 7 Maths"
+  over three failed reads. That is an affirmative, false claim: it tells a teacher
+  Nevo looked and found nothing worth raising, when Nevo never looked. `failed` is
+  checked before `empty`, and a state that is both renders as failed.
+
 ### Next, in order
 
-1. `LiveClassInsights` and `HomeClasses` — the remaining judgement surfaces. They
-   depend on hooks rather than pure props, so they need the `useLiveQuery` treatment:
-   sign in first, or the test exercises an early return.
+1. The E2E prerequisites — a fallback-disabled build mode, then a seeded tenant.
 3. Then full E2E - which needs a fallback-disabled build mode and a seeded tenant
    first, because `shape-probe.mjs` records that the demo account holds real school
    staff and children.
@@ -479,11 +493,11 @@ Two behaviours in these are worth knowing about, because both fail SILENTLY:
 
 | item | state |
 |---|---|
-| **Tests** | 82 as of 6 Sep — four shared primitives, the marking logic, and three judgement screens. See **Testing**. Still uncovered: the hook-driven screens and the rest of the console. |
+| **Tests** | 97 as of 7 Sep — four shared primitives, the marking logic, and five judgement screens including both hook-driven ones. See **Testing**. |
 | **Landing performance** | **41** on mobile (was 62 on 18 Aug). 2,800 ms total blocking time, 3,658 ms style & layout, 3.3 s script evaluation on a 398 KB page. The server responds in 60 ms — this is client JS, not network. Two chunks carry most of it. |
 | **Lint** | Green as of 5 Sep (0 errors, 1 warning). Now enforced by CI. |
 | **Contract** | Green as of 6 Sep. `npm run contract`, enforced by CI. |
-| **Tests** | 82, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
+| **Tests** | 97, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
 | **TOSSE** | Working end to end and deployed. One test lead — `27ac8e8a-a46b-45e0-befe-50787d3b9eb9`, "DO NOT CONTACT" — still needs deleting from the booth list. |
 
 ---
