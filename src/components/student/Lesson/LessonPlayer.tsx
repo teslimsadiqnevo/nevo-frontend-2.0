@@ -22,6 +22,8 @@ import {
 } from "@/lib/constants";
 import { useAccessibility } from "@/context/AccessibilityContext";
 import { useBreakMonitor, useLesson, useSignals } from "@/hooks";
+import { useRuntimeAdaptation } from "@/hooks/useRuntimeAdaptation";
+import type { AdaptSegment } from "@/lib/api/intelligence";
 import type { AdaptationPlan, Lesson, LessonSegment } from "@/lib/types";
 import { cn, randomId } from "@/lib/utils";
 import {
@@ -128,9 +130,16 @@ export function LessonPlayer({
   live = false,
   startAt = 0,
   lastWorkedAt = null,
+  adaptSegments,
 }: {
   lesson: Lesson;
   plan: AdaptationPlan | null;
+  /**
+   * The lesson in the adaptation engine's vocabulary, for the mid-lesson
+   * `in_lesson` read. Undefined for a mock, whose authored plan is richer than
+   * anything the engine returns for ids it has never seen.
+   */
+  adaptSegments?: AdaptSegment[];
   /**
    * The lesson came from the backend, so its id is real and progress can be
    * written against it. False for the two authored mock lessons - writing
@@ -301,6 +310,31 @@ export function LessonPlayer({
 
   const segment = lesson.segments[index];
 
+  /**
+   * The engine's mid-lesson read, asked at each segment boundary.
+   *
+   * This is what `useBreakMonitor`'s "the actual break decision is confirmed by
+   * the backend" has always pointed at. The client timer still primes the
+   * offer; the engine decides whether one is warranted and WHICH - the time
+   * path used to hard-code a micro break, and the engine asks for a movement
+   * break on the same trigger.
+   *
+   * Only observed facts are sent. Engagement and comprehension scores would
+   * unlock more of the engine and would have to be invented, so they are not
+   * sent at all - see `RuntimeSignals`.
+   */
+  const runtime = useRuntimeAdaptation(
+    lesson.id,
+    adaptSegments,
+    live && !review,
+    {
+      currentSegmentId: segment.id,
+      currentModality: modality,
+      availableModalities: segment.modalities,
+      midpointReached: index >= Math.floor(lesson.segments.length / 2),
+    },
+  );
+
   // ── Signal helpers ──────────────────────────────────────────────────────
   // Max scroll depth + which milestones have fired, reset per segment.
   const scrollDepth = useRef(0);
@@ -389,8 +423,13 @@ export function LessonPlayer({
       : null;
   const showAffectBreakOffer =
     affectOfferType !== null && !spentBreakOffers.has(segment.id);
+  // The engine's own call, or the client's 20-minute prime as the fallback it
+  // was always meant to be. Either can raise the offer; the engine chooses the
+  // TYPE when it is the one asking.
   const showTimeBreakOffer =
-    !showAffectBreakOffer && approachingThreshold && !timeOfferSpent;
+    !showAffectBreakOffer &&
+    (runtime.offeredBreak !== null || approachingThreshold) &&
+    !timeOfferSpent;
   const showBreakOffer = showAffectBreakOffer || showTimeBreakOffer;
 
   // Offer the plan's suggestion only while it's renderable and not already
@@ -473,9 +512,11 @@ export function LessonPlayer({
       return;
     }
     setTimeOfferSpent(true);
-    breakTrigger.current = "time_offer";
+    breakTrigger.current = runtime.offeredBreak ? "engine_offer" : "time_offer";
     breakOrigin.current = "offer";
-    setBreakActive(BREAK_TYPES.MICRO);
+    // The engine's type when it asked; the micro break only when this is the
+    // client timer talking, which is all it could ever offer.
+    setBreakActive(runtime.offeredBreak ?? BREAK_TYPES.MICRO);
   };
 
   const dismissBreakOffer = () => {

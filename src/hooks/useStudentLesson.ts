@@ -82,6 +82,12 @@ export interface StudentLessonState {
   resumeAt: number | null;
   /** ISO timestamp of their last activity on this lesson, when we know it. */
   lastWorkedAt: string | null;
+  /**
+   * The lesson in the adaptation engine's own vocabulary, for the player's
+   * mid-lesson `in_lesson` calls. Undefined for a mock, whose ids the engine
+   * has never seen.
+   */
+  adaptSegments: AdaptSegment[] | undefined;
 }
 
 export function useStudentLesson(lessonId: string): StudentLessonState {
@@ -186,6 +192,7 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
     live: Boolean(live),
     resumeAt,
     lastWorkedAt: saved?.updatedAt ?? null,
+    adaptSegments: live ? state.adaptSegments : undefined,
     // A live lesson gets the engine's plan; a mock keeps its authored one.
     // Never crossed: a mock must not borrow a live plan, and a live lesson
     // must not borrow another lesson's authored one.

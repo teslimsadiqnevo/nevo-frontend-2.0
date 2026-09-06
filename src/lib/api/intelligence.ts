@@ -69,6 +69,43 @@ export type AdaptSegmentType =
 export type AdaptationMode = "lesson_load" | "in_lesson";
 
 /**
+ * `RuntimeSignalsRequest` - what the player can tell the engine mid-lesson.
+ *
+ * ONLY OBSERVED FACTS ARE TYPED HERE. The contract also accepts
+ * `engagementScore`, `engagementBaseline`, `comprehensionScore`,
+ * `sessionAverageComprehension`, `consecutiveErrors`, `accuracyBelowBaseline`
+ * and `responseTimeBelowBaseline`. Every one of those is a MEASUREMENT of a
+ * child that this app cannot make: nothing defines engagement client-side,
+ * there is no baseline to compare against, and comprehension needs marked
+ * checkpoints, which no lesson currently carries. Sending a number we invented
+ * would be worse than sending nothing - the engine would act on it, and a
+ * child would be adapted against a figure we made up.
+ *
+ * What is here is time, position and what the child actually did. Checked
+ * against the deployed engine: those alone earn a real break -
+ * `continuousMinutes: 25` returns `severity: "mild"`, `break_type: "movement"`,
+ * `triggered_thresholds: ["time_threshold"]`.
+ */
+export interface RuntimeSignals {
+  currentSegmentId?: string | null;
+  /** `ContentModality`. */
+  currentModality?: string | null;
+  availableModalities?: string[];
+  /** Minutes of unbroken work this session. Drives `time_threshold`. */
+  continuousMinutes?: number;
+  currentSegmentElapsedSeconds?: number | null;
+  midpointReached?: boolean;
+  replayCountOnSegment?: number;
+  sessionModalityShiftCount?: number | null;
+  secondsSinceLastAdaptation?: number | null;
+  /** Modalities the child was offered and turned down. */
+  declinedModalities?: string[];
+  sessionDeclineCount?: number;
+  sameSegmentSuggestionShown?: boolean;
+  segmentsSinceLastSuggestion?: number | null;
+}
+
+/**
  * `AdaptResponse`, snake_case - one of the few routes that is. Every field
  * below is REQUIRED by the contract except the two nullable suggestions.
  *
@@ -137,13 +174,19 @@ export const intelligenceApi = {
   getAdaptation: (
     lessonId: string,
     segments: AdaptSegment[],
-    options: { studentId?: string | null; mode?: AdaptationMode } = {},
+    options: {
+      studentId?: string | null;
+      mode?: AdaptationMode;
+      /** Omitted on `lesson_load`; the engine's neutral defaults apply. */
+      signals?: RuntimeSignals;
+    } = {},
   ) =>
     api.post<AdaptResponse>("/api/intelligence/adapt", {
       lessonId,
       segments,
       studentId: options.studentId ?? null,
       mode: options.mode ?? "lesson_load",
+      ...(options.signals ? { signals: options.signals } : {}),
     }),
   getFlags: (params?: {
     classId?: string;
