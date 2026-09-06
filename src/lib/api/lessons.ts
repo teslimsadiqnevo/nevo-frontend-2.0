@@ -1,5 +1,6 @@
 import { api } from "./client";
 import type { ComprehensionCheckpoint } from "./checkpoints";
+import type { SegmentVariants } from "./variants";
 
 /**
  * Parsed lesson content - the library and one lesson's segments.
@@ -67,7 +68,19 @@ export interface LessonSummary {
   createdAt: string;
 }
 
-export interface LessonSegment {
+/**
+ * One segment as the DETAIL routes return it.
+ *
+ * The five variants were typed on 3 Sep, but only on `content.ts`'s parse
+ * response - whose sole consumer is the teacher's upload wizard. This type is
+ * what the PLAYER reads (`lessonsApi.detail` -> `fromContent`), and it declared
+ * none of them, so the bytes arrived on the wire and were erased before the
+ * adapter could see them. Both detail schemas carry all five
+ * (`nevo__api__frontend_unblockers__LessonSegmentResponse` and
+ * `nevo__api__response_models__LessonSegmentResponse`), so this extends
+ * `SegmentVariants` rather than restating it.
+ */
+export interface LessonSegment extends SegmentVariants {
   id: string;
   /** Shipped 1 Sep. 0 or absent means no estimate - see `LessonSummary`. */
   estimatedMinutes?: number;

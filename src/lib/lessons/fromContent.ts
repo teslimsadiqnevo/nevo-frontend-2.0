@@ -3,35 +3,46 @@ import type {
   LessonModule as ContentModule,
   LessonSegment as ContentSegment,
 } from "@/lib/api/lessons";
+import { toQuickCheck } from "@/lib/api/checkpoints";
 import { MODALITY, type Modality } from "@/lib/constants";
 import type {
   Lesson,
   LessonModule,
   LessonSegment,
+  QuickCheck,
   TextContent,
 } from "@/lib/types";
 
 /**
  * Parsed backend content -> the shape the Lesson Player renders.
  *
- * WHAT THIS DELIBERATELY DOES NOT DO. The content contract carries five
- * per-modality payloads - `textVariant`, `visualVariant`, `audioVariant`,
- * `interactiveVariant`, `calculationVariant` - and every one of them is typed
- * `Record<string, unknown>`. Nothing can be read out of a free-form object
- * honestly, so this adapter reads NONE of them and builds the text modality
- * from `body`, which is a plain string and is the one field whose meaning the
- * spec actually fixes.
+ * THE FIVE VARIANTS ARE TYPED NOW (3 Sep), and both detail routes return them.
+ * They were typed only on the PARSE response, though, whose sole consumer is
+ * the teacher's upload wizard - so `LessonSegment` on the player's own read
+ * declared none of them and the bytes were erased before this adapter ran.
+ * That seam is closed; what each channel does with them is opened one at a
+ * time, because the rule below has not changed:
  *
- * The consequence is deliberate and visible: a live lesson plays as text. It
- * does not pretend to offer visual, audio or interactive channels, because the
- * player would draw an empty frame for each - and the audio channel could not
- * play anything even with content, since narration assets are producer-generated
- * and do not exist yet. A modality offered and then found blank is worse than a
- * modality never offered.
+ *   A modality offered and then found blank is worse than one never offered.
  *
- * This is the seam the full player swap lands on once the backend types those
- * five fields. Until then the two authored mock lessons keep their full
- * multi-modal treatment and everything else plays as text.
+ * ON: text, and the inline comprehension check. `comprehensionCheckpoints` was
+ * being dropped here, which is why `toQuickCheck` - written for exactly this,
+ * and careful enough to refuse a checkpoint it cannot mark - had no caller and
+ * the player's `QuickCheckSheet` never drew for a live lesson.
+ *
+ * STILL OFF, and why:
+ *   - VISUAL and AUDIO map cleanly (`imageUrl`/`audioUrl` -> `illustration.src`
+ *     /`src`, `script` -> `transcript`), but both URLs are SIGNED and EXPIRE -
+ *     they carry `urlExpiresInSeconds`, and `contentApi.mediaUrl` mints a fresh
+ *     one from `storagePath`. A lesson is read once and can sit open far longer
+ *     than the URL lives, so switching these on without that minting is exactly
+ *     the blank frame the rule forbids. That is the next step, not this one.
+ *   - INTERACTIVE does not map at all. The wire's `InteractiveVariant` is a
+ *     QUESTION (`prompt`, `options`, `answerKey`); the player's
+ *     `InteractiveContent` is tickable STEPS with an outcome. Two different
+ *     things sharing a name - a design question, not a wiring one.
+ *   - CALCULATION is partial: `CalculationSegment` needs `scaffold`
+ *     (kind/parts/rows) and `problem.answer`, and the wire carries neither.
  */
 
 /** The channels this adapter can actually populate from parsed content. */
@@ -62,14 +73,35 @@ function textFor(segment: ContentSegment, lessonTitle: string): TextContent {
   };
 }
 
+/**
+ * The segment's inline check, if it has one this app can honestly mark.
+ *
+ * `toQuickCheck` returns null for a checkpoint with no answer key, a
+ * multiple-answer one, or one whose key matches none of its options - all of
+ * which exist in content parsed before the checkpoint contract did. The FIRST
+ * markable checkpoint wins: the player draws one sheet per segment, and
+ * showing a child the second question of two is worse than showing the first.
+ */
+function quickCheckFor(segment: ContentSegment): QuickCheck | undefined {
+  for (const checkpoint of segment.comprehensionCheckpoints) {
+    const check = toQuickCheck(checkpoint);
+    if (check) return check;
+  }
+  return undefined;
+}
+
 function segmentFor(
   segment: ContentSegment,
   lessonTitle: string,
 ): LessonSegment {
+  const quickCheck = quickCheckFor(segment);
   return {
     id: segment.id,
     modalities: modalitiesFor(segment),
     text: textFor(segment, lessonTitle),
+    // Omitted rather than set undefined: the player tests `segment.quickCheck`
+    // for presence, and an absent check must not gate progress.
+    ...(quickCheck ? { quickCheck } : {}),
   };
 }
 
