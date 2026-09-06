@@ -411,16 +411,36 @@ Environment notes, each of which cost real time to find:
   `sessionExpiredDoor` in `client.ts`.
 - jsdom lacks `matchMedia` and ADDING it is fine — it is replacing what jsdom
   already implements that breaks.
+- **A 60s "Timeout waiting for worker to respond" is not always real.** The same
+  message appears for a genuine hang AND for a cold-start flake on a loaded machine.
+  Before debugging, just run it again: a `.tsx` suite that timed out at 60s passed in
+  6s on the retry with nothing changed.
 - `vite-tsconfig-paths` is unnecessary: Vite resolves the `@/*` alias from
   tsconfig.json natively via `resolve.tsconfigPaths`. One fewer shared dependency.
 
-**All four primitives are now covered — 24 tests.** Each was chosen for having a
-defect history, and each suite is mutation-tested: removing the guard it was written
-for fails that test and only that test.
+**All four primitives are covered, plus the marking logic and the first judgement
+screen — 59 tests.** Each was chosen for having a defect history, and every suite is
+mutation-tested: reintroducing the bug it was written for fails that test and only
+that test.
+
+Step 3 added:
+
+| what | why |
+|---|---|
+| `checkpoints.ts` — 18 tests | the marking rules decide what a child is TOLD about their own work. `answerKey: null` must mean "cannot mark", never "wrong" |
+| `variants.ts` — 10 tests | `interactiveVariant.answerKey` has the same nullable union, so the same way of going wrong; also the media-URL expiry margin |
+| `FlagCard` — 7 tests | first component test. "Worth your attention" is a judgement about a child shown to their teacher |
+
+`FlagCard` tests what a teacher can READ and ACT ON — the name, the note explaining
+the flag, the evidence behind it, where each action goes. **Not styling**: the design
+frames are the contract for that, and asserting Tailwind classes would duplicate an
+existing check while breaking on every redesign. The one visual thing asserted is
+sudden-vs-pattern, because it is semantic rather than decorative.
 
 ### Next, in order
 
-1. Component tests only on screens rendering a judgement about a child.
+1. More judgement screens — `LiveFlagCard`, the mastery views, `LiveClassInsights`.
+   `FlagCard` is the pattern to copy.
 3. Then full E2E - which needs a fallback-disabled build mode and a seeded tenant
    first, because `shape-probe.mjs` records that the demo account holds real school
    staff and children.
@@ -442,11 +462,11 @@ for fails that test and only that test.
 
 | item | state |
 |---|---|
-| **Tests** | 24 as of 6 Sep, covering all four shared primitives — see **Testing**. Still uncovered: every screen, and the pure functions in `checkpoints.ts`/`variants.ts` (which need no browser and are cheap wins). |
+| **Tests** | 59 as of 6 Sep — four shared primitives, the marking logic, and one judgement screen. See **Testing**. Still uncovered: the other 13 teacher screens. |
 | **Landing performance** | **41** on mobile (was 62 on 18 Aug). 2,800 ms total blocking time, 3,658 ms style & layout, 3.3 s script evaluation on a 398 KB page. The server responds in 60 ms — this is client JS, not network. Two chunks carry most of it. |
 | **Lint** | Green as of 5 Sep (0 errors, 1 warning). Now enforced by CI. |
 | **Contract** | Green as of 6 Sep. `npm run contract`, enforced by CI. |
-| **Tests** | 24, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
+| **Tests** | 59, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
 | **TOSSE** | Working end to end and deployed. One test lead — `27ac8e8a-a46b-45e0-befe-50787d3b9eb9`, "DO NOT CONTACT" — still needs deleting from the booth list. |
 
 ---
