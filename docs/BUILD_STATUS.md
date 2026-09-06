@@ -1,6 +1,6 @@
 # Nevo frontend — what is left
 
-Last updated **5 September 2026**. Written from a survey of the source and the
+Last updated **6 September 2026**. Written from a survey of the source and the
 deployed OpenAPI document, not from tickets.
 
 Keep this current. Two rules make it useful rather than decorative:
@@ -12,6 +12,68 @@ Keep this current. Two rules make it useful rather than decorative:
    before believing a summary.
 2. **Say which pile a thing is in.** "Not done" hides the difference between work
    we can do today and work nobody can do yet.
+
+---
+
+## Coordination — read this first
+
+Three sessions build in this SAME worktree in parallel: **student**, **admin**, and
+**teacher + cross-cutting**. One `.git`, one `package.json`, one lockfile. This file
+is the handoff surface between them — put work here rather than doing it in another
+console's files.
+
+### The shared lockfile
+
+`package.json` and `package-lock.json` are the worst files to conflict on, because
+resolving them by hand produces a tree that installs differently from everyone
+else's. So:
+
+- **Announce any dependency change before pushing it**, and keep it to ONE commit on
+  its own branch. Do not fold a dependency into a feature commit.
+- **After someone lands one: `git pull`, then `npm ci` — not `npm install`.** `npm ci`
+  installs exactly what the lockfile says. `npm install` may rewrite it and start the
+  fight again.
+- **If you do hit a lockfile conflict, take the incoming file wholesale** and re-run
+  the install. Never hand-merge a lockfile.
+
+**PENDING:** the teacher session needs `vitest`, `jsdom` and `@testing-library/react`
+as devDependencies for step 2 of the testing plan (see **Testing** below). That is
+the only dependency change currently planned by any session. It will be one commit,
+announced first.
+
+### Whose files are whose
+
+| area | owner |
+|---|---|
+| `src/components/student/**`, `src/app/student/**` | student session |
+| `src/components/admin/**`, `src/app/admin/**` | admin session |
+| `src/components/teacher/**`, `src/app/teacher/**` | teacher session |
+| `src/lib/api/**`, `src/hooks/**`, `src/proxy.ts`, `scripts/**`, CI | **shared — collision zone** |
+
+In the shared zone, run `git log -1 -- <file>` before editing to see who last moved
+it, and keep the diff minimal. Stage with explicit paths — never `git add -A`, which
+sweeps up whatever another session has in flight.
+
+### Handoffs currently waiting
+
+**For the student session** — all found while scoping other work, none of it started:
+
+- `src/lib/lessons/fromContent.ts` is the chokepoint: it discards
+  `comprehensionCheckpoints` and all five typed variants, so a live lesson plays as
+  text and every other modality renders "This modality is coming next" to a child.
+  Five already-built pieces are behind it.
+- `/student` 404s — no `page.tsx`. Same defect as `/teacher`, fixed 5 Sep; copy that.
+- `/student/*` is unguarded by `proxy.ts`.
+- `POST /api/intelligence/adapt` **returns** `modality_suggestion`, `break_suggestion`
+  and `proactive_adjustment`. `useStudentLesson.ts:155` says the adaptation plan has
+  no student-facing endpoint — that may be it.
+- `messagesApi.reply(threadId, content)` exists and is typed. `useStudentThreads`
+  still says "READ ONLY"; that comment predates the endpoint.
+
+**For any session:** `npm run contract` now fails the build when the client and the
+deployed spec disagree. It runs in CI on every push and PR. If it fails on your
+branch, the client is wrong about the API — read the finding before assuming the gate
+is.
 
 ---
 
