@@ -42,8 +42,9 @@ export class ApiError extends Error {
 function friendlyMessage(status: number): string {
   if (status === 0)
     return "Something went wrong. Please check your connection and try again.";
-  if (status === 401 || status === 403)
-    return "You need to sign in again to continue.";
+  if (status === 401) return "You need to sign in again to continue.";
+  if (status === 403)
+    return "You don't have access to this. Ask an admin who manages permissions for your school.";
   if (status === 404) return "We couldn't find what you were looking for.";
   if (status >= 500)
     return "Something went wrong on our end. Please try again shortly.";
@@ -199,7 +200,15 @@ export async function request<T>(
       detail = await response.text().catch(() => undefined);
     }
     if (isDev) console.error(`[api] ${response.status} ${url}`, detail);
-    if (response.status === 401 || response.status === 403) {
+    // 401 ONLY. A 403 means the token was accepted as identity and the ACTION
+    // was refused - a scope this admin does not hold. Treating it as a dead
+    // session cleared the token and sent them to a door reading "your session
+    // has ended ... for your security", which is a false explanation and loses
+    // whatever they were doing. Scope filtering is client-side only
+    // (`proxy.ts` checks role, never scope), so a bookmarked or deep-linked
+    // route reaches a 403-able endpoint routinely, and a school with more than
+    // one admin hits this on day one.
+    if (response.status === 401) {
       handleAuthFailure(path, Boolean(token));
     }
     throw new ApiError(response.status, friendlyMessage(response.status), detail);

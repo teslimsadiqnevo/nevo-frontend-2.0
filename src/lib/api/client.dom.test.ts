@@ -121,6 +121,60 @@ describe("the auth latch", () => {
     expect(clearSession).not.toHaveBeenCalled();
   });
 
+  it("does not treat a 403 as a dead session", async () => {
+    // A 403 means the token was accepted and the ACTION was refused - a scope
+    // this admin does not hold. It used to be handled identically to 401, so a
+    // roster-only admin opening a bookmarked /admin/team was signed out and
+    // told their session had ended "for your security". Scope filtering is
+    // client-side only, so deep links reach 403-able endpoints routinely.
+    vi.stubGlobal("fetch", respondWith(403));
+    const { api } = await freshClient();
+
+    await expect(api.get("/api/v1/admin/team")).rejects.toMatchObject({
+      status: 403,
+    });
+    expect(clearSession).not.toHaveBeenCalled();
+  });
+
+  it("still ends the session on a 401 after a 403 has been seen", async () => {
+    // The two must not share the latch: a refused action earlier in the page
+    // must not stop a genuinely dead token from signing the admin out.
+    vi.stubGlobal("fetch", respondWith(403));
+    const { api } = await freshClient();
+    await expect(api.get("/api/v1/admin/team")).rejects.toMatchObject({
+      status: 403,
+    });
+    expect(clearSession).not.toHaveBeenCalled();
+
+    vi.stubGlobal("fetch", respondWith(401));
+    await expect(api.get("/api/v1/admin/students")).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(clearSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("says a different thing for a refused action than for a dead token", async () => {
+    const messageOf = async (run: Promise<unknown>): Promise<string> => {
+      try {
+        await run;
+        throw new Error("expected the request to reject");
+      } catch (e) {
+        return (e as Error).message;
+      }
+    };
+
+    vi.stubGlobal("fetch", respondWith(403));
+    const { api } = await freshClient();
+    const refused = await messageOf(api.get("/api/v1/admin/team"));
+
+    vi.stubGlobal("fetch", respondWith(401));
+    const dead = await messageOf(api.get("/api/v1/admin/students"));
+
+    expect(refused).not.toBe(dead);
+    expect(dead).toMatch(/sign in again/i);
+    expect(refused).toMatch(/don't have access/i);
+  });
+
   it("does not treat a 500 as a dead session", async () => {
     vi.stubGlobal("fetch", respondWith(500));
     const { api } = await freshClient();
