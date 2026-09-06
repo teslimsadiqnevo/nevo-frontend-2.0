@@ -14,6 +14,13 @@ export function usePermissions() {
     scopes: ctx.scopes,
     /** False until `permissions/me` has answered - scope-filtered UI waits. */
     resolved: ctx.resolved,
+    /**
+     * Why the list looks the way it does. `failed` is NOT "no scopes": a
+     * screen must not tell an admin they have no access because a read broke.
+     */
+    status: ctx.status,
+    /** Ask again after a failure. */
+    refresh: ctx.refresh,
     hasScope: (scope: PermissionScope) => ctx.scopes.includes(scope),
   };
 }
