@@ -4,9 +4,12 @@ import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { lessonsApi, type LessonModule } from "@/lib/api/lessons";
 import { getToken } from "@/lib/auth/session";
+import type { AdaptSegment } from "@/lib/api/intelligence";
+import { adaptSegmentsFor } from "@/lib/lessons/adaptation";
 import { lessonFromContent } from "@/lib/lessons/fromContent";
 import { getMockAdaptation, getMockLesson } from "@/lib/mocks";
 import type { AdaptationPlan, Lesson } from "@/lib/types";
+import { useAdaptation } from "./useAdaptation";
 import { useHasSession } from "./useHasSession";
 import { useStudentDashboard } from "./useStudentDashboard";
 
@@ -38,6 +41,13 @@ import { useStudentDashboard } from "./useStudentDashboard";
 interface Resolution {
   id: string | null;
   lesson?: Lesson;
+  /**
+   * The lesson as the adaptation engine needs to see it, kept from the same
+   * response the lesson was built from. The built `Lesson` drops
+   * `contentType`, and the engine's segment vocabulary is derived from it -
+   * so this cannot be recovered later without re-fetching.
+   */
+  adaptSegments?: AdaptSegment[];
   missing?: boolean;
   failed?: boolean;
   empty?: boolean;
@@ -47,7 +57,16 @@ export interface StudentLessonState {
   lesson: Lesson | null;
   /** The lesson came from the backend, so its id is real and writable. */
   live: boolean;
-  /** The adaptation overlay. Mock-only: no student-facing plan endpoint exists. */
+  /**
+   * The adaptation overlay - live for a real lesson, authored for a mock.
+   *
+   * This was mock-only, on the belief that no student-facing plan endpoint
+   * existed. `POST /api/intelligence/adapt` is Bearer with no role restriction
+   * and answers 200 to a student's own token, checked against the deployed
+   * API. Null while it is being fetched, and null if it fails - the player
+   * renders its own defaults, which is what it did for every live lesson
+   * before this.
+   */
   plan: AdaptationPlan | null;
   loading: boolean;
   /** No such lesson. */
@@ -105,7 +124,11 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
         const built = lessonFromContent(res, mods);
         setResolved(
           built
-            ? { id: lessonId, lesson: built }
+            ? {
+                id: lessonId,
+                lesson: built,
+                adaptSegments: adaptSegmentsFor(res.segments),
+              }
             : { id: lessonId, empty: true },
         );
       })
@@ -126,6 +149,17 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
   }, [lessonId]);
 
   const lesson = live ?? mock;
+
+  // Only for a live lesson: a mock's ids mean nothing to the engine, and its
+  // authored plan is richer than anything `lesson_load` returns.
+  const adaptation = useAdaptation(
+    live ? lessonId : undefined,
+    // `state`, not `resolved`: the id stamp is what keeps a previous lesson's
+    // answer from being read as this one's, and the segments must come through
+    // the same gate as the lesson they belong to.
+    state.adaptSegments,
+    live ?? null,
+  );
 
   // `segmentPosition` is the 0-based index we wrote ourselves, so it round
   // trips - but it is clamped anyway, because a position past the end would
@@ -152,9 +186,10 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
     live: Boolean(live),
     resumeAt,
     lastWorkedAt: saved?.updatedAt ?? null,
-    // The adaptation plan has no student-facing endpoint; a live lesson plays
-    // unadapted rather than borrowing another lesson's plan.
-    plan: live ? null : getMockAdaptation(lessonId),
+    // A live lesson gets the engine's plan; a mock keeps its authored one.
+    // Never crossed: a mock must not borrow a live plan, and a live lesson
+    // must not borrow another lesson's authored one.
+    plan: live ? adaptation.plan : getMockAdaptation(lessonId),
     loading: signedIn && !lesson && !missing && !failed && !empty,
     // A mock covers the id, so nothing is missing even if the live read 404'd.
     missing: missing && !mock,
