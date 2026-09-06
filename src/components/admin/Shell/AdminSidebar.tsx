@@ -8,6 +8,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { notificationsApi } from "@/lib/api/notifications";
 import { cn } from "@/lib/utils";
 import { NotificationsPanel } from "../Notifications/NotificationsPanel";
+import { AdminSignOutModal } from "./AdminSignOutModal";
 import { activeNavLabel, navForScopes, scopeSummary } from "./adminNav";
 
 /**
@@ -143,6 +144,7 @@ export function AdminSidebar() {
   const [expanded, setExpanded] = useState(true);
   const [panelOpen, setPanelOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
 
   /**
    * A boolean, deliberately. The endpoint's own body varies between a bare
@@ -304,9 +306,19 @@ export function AdminSidebar() {
         )}
       </button>
 
-      <div
+      {/* The identity block is the sign-out control (SCRUM-39 places it in the
+          sidebar footer). It was a plain div, which is why the admin console
+          shipped with no way to end a session at all - see AdminSignOutModal.
+          Collapsed it is just the avatar, so the accessible name carries the
+          action rather than relying on the hidden label. */}
+      <button
+        type="button"
+        onClick={() => setSignOutOpen(true)}
+        aria-label="Account and sign out"
         className={cn(
-          "mt-1 flex shrink-0 items-center gap-[13px] border-t border-nevo-near-black/8 pt-3.5",
+          "mt-1 flex w-full shrink-0 cursor-pointer items-center gap-[13px] rounded-[10px]",
+          "border-t border-nevo-near-black/8 pt-3.5 pb-1 text-left transition-colors",
+          "hover:bg-nevo-navy/6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nevo-navy",
           expanded ? "px-3" : "justify-center",
         )}
       >
@@ -338,7 +350,9 @@ export function AdminSidebar() {
             </span>
           </span>
         )}
-      </div>
+      </button>
+
+      {signOutOpen && <AdminSignOutModal onStay={() => setSignOutOpen(false)} />}
     </aside>
   );
 }
