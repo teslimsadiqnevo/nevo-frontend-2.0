@@ -31,8 +31,17 @@ export function LessonRoute({
   review?: boolean;
 }) {
   const router = useRouter();
-  const { lesson, live, plan, loading, failed, empty, resumeAt, lastWorkedAt } =
-    useStudentLesson(lessonId);
+  const {
+    lesson,
+    live,
+    plan,
+    loading,
+    failed,
+    empty,
+    resumeAt,
+    lastWorkedAt,
+    adaptSegments,
+  } = useStudentLesson(lessonId);
   const hydrated = useHydrated();
 
   // The server cannot read the token, so it cannot yet know whether this
@@ -48,6 +57,7 @@ export function LessonRoute({
         review={review}
         startAt={resumeAt ?? 0}
         lastWorkedAt={lastWorkedAt}
+        adaptSegments={adaptSegments}
       />
     );
   }
