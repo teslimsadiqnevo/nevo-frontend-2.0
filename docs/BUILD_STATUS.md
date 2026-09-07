@@ -450,8 +450,11 @@ setting do not.
   session, 403 does not. Screens still show their generic "We couldn't load X" on
   a 403 rather than "you don't have access" — none surfaces the `ApiError`
   message, and threading it through ~15 screens is its own change.
-- **Billing plumbing** — invoice list, invoice PDF, upcoming charge, billing-contact write
-  — is buildable against nine live endpoints today. Only the pricing figures are disputed.
+- ~~Billing was a nine-line placeholder~~ — **shipped, PR #272.** Invoice history
+  with real PDFs, next charge, renewal note and an editable billing contact, all
+  against the live endpoints. The cost sheet and the "How to pay" panel are
+  deliberately absent — see Standing asks 2 and 3; the screen tells the admin so
+  rather than reading as unfinished.
 - ~~Failed reads rendered as established absences~~ — **shipped, PR #269**, all
   five: Student detail, SSO ("Healthy" came from `history?.failed_runs ?? 0`
   coalescing a failed read into the healthy branch), Reports, and both
@@ -778,6 +781,68 @@ then seed localStorage before first paint.
 | **Contract** | Green as of 6 Sep. `npm run contract`, enforced by CI. |
 | **Tests** | 113 unit + 20 E2E, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
 | **TOSSE** | Working end to end and deployed. One test lead — `27ac8e8a-a46b-45e0-befe-50787d3b9eb9`, "DO NOT CONTACT" — still needs deleting from the booth list. |
+
+---
+
+## Standing asks — what the admin console is now blocked on
+
+Every frontend-fixable launch blocker on the admin console is shipped
+(PRs #251, #257, #258, #264, #267, #269, #272). What is left cannot be closed by
+this repo. Four items, each with the one thing that would unblock it:
+
+**1. Per-student consent has no read, and nothing requests it. — Teslim**
+
+Two separate gaps behind one surface, and the second is worse than the first:
+
+- No GET returns consent for any student but the child themselves.
+  `ConsentRecordResponse` is referenced by exactly ONE operation and it is a
+  POST. `ConsentStatus` is `[pending, confirmed]` where D07/SCRUM-40 needs four
+  pills — `withdrawn` is causable via `POST /parent/{token}/rights` with **no
+  field anywhere that can read it back**.
+- `consentsApi.requestParentConsent` is typed in this repo with **no caller**,
+  and it cannot be wired from the invite flow: consent is requested against a
+  STUDENT id that does not exist until an invite is accepted. Combined with
+  `InvitationDeliveryStatus` including `email_not_configured`, invited students'
+  parents are most likely **never contacted by any path**.
+
+Consent is the gate before a child may begin lessons, so this is a launch
+blocker on the flow itself, not on a screen. *Ask: add
+`consent: confirmed|pending|notsent|withdrawn` (plus actor, timestamp and
+channel per SCRUM-40) to the student roster and detail reads, and either report
+the consent request's state on the invitation or give us a call that queues one
+for an invited student.*
+
+**2. The pricing model. — Lydia, then Teslim**
+
+D11/D11b say per-student ₦150,000 + 7.5% VAT, "no tiers, no plan selection".
+`GET /billing/subscription` answers with `subscriptionTier`, `studentCountBand`
+and a flat `contractValue` — SCRUM-98, the spec those frames superseded. The
+billing screen ships without its cost sheet because rendering either version
+states a school's annual bill on the strength of a disagreement. Jira is
+inverted here too: SCRUM-98 is Done while SCRUM-115 sits in Idea, unassigned.
+*Ask: confirm which model is real, and re-baseline those two tickets.*
+
+**3. Nevo's receiving bank account. — business**
+
+D11's "How to pay" panel needs it, and **no schema in the deployed spec carries
+a payable account** — checked field by field. The frame fills it with literal
+details (Providus, an account number). That was not built: an unsourced payable
+account in frontend source sends money to the wrong place the day it goes stale.
+The only payment seam that exists is `POST /payments/checkout`, which returns a
+Paystack `authorizationUrl` — a hosted gateway checkout D11 explicitly forbids.
+*Ask: decide the account, and expose it on an endpoint rather than in a frame.*
+
+**4. Does the backend enforce `PermissionScope` server-side? — Teslim, one request**
+
+Unknown, and it is the only item here that is a question rather than work.
+`proxy.ts` is explicitly "OPTIMISTIC ONLY" and checks role, never scope, so
+scope filtering is client-side today. The deployed spec documents **zero** 401
+or 403 responses, so the status a denial returns is also unconfirmed — which
+matters, because `client.ts` now treats 401 as a dead session and 403 as a
+refused action (PR #267), and that split is only correct if the backend agrees.
+*Ask: one request with a roster-only token against `GET /api/v1/admin/team`, and
+tell us the status code.* If denials are not enforced server-side, client-side
+scope filtering is a security gap, not a convenience.
 
 ---
 
