@@ -33,7 +33,9 @@ export default defineConfig({
   timeout: 30_000,
 
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3100",
+    //  not : an empty E2E_BASE_URL should fall back, not become the
+    // base URL.  only catches null/undefined and silently produced "".
+    baseURL: process.env.E2E_BASE_URL || "http://localhost:3100",
     // Kept only for a failure, so a green run costs nothing on disk.
     trace: "retain-on-failure",
     screenshot: "only-on-failure",

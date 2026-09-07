@@ -819,12 +819,58 @@ then seed localStorage before first paint.
 
 ---
 
+## Landing performance — measured properly, 7 Sep
+
+**41 is the DEPLOYED number** (network + throttling). A local production build is
+**73**, 3-run median `[72, 73, 74]`. An early single run said 65 — that was just a
+slow run, and chasing it cost most of an afternoon.
+
+**Shipped (#276):** the hero particle canvas animated at 60fps for the whole session,
+long after the hero had scrolled away. Now gated on an IntersectionObserver. Correct
+on the merits; the measured delta sits inside noise.
+
+**Chased and abandoned — do not repeat.** The scroll driver is an always-on
+`requestAnimationFrame` loop and looks like an obvious 2.5s win. It is not:
+
+* The "2.5s" came from a **corrupt build**. Rebuilding while the old `next start`
+  still held `.next` left a manifest pointing at chunks that no longer existed, so
+  Lighthouse scored an **error page** 75.
+* Rewritten event-driven (scroll + resize + ResizeObserver on the pinned sections +
+  fonts + visibilitychange) and measured over 3 runs, it is **slightly worse**:
+  median 72 vs 73, TBT 578ms vs 432ms, Style & Layout 2491ms vs 1585ms.
+* The premise was wrong. `window.scrollY` does **not** force layout in a modern
+  browser — it is cached — and the loop's `y !== _ls` guard means its body barely
+  runs when idle. The loop is close to free.
+
+**The pinned sections now have tests** (`e2e/landing-pinned.spec.ts`): panels advance
+on scroll, the pin releases rather than sticking, classroom tiles reveal. Written to
+catch the rewrite breaking them, kept because those sections are the most intricate
+thing on the page and had no coverage.
+
+**If someone returns to this,** the remaining costs are Style & Layout (~1.6s) and
+Script Evaluation (~1.3s), and the page ships ~3,200 lines of landing components as
+ONE client tree — `LandingPage` is `"use client"`, so the two files that look like
+server components get pulled in as client anyway. Splitting that boundary is the
+untried idea with real headroom.
+
+### Two testing traps found the hard way
+
+* **A hidden browser tab pauses `requestAnimationFrame` and stops painting.** Every
+  screenshot returns blank and CDP reports "renderer may be frozen". I mistook that
+  for a production bug across three surfaces before checking. **Check
+  `document.visibilityState` before believing a blank screenshot.** Playwright is
+  immune — headless browsers paint.
+* `playwright.config.ts` used `??` for `E2E_BASE_URL`, so an empty string became the
+  base URL instead of falling back. Now `||`.
+
+---
+
 ## Cross-cutting
 
 | item | state |
 |---|---|
 | **Tests** | 102 as of 7 Sep — four shared primitives, the marking logic, and five judgement screens including both hook-driven ones. See **Testing**. |
-| **Landing performance** | **41** on mobile (was 62 on 18 Aug). 2,800 ms total blocking time, 3,658 ms style & layout, 3.3 s script evaluation on a 398 KB page. The server responds in 60 ms — this is client JS, not network. Two chunks carry most of it. |
+| **Landing performance** | **41** deployed / **73** on a local production build (3-run median). Investigated 7 Sep — see below before repeating it. |
 | **Lint** | Green as of 5 Sep (0 errors, 1 warning). Now enforced by CI. |
 | **Contract** | Green as of 6 Sep. `npm run contract`, enforced by CI. |
 | **Tests** | 113 unit + 20 E2E, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
