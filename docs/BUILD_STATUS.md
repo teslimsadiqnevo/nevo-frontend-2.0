@@ -55,6 +55,54 @@ grepping your lane for `fixture` and for `sample`.
 
 ---
 
+## Parent surface — NEW AREA, started 7 Sep
+
+There are **five** surfaces, not three. Design drew a parent area (3 frames) and an
+ops console (14 frames); neither had a route until now. `docs/BUILD_STATUS.md` and the
+design flow index both missed this — the index does not list parent at all, because
+its screens are numbered as admin follow-ups (D01b, D01c, D15d).
+
+**`/parent/[token]` is built** — D01c Parent Data Management, SCRUM-80. Public and
+tokenised: a parent never signs in, because putting a login in front of a statutory
+data right defeats the point of having it.
+
+**This is a launch blocker, not a feature.** SCRUM-80: *"Section 31 of the NDPA 2023
+requires verifiable parental consent... Our legal review confirms this must be in
+place before launch."*
+
+### Two backend gaps found while building
+
+1. **There is no `GET /api/v1/parent/{token}`.** The page cannot resolve the token to
+   the child's name, their school, or whether consent was already withdrawn. D01c is
+   written throughout in the child's name; none of it can be rendered, and a parent
+   who already withdrew sees the actions again on return. The page says "your child"
+   rather than inventing a name.
+2. **An objection has nowhere to put its reason.** `ParentRightRequest` carries
+   `requestType` and nothing else, and the API **accepts and ignores** extra fields —
+   `reason`, `message`, `details` and `note` all pass validation and go nowhere. So
+   D01c's "Describe your concern" textarea is deliberately NOT built: a parent typing
+   into a box that discards it, and being told it was received, is worse than not
+   offering the box.
+
+### The enum is not in the spec
+
+`requestType` is declared a bare `string`. The real values came from asking the
+deployed API with a bad one:
+
+    String should match pattern '^(request_data|object|withdraw_consent)$'
+
+Pinned by a test so a rename fails loudly rather than 422ing a parent's request.
+
+### Also unresolved: SCRUM-80 contradicts itself on gating
+
+The ticket says the notice **never blocks** a child (the school warrants consent in
+the DSA). Lydia's comment on the same ticket has `ConsentGate` blocking while status
+is `pending`, with a five-value enum — and the deployed `ConsentStatus` has only
+`pending | confirmed`. Three versions of one model. Needs a ruling before the student
+consent gate is wired.
+
+---
+
 ## Coordination — read this first
 
 Three sessions build in this SAME worktree in parallel: **student**, **admin**, and
