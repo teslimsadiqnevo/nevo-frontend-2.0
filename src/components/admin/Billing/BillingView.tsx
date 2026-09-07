@@ -1,0 +1,355 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import {
+  billingApi,
+  type BillingContact,
+  type Invoice,
+  type InvoiceStatus,
+  type Subscription,
+  type UpcomingCharge,
+} from "@/lib/api/billing";
+import { cn } from "@/lib/utils";
+import { ReadFailed } from "../ReadFailed";
+import { BillingContactSheet } from "./BillingContactSheet";
+
+/**
+ * D11 / D11b Billing - the half of the screen that can be built honestly.
+ *
+ * WHAT IS HERE. The invoice history with its real PDFs, the next charge, the
+ * renewal note the backend raises itself, and the billing contact, which is the
+ * one thing on this screen an admin can change.
+ *
+ * WHAT IS DELIBERATELY ABSENT, and why - a billing screen missing its cost is a
+ * conspicuous hole, and the next reader deserves the reason rather than a guess:
+ *
+ * 1. THE COST SHEET. D11 is unambiguous - "the annual cost is the school's
+ *    active student count times N150,000, plus 7.5% VAT. No tiers, no plan
+ *    selection" - and the API answers with `subscriptionTier`,
+ *    `studentCountBand` and one flat `contractValue`, which is SCRUM-98, the
+ *    older spec those frames superseded. Rendering either version states a
+ *    school's annual bill on the strength of a disagreement. That is a business
+ *    ruling (Lydia + Teslim), not a frontend choice.
+ * 2. THE "HOW TO PAY" TRANSFER PANEL. It needs Nevo's own bank account, and no
+ *    schema in the deployed spec carries one - checked field by field across
+ *    every schema. The frame fills it with literal account details. Putting a
+ *    real payable account into frontend source, unsourced, is not a shortcut
+ *    worth taking.
+ * 3. PAYMENT METHOD AND CHECKOUT. `PUT /billing/payment-method` takes `card` or
+ *    `direct_debit`, and `POST /payments/checkout` returns a Paystack
+ *    `authorizationUrl`. D11: "no cards, no in-app checkout."
+ *
+ * The screen says all this to the admin in one line at the foot, rather than
+ * looking unfinished by accident.
+ *
+ * DESIGN LAW: no red anywhere. Overdue is the loudest state on this screen and
+ * it renders violet, not alarm - and per D11b an overdue invoice never gates
+ * access, so nothing here blocks anything.
+ */
+
+const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
+
+type Phase = "loading" | "ready" | "failed";
+
+/** Naira, from the API's decimal STRING - never through a float. */
+function naira(amount: string | null): string {
+  if (!amount) return "—";
+  const [whole = "0"] = amount.split(".");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `₦${grouped}`;
+}
+
+function longDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/** No red: overdue is violet, paid is navy, pending is quiet. */
+function StatusPill({ status }: { status: InvoiceStatus }) {
+  return (
+    <span
+      className={cn(
+        "shrink-0 rounded-full px-3 py-1 text-[12.5px] font-semibold capitalize",
+        status === "paid" && "bg-nevo-navy/10 text-nevo-navy",
+        status === "overdue" && "bg-nevo-violet/25 text-nevo-navy",
+        status === "pending" &&
+          "bg-nevo-near-black/[0.07] text-nevo-near-black/70",
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+export function BillingView() {
+  const [phase, setPhase] = useState<Phase>("loading");
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[] | null>(null);
+  const [invoicesFailed, setInvoicesFailed] = useState(false);
+  const [upcoming, setUpcoming] = useState<UpcomingCharge | null>(null);
+  const [upcomingFailed, setUpcomingFailed] = useState(false);
+  const [contact, setContact] = useState<BillingContact | null>(null);
+  const [editing, setEditing] = useState(false);
+
+  const load = useCallback(() => {
+    // The subscription read owns the page - it carries the school name and the
+    // contact. The other two are their own cards and their own failures, so a
+    // broken invoice list does not take the whole screen down with it.
+    billingApi
+      .subscription()
+      .then((s) => {
+        setSubscription(s);
+        setContact(s.billingContact);
+        setPhase("ready");
+
+        setInvoicesFailed(false);
+        billingApi
+          .invoices()
+          .then((rows) => {
+            // Newest first; the endpoint does not promise an order.
+            setInvoices(
+              [...rows].sort(
+                (a, b) =>
+                  new Date(b.issuedAt).getTime() -
+                  new Date(a.issuedAt).getTime(),
+              ),
+            );
+            setInvoicesFailed(false);
+          })
+          .catch(() => {
+            setInvoices([]);
+            setInvoicesFailed(true);
+          });
+
+        setUpcomingFailed(false);
+        billingApi
+          .upcoming()
+          .then((u) => {
+            setUpcoming(u);
+            setUpcomingFailed(false);
+          })
+          .catch(() => setUpcomingFailed(true));
+      })
+      .catch(() => setPhase("failed"));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const renewal =
+    upcoming?.renewalBannerVisible || subscription?.renewalBannerVisible
+      ? (upcoming?.renewalMessage ?? subscription?.renewalMessage ?? null)
+      : null;
+
+  return (
+    <div className="mx-auto w-full max-w-[980px] px-8 py-9">
+      <p className="m-0 text-[13px] font-semibold tracking-[0.12em] text-nevo-near-black/45 uppercase">
+        {subscription?.schoolName ?? "Billing"}
+      </p>
+      <h1 className="m-0 mt-1.5 text-[26px] font-semibold tracking-[-0.01em] text-nevo-near-black">
+        Billing &amp; subscription
+      </h1>
+
+      {phase === "loading" && (
+        <div className="mt-7 space-y-3" aria-hidden>
+          <div className="h-24 animate-pulse rounded-xl bg-nevo-near-black/[0.06]" />
+          <div className="h-40 animate-pulse rounded-xl bg-nevo-near-black/[0.06]" />
+        </div>
+      )}
+
+      {phase === "failed" && (
+        <div className={cn(CARD, "mt-7 px-6 py-[22px]")}>
+          <p className="m-0 text-[15px] font-semibold text-nevo-near-black">
+            We couldn&rsquo;t load your billing
+          </p>
+          <p className="m-0 mt-1.5 text-[13.5px] leading-[1.55] text-nevo-near-black/62">
+            Nothing has changed for your school. Try again in a moment.
+          </p>
+          <button
+            type="button"
+            onClick={load}
+            className="mt-3.5 cursor-pointer text-[13.5px] font-semibold text-nevo-navy hover:underline"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {phase === "ready" && subscription && (
+        <>
+          {renewal && (
+            <div className="mt-6 rounded-xl bg-nevo-violet/[0.18] px-6 py-4">
+              <p className="m-0 text-sm leading-[1.55] text-nevo-navy">
+                {renewal}
+              </p>
+            </div>
+          )}
+
+          <h2 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
+            Next charge
+          </h2>
+          <div className={cn(CARD, "mt-3 px-6 py-[22px]")}>
+            {upcomingFailed ? (
+              <ReadFailed what="your next charge" onRetry={load} />
+            ) : upcoming?.amount ? (
+              <div className="flex flex-wrap items-baseline justify-between gap-4">
+                <div>
+                  <span className="text-[30px] leading-none font-semibold text-nevo-near-black tabular-nums">
+                    {naira(upcoming.amount)}
+                  </span>
+                  <p className="m-0 mt-2 text-[13.5px] text-nevo-near-black/62">
+                    Due {longDate(upcoming.dueAt)}
+                    {upcoming.invoiceNumber
+                      ? ` · ${upcoming.invoiceNumber}`
+                      : ""}
+                  </p>
+                </div>
+                {upcoming.status && <StatusPill status={upcoming.status} />}
+              </div>
+            ) : (
+              <p className="m-0 text-[14.5px] text-nevo-near-black/62">
+                Nothing due at the moment.
+              </p>
+            )}
+          </div>
+
+          <h2 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
+            Invoices
+          </h2>
+          <div className={cn(CARD, "mt-3 overflow-hidden")}>
+            {invoicesFailed ? (
+              <ReadFailed
+                className="px-6 py-[22px]"
+                what="your invoices"
+                onRetry={load}
+              />
+            ) : invoices === null ? (
+              <div
+                className="h-20 animate-pulse bg-nevo-near-black/[0.04]"
+                aria-hidden
+              />
+            ) : invoices.length === 0 ? (
+              <div className="px-6 py-[22px]">
+                <p className="m-0 text-[15px] font-semibold text-nevo-near-black">
+                  No invoices yet
+                </p>
+                <p className="m-0 mt-1.5 text-[13.5px] leading-[1.55] text-nevo-near-black/62">
+                  Your first one appears here once your school is billed.
+                </p>
+              </div>
+            ) : (
+              invoices.map((inv, i) => (
+                <div
+                  key={inv.id}
+                  className={cn(
+                    "flex flex-wrap items-center gap-4 px-6 py-[18px]",
+                    i < invoices.length - 1 &&
+                      "border-b border-nevo-near-black/7",
+                  )}
+                >
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-[15px] font-semibold text-nevo-near-black tabular-nums">
+                      {naira(inv.amount)}
+                    </span>
+                    <span className="mt-0.5 text-[13px] text-nevo-near-black/58">
+                      {inv.invoiceNumber} &middot; issued{" "}
+                      {longDate(inv.issuedAt)} &middot;{" "}
+                      {inv.status === "paid"
+                        ? `paid ${longDate(inv.paidAt)}`
+                        : `due ${longDate(inv.dueAt)}`}
+                    </span>
+                  </span>
+                  <StatusPill status={inv.status} />
+                  {/* The API hands us the PDF's own URL, so this is a plain
+                      link rather than a fetch-and-blob. */}
+                  <a
+                    href={inv.pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 text-[13.5px] font-semibold text-nevo-navy hover:underline"
+                  >
+                    PDF
+                  </a>
+                </div>
+              ))
+            )}
+          </div>
+
+          <h2 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
+            Billing contact
+          </h2>
+          <div className={cn(CARD, "mt-3 px-6 py-[22px]")}>
+            {contact ? (
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0 text-[14px] leading-[1.6] text-nevo-near-black/78">
+                  <p className="m-0 font-semibold text-nevo-near-black">
+                    {contact.email}
+                  </p>
+                  {contact.phone && <p className="m-0">{contact.phone}</p>}
+                  <p className="m-0 mt-1.5">
+                    {[
+                      contact.addressLine1,
+                      contact.addressLine2,
+                      contact.city,
+                      contact.region,
+                      contact.postalCode,
+                      contact.country,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="shrink-0 cursor-pointer text-[13.5px] font-semibold text-nevo-navy hover:underline"
+                >
+                  Edit
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <p className="m-0 text-[14.5px] text-nevo-near-black/62">
+                  No billing contact on file.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="shrink-0 cursor-pointer text-[13.5px] font-semibold text-nevo-navy hover:underline"
+                >
+                  Add one
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Name the hole, rather than letting it read as unfinished. */}
+          <p className="mt-8 text-[13px] leading-[1.6] text-nevo-near-black/55 italic">
+            Your cost breakdown and transfer details aren&rsquo;t here yet. The
+            pricing model is still being confirmed, and the account to pay into
+            has to come from Nevo rather than from this page. Your invoices above
+            carry the amount and the reference in the meantime.
+          </p>
+        </>
+      )}
+
+      {editing && (
+        <BillingContactSheet
+          contact={contact}
+          onClose={() => setEditing(false)}
+          onSaved={(next) => {
+            setContact(next);
+            setEditing(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
