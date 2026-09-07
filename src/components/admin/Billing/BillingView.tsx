@@ -6,12 +6,14 @@ import {
   type BillingContact,
   type Invoice,
   type InvoiceStatus,
+  type ReceivingAccount,
   type Subscription,
   type UpcomingCharge,
 } from "@/lib/api/billing";
 import { cn } from "@/lib/utils";
 import { ReadFailed } from "../ReadFailed";
 import { BillingContactSheet } from "./BillingContactSheet";
+import { HowToPayPanel } from "./HowToPayPanel";
 
 /**
  * D11 / D11b Billing - the half of the screen that can be built honestly.
@@ -30,11 +32,11 @@ import { BillingContactSheet } from "./BillingContactSheet";
  *    older spec those frames superseded. Rendering either version states a
  *    school's annual bill on the strength of a disagreement. That is a business
  *    ruling (Lydia + Teslim), not a frontend choice.
- * 2. THE "HOW TO PAY" TRANSFER PANEL. It needs Nevo's own bank account, and no
- *    schema in the deployed spec carries one - checked field by field across
- *    every schema. The frame fills it with literal account details. Putting a
- *    real payable account into frontend source, unsourced, is not a shortcut
- *    worth taking.
+ * 2. THE "HOW TO PAY" PANEL now exists (D11c, design ruling 7 Sep) but as a
+ *    SEAM: Teslim is building the endpoint, nothing serves one yet, and until
+ *    it answers the panel says the details are not available rather than
+ *    inventing them. See `HowToPayPanel` - the frame's Kuda Bank account number
+ *    is its illustration, not a value to hard-code.
  * 3. PAYMENT METHOD AND CHECKOUT. `PUT /billing/payment-method` takes `card` or
  *    `direct_debit`, and `POST /payments/checkout` returns a Paystack
  *    `authorizationUrl`. D11: "no cards, no in-app checkout."
@@ -96,6 +98,14 @@ export function BillingView() {
   const [upcomingFailed, setUpcomingFailed] = useState(false);
   const [contact, setContact] = useState<BillingContact | null>(null);
   const [editing, setEditing] = useState(false);
+  const [account, setAccount] = useState<ReceivingAccount | null>(null);
+  /**
+   * Invoice numbers the admin has SAID they transferred, this session only
+   * (D11c). Deliberately not persisted: `InvoiceStatus` has no fourth value and
+   * nothing has confirmed the payment, so this must not outlive the tab and
+   * come back looking like a fact.
+   */
+  const [declared, setDeclared] = useState<Set<string>>(new Set());
 
   const load = useCallback(() => {
     // The subscription read owns the page - it carries the school name and the
@@ -126,6 +136,13 @@ export function BillingView() {
             setInvoices([]);
             setInvoicesFailed(true);
           });
+
+        // The receiving account is its own read and its own absence. A 404 is
+        // the ordinary "no endpoint yet" state, not a failure worth reporting.
+        billingApi
+          .receivingAccount()
+          .then(setAccount)
+          .catch(() => setAccount(null));
 
         setUpcomingFailed(false);
         billingApi
@@ -266,7 +283,13 @@ export function BillingView() {
                         : `due ${longDate(inv.dueAt)}`}
                     </span>
                   </span>
-                  <StatusPill status={inv.status} />
+                  {declared.has(inv.invoiceNumber) && inv.status !== "paid" ? (
+                    <span className="shrink-0 rounded-full bg-nevo-violet/25 px-3 py-1 text-[12.5px] font-semibold text-nevo-navy">
+                      Pending verification
+                    </span>
+                  ) : (
+                    <StatusPill status={inv.status} />
+                  )}
                   {/* The API hands us the PDF's own URL, so this is a plain
                       link rather than a fetch-and-blob. */}
                   <a
@@ -330,12 +353,27 @@ export function BillingView() {
             )}
           </div>
 
+          <HowToPayPanel
+            account={account}
+            reference={upcoming?.invoiceNumber ?? null}
+            amount={upcoming?.amount ? naira(upcoming.amount) : null}
+            declared={
+              upcoming?.invoiceNumber
+                ? declared.has(upcoming.invoiceNumber)
+                : false
+            }
+            onDeclare={() => {
+              const ref = upcoming?.invoiceNumber;
+              if (!ref) return;
+              setDeclared((prev) => new Set(prev).add(ref));
+            }}
+          />
+
           {/* Name the hole, rather than letting it read as unfinished. */}
           <p className="mt-8 text-[13px] leading-[1.6] text-nevo-near-black/55 italic">
-            Your cost breakdown and transfer details aren&rsquo;t here yet. The
-            pricing model is still being confirmed, and the account to pay into
-            has to come from Nevo rather than from this page. Your invoices above
-            carry the amount and the reference in the meantime.
+            Your cost breakdown isn&rsquo;t here yet &ndash; the pricing model
+            is being confirmed. Your invoices above carry the amount and the
+            reference in the meantime.
           </p>
         </>
       )}
