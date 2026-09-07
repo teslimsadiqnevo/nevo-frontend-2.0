@@ -28,9 +28,14 @@ import type { AdaptationPlan, Lesson, SegmentAdaptation } from "@/lib/types";
  * segment in the only lesson that currently exists. So a pass-through would
  * fail on 100% of real content.
  *
- * `calculation` is the one genuine gap: the engine has no calculation type, and
- * `worked_example` is the closest honest neighbour rather than a translation.
- * Worth confirming with backend.
+ * `calculation` used to be the one genuine gap - the engine had no calculation
+ * type, so this sent `worked_example` as the nearest honest neighbour and said
+ * so. Backend added it natively on 7 Sep, and a calculation segment is now
+ * described to the engine as what it is.
+ *
+ * The other three still have no counterpart and still need translating:
+ * `explanatory_text`, `practice_question` and `visual_diagram`. This is not a
+ * near-miss between two vocabularies, it is two vocabularies.
  */
 const SEGMENT_TYPE: Record<string, AdaptSegmentType> = {
   explanatory_text: "explanation",
@@ -39,7 +44,7 @@ const SEGMENT_TYPE: Record<string, AdaptSegmentType> = {
   practice_question: "practice",
   definition: "definition",
   summary: "summary",
-  calculation: "worked_example",
+  calculation: "calculation",
 };
 
 /**
