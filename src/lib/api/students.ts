@@ -174,13 +174,28 @@ export interface DashboardProgressRow {
  * The admin roster's view of a student (D7 / D7b). Enrolment fact only - this
  * shape must never grow a score, a mastery figure or an adaptation.
  *
- * WHAT IS NOT HERE, and cannot be: CONSENT. D7 exists to answer "which
- * students cannot yet begin lessons", and the list route returns no consent
- * field of any kind. See the note on `StudentsView` - it is not derived from
- * `status`, because an account being active is a different fact from a parent
- * having agreed, and conflating them would misinform a school about a legal
- * position.
+ * CONSENT IS NOW CARRIED (backend, 7 Sep). D7 exists to answer "which students
+ * cannot yet begin lessons", and until this landed the route returned no
+ * consent field of any kind - so the column, the count clause and the row
+ * action were all absent rather than guessed at. `status` was never a stand-in:
+ * an active account is a different fact from a parent having agreed.
  */
+
+/** The four states SCRUM-40 needs. `withdrawn` is now readable, not just causable. */
+export type ConsentState = "not_sent" | "pending" | "confirmed" | "withdrawn";
+
+/**
+ * Who agreed, when, and through what. Every field but `status` is nullable,
+ * because a consent that was never requested has no actor and no timestamp.
+ */
+export interface StudentConsent {
+  status: ConsentState;
+  actorId: string | null;
+  actorName: string | null;
+  timestamp: string | null;
+  channel: string | null;
+}
+
 export interface AdminStudentRow {
   id: string;
   /** Always present - the backend composes its own fallback. */
@@ -190,6 +205,8 @@ export interface AdminStudentRow {
   /** "active" | "deactivated" in practice; the schema does not narrow it. */
   status: string;
   ageBand: string | null;
+  /** Absent on older reads; treated as unknown rather than as "not sent". */
+  consent?: StudentConsent | null;
 }
 
 export interface AdminStudentDetail {
@@ -202,15 +219,15 @@ export interface AdminStudentDetail {
   ageBand: string | null;
   classIds: string[];
   firstUse: boolean;
+  consent?: StudentConsent | null;
 }
 
 /**
  * A guardian attached to a student.
  *
- * `account_created` is the closest thing the API has to a consent signal, and
- * it is NOT the same thing - it says an account exists, not that consent was
- * given, refused, pending or withdrawn. D7b's four-state consent record cannot
- * be built from it and is not attempted.
+ * `account_created` says an account exists, not that consent was given. It was
+ * never a consent signal and is still not one - the real four-state record now
+ * arrives as `consent` on the student reads above.
  */
 export interface ParentLink {
   id: string;
