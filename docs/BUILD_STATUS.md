@@ -663,9 +663,18 @@ the marks, and an unmarked fallback is invisible to it.
 children**. A write-path E2E — assign a lesson, send a message, upload a unit —
 mutates real people's records. So E2E needs its own school before it runs once.
 
-`POST /api/v1/schools/register` is PUBLIC and takes
-`{ schoolName, adminName, email, password }`, so this is a few minutes of work — but
-it creates an account with a password, which is Olayinka's to do, not Claude's.
+**BLOCKED ON A BACKEND BUG, raised 7 Sep.** `POST /api/v1/schools/register` returns
+**500 on valid, unique input** — reproduced twice at ~00:22 UTC with fresh timestamped
+emails on two different domains. Body is a bare `Internal Server Error`;
+`CF-RAY: a3718f180abdc13d-CPT`, origin `uvicorn` on Render, so the traceback is in the
+Render logs.
+
+Validation is healthy (422s correctly, including rejecting reserved domains like
+`.invalid`), so it fails AFTER validation, during creation. It takes 3.5s to fail
+versus 1.4s to reject — it is doing real work first, so **check whether failed
+attempts leave partial rows behind**.
+
+This blocks all new school onboarding, not just our test tenant.
 
 What it needs to be:
 
@@ -677,7 +686,36 @@ What it needs to be:
 
 Until that exists, E2E can cover **read-only, signed-out** surfaces only.
 
-### Prerequisite 3 — Playwright, when the above is ready
+### Signed-out E2E — DONE 7 Sep. 20 tests, `npm run e2e`.
+
+Playwright, chromium only, on port 3100 so it cannot collide with a dev server
+another session is running. `webServer` does a PRODUCTION build rather than
+`next dev` — dev overlays and slow compiles make timing assertions flaky, and the
+build is what ships. Runs in CI with the report uploaded on failure.
+
+**`e2e/route-guards.spec.ts`** is the one that genuinely needs a browser: the guard
+lives in `proxy.ts`, which runs on the server between request and page, so nothing
+below the browser can see it. Covers `/teacher/*` and `/admin/*` reaching the RIGHT
+door, `?next=` surviving so signing in returns you where you were headed, and
+`/student/onboarding` staying open — a child onboarding has no session by
+definition.
+
+**`e2e/public-pages.spec.ts`** leans on `/tosse`, the only surface that has been in
+front of real schools and the one that broke there. Pins the three intent cards and
+all five roles, including Teacher and Parent, which had no enum value until 6 Sep.
+**Nothing submits** — a submission creates a real lead someone follows up.
+
+Two things learned writing it:
+
+- **Select by ARIA role, not by text.** The role dropdown assertion failed first
+  time because it guessed a button name. The control is a real `combobox` with a
+  `listbox` of `option`s, so `getByRole` asserts the accessibility markup and the
+  contents at once — a text match would have passed just as well on a plain div.
+- The landing page already asserts **no `data-nevo-sample` marks**. That is the same
+  assertion the signed-in suite will make across the console, proven now on a
+  surface where the answer is knowable.
+
+### Prerequisite 3 — Playwright, DONE. What remains is the tenant.
 
 Deliberately NOT installed yet. It is the heaviest install in the ecosystem (browser
 binaries) and this lockfile is shared by three sessions, so it should land when the
@@ -738,7 +776,7 @@ then seed localStorage before first paint.
 | **Landing performance** | **41** on mobile (was 62 on 18 Aug). 2,800 ms total blocking time, 3,658 ms style & layout, 3.3 s script evaluation on a 398 KB page. The server responds in 60 ms — this is client JS, not network. Two chunks carry most of it. |
 | **Lint** | Green as of 5 Sep (0 errors, 1 warning). Now enforced by CI. |
 | **Contract** | Green as of 6 Sep. `npm run contract`, enforced by CI. |
-| **Tests** | 102, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
+| **Tests** | 113 unit + 20 E2E, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
 | **TOSSE** | Working end to end and deployed. One test lead — `27ac8e8a-a46b-45e0-befe-50787d3b9eb9`, "DO NOT CONTACT" — still needs deleting from the booth list. |
 
 ---
