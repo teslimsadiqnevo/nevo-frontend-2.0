@@ -1,6 +1,7 @@
 "use client";
 
 import { notFound, useRouter } from "next/navigation";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 import { useHydrated } from "@/hooks/useHydrated";
 import { useStudentLesson } from "@/hooks/useStudentLesson";
 import { LessonLoadingSkeleton } from "./LessonLoadingSkeleton";
@@ -49,7 +50,7 @@ export function LessonRoute({
   if (!hydrated || loading) return <LessonLoadingSkeleton />;
 
   if (lesson) {
-    return (
+    const player = (
       <LessonPlayer
         lesson={lesson}
         plan={plan}
@@ -59,6 +60,16 @@ export function LessonRoute({
         lastWorkedAt={lastWorkedAt}
         adaptSegments={adaptSegments}
       />
+    );
+    // `live` false means this is one of the two authored lessons - and a
+    // SIGNED-IN child can land here, because `useStudentLesson` answers a
+    // failed or 404'd live read with a mock of the same id rather than an
+    // error (`failed: failed && !mock`). That is the one place in this lane
+    // where a real child can be shown invented content and nothing says so.
+    return live ? (
+      player
+    ) : (
+      <SampleRegion kind="student:lesson">{player}</SampleRegion>
     );
   }
 

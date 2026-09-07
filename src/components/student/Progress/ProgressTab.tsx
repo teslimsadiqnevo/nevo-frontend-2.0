@@ -1,6 +1,7 @@
 "use client";
 
 import { IllustrationWrapper } from "@/components/shared";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 import Link from "next/link";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useHydrated } from "@/hooks/useHydrated";
@@ -55,7 +56,11 @@ export function ProgressTab() {
     return <LiveProgress subjects={subjects} reflection={reflection} />;
   }
 
+  // Signed out: the designed walkthrough, which is invented sentences about a
+  // fictional child. Marked so an end-to-end run that reached this while signed
+  // in fails, rather than reading the fixtures as the assertion's own answer.
   return (
+    <SampleRegion kind="student:progress">
     <div className="mx-auto w-full max-w-[900px] px-5 py-2 pb-6 sm:px-8 sm:py-6 lg:py-8">
       <h1 className="text-2xl font-semibold tracking-[-0.01em] text-nevo-near-black sm:text-[30px] lg:text-[32px]">
         Progress
@@ -71,7 +76,8 @@ export function ProgressTab() {
           <SubjectCard key={subject.slug} subject={subject} />
         ))}
       </div>
-    </div>
+      </div>
+    </SampleRegion>
   );
 }
 

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { BookOpen, Clock, Play, Shapes } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { EmptyState, IllustrationWrapper } from "@/components/shared";
+import { SampleRegion } from "@/components/shared/SampleRegion";
+import { useHydrated } from "@/hooks/useHydrated";
 import { useDisplayName } from "@/components/student/Shell/useDisplayName";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useStudentDashboard } from "@/hooks/useStudentDashboard";
@@ -90,6 +92,7 @@ export function HomeDashboard() {
   const { name: displayName } = useDisplayName();
   const date = useLocalDate();
   const signedIn = useHasSession();
+  const hydrated = useHydrated();
   const { data: live, failed, loading } = useStudentDashboard();
   const warmUpDimension = useWarmUpDimension(dimensionForToday());
 
@@ -167,7 +170,15 @@ export function HomeDashboard() {
     ? Boolean(live) && !cont && today.length === 0
     : !cont && today.length === 0;
 
-  if (signedIn && loading) {
+  // NOT HYDRATED IS NOT SIGNED OUT. `useHasSession()` is false on the server,
+  // so without this the SSR pass and the first client render take the fixture
+  // branch below - and a signed-in child gets a frame of another child's
+  // dashboard before hydration swaps it out. Home and Lessons were the two
+  // surfaces still missing this gate; Progress, Subject Detail, Connect and
+  // Downloads all had it. Found by marking the fixture branch with
+  // `SampleRegion` and then seeing `student:home` in the server markup for a
+  // request that carried a student's cookie.
+  if (!hydrated || (signedIn && loading)) {
     return (
       <div className="mx-auto w-full max-w-[720px] px-5 py-2 pb-8 sm:px-8 sm:py-6 lg:max-w-[860px]">
         <div className="mt-2 h-9 w-64 animate-pulse rounded bg-nevo-cream-elevated" />
@@ -206,7 +217,12 @@ export function HomeDashboard() {
     );
   }
 
+  // Signed out: the designed walkthrough. These are a fictional child's
+  // lessons and a sentence about their week, so the region is marked - an
+  // end-to-end run that reached it while signed in must fail rather than read
+  // the fixtures as the very thing it was asserting.
   return (
+    <SampleRegion kind="student:home">
     <div className="mx-auto w-full max-w-[720px] px-5 py-2 pb-8 sm:px-8 sm:py-6 lg:max-w-[860px]">
       {/* Greeting */}
       <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-500">
@@ -276,6 +292,7 @@ export function HomeDashboard() {
         </>
       )}
     </div>
+    </SampleRegion>
   );
 }
 

@@ -7,6 +7,8 @@ import {
   NevoKeyboard,
   useNevoKeyboardDock,
 } from "@/components/shared";
+import { SampleRegion } from "@/components/shared/SampleRegion";
+import { useHydrated } from "@/hooks/useHydrated";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useStudentLessons } from "@/hooks/useStudentLessons";
 import { cn } from "@/lib/utils";
@@ -44,6 +46,7 @@ const FILTERS: { id: Filter; label: string }[] = [
  */
 export function LessonsTab() {
   const signedIn = useHasSession();
+  const hydrated = useHydrated();
   const { lessons: liveLessons, live, loading, failed } = useStudentLessons();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -94,7 +97,12 @@ export function LessonsTab() {
     </div>
   );
 
-  if (signedIn && loading) {
+  // NOT HYDRATED IS NOT SIGNED OUT - the same gate Progress, Subject Detail,
+  // Connect and Downloads already carry. `useHasSession()` is false on the
+  // server, so without it the SSR pass takes the fixture branch and a
+  // signed-in child sees a frame of the sample catalogue as though it were
+  // their own assignments.
+  if (!hydrated || (signedIn && loading)) {
     return shell(
       <div className="mt-6 grid grid-cols-2 gap-3.5 lg:grid-cols-3">
         {[0, 1, 2, 3].map((i) => (
@@ -147,7 +155,11 @@ export function LessonsTab() {
     );
   }
 
-  return (
+  // Held rather than returned, because this same markup renders a real child's
+  // lessons AND the signed-out catalogue - only the latter is sample data, so
+  // the mark is conditional. Marking both would make the end-to-end assertion
+  // fire on a correct screen, which is the fastest way to get a mark deleted.
+  const body = (
     <div className="mx-auto w-full max-w-[900px] px-5 py-2 pb-6 sm:px-8 sm:py-6">
       <h1 className="text-2xl font-semibold tracking-[-0.01em] text-nevo-near-black sm:text-[30px] lg:text-[32px]">
         Lessons
@@ -262,6 +274,12 @@ export function LessonsTab() {
         onOpenChange={setPreviewOpen}
       />
     </div>
+  );
+
+  return signedIn ? (
+    body
+  ) : (
+    <SampleRegion kind="student:lessons">{body}</SampleRegion>
   );
 }
 
