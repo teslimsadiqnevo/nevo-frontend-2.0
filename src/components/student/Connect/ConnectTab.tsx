@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, Send } from "lucide-react";
 import { NevoKeyboard, useNevoKeyboardDock } from "@/components/shared";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 import { useHydrated } from "@/hooks/useHydrated";
 import {
   MESSAGE_MAX_LENGTH,
@@ -191,7 +192,11 @@ export function ConnectTab() {
     );
   }
 
-  return (
+  // Held, not returned: this markup renders a real child's threads AND the
+  // signed-out fixture conversation, and only the second is sample data. The
+  // fixture branch also keeps the SIMULATED send, so a mark here says "nothing
+  // you type on this screen goes anywhere" as much as "these are not yours".
+  const body = (
     <div className="flex h-full min-h-0">
       {/* Thread list — always on md+, on mobile only in list view */}
       <aside
@@ -325,6 +330,12 @@ export function ConnectTab() {
         )}
       </section>
     </div>
+  );
+
+  return live ? (
+    body
+  ) : (
+    <SampleRegion kind="student:connect">{body}</SampleRegion>
   );
 }
 
