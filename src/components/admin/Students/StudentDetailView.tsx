@@ -12,6 +12,7 @@ import {
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import { ReadFailed } from "../ReadFailed";
+import { ConsentPill, consentDetailLine } from "./ConsentPill";
 import { erasable, statusLabel, studentStatus, wasHere } from "./status";
 import {
   Avatar,
@@ -229,6 +230,42 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
               Learning Support where a teacher has shared it.
             </span>
           </p>
+        </div>
+      </div>
+
+      {/* D07b's consent card. The actor and date are the point: SCRUM-40 wants
+          "Mrs. Eze withdrew consent on 14 July" rather than a bare state, and a
+          withdrawal must be legible as a withdrawal rather than as an absence. */}
+      <SectionLabel>Consent</SectionLabel>
+      <div className={cn(CARD, "mt-2.5 px-6 py-[22px]")}>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="m-0 text-[15px] font-semibold text-nevo-near-black">
+              {student.consent?.status === "confirmed"
+                ? `${firstName} can begin lessons`
+                : `${firstName} can’t begin lessons yet`}
+            </p>
+            {student.consent ? (
+              (() => {
+                const line = consentDetailLine(student.consent);
+                return line ? (
+                  <p className="m-0 mt-1.5 text-[13.5px] leading-[1.55] text-nevo-near-black/62">
+                    {line}
+                  </p>
+                ) : (
+                  <p className="m-0 mt-1.5 text-[13.5px] leading-[1.55] text-nevo-near-black/62">
+                    A parent has to confirm before lessons can start.
+                  </p>
+                );
+              })()
+            ) : (
+              <p className="m-0 mt-1.5 text-[13.5px] leading-[1.55] text-nevo-near-black/62">
+                This read didn&rsquo;t carry a consent state, so this is not a
+                record that none was given.
+              </p>
+            )}
+          </div>
+          <ConsentPill consent={student.consent} />
         </div>
       </div>
 

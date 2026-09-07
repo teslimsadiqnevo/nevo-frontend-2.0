@@ -8,6 +8,7 @@ import { classesApi, type AdminClass } from "@/lib/api/classes";
 import { studentsApi, type AdminStudentRow } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
+import { ConsentPill, blockedByConsent } from "./ConsentPill";
 import { statusLabel, studentStatus } from "./status";
 import {
   Avatar,
@@ -24,38 +25,16 @@ import {
  * ============================================================================
  * WHAT THIS SCREEN CANNOT DO YET, AND WHY IT IS BUILT ANYWAY
  * ============================================================================
- * D7's stated purpose is "the roster with consent front and centre", and the
- * single question it is meant to answer at a glance is WHICH STUDENTS CANNOT
- * YET BEGIN LESSONS. That question cannot be answered from the deployed API.
+ * D7's stated purpose is "the roster with consent front and centre", and as of
+ * 7 Sep it can be. The list row now carries a typed `consent` object - status,
+ * actor, timestamp and channel - in the four states SCRUM-40 asks for, so the
+ * column, the count clause and the row action arrive together rather than being
+ * guessed at.
  *
- * `GET /api/v1/students` returns `{id, name, loginIdentifier, status, ageBand}`.
- * There is no consent field on it, nor anywhere else that covers a roster:
- * `parent-links` carries `account_created`, which is a different fact, and
- * `consent-gate` is the student's own view of themselves. The four states the
- * spec names - confirmed, pending, not sent, withdrawn - do not exist to read.
- *
- * So the consent column, the "Send request" row action, the count line's
- * "6 awaiting parent consent" clause and the footer line about parent accounts
- * are ALL ABSENT rather than approximated. Deriving them from `status` was the
- * obvious shortcut and is the wrong thing to do: an active account is not a
- * granted consent, and a school reading this screen is reading a legal
- * position. A wrong answer here is worse than no answer.
- *
- * What is built is everything the roster genuinely knows: who is enrolled,
- * which class they are in, whether the account is active, search, the class
- * filter, and the route into each student's record - where moving, deactivating
- * and erasing all work for real (D7c).
- *
- * TODO(api): add `consent` to the student list row, and this screen gains its
- * column, its row action, its count clause and its footer line together.
- * TODO(api): no seats endpoint, so the "approaching the band ceiling" line is
- * not built either.
- * ============================================================================
- *
- * The Class column costs one request per class: the list route returns no class
- * on the row, but `GET /api/v1/students?classId=` narrows by one, so the map is
- * assembled from the class list. Cheaper than per-student, and it disappears
- * the moment a `class` field lands on the row.
+ * What this is still NOT derived from is `status`. An active account is a
+ * different fact from a parent having agreed, and a school reading this screen
+ * is reading a legal position. A row whose read did not carry consent renders
+ * "Unknown", never "Not sent" - see `ConsentPill`.
  */
 
 type Phase = "loading" | "ready" | "failed";
@@ -162,6 +141,15 @@ export function StudentsView() {
             {phase === "ready" ? (
               <p className="mt-1.5 text-[14.5px] text-nevo-near-black/60">
                 {students.length} enrolled
+                {blockedByConsent(students) > 0 ? (
+                  <>
+                    {" · "}
+                    <span className="text-nevo-navy">
+                      {blockedByConsent(students)}
+                      {" can’t begin lessons yet"}
+                    </span>
+                  </>
+                ) : null}
               </p>
             ) : null}
           </div>
@@ -244,9 +232,13 @@ export function StudentsView() {
             </div>
 
             <div className={cn(CARD, "mt-[18px]")}>
-              <div className="grid grid-cols-[1.6fr_1fr_120px] gap-4 border-b border-nevo-near-black/8 bg-nevo-near-black/[0.03] px-6 py-[13px] text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50">
+              {/* Four tracks, matching the rows. Consent sits BEFORE status
+                  deliberately: it is the question D07 exists to answer, and the
+                  two are easy to conflate when read side by side. */}
+              <div className="grid grid-cols-[1.5fr_1fr_112px_112px] gap-4 border-b border-nevo-near-black/8 bg-nevo-near-black/[0.03] px-6 py-[13px] text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50">
                 <span>Student</span>
                 <span>Class</span>
+                <span>Consent</span>
                 <span>Status</span>
               </div>
 
@@ -280,7 +272,7 @@ export function StudentsView() {
                       type="button"
                       onClick={() => router.push(`/admin/students/${s.id}`)}
                       className={cn(
-                        "grid w-full cursor-pointer grid-cols-[1.6fr_1fr_120px] items-center gap-4 px-6 py-[15px] text-left transition-colors hover:bg-nevo-navy/[0.03]",
+                        "grid w-full cursor-pointer grid-cols-[1.5fr_1fr_112px_112px] items-center gap-4 px-6 py-[15px] text-left transition-colors hover:bg-nevo-navy/[0.03]",
                         i < visible.length - 1 && ROW_DIVIDER,
                       )}
                     >
@@ -314,6 +306,9 @@ export function StudentsView() {
                             className="block h-3.5 w-20 rounded bg-nevo-near-black/[0.07]"
                           />
                         )}
+                      </span>
+                      <span className="flex">
+                        <ConsentPill consent={s.consent} />
                       </span>
                       <span className="flex">
                         <span
