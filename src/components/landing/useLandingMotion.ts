@@ -55,7 +55,25 @@ export function useLandingMotion() {
       document.body.scrollTop ||
       0;
 
-    // ---- rAF scroll driver ----
+    /*
+     * ---- rAF scroll driver ----
+     *
+     * ALWAYS ON, and it has to be. I replaced this with a scroll-driven loop
+     * to stop it reading layout sixty times a second forever, and the page
+     * broke: sections went blank and the nav landed in the wrong place.
+     *
+     * The reason is that `_driver` is not only reading scroll position. It
+     * calls `scrubDemo` and `scrubRoom`, which reconcile the transforms of the
+     * PINNED sections - and those need reconciling after any layout change,
+     * not only after a scroll event. Reveals firing changes content height;
+     * fonts landing changes it; images decoding changes it. The continuous
+     * loop was quietly absorbing all of that.
+     *
+     * Making this scroll-driven is still the right optimisation - it is worth
+     * roughly 2.5s of main-thread work - but it needs the pinned sections to
+     * declare when they are stale rather than being reconciled by brute force.
+     * That is a bigger change than a loop rewrite, and it is not this one.
+     */
     let _ls = -1;
     let _driver: ((y: number) => void) | null = null;
     const _raf = () => {
@@ -324,8 +342,23 @@ export function useLandingMotion() {
         };
         build();
         const t0 = performance.now();
+        /*
+         * The hero field animates ONLY while the hero is on screen.
+         *
+         * This loop used to re-arm unconditionally, so the particles carried
+         * on being drawn at 60fps for the whole session - long after the hero
+         * had scrolled away and nobody could see a single one of them. On a
+         * long landing page that is most of the page's life.
+         *
+         * `onScreen` is flipped by an IntersectionObserver below; when it goes
+         * false the loop simply stops re-arming, and starting it again is one
+         * `requestAnimationFrame`.
+         */
+        let onScreen = true;
+        let drawing = 0;
         const draw = (t: number) => {
-          if (!alive) return;
+          drawing = 0;
+          if (!alive || !onScreen) return;
           const el = (t - t0) / 1000;
           ctx.clearRect(0, 0, W, H);
           mx += (tmx - mx) * 0.06;
@@ -340,9 +373,28 @@ export function useLandingMotion() {
               : "rgba(59,63,110,0.22)";
             ctx.fill();
           }
-          requestAnimationFrame(draw);
+          drawing = requestAnimationFrame(draw);
         };
-        requestAnimationFrame(draw);
+        const startDraw = () => {
+          if (!drawing && alive && onScreen) drawing = requestAnimationFrame(draw);
+        };
+        startDraw();
+
+        if ("IntersectionObserver" in window) {
+          const vis = new IntersectionObserver(
+            (entries) => {
+              onScreen = entries.some((e) => e.isIntersecting);
+              if (onScreen) startDraw();
+            },
+            // A small margin so it is already running by the time it is seen.
+            { rootMargin: "120px" },
+          );
+          vis.observe(canvas);
+          observers.push(vis);
+        }
+        cleanups.push(() => {
+          if (drawing) cancelAnimationFrame(drawing);
+        });
         listen(window, "resize", build, { passive: true });
         if (heroSec) {
           listen(heroSec, "mousemove", ((e: MouseEvent) => {
