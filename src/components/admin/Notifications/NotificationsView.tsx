@@ -104,6 +104,7 @@ export function NotificationsView() {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [hasMore, setHasMore] = useState(false);
+  const [olderFailed, setOlderFailed] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [allRead, setAllRead] = useState(false);
   const [now, setNow] = useState(0);
@@ -129,6 +130,7 @@ export function NotificationsView() {
   }, [load, archived, view]);
 
   const showOlder = () => {
+    setOlderFailed(false);
     setLoadingMore(true);
     notificationsApi
       .list({ archived, limit: PAGE, offset: rows.length })
@@ -137,7 +139,12 @@ export function NotificationsView() {
         setRows((prev) => [...prev, ...feed.notifications]);
         setHasMore(Boolean(feed.hasMore));
       })
-      .catch(() => setHasMore(false))
+      .catch(() => {
+        // Was `setHasMore(false)`, which rendered "That's everything." - a
+        // failed page-read told the admin they had seen the lot. Keep
+        // `hasMore` as it was so the control stays, and say what happened.
+        setOlderFailed(true);
+      })
       .finally(() => setLoadingMore(false));
   };
 
@@ -359,14 +366,25 @@ export function NotificationsView() {
 
                 <div className="mt-6 text-center">
                   {hasMore ? (
-                    <button
-                      type="button"
-                      onClick={showOlder}
-                      disabled={loadingMore}
-                      className="cursor-pointer text-sm font-semibold text-nevo-navy transition-opacity hover:opacity-75 disabled:opacity-50"
-                    >
-                      {loadingMore ? "Loading…" : "Show older"}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={showOlder}
+                        disabled={loadingMore}
+                        className="cursor-pointer text-sm font-semibold text-nevo-navy transition-opacity hover:opacity-75 disabled:opacity-50"
+                      >
+                        {loadingMore
+                          ? "Loading…"
+                          : olderFailed
+                            ? "Try again"
+                            : "Show older"}
+                      </button>
+                      {olderFailed && (
+                        <p className="m-0 mt-1.5 text-[13px] text-nevo-near-black/55">
+                          That didn&rsquo;t load - there are still older ones.
+                        </p>
+                      )}
+                    </>
                   ) : (
                     <p className="m-0 text-[13px] text-nevo-near-black/45">
                       That&rsquo;s everything.

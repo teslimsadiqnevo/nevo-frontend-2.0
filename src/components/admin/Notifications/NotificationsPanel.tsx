@@ -36,6 +36,7 @@ export function NotificationsPanel({
   onReadStateChanged: () => void;
 }) {
   const [rows, setRows] = useState<Notification[] | null>(null);
+  const [failed, setFailed] = useState(false);
   const [allRead, setAllRead] = useState(false);
   const [now, setNow] = useState(0);
   const panel = useRef<HTMLDivElement>(null);
@@ -48,7 +49,11 @@ export function NotificationsPanel({
         setAllRead(feed.unreadCount === 0);
         setNow(Date.now());
       })
-      .catch(() => setRows([]));
+      .catch(() => {
+        // "You're all caught up" is a claim; a failed read is not one.
+        setRows([]);
+        setFailed(true);
+      });
   }, []);
 
   // Escape and an outside press both close it; the rail's own button is
@@ -119,6 +124,16 @@ export function NotificationsPanel({
           <div className="space-y-3 p-5">
             <div className="h-12 animate-pulse rounded-lg bg-nevo-near-black/[0.06]" />
             <div className="h-12 animate-pulse rounded-lg bg-nevo-near-black/[0.06]" />
+          </div>
+        ) : failed ? (
+          <div className="px-5 py-10 text-center">
+            <p className="m-0 text-[15px] font-semibold text-nevo-near-black">
+              We couldn&rsquo;t load your notifications
+            </p>
+            <p className="m-0 mt-2 text-[13.5px] leading-[1.55] text-nevo-near-black/62">
+              This isn&rsquo;t a record that there are none - it just
+              didn&rsquo;t answer. Reopen the panel to try again.
+            </p>
           </div>
         ) : rows.length === 0 ? (
           <div className="px-5 py-10 text-center">
