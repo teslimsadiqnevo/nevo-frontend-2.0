@@ -41,7 +41,7 @@ typed `LessonContext`/`useAdaptation` · calculation co-construction solver
 
 ## Remaining frontend work (not backend-blocked)
 
-Detail + suggested sequencing in **`blocked-items-handoff.md`**.
+Detail + current status in **`BUILD_STATUS.md`**.
 
 1. **Audio-question comprehension format** — build a `QuickCheck` format variant
    + an audio-question renderer (the clearest ticket miss). *Which* format to
@@ -67,4 +67,4 @@ Detail + suggested sequencing in **`blocked-items-handoff.md`**.
 Eight items (manual modality switcher, "See summary"/"Review answers" targets,
 calc back-chevron, calc audio/kinesthetic enabling, progress-track colour,
 inert density toggle, feedback copy) — consolidated in
-**`blocked-items-handoff.md`**.
+**`BUILD_STATUS.md`**.

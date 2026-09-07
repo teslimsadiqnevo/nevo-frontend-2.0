@@ -26,9 +26,10 @@ to the repo, so the whole team (and CI) works from the same reference.
 - **[lesson-player-ticket-status.md](./lesson-player-ticket-status.md)** — B.7
   lesson player: coverage across Slices 0–6, remaining frontend work, and the
   backend-blocked adaptation spine.
-- **[blocked-items-handoff.md](./blocked-items-handoff.md)** — consolidated
-  design decisions + backend contracts outstanding across both tickets, for
-  handoff to Design & Backend.
+- **[BUILD_STATUS.md](./BUILD_STATUS.md)** — what is left across all five
+  surfaces, sorted into what we can build now, what needs backend, and what
+  needs design. Replaces the old `blocked-items-handoff.md`, whose contracts
+  had all since shipped.
 
 ### Planning
 

@@ -145,5 +145,5 @@ are the heaviest/most-uncertain, so they come after the decisions land.
 
 "Continue where you left off," adaptive time estimates, growth data, messages,
 and channel confidence are all **backend-provided** — built to mocks here, swapped
-when the contracts exist (tracked in `blocked-items-handoff.md`). The screens
+when the contracts exist (tracked in `BUILD_STATUS.md`). The screens
 themselves are not backend-blocked.
