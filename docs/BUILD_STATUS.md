@@ -428,25 +428,36 @@ setting do not.
 
 ### BUILDABLE — nothing blocks these
 
-- **Sign out.** Was absent entirely; the footer was a non-interactive `div` while the
-  Bearer token survived a tab close in `localStorage`. Shipped as PR #251.
-- **Overview renders D04's fixture "Worth a glance" counts to every school**, including a
-  brand-new one with zero students — "6 students are waiting on parent consent" to a
-  school that has none. Gate the glance card and narrative on the `early` signal.
-- **Both invite flows assert a parent consent request was sent** regardless of
-  `deliveryStatus`, which the backend reports as `not_requested` / `email_not_configured`.
-  The consent request is the legal gate before a child can begin lessons.
-- **`PermissionProvider` resolves once, swallows the failure, and never re-asks**, so a
-  founding admin who finishes the wizard lands on a rail showing one placeholder row and
-  the words "No access yet". A cold-start 502 does the same thing to any admin.
-- **A 403 is treated as a dead session**: `client.ts` clears the session and redirects to
-  "your session has ended… for your security", so a scope denial reads as an inactivity
-  timeout and logs the admin out. Scope filtering is client-side only.
+- ~~Sign out was absent entirely~~ — **shipped, PR #251.** The footer was a
+  non-interactive `div` while the Bearer token survived a tab close in
+  `localStorage`, so the next person on a shared staff machine was signed in as
+  the proprietor.
+- ~~Overview rendered D04's fixture "Worth a glance" counts to every school~~ —
+  **shipped, PR #257.** A school with no lessons taught now gets D04's own
+  "Getting started" checklist; a tick is only ever set from a signal we hold.
+- ~~Both invite flows asserted a parent consent request was sent~~ — **shipped,
+  PR #258.** NOTE THE FINDING BEHIND IT: nothing in the product requests parent
+  consent at all. `consentsApi.requestParentConsent` is typed with NO CALLER, the
+  invitation response carries no consent field, and consent is requested against
+  a STUDENT id that does not exist until the invite is accepted. With
+  `email_not_configured` a live state, invited students' parents are probably
+  never contacted by any path — a launch blocker on the consent gate itself,
+  backend or product, not frontend.
+- ~~`PermissionProvider` resolved once and never re-asked~~ — **shipped, PR #264.**
+  It now separates an ANSWER from an ABSENCE: `ready` is final (including a real
+  answer of no scopes), while `skipped` and `failed` are re-asked.
+- ~~A 403 was treated as a dead session~~ — **shipped, PR #267.** 401 ends the
+  session, 403 does not. Screens still show their generic "We couldn't load X" on
+  a 403 rather than "you don't have access" — none surfaces the `ApiError`
+  message, and threading it through ~15 screens is its own change.
 - **Billing plumbing** — invoice list, invoice PDF, upcoming charge, billing-contact write
   — is buildable against nine live endpoints today. Only the pricing figures are disputed.
-- **Failed reads rendered as established absences**, the shape #218 fixed one file over:
-  Student detail says "No guardian on the record", SSO reads "Healthy", Reports says "not
-  enough lessons yet", Notifications says "You're all caught up" — all on a FAILED read.
+- ~~Failed reads rendered as established absences~~ — **shipped, PR #269**, all
+  five: Student detail, SSO ("Healthy" came from `history?.failed_runs ?? 0`
+  coalescing a failed read into the healthy branch), Reports, and both
+  notification surfaces. `components/admin/ReadFailed.tsx` carries the wording.
+  Verified by types and inspection, NOT by tests — see the rejection-mocking trap
+  under Testing.
 
 ### NEEDS BACKEND
 
