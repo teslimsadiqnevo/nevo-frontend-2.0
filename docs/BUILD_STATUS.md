@@ -847,11 +847,28 @@ on scroll, the pin releases rather than sticking, classroom tiles reveal. Writte
 catch the rewrite breaking them, kept because those sections are the most intricate
 thing on the page and had no coverage.
 
-**If someone returns to this,** the remaining costs are Style & Layout (~1.6s) and
-Script Evaluation (~1.3s), and the page ships ~3,200 lines of landing components as
-ONE client tree — `LandingPage` is `"use client"`, so the two files that look like
-server components get pulled in as client anyway. Splitting that boundary is the
-untried idea with real headroom.
+**The client boundary is now split — the one idea that actually paid.** `LandingPage`
+carried `"use client"` solely so it could call `useLandingMotion()`, and that single
+directive pulled every section into the browser bundle: `ProofSections` and
+`StorySections` have ZERO hooks between them and were shipping as client JS anyway.
+
+`LandingMotion` is the boundary instead — a client component that calls the hook and
+renders `{children}`. Children passed into a client component from a server component
+stay server-rendered, so the sections became HTML. The hook needed nothing: it takes
+no arguments and reaches the DOM through `document`.
+
+| | before | after |
+|---|---|---|
+| JS bytes on `/` | 808,881 (789 KB) | **774,524 (756 KB)** |
+| chunks | 16 | **15** |
+| HTML | 62 KB | 119 KB |
+
+**33 KB less JavaScript**, markup moved into HTML where it belongs. Verified with the
+pinned-section tests plus a screenshot from a browser that actually paints.
+
+**Still on the table:** Style & Layout (~1.6s) and Script Evaluation (~1.3s) remain
+the largest costs, and `ConversationSection` is still a client component - correctly,
+since it is the conversion form.
 
 ### Two testing traps found the hard way
 

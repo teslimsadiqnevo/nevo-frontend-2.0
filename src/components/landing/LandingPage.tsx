@@ -1,8 +1,7 @@
-"use client";
-
 /* eslint-disable @next/next/no-img-element */
 import type { CSSProperties } from "react";
 import { ConversationSection } from "./ConversationSection";
+import { LandingMotion } from "./LandingMotion";
 import { JoinSection, SchoolSection, TeacherSection } from "./ProofSections";
 import {
   AdaptSection,
@@ -10,7 +9,6 @@ import {
   HeroSection,
   LessonSection,
 } from "./StorySections";
-import { useLandingMotion } from "./useLandingMotion";
 
 /**
  * The public marketing landing page (SCRUM-43 / SCRUM-81), a 1:1 port of
@@ -335,9 +333,18 @@ function Footer() {
   );
 }
 
+/**
+ * A SERVER component. The `"use client"` that used to sit at the top of this
+ * file existed only so it could call `useLandingMotion()`, and it dragged
+ * every section into the client bundle with it - almost all of it static
+ * markup with nothing to hydrate.
+ *
+ * `LandingMotion` is that boundary now, and everything below it is passed as
+ * children, so it renders on the server and stays there.
+ */
 export function LandingPage() {
-  useLandingMotion();
   return (
+    <LandingMotion>
     <div
       className="nv-landing"
       style={{
@@ -482,5 +489,6 @@ export function LandingPage() {
       <ConversationSection />
       <Footer />
     </div>
+    </LandingMotion>
   );
 }
