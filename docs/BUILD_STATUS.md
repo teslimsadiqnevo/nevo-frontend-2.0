@@ -687,6 +687,27 @@ then seed localStorage before first paint.
 
 ### Traps found while scoping (do not relearn these)
 
+- **A test file outside `src/lib`, `src/hooks` or `src/components` RUNS NOWHERE
+  and reports nothing.** `vitest.config` includes `src/lib/**/*.test.ts` (node)
+  and `src/{hooks,components}/**/*.test.{ts,tsx}` plus `src/**/*.dom.test.{ts,tsx}`
+  (dom). Anything else is silently skipped - not an error, not a warning, and the
+  suite still goes green. Five tests written at `src/context/PermissionContext.test.tsx`
+  never executed once, and the run reported PASS with a higher total than before
+  (another session's tests had landed the same afternoon), which is what made it
+  look like they had run. If a file lives outside those three directories, name it
+  `*.dom.test.tsx` so the `src/**` pattern catches it, and **check the reported
+  test COUNT went up by the number you wrote**, not just that the suite is green.
+- **A component whose mocked API call REJECTS fails the file, even when the
+  component catches it.** `mockRejectedValue`, an `async` throw, and a
+  `Promise.reject` with a no-op `.catch` attached were all reported as
+  `Error: <msg>` against the test, with no assertion failure, while the
+  success-path test in the same file rendered the same component fine. The
+  component's own `.catch` is attached correctly and the fix works in the
+  browser. This is why the five failed-read guards in PR #269 ship verified by
+  types and inspection rather than by tests: every admin screen fails this exact
+  way, so none of them can currently be tested for it. Worth solving properly -
+  it blocks the "component tests only on screens rendering a judgement about a
+  child" half of the plan above.
 - `useLiveQuery`'s effect begins `if (!getToken()) return;` - a hook test with no
   token exercises zero network logic and passes having tested an early return.
 - MSW handlers authored alongside the code inherit its bugs. A handler for the TOSSE
