@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { ConsentStatus } from "./consents";
 
 /**
  * What a teacher can read about one student.
@@ -182,7 +183,16 @@ export interface DashboardProgressRow {
  */
 
 /** The four states SCRUM-40 needs. `withdrawn` is now readable, not just causable. */
-export type ConsentState = "not_sent" | "pending" | "confirmed" | "withdrawn";
+/**
+ * The consent lifecycle, defined ONCE in `consents.ts` and aliased here.
+ *
+ * This was briefly declared twice - as `ConsentState` here with the right four
+ * values, and as `ConsentStatus` in `consents.ts` with only two - by two people
+ * fixing the same gap on the same afternoon. An enum with two definitions
+ * drifts, and the half that was wrong made `status === "withdrawn"` a type
+ * error, so the name stays for its callers and the values come from one place.
+ */
+export type ConsentState = ConsentStatus;
 
 /**
  * Who agreed, when, and through what. Every field but `status` is nullable,
