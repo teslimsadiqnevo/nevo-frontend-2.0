@@ -46,7 +46,7 @@ timings, and illustration crops match.
 ## Not satisfied — backend-blocked only
 
 These are the *only* gaps, and both wait on FastAPI contracts, not frontend work.
-Full detail in **`blocked-items-handoff.md`**.
+Full detail in **`BUILD_STATUS.md`**.
 
 1. **Consent gate can't truly block on D.1b.** The screen opens on a simulated
    pending spinner (1400ms) and then always proceeds — there is no real check

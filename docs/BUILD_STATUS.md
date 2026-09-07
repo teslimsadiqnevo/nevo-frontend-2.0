@@ -246,8 +246,9 @@ blockers are dead; these are the ones most likely to be repeated:
 - **The child's own consent gate is live and wired.** The broad claim "nothing carries
   per-student consent" is wrong — what is missing is reading consent for *another*
   student, which is a narrower and different ask.
-- **`docs/blocked-items-handoff.md` is six weeks stale** and every backend contract in it
-  is live. It is the single most likely source of a wrong blocker quote here.
+- **`docs/blocked-items-handoff.md` has been DELETED** (7 Sep). It was six weeks stale,
+  every backend contract in it had since shipped, and it was the single most likely
+  source of a wrong blocker quote. This file replaces it.
 - **Nine Jira tickets describe work already on main.** The board is desynchronised in both
   directions — SCRUM-117 sits in Idea while the TOSSE page shipped 2 Sep.
 
