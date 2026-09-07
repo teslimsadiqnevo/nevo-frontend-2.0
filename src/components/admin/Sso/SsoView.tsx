@@ -103,6 +103,8 @@ export function SsoView() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [status, setStatus] = useState<SsoStatus | null>(null);
   const [history, setHistory] = useState<RosterSyncHistory | null>(null);
+  // Distinct from `history === null`, which is also the not-yet-loaded state.
+  const [historyFailed, setHistoryFailed] = useState(false);
   const [busy, setBusy] = useState<Busy>("");
   const [confirming, setConfirming] = useState(false);
   const [notice, setNotice] = useState("");
@@ -130,7 +132,17 @@ export function SsoView() {
       .then((s) => {
         setStatus(s);
         setPhase("ready");
-        return ssoApi.syncHistory().then(setHistory).catch(() => {});
+        // `history?.failed_runs ?? 0` coalesces a FAILED read into the
+        // healthy branch below, so a school whose sync history did not answer
+        // was told its sync was fine. Track the failure separately.
+        setHistoryFailed(false);
+        return ssoApi
+          .syncHistory()
+          .then((h) => {
+            setHistory(h);
+            setHistoryFailed(false);
+          })
+          .catch(() => setHistoryFailed(true));
       })
       .catch((err: unknown) => {
         // A school that never connected one gets a 404. That is the ordinary
@@ -422,15 +434,19 @@ export function SsoView() {
                             read as healthy so long as the connection held. */}
                         {needsAttention
                           ? "Paused until we're reconnected"
-                          : (history?.failed_runs ?? 0) > 0
-                            ? "Syncing, with failures to look at"
-                            : "Healthy"}
+                          : historyFailed
+                            ? "Connected - sync history unavailable"
+                            : (history?.failed_runs ?? 0) > 0
+                              ? "Syncing, with failures to look at"
+                              : "Healthy"}
                       </span>
                       <p className="mt-1 text-sm text-nevo-near-black/62">
                         {`Last synced ${timeAgo(status.last_successful_sync_at)}`}
-                        {history
-                          ? ` · ${history.successful_runs} successful run${history.successful_runs === 1 ? "" : "s"}${history.failed_runs > 0 ? ` and ${history.failed_runs} failed` : ""} in the last ${history.window_days} days`
-                          : ""}
+                        {historyFailed
+                          ? " · we couldn't read the run history just now, so this does not account for failed runs"
+                          : history
+                            ? ` · ${history.successful_runs} successful run${history.successful_runs === 1 ? "" : "s"}${history.failed_runs > 0 ? ` and ${history.failed_runs} failed` : ""} in the last ${history.window_days} days`
+                            : ""}
                       </p>
                     </div>
                     <button

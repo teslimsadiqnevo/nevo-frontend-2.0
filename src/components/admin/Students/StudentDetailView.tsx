@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
+import { ReadFailed } from "../ReadFailed";
 import { erasable, statusLabel, studentStatus, wasHere } from "./status";
 import {
   Avatar,
@@ -59,6 +60,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
   const [student, setStudent] = useState<AdminStudentDetail | null>(null);
   const [classes, setClasses] = useState<AdminClass[]>([]);
   const [guardians, setGuardians] = useState<ParentLink[]>([]);
+  const [guardiansFailed, setGuardiansFailed] = useState(false);
   const [moving, setMoving] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [erasing, setErasing] = useState(false);
@@ -71,11 +73,21 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
         setClasses(cls);
         setPhase("ready");
         // Guardians are their own card and their own failure - a roster record
-        // is still worth showing when the parent list does not answer.
+        // is still worth showing when the parent list does not answer. And a
+        // FAILED read is not a child with no guardian on record: this screen
+        // exists to be shown to a parent, and the card below states real
+        // absences in almost the same shape.
+        setGuardiansFailed(false);
         studentsApi
           .parentLinks(studentId)
-          .then(setGuardians)
-          .catch(() => setGuardians([]));
+          .then((links) => {
+            setGuardians(links);
+            setGuardiansFailed(false);
+          })
+          .catch(() => {
+            setGuardians([]);
+            setGuardiansFailed(true);
+          });
       })
       .catch(() => setPhase("failed"));
   }, [studentId]);
@@ -222,7 +234,13 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
 
       <SectionLabel>Parent / guardian accounts</SectionLabel>
       <div className={cn(CARD, "mt-2.5")}>
-        {guardians.length === 0 ? (
+        {guardiansFailed ? (
+          <ReadFailed
+            className="px-6 py-[22px]"
+            what={`${firstName}’s guardians`}
+            onRetry={load}
+          />
+        ) : guardians.length === 0 ? (
           <div className="px-6 py-[22px]">
             <p className="m-0 text-[15px] font-semibold text-nevo-near-black">
               No guardian on the record

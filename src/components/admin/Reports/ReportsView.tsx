@@ -9,6 +9,7 @@ import {
   type TransformationMetrics,
 } from "@/lib/api/analytics";
 import { cn } from "@/lib/utils";
+import { ReadFailed } from "../ReadFailed";
 import { CARD, PRIMARY_BTN } from "../Roster/primitives";
 import { DualTrackBars, TrendLine, type DualTrackRow, type TrendPoint } from "./charts";
 
@@ -75,6 +76,9 @@ function formatPeriod(iso: string): string {
 
 export function ReportsView() {
   const [phase, setPhase] = useState<Phase>("loading");
+  // The outcomes read has its own failure: without it the trend card claims
+  // the SCHOOL has not taught enough, which is a statement about them.
+  const [outcomesFailed, setOutcomesFailed] = useState(false);
   const [health, setHealth] = useState<SchoolHealth | null>(null);
   const [outcomes, setOutcomes] = useState<OutcomePeriod[]>([]);
   const [mastery, setMastery] = useState<SchoolConceptMastery[]>([]);
@@ -88,10 +92,14 @@ export function ReportsView() {
       .then((h) => {
         setHealth(h);
         setPhase("ready");
+        setOutcomesFailed(false);
         analyticsApi
           .getOutcomes({ schoolId: h.schoolId })
-          .then((o) => setOutcomes(o.outcomes))
-          .catch(() => undefined);
+          .then((o) => {
+            setOutcomes(o.outcomes);
+            setOutcomesFailed(false);
+          })
+          .catch(() => setOutcomesFailed(true));
         analyticsApi
           .getSchoolMastery(h.schoolId)
           .then(setMastery)
@@ -253,14 +261,24 @@ export function ReportsView() {
               </>
             ) : (
               <div className={cn(CARD, "mt-6 px-6 py-12 text-center")}>
-                <h3 className="m-0 text-[17px] font-semibold text-nevo-near-black">
-                  Still gathering this cohort&rsquo;s picture
-                </h3>
-                <p className="mx-auto mt-2 max-w-[48ch] text-sm leading-[1.6] text-nevo-near-black/62">
-                  There aren&rsquo;t enough lessons yet to show a trend with
-                  confidence. It fills in on its own as your school keeps
-                  learning - nothing to set up.
-                </p>
+                {outcomesFailed ? (
+                  <ReadFailed
+                    className="mx-auto max-w-[48ch]"
+                    what="this cohort's lesson outcomes"
+                    onRetry={load}
+                  />
+                ) : (
+                  <>
+                    <h3 className="m-0 text-[17px] font-semibold text-nevo-near-black">
+                      Still gathering this cohort&rsquo;s picture
+                    </h3>
+                    <p className="mx-auto mt-2 max-w-[48ch] text-sm leading-[1.6] text-nevo-near-black/62">
+                      There aren&rsquo;t enough lessons yet to show a trend with
+                      confidence. It fills in on its own as your school keeps
+                      learning - nothing to set up.
+                    </p>
+                  </>
+                )}
               </div>
             )}
 
