@@ -12,9 +12,19 @@ import { DpaStep } from "./DpaStep";
  * before agreeing to it, so Continue stays disabled until the pane is scrolled.
  *
  * jsdom gives every element a scrollHeight of 0, so the "nothing to scroll"
- * branch in the component treats the pane as read on mount — which is exactly
- * the state these tests need.
+ * branch treats the pane as read on mount — which is the state these tests
+ * need. It runs in a `setTimeout(0)`, though, so every test here waits for
+ * Continue to be ENABLED rather than merely present. Waiting only for the
+ * element passed in isolation and failed under a loaded suite, because the
+ * click landed on a still-disabled button and did nothing.
  */
+
+/** Continue, once the read gate has opened. */
+async function enabledContinue(getByText: (t: string) => HTMLElement) {
+  const btn = () => getByText("Continue") as HTMLButtonElement;
+  await waitFor(() => expect(btn().disabled).toBe(false));
+  return btn();
+}
 
 vi.mock("@/lib/api/school", () => ({
   schoolApi: { saveOnboarding: vi.fn(async () => ({})) },
@@ -30,10 +40,10 @@ const renderStep = () =>
 describe("DpaStep acceptance gate", () => {
   it("says why, inline, when Continue is tapped unticked", async () => {
     const { container, getByText } = renderStep();
-    await waitFor(() => expect(getByText("Continue")).toBeInTheDocument());
+    const go = await enabledContinue(getByText);
 
     expect(shown(container)).not.toMatch(/Please accept the terms/);
-    getByText("Continue").click();
+    go.click();
 
     await waitFor(() =>
       expect(shown(container)).toMatch(
@@ -46,8 +56,8 @@ describe("DpaStep acceptance gate", () => {
 
   it("clears the message once the box is ticked", async () => {
     const { container, getByText } = renderStep();
-    await waitFor(() => expect(getByText("Continue")).toBeInTheDocument());
-    getByText("Continue").click();
+    const go = await enabledContinue(getByText);
+    go.click();
     await waitFor(() => expect(shown(container)).toMatch(/Please accept/));
 
     (container.querySelector('[role="checkbox"]') as HTMLElement).click();
@@ -55,11 +65,11 @@ describe("DpaStep acceptance gate", () => {
     await waitFor(() => expect(shown(container)).not.toMatch(/Please accept/));
   });
 
-  it("does not let an unread agreement be accepted at all", async () => {
-    // The read gate is legal, not cosmetic: Continue must not be tappable
-    // before the pane has been read to the end.
-    const { container } = renderStep();
-    const pane = container.querySelector("[class*='overflow-y-auto']");
-    expect(pane).not.toBeNull();
+  it("keeps Continue shut until the agreement has been read", () => {
+    // The read gate is legal, not cosmetic - this screen exists so a school
+    // CAN read the agreement before agreeing. Asserted synchronously, at first
+    // paint, before the "nothing to scroll" effect opens the gate.
+    const { getByText } = renderStep();
+    expect((getByText("Continue") as HTMLButtonElement).disabled).toBe(true);
   });
 });
