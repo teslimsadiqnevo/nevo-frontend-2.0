@@ -50,6 +50,7 @@ export function DpaStep({
   const [readToEnd, setReadToEnd] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
+  const [notAccepted, setNotAccepted] = useState(false);
   const pane = useRef<HTMLDivElement>(null);
 
   const clauses = dpaFor(schoolName);
@@ -72,7 +73,17 @@ export function DpaStep({
   };
 
   const accept = () => {
-    if (!accepted) return;
+    // Design's ruling (7 Sep): tapping Continue unticked shows an inline
+    // message rather than silently doing nothing. That required ENABLING the
+    // button - it was `disabled={!accepted}`, so the tap could never happen and
+    // an admin was stuck with no explanation, which screen readers skip
+    // entirely. The read-to-end gate stays hard: a school has to be able to
+    // read the agreement before agreeing to it.
+    if (!accepted) {
+      setNotAccepted(true);
+      return;
+    }
+    setNotAccepted(false);
     setPhase("saving");
     schoolApi
       .saveOnboarding({
@@ -132,7 +143,10 @@ export function DpaStep({
           role="checkbox"
           aria-checked={accepted}
           disabled={!readToEnd}
-          onClick={() => setAccepted((v) => !v)}
+          onClick={() => {
+            setAccepted((v) => !v);
+            setNotAccepted(false);
+          }}
           className={cn(
             "mt-0.5 flex size-5 flex-none items-center justify-center rounded-[5px] border transition-colors",
             !readToEnd
@@ -145,7 +159,11 @@ export function DpaStep({
           {accepted ? <CheckIcon size={12} /> : null}
         </button>
         <label
-          onClick={() => readToEnd && setAccepted((v) => !v)}
+          onClick={() => {
+            if (!readToEnd) return;
+            setAccepted((v) => !v);
+            setNotAccepted(false);
+          }}
           className={cn(
             "text-sm leading-[1.55]",
             readToEnd
@@ -161,6 +179,15 @@ export function DpaStep({
       {!readToEnd ? (
         <p className="mt-2 pl-8 text-[12.5px] text-nevo-near-black/50">
           Scroll to the end of the agreement to continue.
+        </p>
+      ) : notAccepted ? (
+        /* Inline, under the checkbox - no modal, no toast. Violet is the
+           alert colour here; the palette has no alarm colours. */
+        <p
+          role="alert"
+          className="mt-2 pl-8 text-[12.5px] font-medium text-nevo-navy"
+        >
+          Please accept the terms and conditions to continue.
         </p>
       ) : null}
 
@@ -183,7 +210,7 @@ export function DpaStep({
         <button
           type="button"
           onClick={accept}
-          disabled={!accepted || phase === "saving"}
+          disabled={!readToEnd || phase === "saving"}
           className={WIZARD_PRIMARY}
         >
           {phase === "saving" ? (
