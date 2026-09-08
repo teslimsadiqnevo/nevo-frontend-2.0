@@ -8,6 +8,7 @@ import { CARD, GHOST_BTN, PRIMARY_BTN, PlusIcon, ROW_DIVIDER } from "../Roster/p
 import { BulkImportModal } from "./BulkImportModal";
 import { InviteStatusPill, normaliseStatus } from "./inviteStatus";
 import { NewInviteModal } from "./NewInviteModal";
+import { NoAccess, failureKind } from "../NoAccess";
 
 /**
  * D19 School Invitations (SCRUM-79) - the single home for inviting teachers
@@ -33,7 +34,7 @@ import { NewInviteModal } from "./NewInviteModal";
  * documented.
  */
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 type Tab = InviteRole;
 
 const TOAST_MS = 3000;
@@ -114,7 +115,7 @@ export function InvitationsView() {
         setNow(Date.now());
         setPhase("ready");
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, []);
 
   useEffect(() => {
@@ -227,7 +228,9 @@ export function InvitationsView() {
 
         {phase === "loading" ? <div className={cn(CARD, "mt-6 h-[320px] animate-pulse")} /> : null}
 
-        {phase === "failed" ? (
+        {phase === "denied" ? (
+          <NoAccess what="invitations" />
+        ) : phase === "failed" ? (
           <div className={cn(CARD, "mt-6 px-[26px] py-7")}>
             <h3 className="text-[17px] font-semibold text-nevo-near-black">
               We couldn&rsquo;t load your invitations

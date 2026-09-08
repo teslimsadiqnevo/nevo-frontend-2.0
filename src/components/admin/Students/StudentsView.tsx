@@ -10,6 +10,7 @@ import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import { ConsentPill, blockedByConsent } from "./ConsentPill";
 import { statusLabel, studentStatus } from "./status";
+import { NoAccess, failureKind } from "../NoAccess";
 import {
   Avatar,
   CARD,
@@ -37,7 +38,7 @@ import {
  * "Unknown", never "Not sent" - see `ConsentPill`.
  */
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 
 const SEARCH_BAR =
   "flex h-[42px] w-full max-w-[340px] flex-1 items-center gap-[9px] rounded-[10px] border-[1.5px] border-nevo-near-black/10 bg-nevo-cream-elevated px-[15px] text-[14.5px] text-nevo-near-black outline-none transition-colors placeholder:text-nevo-near-black/50 focus-within:border-nevo-navy";
@@ -106,7 +107,7 @@ export function StudentsView() {
             .catch(() => undefined);
         });
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, []);
 
   useEffect(() => {
@@ -163,7 +164,9 @@ export function StudentsView() {
 
         {phase === "loading" ? <div className={cn(CARD, "mt-[22px] h-[320px] animate-pulse")} /> : null}
 
-        {phase === "failed" ? (
+        {phase === "denied" ? (
+          <NoAccess what="your students" />
+        ) : phase === "failed" ? (
           <div className={cn(CARD, "mt-[22px] px-[26px] py-7")}>
             <h3 className="text-[17px] font-semibold text-nevo-near-black">
               We couldn&rsquo;t load your students

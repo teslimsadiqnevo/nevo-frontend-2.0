@@ -7,6 +7,7 @@ import {
   type AdaptationEventRow,
 } from "@/lib/api/schoolIntelligence";
 import { cn } from "@/lib/utils";
+import { NoAccess, failureKind } from "../NoAccess";
 
 /**
  * D21 Adaptation log - the receipts behind "adaptations this week". A
@@ -36,7 +37,7 @@ import { cn } from "@/lib/utils";
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
 const PAGE = 5;
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 
 const RANGES = [
   { label: "This week", days: 7 },
@@ -104,7 +105,7 @@ export function AdaptationLogView() {
           setTotal(log.total);
           setPhase("ready");
         })
-        .catch(() => setPhase("failed"));
+        .catch((err: unknown) => setPhase(failureKind(err)));
     },
     [],
   );
@@ -165,6 +166,7 @@ export function AdaptationLogView() {
           <div className={cn(CARD, "mt-5 h-[280px] animate-pulse")} />
         )}
 
+        {phase === "denied" && <NoAccess what="the adaptation log" />}
         {phase === "failed" && (
           <div className={cn(CARD, "mt-5 px-[26px] py-7")}>
             <h3 className="text-[17px] font-semibold text-nevo-near-black">

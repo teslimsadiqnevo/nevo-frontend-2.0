@@ -27,6 +27,7 @@ import {
 } from "../Roster/primitives";
 import { AssignTeacherSheet } from "./AssignTeacherSheet";
 import { ClassFormSheet } from "./ClassFormSheet";
+import { NoAccess, failureKind } from "../NoAccess";
 
 /**
  * D5b Class detail - one class, everything true about it.
@@ -52,7 +53,7 @@ import { ClassFormSheet } from "./ClassFormSheet";
  * returns it, so the section is not built.
  */
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 
 export function ClassDetailView({ classId }: { classId: string }) {
   const [phase, setPhase] = useState<Phase>("loading");
@@ -76,7 +77,7 @@ export function ClassDetailView({ classId }: { classId: string }) {
         setStudents(s);
         setPhase("ready");
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, [classId]);
 
   useEffect(() => {
@@ -92,6 +93,14 @@ export function ClassDetailView({ classId }: { classId: string }) {
     return (
       <Wrapper>
         <div className={cn(CARD, "h-[420px] animate-pulse")} />
+      </Wrapper>
+    );
+  }
+
+  if (phase === "denied") {
+    return (
+      <Wrapper>
+        <NoAccess what="this class" />
       </Wrapper>
     );
   }

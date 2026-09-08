@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { CARD, PRIMARY_BTN, ROW_DIVIDER } from "../Roster/primitives";
 import { NotificationPreferences } from "./NotificationPreferences";
 import { NotificationRow } from "./NotificationRow";
+import { NoAccess, failureKind } from "../NoAccess";
 
 /**
  * D13b Notifications - the record and the preferences (SCRUM-100).
@@ -52,7 +53,7 @@ import { NotificationRow } from "./NotificationRow";
  * value either, so this needs a design and backend answer together.
  */
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 type View = "inbox" | "archived" | "preferences";
 
 const PAGE = 20;
@@ -131,7 +132,7 @@ export function NotificationsView() {
         setAllRead(feed.unreadCount === 0);
         setPhase("ready");
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, []);
 
   useEffect(() => {
@@ -295,7 +296,9 @@ export function NotificationsView() {
               <div className={cn(CARD, "mt-4 h-[320px] animate-pulse")} />
             ) : null}
 
-            {phase === "failed" ? (
+            {phase === "denied" ? (
+          <NoAccess what="these notifications" />
+        ) : phase === "failed" ? (
               <div className={cn(CARD, "mt-4 px-[26px] py-7")}>
                 <h3 className="text-[17px] font-semibold text-nevo-near-black">
                   We couldn&rsquo;t load your notifications

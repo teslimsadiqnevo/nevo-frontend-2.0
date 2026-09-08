@@ -23,6 +23,7 @@ import {
 } from "../Roster/primitives";
 import { RemoveAccessSheet } from "./RemoveAccessSheet";
 import { StatusPill, isInvited } from "./status";
+import { NoAccess, failureKind } from "../NoAccess";
 
 /**
  * D6 teacher detail - oversight, not performance review.
@@ -48,7 +49,7 @@ import { StatusPill, isInvited } from "./status";
  * `student_headcount` field exists either.
  */
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 
 export function TeacherDetailView({ teacherId }: { teacherId: string }) {
   const router = useRouter();
@@ -70,7 +71,7 @@ export function TeacherDetailView({ teacherId }: { teacherId: string }) {
         setAllClasses(all);
         setPhase("ready");
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, [teacherId]);
 
   useEffect(() => {
@@ -81,6 +82,14 @@ export function TeacherDetailView({ teacherId }: { teacherId: string }) {
     return (
       <Wrapper>
         <div className={cn(CARD, "h-[420px] animate-pulse")} />
+      </Wrapper>
+    );
+  }
+
+  if (phase === "denied") {
+    return (
+      <Wrapper>
+        <NoAccess what="this teacher" />
       </Wrapper>
     );
   }

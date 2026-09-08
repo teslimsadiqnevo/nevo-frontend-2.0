@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/sso";
 import { schoolApi, type School } from "@/lib/api/school";
 import { cn } from "@/lib/utils";
+import { NoAccess, failureKind } from "../NoAccess";
 
 /**
  * D10 IT & SSO Setup, with D10b's ongoing-management sections stacked into the
@@ -60,7 +61,7 @@ const DISCONNECT_CONSEQUENCES = [
   "Nothing is deleted, and you can connect a provider again later.",
 ];
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 type Busy = "" | "syncing" | "reauthorising" | "disconnecting";
 
 function StatusPill({ status }: { status: "connected" | "attention" | "off" }) {
@@ -152,7 +153,9 @@ export function SsoView() {
           setPhase("ready");
           return;
         }
-        setPhase("failed");
+        // A refused scope is not a broken read - the IT & SSO screen is
+        // `it_sso`, so an admin without it lands here by deep link routinely.
+        setPhase(failureKind(err));
       });
   }, []);
 
@@ -258,6 +261,7 @@ export function SsoView() {
           <div className={cn(CARD, "mt-6 h-[220px] animate-pulse")} />
         )}
 
+        {phase === "denied" && <NoAccess what="IT and SSO" />}
         {phase === "failed" && (
           <div className={cn(CARD, "mt-6 px-[26px] py-7")}>
             <h3 className="text-[17px] font-semibold text-nevo-near-black">

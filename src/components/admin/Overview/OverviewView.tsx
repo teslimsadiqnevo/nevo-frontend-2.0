@@ -15,6 +15,7 @@ import {
 } from "./overviewGettingStarted";
 import { schoolApi, type SchoolNarrative, type SchoolRosterCounts } from "@/lib/api/school";
 import { WORTH_A_GLANCE } from "./overviewSample";
+import { NoAccess, failureKind } from "../NoAccess";
 
 /**
  * D04 Overview Dashboard - the first thing a general-oversight admin sees,
@@ -56,7 +57,7 @@ import { WORTH_A_GLANCE } from "./overviewSample";
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 
 function SampleNote({ children }: { children: React.ReactNode }) {
   return (
@@ -100,7 +101,7 @@ export function OverviewView() {
         setAdaptationTotal(log?.total ?? a.adaptationEventsLogged);
         setPhase("ready");
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, []);
 
   useEffect(() => {
@@ -130,6 +131,7 @@ export function OverviewView() {
           <div className={cn(CARD, "mt-6 h-[300px] animate-pulse")} />
         )}
 
+        {phase === "denied" && <NoAccess what="the school overview" />}
         {phase === "failed" && (
           <div className={cn(CARD, "mt-6 px-[26px] py-7")}>
             <h3 className="text-[17px] font-semibold text-nevo-near-black">

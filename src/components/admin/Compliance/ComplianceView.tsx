@@ -10,6 +10,7 @@ import {
 import { getToken } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 import { labelHero, ndpaClaims } from "./ndpaClaims";
+import { NoAccess, failureKind } from "../NoAccess";
 
 /**
  * D22 NDPA compliance audit - the drill-down that turns the Overview's
@@ -38,7 +39,7 @@ import { labelHero, ndpaClaims } from "./ndpaClaims";
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 type Export = "idle" | "working" | "done" | "failed";
 
 function fmtDate(iso: string): string {
@@ -62,7 +63,7 @@ export function ComplianceView() {
         setAudit(a);
         setPhase("ready");
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, []);
 
   useEffect(() => {
@@ -143,6 +144,7 @@ export function ComplianceView() {
           <div className={cn(CARD, "mt-6 h-[260px] animate-pulse")} />
         )}
 
+        {phase === "denied" && <NoAccess what="the compliance audit" />}
         {phase === "failed" && (
           <div className={cn(CARD, "mt-6 px-[26px] py-7")}>
             <h3 className="text-[17px] font-semibold text-nevo-near-black">

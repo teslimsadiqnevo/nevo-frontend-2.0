@@ -13,6 +13,7 @@ import {
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import { Avatar, CARD, GHOST_BTN, PRIMARY_BTN, ROW_DIVIDER } from "../Roster/primitives";
+import { NoAccess, failureKind } from "../NoAccess";
 
 /**
  * D8b Learner Profile - the SENCo's plain-language view of one learner.
@@ -49,7 +50,7 @@ import { Avatar, CARD, GHOST_BTN, PRIMARY_BTN, ROW_DIVIDER } from "../Roster/pri
  * something richer.
  */
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 
 /** Readable names for the accommodation and signal enums. */
 function humanise(value: string): string {
@@ -143,7 +144,7 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
           .then(setAdaptations)
           .catch(() => setFailed((f) => ({ ...f, adaptations: true })));
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, [studentId]);
 
   useEffect(() => {
@@ -154,6 +155,14 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
     return (
       <Wrapper>
         <div className={cn(CARD, "h-[420px] animate-pulse")} />
+      </Wrapper>
+    );
+  }
+
+  if (phase === "denied") {
+    return (
+      <Wrapper>
+        <NoAccess what="this learner’s profile" />
       </Wrapper>
     );
   }
