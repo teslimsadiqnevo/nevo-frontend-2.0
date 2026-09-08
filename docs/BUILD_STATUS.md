@@ -271,6 +271,37 @@ Two browsers, or one profile per console, avoids it entirely. Worth knowing that
 `useDisplayName` prefers the device-remembered name, so a signed-OUT student
 screen can still greet you by name — the greeting is not evidence of a session.
 
+### The backend proxy now has two timeouts, and a 504 — changed 8 Sep
+
+`src/app/api/backend/[...path]/route.ts` is shared by all three consoles, so this
+affects everyone. It used to abort **every** upstream call at 60s and report the abort
+as `502 "The backend is unreachable right now."`
+
+That is what made lesson regeneration look broken. Three attempts — as a student, as a
+SENCo admin, as a teacher — all "failed" at exactly 60 seconds, and it was read as the
+backend being down. It was our own clock. **The backend was never the thing that
+failed, and this nearly went to Teslim as his bug.**
+
+Two things changed (PR #291):
+
+- **Generation routes get 240s**, the rest keep 60s: `api/content/parse`,
+  `api/content/upload`, `api/content/lessons/{id}/regenerate`, `api/v1/uploads`,
+  `.../uploads/batch`, `.../uploads/{id}/retry-pages`. **If you add an upstream route
+  that generates or parses rather than reads, add it to `LONG_RUNNING`** — otherwise it
+  gets the read budget and you will debug the wrong end.
+- **A timeout is now `504`**, with the budget named in `detail`; `502` is kept for
+  genuine unreachability. If you have error handling that assumes 502 means "backend
+  down", it now also needs to expect 504 meaning "backend still working, we stopped
+  waiting". Nothing branched on the old string when this landed (`TeacherPasswordReset`
+  and `FeedbackPanel` both match on `err.status === 0`), so nothing needed changing —
+  but check yours if you add any.
+
+Still unanswered, and Teslim's to answer: whether regeneration actually completes
+server-side when it is not abandoned, and whether it needs the original source document
+— `Fractions Lesson 3` may have been seeded directly rather than parsed from an upload.
+The re-read after the abandoned admin attempt showed the lesson **unchanged**, so
+nothing was half-written.
+
 ### Before you push to main, check what you are actually pushing
 
 One `.git`, three sessions, one working tree — so **your local `main` can contain
