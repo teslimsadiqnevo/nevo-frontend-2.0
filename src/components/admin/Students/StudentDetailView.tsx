@@ -27,6 +27,7 @@ import {
 import { EraseRecordModal } from "./EraseRecordModal";
 import { MoveStudentSheet } from "./MoveStudentSheet";
 import { NoAccess, failureKind } from "../NoAccess";
+import { WriteFailed } from "../WriteFailed";
 
 /**
  * D7b Student detail - the admin-scoped record for one student.
@@ -67,6 +68,8 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [erasing, setErasing] = useState(false);
   const [working, setWorking] = useState(false);
+  /** The deactivate was refused. Hold the dialog and say so. */
+  const [deactivateFailed, setDeactivateFailed] = useState(false);
 
   const load = useCallback(() => {
     Promise.all([studentsApi.get(studentId), classesApi.list(true)])
@@ -437,7 +440,10 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
         <Modal
           title={`Remove ${firstName} from the school`}
           subtitle={name}
-          onClose={() => setConfirmDeactivate(false)}
+          onClose={() => {
+            setConfirmDeactivate(false);
+            setDeactivateFailed(false);
+          }}
           footer={
             working ? (
               <div className="flex flex-1 items-center justify-center gap-2.5 py-3">
@@ -450,13 +456,16 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                   type="button"
                   onClick={() => {
                     setWorking(true);
+                    setDeactivateFailed(false);
                     studentsApi
                       .deactivate(student.id)
                       .then(() => {
                         setConfirmDeactivate(false);
                         load();
                       })
-                      .catch(() => undefined)
+                      // Swallowed entirely. The dialog returned to rest under
+                      // the words "their seat frees up", having freed nothing.
+                      .catch(() => setDeactivateFailed(true))
                       .finally(() => setWorking(false));
                   }}
                   className={cn(PRIMARY_BTN, "flex-1 justify-center")}
@@ -465,7 +474,10 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setConfirmDeactivate(false)}
+                  onClick={() => {
+                    setConfirmDeactivate(false);
+                    setDeactivateFailed(false);
+                  }}
                   className={GHOST_BTN}
                 >
                   Keep them active
@@ -479,6 +491,12 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
             Everything they have built is kept, and you can bring them back
             whenever you need to.
           </p>
+          {deactivateFailed ? (
+            <WriteFailed
+              className="mt-4"
+              what={`remove ${firstName} from the school`}
+            />
+          ) : null}
         </Modal>
       ) : null}
 

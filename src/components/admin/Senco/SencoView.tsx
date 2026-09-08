@@ -8,6 +8,7 @@ import { studentsApi, type AdminStudentRow } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import { NoAccess, failureKind } from "../NoAccess";
+import { WriteFailed } from "../WriteFailed";
 import {
   Avatar,
   CARD,
@@ -88,6 +89,8 @@ export function SencoView() {
   const [search, setSearch] = useState("");
   const [classId, setClassId] = useState("");
   const [now, setNow] = useState(0);
+  /** A "mark as seen" the server refused. The row comes back; say why. */
+  const [ackFailed, setAckFailed] = useState(false);
 
   const load = useCallback(() => {
     Promise.all([
@@ -139,13 +142,20 @@ export function SencoView() {
   }, [students, search, classId, classOf]);
 
   const acknowledge = (flagId: string) => {
+    setAckFailed(false);
     setFlags((prev) =>
       prev.map((f) => (f.id === flagId ? { ...f, acknowledged: true } : f)),
     );
     intelligenceApi.acknowledgeFlag(flagId).catch(() =>
-      setFlags((prev) =>
-        prev.map((f) => (f.id === flagId ? { ...f, acknowledged: false } : f)),
-      ),
+      // The rollback was already here and is right; what was missing is any
+      // word of it. A row that vanishes and silently returns reads as a UI
+      // glitch, not as "we did not record that".
+      setFlags((prev) => {
+        setAckFailed(true);
+        return prev.map((f) =>
+          f.id === flagId ? { ...f, acknowledged: false } : f,
+        );
+      }),
     );
   };
 
@@ -233,6 +243,10 @@ export function SencoView() {
         ) : null}
 
         {/* ------------------------------------------------ NEEDS ATTENTION */}
+        {phase === "ready" && view === "attention" && ackFailed ? (
+          <WriteFailed className="mt-6" what="record that as seen" />
+        ) : null}
+
         {phase === "ready" && view === "attention" ? (
           openFlags.length === 0 ? (
             <div className={cn(CARD, "mt-6 px-6 py-14 text-center")}>
