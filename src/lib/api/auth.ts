@@ -155,6 +155,23 @@ export const authApi = {
   /** Resolve the current session (requires a stored token). */
   session: () => api.get<SessionInfo>("/api/v1/auth/session"),
 
+  /**
+   * Trade a LIVE token for a fresh one (7 Sep). Takes no body; the session it
+   * renews is the one the Bearer header names.
+   *
+   * BEARER, WHICH DECIDES HOW THIS MUST BE USED. It cannot resurrect a dead
+   * session - by the time a request 401s, or `getSession()` has cleared itself
+   * past `expiresAt`, there is no token left to present and this would 401
+   * too. So it has to run BEFORE expiry, on a timer, not from a failure
+   * handler. See `useSessionRefresh`.
+   *
+   * The response is the login shape, so it goes through the same `store()`:
+   * one place writes a session, and the role cookie the route guard reads is
+   * rewritten with the new expiry as a consequence.
+   */
+  refresh: () =>
+    api.post<LoginResponse>("/api/v1/auth/session/refresh").then(store),
+
   /** End the session server-side and locally - local clear always happens. */
   logout: async (): Promise<void> => {
     try {

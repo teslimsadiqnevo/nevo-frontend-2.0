@@ -10,6 +10,7 @@ import { useBehaviouralCapture } from "@/hooks";
 import { NotificationBell } from "./NotificationBell";
 import { OfflineTakeover, useOnline } from "./OfflineTakeover";
 import { useHasSession } from "@/hooks/useHasSession";
+import { useSessionRefresh } from "@/hooks/useSessionRefresh";
 import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
 import { useDisplayName } from "./useDisplayName";
 
@@ -27,6 +28,10 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   // SCRUM-76: on-device behavioural timing capture for the affective engine -
   // ephemeral IndexedDB only, purged at session end, never transmitted.
   useBehaviouralCapture(true);
+  // Renews the session before it expires. Mounted here rather than on a tab,
+  // so it covers the full-screen routes below too - a child mid-lesson is the
+  // case that matters, and the one the old behaviour handled worst.
+  useSessionRefresh();
   const { textSize } = useAccessibility();
   // The chrome calls the student by their own name, not the fixture's.
   const student = useDisplayName();

@@ -50,10 +50,11 @@ export interface AdaptSegment {
 
 /**
  * `ContentSegmentType` - the engine's own vocabulary, and NOT the same enum as
- * a lesson's `contentType` (`LessonContentType`). They share only
- * `worked_example`, `definition` and `summary`; sending a lesson's own
- * `explanatory_text` is a 422, verified against the deployed API. The
- * translation lives with the lesson adapter, in `lib/lessons/adaptation.ts`.
+ * a lesson's `contentType` (`LessonContentType`). `calculation` joined it on
+ * 7 Sep, so the two now share four values - but `explanatory_text`,
+ * `practice_question` and `visual_diagram` still have no counterpart, and
+ * sending one is a 422, verified against the deployed API. The translation
+ * lives with the lesson adapter, in `lib/lessons/adaptation.ts`.
  */
 export type AdaptSegmentType =
   | "diagram"
@@ -63,7 +64,8 @@ export type AdaptSegmentType =
   | "summary"
   | "practice"
   | "interaction"
-  | "checkpoint";
+  | "checkpoint"
+  | "calculation";
 
 /** `lesson_load` on open; `in_lesson` while the child is working. */
 export type AdaptationMode = "lesson_load" | "in_lesson";
