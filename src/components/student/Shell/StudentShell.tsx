@@ -21,6 +21,18 @@ import { useDisplayName } from "./useDisplayName";
  * onboarding and the immersive Lesson Player — render bare, with no chrome
  * ("no in-lesson sidebar").
  *
+ * ASK NEVO IS THE EXCEPTION, AND IT IS NOT CHROME. Frame 26 governs it: "always
+ * reachable, never interruptive". It was mounted below the full-screen early
+ * return, so it sat on every tab and was missing from the one screen where a
+ * child actually gets stuck. Its trigger is right-aligned and the player's
+ * chevrons are centred, so it costs the player no room and displaces nothing.
+ *
+ * NOT on the other full-screen routes, and each for its own reason. The daily
+ * warm-up is a calibrated baseline activity - offering help inside it would
+ * contaminate what it measures. Onboarding has no lesson to ask about and no
+ * session to ask with. Feedback and Change PIN are utility screens with their
+ * own way back.
+ *
  * The shell is a fixed-height viewport frame: the sidebar/nav stay put while only
  * the content region scrolls.
  */
@@ -62,7 +74,12 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
     // deliberately excluded: the baseline activities are spatially
     // calibrated, and scaling them would distort what they measure.
     if (pathname.startsWith("/student/onboarding")) return <>{children}</>;
-    return <div style={{ zoom: TEXT_ZOOM[textSize] }}>{children}</div>;
+    return (
+      <div style={{ zoom: TEXT_ZOOM[textSize] }}>
+        {children}
+        {isLesson(pathname) && <AskNevo />}
+      </div>
+    );
   }
 
   const activeHref = STUDENT_NAV.find(
@@ -135,15 +152,23 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * The immersive player, and the review session that reuses it wholesale (37d).
+ *
+ * Only the BARE lesson route is the player; its sub-routes (e.g. `/summary`)
+ * are ordinary in-shell screens and keep the sidebar/nav.
+ */
+function isLesson(pathname: string): boolean {
+  return (
+    /^\/student\/lessons\/[^/]+\/?$/.test(pathname) ||
+    /^\/student\/lessons\/[^/]+\/review-session\/?$/.test(pathname)
+  );
+}
+
 /** Onboarding and the lesson player (`/student/lessons/<id>`) run without chrome. */
 function isFullScreen(pathname: string): boolean {
   if (pathname.startsWith("/student/onboarding")) return true;
-  // Only the bare lesson route is the immersive player; its sub-routes (e.g.
-  // `/summary`) are ordinary in-shell screens and keep the sidebar/nav. The
-  // review session (37d) reuses the player wholesale, so it runs bare too.
-  if (/^\/student\/lessons\/[^/]+\/?$/.test(pathname)) return true;
-  if (/^\/student\/lessons\/[^/]+\/review-session\/?$/.test(pathname))
-    return true;
+  if (isLesson(pathname)) return true;
   // Feedback + Change PIN are full-screen views with their own back chevron
   // (Nevo Student App: `feedback` / `changepin`).
   if (pathname === "/student/profile/feedback") return true;
