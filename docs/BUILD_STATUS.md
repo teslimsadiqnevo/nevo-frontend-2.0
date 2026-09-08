@@ -462,18 +462,24 @@ triggers it?**
 
 ## Admin console
 
-Surveyed in depth 6 Sep (eight-dimension audit at `87192e8`, every blocker
-adversarially re-verified; the quality and ops dimensions did not report, so test debt
-and deploy/monitoring are still unassessed). **43 `TODO(api)` in components** remain the
-largest single block in the codebase, spread across Students, Onboarding, Teachers, Senco,
-Invitations and Classes.
+**Every frontend-fixable launch blocker is shipped, and nothing in this console
+is frontend-blocked any more.** What remains needs design, business or counsel -
+see Standing asks.
 
-18 of 27 buildable `Dxx` screens have a real component (~67%; ~78% counting the honest
-partials D04, D07, D20). 17 of 21 admin routes call live endpoints. About half the
-day-one flows complete end to end: register, sign in, invite a teacher, redeem the join
-link, manage classes/teachers/students, SSO management, IEP export and compliance audit
-all work. Reset a password, see per-student consent, see an invoice, or change any
-setting do not.
+Surveyed in depth 6 Sep (eight-dimension audit at `87192e8`, every blocker
+adversarially re-verified; the quality and ops dimensions did not report, so test
+debt and deploy/monitoring remain unassessed). That audit found nine launch
+blockers; all nine are closed, seven by PRs #251, #257, #258, #264, #267, #269
+and #281, and two by the 7 Sep backend deploy.
+
+The 7 Sep deploy changed the picture more than anything else this week - consent,
+the school narrative, typed roster counts, per-student billing fields, a manual
+transfer endpoint and a DPA acceptance record all landed together, and every
+claim in it verified against the deployed spec first time, which had not happened
+before on this project.
+
+Still true: **43 `TODO(api)` in components**, spread across Students, Onboarding,
+Teachers, Senco, Invitations and Classes.
 
 ### BUILDABLE — nothing blocks these
 
@@ -485,13 +491,13 @@ setting do not.
   **shipped, PR #257.** A school with no lessons taught now gets D04's own
   "Getting started" checklist; a tick is only ever set from a signal we hold.
 - ~~Both invite flows asserted a parent consent request was sent~~ — **shipped,
-  PR #258.** NOTE THE FINDING BEHIND IT: nothing in the product requests parent
-  consent at all. `consentsApi.requestParentConsent` is typed with NO CALLER, the
-  invitation response carries no consent field, and consent is requested against
-  a STUDENT id that does not exist until the invite is accepted. With
-  `email_not_configured` a live state, invited students' parents are probably
-  never contacted by any path — a launch blocker on the consent gate itself,
-  backend or product, not frontend.
+  PR #258**, and the gap behind it is now CLOSED. At the time nothing in the
+  product requested consent at all: `requestParentConsent` was typed with no
+  caller and could not be wired from the invite flow, because consent needs a
+  STUDENT id that does not exist until an invite is accepted. The backend now
+  queues parent consent automatically when an invited student with parent
+  contact details joins, and invitations carry `consentStatus`. The copy still
+  does not claim a request was sent - it says what is true either way.
 - ~~`PermissionProvider` resolved once and never re-asked~~ — **shipped, PR #264.**
   It now separates an ANSWER from an ABSENCE: `ready` is final (including a real
   answer of no scopes), while `skipped` and `failed` are re-asked.
@@ -511,24 +517,66 @@ setting do not.
   Verified by types and inspection, NOT by tests — see the rejection-mocking trap
   under Testing.
 
-### NEEDS BACKEND
+- ~~The roster could not say who may begin lessons~~ — **shipped, PR #281.** D07's
+  whole purpose. Consent column in four states, the "3 can't begin lessons yet"
+  count clause, and D07b's card naming the actor and date. Two rules pinned by
+  tests: an ABSENT consent renders "Unknown", never "Not sent", and consent is
+  never derived from account status - a student can be Active and Withdrawn.
+- ~~Billing had no cost sheet~~ — **shipped, PR #284.** `pricingModel` is a const
+  `"per_student"` in the contract, so the dispute is settled there. Computed in
+  integer minor units from the decimal string, from `activeStudentCount` - not
+  `studentsProfiled`, not `invitedStudents`. VAT at 7.5% is Nigerian and is
+  applied to NGN only; a USD or GBP school sees the subtotal and is told tax is
+  not calculated here.
+- ~~"I've made this transfer" was optimistic~~ — **shipped, PR #284.** It calls
+  `manual-transfer` now. The bank reference is an IDEMPOTENCY KEY: a repeat
+  returns the original transaction with a message saying so, and the panel shows
+  the backend's own words rather than treating it as a failure.
+- ~~The Overview disclaimed its own figures~~ — **shipped, PR #287.** The school's
+  own narrative, plus the Classes and Teachers tiles that had no source at all.
+  Active and invited are never summed - separate populations, per backend.
+- ~~The DPA acceptance was an untyped blob~~ — **shipped, PR #288.** A typed record
+  with the accepting admin. Client sends only the version.
+
+### NEEDS BACKEND — all four closed on 7 Sep
+
+| thing | outcome |
+|---|---|
+| Admin notification events | **Delivered.** Six admin types now arrive. The inbox needed NO frontend change to show them - it was built to render whatever comes - so it is no longer empty on day one. Typed in PR #288. |
+| School narrative | **Delivered.** `GET /api/v1/school/narrative`, with `source` a const `"live_school_data"`. The Overview shows the school's own summary and the sample note is deleted, not reworded (PR #287). |
+| DPA acceptance | **Delivered.** A typed record carrying version, accepting admin and timestamp. The client sends only the version; the rest is stamped server-side so it cannot drift (PR #288). |
+| Scope enforcement | **ANSWERED: scopes ARE enforced.** An admin token without `oversight` gets 403 from `GET /api/v1/admin/team`. That also confirms the 401/403 split shipped in PR #267 - 401 ends the session, 403 does not - was the right call. |
+
+Still open, and NOT frontend work:
 
 | thing | why |
 |---|---|
-| Per-student consent | No GET returns consent for any student but the child themselves, and `ConsentStatus` is `[pending, confirmed]` where D07 needs four pills. Withdrawal is causable via the parent rights endpoint with **no way to read it back**. Blocks D07's column, count and row action, D07b's consent card, and the D5b roster pill. |
-| Admin notification events | `NotificationType` carries no admin events, so the inbox and popover are empty on day one. |
-| School narrative | Nothing writes a school's own board summary; D04 leads with a card whose own note says the figures are not this school's. |
-| DPA acceptance | Schools accept 0.9-draft wording and the only record — version + timestamp, no admin id — is written into the untyped `school.profile.onboarding` blob. |
-| Scope enforcement | **UNKNOWN, not confirmed.** `proxy.ts` is optimistic and checks role, never scope. One request with a roster-only token against `/admin/team` settles it. |
+| A `category` on the notification ROW | `NotificationCategory` exists for preferences, but `NotificationResponse` carries only `type`. So the category filter, the per-category label and "mark these as read" have no source. Deriving one from `type` would be an invented mapping, and three of SCRUM-100's six admin categories (roster, SSO, teacher) have no enum value to map onto - this needs design and backend together. |
+| Receiving bank account | Teslim is building the endpoint. `billingApi.receivingAccount` is a typed seam with a PROVISIONAL path; it 404s today and the panel says details are unavailable rather than inventing them (PR #274). Confirm the path and field names when it lands. |
 
-### NEEDS DESIGN
+### NEEDS DESIGN — ruled on 7 Sep
 
-- Where a non-oversight admin lands. SCRUM-39 lists Overview for billing-only; D17 IT Home
-  and D18 Finance Home have no route. A bursar currently has nowhere to go.
-- D03 draws no way to change an existing admin's scopes, though the endpoint is live.
-- The NDPA non-zero compliance state is drawn nowhere school-facing.
-- Three of the four `inferred` nav scopes are actually settled by SCRUM-39's own item map;
-  only Settings remains genuinely unmapped.
+- **Non-oversight admin landing: DEFERRED to v1.5.** At launch the admin users are
+  proprietors and academic directors; no school signs in with billing-only or
+  curriculum-only scope. Ship Overview for `oversight` admins, which is what the
+  rail already does. D17 and D18 stay unbuilt.
+- **Changing an existing admin's scopes: DEFERRED to v1.5.** The endpoint is live;
+  the UI comes later.
+- **NDPA non-zero state (D22b): DEFERRED, do not build.** Design withdrew it -
+  D22b superseding item 5 was their error. The safeguarding concern stands and
+  counsel is to weigh in on the data shape first: a finding is
+  `{table, recordId, field, term}`, where `term` is the flagged TEXT and
+  `recordId` identifies a record, so rendering it school-facing risks showing a
+  diagnostic label about an identifiable child. Four of D22b's six elements have
+  no source either - no category, no description, no flagged date, no resolve.
+- **`curriculum` scope: not in use at launch.** Reserved. No nav item, no route,
+  and an admin holding only it would get an empty rail - deferred deliberately.
+- **Settings scope: `oversight` IS the senior-admin scope.** Teslim is holding the
+  remap until design says which sub-pages are meant, because moving Settings out
+  of `it_sso` would lock the IT admin out of `/admin/settings/sso`.
+- **D11d Plan Options: not built.** It introduces a second plan (per-term) that the
+  locked v1 model does not have, and D11 says "no tiers, no plan selection" - design
+  flagged the conflict themselves and D11 needs a follow-up to reconcile.
 
 ---
 
@@ -798,6 +846,22 @@ then seed localStorage before first paint.
   look like they had run. If a file lives outside those three directories, name it
   `*.dom.test.tsx` so the `src/**` pattern catches it, and **check the reported
   test COUNT went up by the number you wrote**, not just that the suite is green.
+- **A MOCK THAT NARROWS A SIGNATURE HIDES WHAT YOU ARE ASSERTING.** A spy wired
+  as `acceptDpa: (v) => spy(v)` forwards only the first argument, so a test
+  asserting "this call sends ONLY the version" could never fail - a second
+  argument was swallowed before the spy saw it, and a deliberate mutation passed
+  clean. Forward every argument (`(...args) => spy(...args)`). The tell was
+  `tsc`, which separately flagged the mock as taking zero arguments; the test
+  runner was perfectly happy.
+- **MUTATE THE CODE TO PROVE A TEST MEANS SOMETHING.** Two tests written this week
+  looked green while testing nothing at all - the one above, and five that were
+  never collected because of the directory rule below. Breaking the behaviour on
+  purpose and watching the RIGHT test fail is the only cheap check that a test is
+  load-bearing, and it has caught a false green every time it has been run here.
+- **Do not `grep | head` vitest's output.** It re-renders the summary line as
+  files complete, so a truncated read catches an intermediate frame: this
+  produced a confident "7 passed" mid-run on a 148-test suite, and a "no tests"
+  on a file where 5 had passed. Read the tail, or the exit code.
 - **A component whose mocked API call REJECTS fails the file, even when the
   component catches it.** `mockRejectedValue`, an `async` throw, and a
   `Promise.reject` with a no-op `.catch` attached were all reported as
@@ -907,65 +971,43 @@ since it is the conversion form.
 
 ---
 
-## Standing asks — what the admin console is now blocked on
+## Standing asks — where the four landed
 
-Every frontend-fixable launch blocker on the admin console is shipped
-(PRs #251, #257, #258, #264, #267, #269, #272). What is left cannot be closed by
-this repo. Four items, each with the one thing that would unblock it:
+All four were answered or delivered on 7 September. Kept here because the
+answers matter more than the questions did.
 
-**1. Per-student consent has no read, and nothing requests it. — Teslim**
+**1. Per-student consent — DELIVERED.** `ConsentStatus` is now
+`["not_sent","pending","confirmed","withdrawn"]`, and a typed `consent` object
+(status, actorId, actorName, timestamp, channel) is on the student list, the
+student detail and the class roster. Parent consent is queued automatically when
+an invited student with parent contact joins. Built in PR #281.
 
-Two separate gaps behind one surface, and the second is worse than the first:
+*The second half of that gap is closed too:* nothing used to request consent at
+all - `requestParentConsent` was typed with no caller, and could not be wired
+from the invite flow because consent needs a STUDENT id that does not exist until
+an invite is accepted. The backend now queues it on join.
 
-- No GET returns consent for any student but the child themselves.
-  `ConsentRecordResponse` is referenced by exactly ONE operation and it is a
-  POST. `ConsentStatus` is `[pending, confirmed]` where D07/SCRUM-40 needs four
-  pills — `withdrawn` is causable via `POST /parent/{token}/rights` with **no
-  field anywhere that can read it back**.
-- `consentsApi.requestParentConsent` is typed in this repo with **no caller**,
-  and it cannot be wired from the invite flow: consent is requested against a
-  STUDENT id that does not exist until an invite is accepted. Combined with
-  `InvitationDeliveryStatus` including `email_not_configured`, invited students'
-  parents are most likely **never contacted by any path**.
+**2. The pricing model — RULED per-student.** ₦150,000/year or ₦55,000/term, no
+tiers. `pricingModel` is a const `"per_student"` in the contract itself, and the
+read carries `activeStudentCount`, `perStudentAnnualRate` and `currency`. Cost
+sheet built in PR #284. The old `subscriptionTier` / `studentCountBand` /
+`contractValue` are still returned and still never displayed.
 
-Consent is the gate before a child may begin lessons, so this is a launch
-blocker on the flow itself, not on a screen. *Ask: add
-`consent: confirmed|pending|notsent|withdrawn` (plus actor, timestamp and
-channel per SCRUM-40) to the student roster and detail reads, and either report
-the consent request's state on the invitation or give us a call that queues one
-for an invited student.*
+**3. The receiving bank account — endpoint in progress.** Teslim is building it;
+the frontend has a typed seam waiting (PR #274). Nothing is hard-coded: the
+frame's Kuda account number is its illustration, and an unsourced payable account
+in frontend source sends real money to the wrong place the day it goes stale.
 
-**2. The pricing model. — Lydia, then Teslim**
+**4. Scope enforcement — ANSWERED: yes, enforced.** An admin token without
+`oversight` receives 403 from `GET /api/v1/admin/team`. This was the one item
+that was a question rather than work, and it settles two things: client-side
+scope filtering is a convenience rather than the only guard, and the 401/403
+split shipped in PR #267 matches how the backend actually behaves.
 
-D11/D11b say per-student ₦150,000 + 7.5% VAT, "no tiers, no plan selection".
-`GET /billing/subscription` answers with `subscriptionTier`, `studentCountBand`
-and a flat `contractValue` — SCRUM-98, the spec those frames superseded. The
-billing screen ships without its cost sheet because rendering either version
-states a school's annual bill on the strength of a disagreement. Jira is
-inverted here too: SCRUM-98 is Done while SCRUM-115 sits in Idea, unassigned.
-*Ask: confirm which model is real, and re-baseline those two tickets.*
-
-**3. Nevo's receiving bank account. — business**
-
-D11's "How to pay" panel needs it, and **no schema in the deployed spec carries
-a payable account** — checked field by field. The frame fills it with literal
-details (Providus, an account number). That was not built: an unsourced payable
-account in frontend source sends money to the wrong place the day it goes stale.
-The only payment seam that exists is `POST /payments/checkout`, which returns a
-Paystack `authorizationUrl` — a hosted gateway checkout D11 explicitly forbids.
-*Ask: decide the account, and expose it on an endpoint rather than in a frame.*
-
-**4. Does the backend enforce `PermissionScope` server-side? — Teslim, one request**
-
-Unknown, and it is the only item here that is a question rather than work.
-`proxy.ts` is explicitly "OPTIMISTIC ONLY" and checks role, never scope, so
-scope filtering is client-side today. The deployed spec documents **zero** 401
-or 403 responses, so the status a denial returns is also unconfirmed — which
-matters, because `client.ts` now treats 401 as a dead session and 403 as a
-refused action (PR #267), and that split is only correct if the backend agrees.
-*Ask: one request with a roster-only token against `GET /api/v1/admin/team`, and
-tell us the status code.* If denials are not enforced server-side, client-side
-scope filtering is a security gap, not a convenience.
+**One correction worth keeping.** `POST /billing/payments/{reference}/verify` must
+NOT be wired for a bank transfer. It is a WRITE that asks Paystack about a
+transaction and settles the invoice off the answer, so a bank reference 404s
+there. Manual transfers go through `manual-transfer`.
 
 ---
 
