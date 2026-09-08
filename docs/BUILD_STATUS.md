@@ -701,10 +701,19 @@ token, so `AuthContext` said authenticated while every screen rendered fixtures)
 - **The spaced-retrieval loop has no entrance.** `/student/lessons/[id]/review-session`
   renders, but nothing links to it, and `useDueReviews`' concepts are plain
   non-clickable spans in `SubjectDetail`.
-- **`useProfile` is an orphan** exported from the hooks barrel with no callers —
-  and it is the only caller of `intelligenceApi.getProfile`, so `api-audit.mjs`
-  reports that endpoint as USED. A dead hook is keeping a dead endpoint alive in
-  the audit.
+- ~~`useProfile` is an orphan~~ — removed 9 Sep. Zero callers, an untyped
+  `unknown` payload, and a hand-rolled fetch-on-mount carrying an
+  `eslint-disable` for `set-state-in-effect` — the exact pattern `useLiveQuery`
+  was written to replace. `intelligenceApi.getProfile` stays in
+  `lib/api/intelligence.ts`, so the endpoint is one import away for whoever
+  builds the learner-profile surface.
+
+  **AND A CORRECTION WORTH MORE THAN THE DELETION.** This was recorded here as
+  "a dead hook keeps a dead endpoint looking live in the audit". That is false.
+  `scripts/api-audit.mjs` walks `src/lib/api/**` ONLY (line 54), so its `[USED]`
+  means *a client method exists for this path* — never *a screen calls it*.
+  Removing the hook changed the audit not at all. **Do not read that report as a
+  map of what the UI actually uses**; for that, grep the consumers.
 - **Content-blocked, not code-blocked:** the after-lesson chain (`fromContent`
   builds no `assessment` and no `summary`, so a child finishes and gets a bare
   "Done"), and four of five modalities (`RENDERABLE = [MODALITY.TEXT]`). Both wait

@@ -118,7 +118,6 @@ Break Module → Dialog, Ask Nevo → Sheet, Toggle Bar → ToggleGroup, Notific
 ## Hooks (`src/hooks/`)
 
 - `useAuth` — auth state, SSO detection, session management
-- `useProfile` — learner profile data access
 - `useSignals` — batches signal events → `/api/signals/` (every 5s / 20 events /
   on exit); exposes `trackEvent`
 - `useBreakMonitor` — client-side break-threshold monitoring
