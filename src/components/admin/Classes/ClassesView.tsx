@@ -128,11 +128,33 @@ export function ClassesView() {
     load(showArchived);
   };
 
+  /*
+   * THE HEADER COUNTS WHAT THE SCHOOL IS ACTUALLY RUNNING.
+   *
+   * "Show archived" refetches with `includeArchived`, so `classes` grows - and
+   * the header used to sum straight across it. Pressing a filter to LOOK at
+   * last year's groups changed the school's own figures underneath the
+   * proprietor: "14 classes - 312 students" became "17 classes - 383 students",
+   * with nothing saying why or that 71 of those children are in classes nobody
+   * teaches any more.
+   *
+   * The toggle reveals rows. It does not change what the school has.
+   */
+  const activeClasses = classes.filter((c) => !c.archivedAt);
+  const archivedCount = classes.length - activeClasses.length;
+  const studentTotal = activeClasses.reduce((sum, c) => sum + c.studentCount, 0);
+
   // SSO owns the class list where the school signed in with a provider, so
   // Create is ABSENT rather than disabled - the spec is specific that manual
   // controls go away instead of greying out.
+  //
+  // ACTIVE classes only, for the same reason as the header above: one archived
+  // manually-made class from before the provider was connected would flip this
+  // `every` the moment somebody pressed "Show archived", and Create would
+  // reappear on a school that is not allowed to use it.
   const ssoSourced =
-    classes.length > 0 && classes.every((c) => c.source === "roster_sync");
+    activeClasses.length > 0 &&
+    activeClasses.every((c) => c.source === "roster_sync");
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -151,7 +173,6 @@ export function ClassesView() {
       );
   }, [classes, search, year]);
 
-  const studentTotal = classes.reduce((sum, c) => sum + c.studentCount, 0);
   const filtering = Boolean(search.trim() || year);
 
   return (
@@ -164,8 +185,15 @@ export function ClassesView() {
             </h2>
             {phase === "ready" ? (
               <p className="mt-1.5 text-[14.5px] text-nevo-near-black/60">
-                {classes.length} {classes.length === 1 ? "class" : "classes"} &middot;{" "}
+                {activeClasses.length}{" "}
+                {activeClasses.length === 1 ? "class" : "classes"} &middot;{" "}
                 {studentTotal} {studentTotal === 1 ? "student" : "students"}
+                {archivedCount > 0 ? (
+                  <>
+                    {" "}
+                    &middot; plus {archivedCount} archived
+                  </>
+                ) : null}
               </p>
             ) : null}
           </div>
