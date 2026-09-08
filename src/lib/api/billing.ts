@@ -29,13 +29,13 @@ import { api } from "./client";
  * What IS honest today: the invoice list and its PDFs, the upcoming charge, the
  * renewal banner, and the billing contact.
  *
- * THE RECEIVING ACCOUNT IS A SEAM, NOT A FEATURE (design ruling, 7 Sep). Teslim
- * is building an endpoint for it; nothing serves one yet - a scan of all 168
- * paths for account/bank/transfer/remit returns nothing. So `receivingAccount`
- * is typed to the shape D11c needs and its path is PROVISIONAL: it 404s today,
- * which the panel renders as "not available yet" rather than as an error. When
- * the endpoint lands, confirm the path and the field names; if they differ,
- * this is the one place to change.
+ * THE RECEIVING ACCOUNT IS REAL NOW (8 Sep). `GET /billing/bank-transfer-details`
+ * is deployed and serves `{bankName, accountNumber, accountName, currency}`,
+ * all required. The seam pointed at `/billing/receiving-account`, a path the
+ * spec has never had, so every school was told transfer details were "not
+ * available here yet" while the account sat live on the API - and bank transfer
+ * is the ONLY payment route this console offers, cards and checkout being
+ * deliberately absent.
  *
  * The four values are bound, never literals. D11c's frame fills them in with
  * Kuda Bank and an account number - those are the frame's illustration, and an
@@ -55,6 +55,18 @@ export interface Invoice {
   dueAt: string;
   paidAt: string | null;
   pdfUrl: string;
+  /**
+   * REQUIRED IN THE CONTRACT, and it was being discarded while the screen
+   * printed a naira sign on every invoice in the list. A school billed in
+   * dollars read its own invoice history in the wrong currency.
+   */
+  currency: PricingCurrency;
+  /** "Michaelmas 2026", when the backend has one. */
+  periodLabel: string | null;
+  studentCount: number | null;
+  perStudentRate: string | null;
+  totalBeforeVat: string | null;
+  vatAmount: string | null;
 }
 
 export interface UpcomingCharge {
@@ -98,25 +110,95 @@ export interface BillingContactDraft {
 /** The three the backend will price in. Never assume naira. */
 export type PricingCurrency = "USD" | "NGN" | "GBP";
 
+/** How a school buys Nevo. Pricing is per student on both. */
+export type PricingPlan = "annual" | "per_term";
+
+/**
+ * What the fee buys access to - and the schema's own description calls it "a
+ * fact the cost sheet has to state": annual covers the calendar including
+ * breaks, per-term covers only the school's own session.
+ */
+export type AccessWindow = "year_round" | "school_session";
+
+/** Which rate card a school is held to. */
+export type RateType = "founding_partner" | "standard";
+
+export type PaymentMethodType = "card" | "direct_debit";
+
+/**
+ * THE COST SHEET, AS THE BACKEND COMPUTES IT.
+ *
+ * ============================================================================
+ * THIS WAS FLAT, AND THE FLAT SHAPE NO LONGER EXISTS.
+ *
+ * `Subscription` used to declare `pricingModel`, `activeStudentCount`,
+ * `perStudentAnnualRate` and `currency` at the TOP LEVEL. The deployed contract
+ * carries none of those names there: they live inside `pricing`, under
+ * different names again (`studentCount`, `perStudentRate`). Every one of them
+ * read `undefined` at runtime, so `computeCost` returned null and EVERY school
+ * was shown "your per-student rate isn't set yet" on a screen whose entire job
+ * is to say what they pay.
+ *
+ * Nothing caught it. `client.ts` ends in `as T`, which is an assertion the
+ * compiler never checks; `npm run contract` did not compare the paths of READS
+ * at all; and the one signal that did exist - "GET /billing/subscription →
+ * pricing" in the advisory unread-field list - sat there being scrolled past.
+ *
+ * THE TOTALS ARE THE SERVER'S NOW. `totalBeforeVat`, `vatRate`, `vatAmount` and
+ * `totalWithVat` all arrive computed. The client used to derive them itself in
+ * integer minor units with a hard-coded Nigerian 7.5%, which was careful work
+ * against the wrong authority: an invoice is a legal document and the number on
+ * it is the backend's to state.
+ * ============================================================================
+ */
+export interface Pricing {
+  /** A const in the contract - the model is settled, not a variable. */
+  pricingModel: "per_student";
+  pricingPlan: PricingPlan;
+  accessWindow: AccessWindow;
+  /** What the school is billed ON. Not invited, not profiled. */
+  studentCount: number;
+  /** Decimal STRINGS, every one. Never parsed into a float for display. */
+  perStudentRate: string;
+  rateType: RateType;
+  rateLockedUntil: string | null;
+  totalBeforeVat: string;
+  /**
+   * TODO(api): percentage or fraction? "7.5" and "0.075" are the same rate and
+   * differ by 100x on screen, and the contract says only `string`. Until that
+   * is settled the VAT line shows the AMOUNT, which is unambiguous, and no
+   * rate. A wrong tax rate on a school's invoice is not a rounding error.
+   */
+  vatRate: string;
+  vatAmount: string;
+  totalWithVat: string;
+  currency: PricingCurrency;
+}
+
+/** Read, never rendered - D11 is explicit: "no cards, no in-app checkout." */
+export interface PaymentMethod {
+  id: string;
+  methodType: PaymentMethodType;
+  displayName: string;
+  lastFour: string;
+  cardBrand: string | null;
+  expiryMonth: number | null;
+  expiryYear: number | null;
+  bankName: string | null;
+  accountHolderName: string | null;
+  updatedAt: string;
+}
+
 export interface Subscription {
   schoolId: string;
   schoolName: string;
-  /** A const in the contract - the model is settled, not a variable. */
-  pricingModel: "per_student";
-  /** What the school is billed ON. Not the same as invited or profiled. */
-  activeStudentCount: number;
-  /** Decimal STRING, and nullable - no rate means no cost sheet. */
-  perStudentAnnualRate: string | null;
-  currency: PricingCurrency;
-  /** SCRUM-98's model. Still returned, never displayed - see the note above. */
-  subscriptionTier: string | null;
-  studentCountBand: string | null;
-  contractValue: string | null;
   contractStart: string | null;
   contractEnd: string | null;
   renewalBannerVisible: boolean;
   renewalMessage: string | null;
   billingContact: BillingContact | null;
+  paymentMethod: PaymentMethod | null;
+  pricing: Pricing;
 }
 
 /**
@@ -127,6 +209,12 @@ export interface ReceivingAccount {
   bankName: string;
   accountNumber: string;
   accountName: string;
+  /**
+   * The currency the ACCOUNT takes, which is not automatically the currency the
+   * school is billed in. Telling a pound-billed school to transfer into a naira
+   * account, or the reverse, is a real way to lose real money.
+   */
+  currency: PricingCurrency;
 }
 
 /** What the backend made of a declared transfer. */
@@ -139,21 +227,68 @@ export interface PaymentOutcome {
   message: string | null;
 }
 
+/**
+ * A 200 from `manual-transfer` is not an acceptance.
+ *
+ * `PaymentOutcome.status` is `pending | success | failed | abandoned`, and it
+ * was never read anywhere: any 200 was stored as a transfer on file, so a
+ * response of `{status: "failed", invoicePaid: false}` flipped the invoice row
+ * to "Pending verification" and told the admin their transfer was recorded.
+ * They stop chasing it; the invoice stays unpaid; the console never says so.
+ */
+export function transferAccepted(outcome: PaymentOutcome): boolean {
+  return outcome.status === "pending" || outcome.status === "success";
+}
+
+/**
+ * The path to fetch an invoice PDF through the proxy, from whatever the API put
+ * in `pdfUrl`.
+ *
+ * The contract types it as a bare `string` with no format, so it may arrive
+ * absolute or relative. An absolute backend URL is reduced to its path because
+ * the browser cannot call the backend directly at all - there are no CORS
+ * headers, which is why `BASE_URL` is a same-origin proxy. Anything pointing at
+ * a genuinely different host (a pre-signed object-store link, say) is left
+ * alone and returns null, so the caller can simply follow it.
+ */
+export function invoicePdfPath(pdfUrl: string): string | null {
+  if (pdfUrl.startsWith("/")) return pdfUrl;
+  let url: URL;
+  try {
+    url = new URL(pdfUrl);
+  } catch {
+    return null;
+  }
+  // Our own API, however it is addressed. Everything else is someone else's.
+  return /(^|\.)nevolearning\.com$/.test(url.hostname)
+    ? `${url.pathname}${url.search}`
+    : null;
+}
+
 export const billingApi = {
   /**
-   * PROVISIONAL PATH - see the note above. Resolves to null when the endpoint
-   * is absent (404) or answers with an incomplete account, so the panel can
-   * tell "not available yet" apart from a read that failed.
+   * GET /api/billing/bank-transfer-details - the real path, at last.
+   *
+   * IT WAS `/api/billing/receiving-account`, WHICH NEVER EXISTED. That was a
+   * deliberate seam typed to the shape D11c needs while Teslim built the
+   * endpoint, on the understanding that whoever noticed it land would repoint
+   * it. Nobody noticed, because nothing was watching: `npm run contract` only
+   * compared the paths of WRITES, so a read aimed at a path the spec has never
+   * had passed the gate in silence. The gate checks every verb now.
+   *
+   * Still resolves to null on an incomplete account rather than rendering a
+   * partial one, for the reason on the interface above.
    */
   receivingAccount: () =>
     api
-      .get<Partial<ReceivingAccount>>("/api/billing/receiving-account")
+      .get<Partial<ReceivingAccount>>("/api/billing/bank-transfer-details")
       .then((a) =>
-        a && a.bankName && a.accountNumber && a.accountName
+        a && a.bankName && a.accountNumber && a.accountName && a.currency
           ? ({
               bankName: a.bankName,
               accountNumber: a.accountNumber,
               accountName: a.accountName,
+              currency: a.currency,
             } satisfies ReceivingAccount)
           : null,
       ),
@@ -176,6 +311,9 @@ export const billingApi = {
       invoiceId,
       bankReference,
     }),
+
+  /** The invoice PDF itself, with the Bearer token a plain link cannot send. */
+  invoicePdf: (path: string) => api.blob(path),
 };
 
 /** The API's own bounds on `bankReference`. */

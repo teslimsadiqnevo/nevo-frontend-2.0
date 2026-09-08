@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import {
   BANK_REF_MAX,
   BANK_REF_MIN,
+  transferAccepted,
   type PaymentOutcome,
+  type PricingCurrency,
   type ReceivingAccount,
 } from "@/lib/api/billing";
 import { cn } from "@/lib/utils";
@@ -86,6 +88,7 @@ export function HowToPayPanel({
   reference,
   amount,
   invoiceId,
+  billedIn,
   recorded,
   onRecord,
   onRecorded,
@@ -98,6 +101,12 @@ export function HowToPayPanel({
   amount: string | null;
   /** Absent when there is no invoice to pay against. */
   invoiceId: string | null;
+  /**
+   * The currency the SCHOOL is billed in. The account has its own, and the two
+   * are not guaranteed to agree - a school told to send pounds to a naira
+   * account loses real money on a real transfer.
+   */
+  billedIn: PricingCurrency | null;
   /** The backend has this transfer on file. */
   recorded: PaymentOutcome | null;
   onRecord: (
@@ -110,6 +119,11 @@ export function HowToPayPanel({
   const [bankRef, setBankRef] = useState("");
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
+  /** The backend's own words when it declined, in preference to ours. */
+  const [failedMessage, setFailedMessage] = useState<string | null>(null);
+
+  /** Both known, and different. An unknown currency is not a mismatch. */
+  const mismatched = Boolean(account && billedIn && account.currency !== billedIn);
 
   const trimmed = bankRef.trim();
   const validRef =
@@ -119,11 +133,29 @@ export function HowToPayPanel({
     if (!invoiceId || !validRef || saving) return;
     setSaving(true);
     setFailed(false);
+    setFailedMessage(null);
     onRecord(invoiceId, trimmed)
-      .then(onRecorded)
+      .then((outcome) => {
+        /*
+         * A 200 IS NOT AN ACCEPTANCE. `status` is
+         * `pending | success | failed | abandoned` and was never read: a
+         * response of `failed` was stored as a transfer on file, flipped the
+         * invoice row to "Pending verification", and told the admin their
+         * money was on its way. They stop chasing it and the invoice stays
+         * unpaid with nothing on the screen ever saying otherwise.
+         */
+        if (!transferAccepted(outcome)) {
+          setFailed(true);
+          setFailedMessage(outcome.message ?? null);
+          setSaving(false);
+          return;
+        }
+        onRecorded(outcome);
+      })
       .catch(() => {
         // Stay open, keep their reference, and say nothing changed.
         setFailed(true);
+        setFailedMessage(null);
         setSaving(false);
       });
   };
@@ -136,12 +168,25 @@ export function HowToPayPanel({
       <div className={cn(CARD, "mt-3 px-6 py-[22px]")}>
         {account ? (
           <>
-            {amount && (
-              <p className="m-0 text-[14.5px] leading-[1.55] text-nevo-near-black/78">
-                Transfer <strong>{amount}</strong>{" "}
-                from your school&rsquo;s bank.
-              </p>
-            )}
+            {amount &&
+              (mismatched ? (
+                /*
+                 * The account's currency and the school's are not the same.
+                 * "Transfer GBP 54,825" against a naira account is a real
+                 * transfer of real money to a place that cannot take it, so
+                 * this states both and asks rather than instructing.
+                 */
+                <p className="m-0 text-[14.5px] leading-[1.55] text-nevo-near-black/78">
+                  Your invoice is <strong>{amount}</strong>, and this account
+                  receives {account.currency}. Check with us before you
+                  transfer.
+                </p>
+              ) : (
+                <p className="m-0 text-[14.5px] leading-[1.55] text-nevo-near-black/78">
+                  Transfer <strong>{amount}</strong>{" "}
+                  from your school&rsquo;s bank.
+                </p>
+              ))}
             <div className="mt-3 divide-y divide-nevo-near-black/7">
               <div className="flex items-baseline justify-between gap-4 py-2.5">
                 <span className="flex min-w-0 flex-col">
@@ -227,8 +272,8 @@ export function HowToPayPanel({
               </p>
               {failed && (
                 <p className="m-0 mt-2.5 rounded-[10px] bg-nevo-violet/[0.18] px-4 py-3 text-[13.5px] leading-[1.5] text-nevo-navy">
-                  That didn&rsquo;t record, so nothing has changed. Your
-                  reference is still here &ndash; try again in a moment.
+                  {failedMessage ??
+                    "That didn’t record, so nothing has changed. Your reference is still here – try again in a moment."}
                 </p>
               )}
               <div className="mt-3 flex gap-2.5">
@@ -245,6 +290,7 @@ export function HowToPayPanel({
                   onClick={() => {
                     setEntering(false);
                     setFailed(false);
+                    setFailedMessage(null);
                   }}
                   disabled={saving}
                   className="h-11 cursor-pointer rounded-[10px] px-4 text-[14.5px] font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6 disabled:opacity-60"

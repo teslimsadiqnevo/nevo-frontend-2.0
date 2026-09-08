@@ -648,9 +648,13 @@ An account being active is a different fact from a parent having agreed.
 
 ## Admin console
 
-**Every frontend-fixable launch blocker is shipped, and nothing in this console
-is frontend-blocked any more.** What remains needs design, business or counsel -
-see Standing asks.
+**That sentence used to read "every frontend-fixable launch blocker is shipped,
+and nothing in this console is frontend-blocked any more". It was wrong.** On
+8 Sep the billing screen turned out to have five, and they had been live the
+whole time — see **Billing was broken against the deployed contract** below.
+What is true is narrower: every blocker anyone had LOOKED FOR was shipped. The
+console had never been checked against the deployed contract field by field,
+because the tool for that only checked half of it.
 
 Surveyed in depth 6 Sep (eight-dimension audit at `87192e8`, every blocker
 adversarially re-verified; the quality and ops dimensions did not report, so test
@@ -666,6 +670,44 @@ before on this project.
 
 Still true: **43 `TODO(api)` in components**, spread across Students, Onboarding,
 Teachers, Senco, Invitations and Classes.
+
+### Billing was broken against the deployed contract — FIXED 8 Sep
+
+Found by comparing `src/lib/api/**` to the live OpenAPI document field by field,
+after `GET /api/billing/bank-transfer-details` turned up in `api-audit.mjs` as an
+endpoint nothing consumed. Five faults, all shipped, all live:
+
+1. **The cost sheet was blank for every school on earth.** `SubscriptionResponse`
+   NESTED its pricing under `pricing` — `studentCount`, `perStudentRate`,
+   `currency` — and the client still read `activeStudentCount`,
+   `perStudentAnnualRate` and `currency` off the top level. All `undefined`, so
+   `computeCost` returned null and the screen said *"Your per-student rate isn't
+   set yet"* to schools whose rate the backend was serving on that very response.
+2. **Every figure was stamped with a naira sign.** `InvoiceResponse.currency` is
+   REQUIRED and the client's `Invoice` never declared it. A GBP school read its
+   own invoice history, its next charge, and its transfer instruction in naira.
+3. **"How to pay" said the details were unavailable** while the account sat live
+   on the API. The seam pointed at `/api/billing/receiving-account`, a path the
+   spec has never had. Bank transfer is the ONLY payment route this console
+   offers.
+4. **A declined transfer read as a recorded one.** `PaymentOutcome.status` is
+   `pending | success | failed | abandoned` and was never read: any 200 flipped
+   the invoice row to "Pending verification".
+5. **The invoice PDF was a plain `<a href>`** to a Bearer-protected route. Auth
+   here is Bearer-only from localStorage, and a top-level navigation sends no
+   Authorization header, so every PDF in the history 401'd.
+
+Also: VAT was recomputed on the client at a hard-coded Nigerian 7.5% while the
+contract carries the school's own `vatRate` and `vatAmount`; and money was
+TRUNCATED rather than rounded, so the cost sheet's own working did not add up.
+
+**Why nothing caught it, which matters more than the bugs.** `client.ts` ends in
+`as T` — a cast the compiler never checks. `npm run contract` compared call-site
+paths for `post`/`put`/`patch` ONLY, so 81 of 159 call sites, every read in the
+client, were never compared to the spec at all. And the tests passed because the
+fixtures were hand-written in the same wrong shape as the code: the fixture
+agreed with the component, both disagreed with the server, and green meant
+nothing. **A "contract green" claim made before 8 Sep covered writes only.**
 
 ### BUILDABLE — nothing blocks these
 
@@ -740,7 +782,7 @@ Still open, and NOT frontend work:
 | thing | why |
 |---|---|
 | A `category` on the notification ROW | `NotificationCategory` exists for preferences, but `NotificationResponse` carries only `type`. So the category filter, the per-category label and "mark these as read" have no source. Deriving one from `type` would be an invented mapping, and three of SCRUM-100's six admin categories (roster, SSO, teacher) have no enum value to map onto - this needs design and backend together. |
-| Receiving bank account | Teslim is building the endpoint. `billingApi.receivingAccount` is a typed seam with a PROVISIONAL path; it 404s today and the panel says details are unavailable rather than inventing them (PR #274). Confirm the path and field names when it lands. |
+| Receiving bank account | **DELIVERED and wired, 8 Sep.** `GET /api/billing/bank-transfer-details` serves `{bankName, accountNumber, accountName, currency}`, all required — its own description reads "so the panel stops hardcoding it". The seam had been asking for `/api/billing/receiving-account`, which never existed, so every school was told the details were unavailable. Nothing is hard-coded now or then. |
 
 ### NEEDS DESIGN — ruled on 7 Sep
 
@@ -1080,6 +1122,27 @@ then seed localStorage before first paint.
   `visibleText()` from `src/test/visibleText.ts`, which walks the text nodes and
   joins them with spaces (and folds curly quotes, so tests can be typed on a
   normal keyboard).
+- **`npm run contract` only checked the paths of WRITES until 8 Sep.** The verb
+  list was `["post", "put", "patch"]` and `api.del` was not in it under any name,
+  so 81 of 159 call sites - every read - could name an endpoint that does not
+  exist and the gate reported "No contract violations". It found the billing
+  drift the moment reads were included, with zero false positives. If you are
+  relying on a green contract run from before 8 Sep, it covered writes only.
+- **The advisory "declared by the spec, named nowhere in the client" list is a
+  real signal, not noise.** `GET /billing/subscription → pricing` sat in it while
+  the cost sheet was blank for every school, because `pricing` was the key the
+  whole response had moved under. Read that list.
+- **A hand-written fixture proves nothing about the contract.** Every billing
+  test passed for a week against a `Subscription` shape the API has never
+  served. Copy fixtures from the deployed schema, not from the component you are
+  testing.
+- **Do not `git checkout --` a file to undo a mutation test unless the file is
+  COMMITTED.** It restores from the index, not from your edit, and it took two
+  files of finished work with it today. Commit first, then mutate.
+- **Do not run the suite while a big workflow is running.** Under ~40 concurrent
+  agents, `npm test` reported `23 files / 140 tests / 7 errors`; the same tree
+  three times over, quiet, gives `30 files / 216 tests / 0 errors`. Worker
+  startup times out under CPU contention and files silently do not run.
 - `useLiveQuery`'s effect begins `if (!getToken()) return;` - a hook test with no
   token exercises zero network logic and passes having tested an early return.
 - MSW handlers authored alongside the code inherit its bugs. A handler for the TOSSE
@@ -1169,7 +1232,7 @@ since it is the conversion form.
 
 | item | state |
 |---|---|
-| **Tests** | 194 unit + 20 E2E, green as of 8 Sep. `npm test`, enforced by CI alongside types, lint and contract. Four shared primitives, the marking logic, the judgement screens, and the five admin failed-read guards. See **Testing**. |
+| **Tests** | 216 unit + 20 E2E, green as of 8 Sep. `npm test`, enforced by CI alongside types, lint and contract. Four shared primitives, the marking logic, the judgement screens, and the five admin failed-read guards. See **Testing**. |
 | **Landing performance** | **41** deployed / **73** on a local production build (3-run median). Investigated 7 Sep — see below before repeating it. |
 | **Lint** | Green as of 5 Sep (0 errors, 1 warning). Now enforced by CI. |
 | **Contract** | Green as of 6 Sep. `npm run contract`, enforced by CI. |
@@ -1199,10 +1262,17 @@ read carries `activeStudentCount`, `perStudentAnnualRate` and `currency`. Cost
 sheet built in PR #284. The old `subscriptionTier` / `studentCountBand` /
 `contractValue` are still returned and still never displayed.
 
-**3. The receiving bank account — endpoint in progress.** Teslim is building it;
-the frontend has a typed seam waiting (PR #274). Nothing is hard-coded: the
-frame's Kuda account number is its illustration, and an unsourced payable account
-in frontend source sends real money to the wrong place the day it goes stale.
+**3. The receiving bank account — DELIVERED, and wired on 8 Sep.**
+`GET /api/billing/bank-transfer-details`. It had been live since 7 Sep while the
+client asked for a path that does not exist, so the panel told every school the
+details were unavailable. Nothing was ever hard-coded, which was the point of the
+seam; what was missing was anything watching for the endpoint to land.
+
+**One question back to backend:** `PricingResponse.vatRate` is typed `string`.
+Is it a PERCENTAGE ("7.5") or a FRACTION ("0.075")? They are the same rate and
+differ a hundredfold on screen. Until it is settled the VAT line shows the
+amount and no rate — a wrong tax rate on a school's invoice is not a rounding
+error.
 
 **4. Scope enforcement — ANSWERED: yes, enforced.** An admin token without
 `oversight` receives 403 from `GET /api/v1/admin/team`. This was the one item

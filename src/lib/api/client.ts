@@ -218,8 +218,54 @@ export async function request<T>(
   return (await response.json()) as T;
 }
 
+/**
+ * The same request, kept as BYTES.
+ *
+ * `request` ends in `response.json()`, so a PDF could not go through it - and
+ * the invoice list therefore rendered `<a href={pdfUrl}>`, a top-level
+ * navigation that carries no Authorization header to a Bearer-protected route.
+ * Every invoice PDF in the console answered 401 (or, for a backend-relative
+ * `pdfUrl`, resolved against the Next origin and 404'd), with no other route to
+ * the document anywhere on the screen.
+ *
+ * Auth, the proxy and the 401 latch are all shared with `request` deliberately:
+ * a second hand-rolled fetch with its own `Authorization` header is how the
+ * session handling drifts apart.
+ */
+export async function requestBlob(
+  path: string,
+  // A GET has no body, and `RequestOptions.body` is `unknown` - which is not a
+  // `BodyInit` - so it is typed out rather than discarded at the call site.
+  options: Omit<RequestOptions, "body"> = {},
+): Promise<Blob> {
+  const { params, headers, baseUrl, ...rest } = options;
+  const url = buildUrl(path, params, baseUrl);
+  const token = await getAuthToken();
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...rest,
+      method: "GET",
+      credentials: rest.credentials ?? "include",
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
+    });
+  } catch (cause) {
+    throw new ApiError(0, friendlyMessage(0), cause);
+  }
+
+  if (!response.ok) {
+    if (response.status === 401) handleAuthFailure(path, Boolean(token));
+    throw new ApiError(response.status, friendlyMessage(response.status));
+  }
+  return response.blob();
+}
+
 /** Convenience verbs over `request`. */
 export const api = {
+  /** A GET that keeps the bytes - see `requestBlob`. */
+  blob: (path: string, options?: Omit<RequestOptions, "body">) =>
+    requestBlob(path, options),
   get: <T>(path: string, options?: RequestOptions) =>
     request<T>(path, { ...options, method: "GET" }),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>

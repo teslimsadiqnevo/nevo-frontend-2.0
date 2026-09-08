@@ -1,154 +1,158 @@
 "use client";
 
-import type { PricingCurrency, Subscription } from "@/lib/api/billing";
+import type { Pricing } from "@/lib/api/billing";
+import { formatMoney, isAmount } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 /**
  * D11's cost sheet - what the school pays, and how it is arrived at.
  *
- * This was the one thing on the billing screen that could not be built. D11 said
- * per-student, the API said tiers, and rendering either would have stated a
- * school's annual bill on the strength of a disagreement. That is settled: the
- * contract now carries `pricingModel` as a CONST `"per_student"`, alongside the
- * three numbers the sum actually needs.
+ * ============================================================================
+ * IT USED TO COMPUTE THIS ITSELF, FROM A SHAPE THE API HAD STOPPED SERVING.
  *
- * COMPUTED FROM THE BILLED NUMBERS, not from anything nearby.
- * `activeStudentCount` is the count the school is billed on - deliberately not
- * `invitedStudents`, and not `studentsProfiled`, both of which are different
- * populations and are why this sum used to be guessable and wrong.
+ * Two separate faults, and the first hid the second for a week.
  *
- * MONEY IS STRING ARITHMETIC. `perStudentAnnualRate` arrives as a decimal
- * string, and totals are computed in minor units with integers. A float would
- * be fine at these magnitudes right up until it was not, and this is a figure a
- * school pays.
+ * The read was flat - `subscription.activeStudentCount`,
+ * `subscription.perStudentAnnualRate`, `subscription.currency`. The deployed
+ * contract has none of those names: they live under `pricing`, as
+ * `studentCount` and `perStudentRate`. So every one of them was `undefined`,
+ * `computeCost` returned null, and EVERY school was shown "your per-student
+ * rate isn't set yet" - a false statement about their contract, on the screen
+ * that exists to tell them what they pay.
  *
- * VAT IS NIGERIAN, AND SO IS ONLY APPLIED TO NAIRA. D11's 7.5% is Nigeria's
- * rate; `currency` is an enum of USD, NGN and GBP, and no VAT rate is carried
- * for the other two. So a non-naira school sees the subtotal and is told the
- * tax line is not computed here, rather than being shown a Nigerian rate on a
- * dollar invoice.
+ * And underneath it, the arithmetic itself should not have been here. The
+ * backend sends `totalBeforeVat`, `vatRate`, `vatAmount` and `totalWithVat`,
+ * computed against the school's actual contract. This file derived them in
+ * integer minor units from a hard-coded Nigerian 7.5% gated on `currency ===
+ * "NGN"` - careful work against the wrong authority. A VAT-exempt school, a
+ * grandfathered rate, or a rate change and the console disagrees with the
+ * invoice the school is actually sent.
+ *
+ * So: NO ARITHMETIC IN THIS FILE. Every figure below is a string the server
+ * computed, formatted and shown. The only thing this component decides is
+ * wording.
+ * ============================================================================
+ *
+ * The VAT RATE is deliberately not printed. The contract types it as `string`,
+ * and "7.5" and "0.075" are the same rate a hundredfold apart on screen - see
+ * the TODO(api) on `Pricing`. The AMOUNT is unambiguous, and the amount is what
+ * a school pays.
  */
-
-/** D11's rate. Nigerian VAT, hence the naira-only application below. */
-const NG_VAT_PERCENT = 7.5;
-
-const SYMBOL: Record<PricingCurrency, string> = {
-  NGN: "₦",
-  USD: "$",
-  GBP: "£",
-};
-
-/** A decimal string to integer minor units. Returns null on anything odd. */
-function toMinor(decimal: string): number | null {
-  const m = /^\s*(\d+)(?:\.(\d{1,2}))?\s*$/.exec(decimal);
-  if (!m) return null;
-  const [, whole, frac = ""] = m;
-  return Number(whole) * 100 + Number(frac.padEnd(2, "0"));
-}
-
-function fromMinor(minor: number, currency: PricingCurrency): string {
-  const whole = Math.trunc(minor / 100);
-  const grouped = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `${SYMBOL[currency]}${grouped}`;
-}
-
-export interface CostBreakdown {
-  count: number;
-  rate: string;
-  subtotalMinor: number;
-  vatMinor: number | null;
-  totalMinor: number;
-  currency: PricingCurrency;
-}
-
-/** Null when the rate is missing or unparseable - no rate, no cost sheet. */
-export function computeCost(sub: Subscription): CostBreakdown | null {
-  if (!sub.perStudentAnnualRate) return null;
-  const rateMinor = toMinor(sub.perStudentAnnualRate);
-  if (rateMinor === null) return null;
-
-  const subtotalMinor = rateMinor * sub.activeStudentCount;
-  const vatMinor =
-    sub.currency === "NGN"
-      ? Math.round((subtotalMinor * NG_VAT_PERCENT) / 100)
-      : null;
-  return {
-    count: sub.activeStudentCount,
-    rate: sub.perStudentAnnualRate,
-    subtotalMinor,
-    vatMinor,
-    totalMinor: subtotalMinor + (vatMinor ?? 0),
-    currency: sub.currency,
-  };
-}
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
 const ROW = "flex items-baseline justify-between gap-4 py-2.5";
 
-export function CostSheet({ subscription }: { subscription: Subscription }) {
-  const cost = computeCost(subscription);
+/** What the school is buying, in the plan's own cadence. */
+const CADENCE: Record<Pricing["pricingPlan"], string> = {
+  annual: "per year",
+  per_term: "per term",
+};
+
+/**
+ * SCRUM-98's access window, which the schema itself calls "a fact the cost
+ * sheet has to state" - a per-term school is not buying the holidays.
+ */
+const WINDOW: Record<Pricing["accessWindow"], string> = {
+  year_round:
+    "Covers the whole calendar year, including the breaks between terms.",
+  school_session:
+    "Covers your school’s own session – not the breaks between terms.",
+};
+
+function longDate(iso: string): string | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export function CostSheet({ pricing }: { pricing: Pricing }) {
+  const {
+    currency,
+    studentCount,
+    perStudentRate,
+    totalBeforeVat,
+    vatAmount,
+    totalWithVat,
+    pricingPlan,
+    accessWindow,
+    rateType,
+    rateLockedUntil,
+  } = pricing;
+
+  const total = formatMoney(totalWithVat, currency);
+  const lockedUntil = rateLockedUntil ? longDate(rateLockedUntil) : null;
 
   return (
     <>
       <h2 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
-        Your annual cost
+        {pricingPlan === "per_term" ? "Your cost per term" : "Your annual cost"}
       </h2>
       <div className={cn(CARD, "mt-3 px-6 py-[22px]")}>
-        {cost ? (
+        {isAmount(totalWithVat) ? (
           <>
             <div className="flex flex-wrap items-baseline justify-between gap-4">
               <span className="text-[34px] leading-none font-semibold text-nevo-near-black tabular-nums">
-                {fromMinor(cost.totalMinor, cost.currency)}
+                {total}
               </span>
               <span className="text-[13.5px] text-nevo-near-black/58">
-                per year
+                {CADENCE[pricingPlan]}
               </span>
             </div>
 
             <div className="mt-4 divide-y divide-nevo-near-black/7 border-t border-nevo-near-black/7">
               <div className={ROW}>
                 <span className="text-[14px] text-nevo-near-black/72">
-                  {cost.count} active {cost.count === 1 ? "student" : "students"}{" "}
-                  &times; {fromMinor(toMinor(cost.rate) ?? 0, cost.currency)} per
-                  student
+                  {studentCount} active{" "}
+                  {studentCount === 1 ? "student" : "students"} &times;{" "}
+                  {formatMoney(perStudentRate, currency)} per student
                 </span>
                 <span className="text-[14px] font-semibold text-nevo-near-black tabular-nums">
-                  {fromMinor(cost.subtotalMinor, cost.currency)}
+                  {formatMoney(totalBeforeVat, currency)}
                 </span>
               </div>
-              {cost.vatMinor !== null ? (
-                <div className={ROW}>
-                  <span className="text-[14px] text-nevo-near-black/72">
-                    VAT at {NG_VAT_PERCENT}%
-                  </span>
-                  <span className="text-[14px] font-semibold text-nevo-near-black tabular-nums">
-                    {fromMinor(cost.vatMinor, cost.currency)}
-                  </span>
-                </div>
-              ) : (
-                <div className={ROW}>
-                  <span className="text-[13.5px] text-nevo-near-black/62">
-                    Tax isn&rsquo;t calculated here for {cost.currency}.
-                  </span>
-                </div>
-              )}
+              {/* The rate is not printed - only the amount. See the header. */}
+              <div className={ROW}>
+                <span className="text-[14px] text-nevo-near-black/72">VAT</span>
+                <span className="text-[14px] font-semibold text-nevo-near-black tabular-nums">
+                  {formatMoney(vatAmount, currency)}
+                </span>
+              </div>
             </div>
 
             <p className="m-0 mt-4 text-[13px] leading-[1.6] text-nevo-near-black/62">
-              This is your active student count times the per-student rate. If
-              your roster grows, the count and the total move with it.
+              {WINDOW[accessWindow]} If your roster grows, the count and the
+              total move with it.
             </p>
+            {rateType === "founding_partner" && (
+              <p className="m-0 mt-1.5 text-[13px] leading-[1.6] text-nevo-near-black/62">
+                You&rsquo;re on the founding-partner rate.
+                {lockedUntil ? ` It’s held until ${lockedUntil}.` : ""}
+              </p>
+            )}
+            {rateType !== "founding_partner" && lockedUntil && (
+              <p className="m-0 mt-1.5 text-[13px] leading-[1.6] text-nevo-near-black/62">
+                This rate is held until {lockedUntil}.
+              </p>
+            )}
           </>
         ) : (
-          /* A count without a rate is not a cost. Show what is known. */
+          /*
+           * A total we cannot read is NOT a rate that was never set. The old
+           * copy here said "your per-student rate isn't set yet", which is a
+           * claim about the school's contract - and it was being shown to every
+           * school on earth because of a field name.
+           */
           <>
             <p className="m-0 text-[15px] font-semibold text-nevo-near-black">
-              {subscription.activeStudentCount} active{" "}
-              {subscription.activeStudentCount === 1 ? "student" : "students"}
+              {studentCount} active {studentCount === 1 ? "student" : "students"}
             </p>
             <p className="m-0 mt-1.5 text-[13.5px] leading-[1.55] text-nevo-near-black/62">
-              Your per-student rate isn&rsquo;t set yet, so there&rsquo;s no
-              total to show. Your invoices carry the amount in the meantime.
+              We couldn&rsquo;t read your total just now. Your invoices carry
+              the amount, and nothing about your billing has changed.
             </p>
           </>
         )}
