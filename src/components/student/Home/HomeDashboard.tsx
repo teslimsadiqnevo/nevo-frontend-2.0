@@ -52,9 +52,27 @@ const CONTINUE: InProgress | null = {
 
 const MOCK_HREF = "/student/lessons/photosynthesis";
 const TODAY: TodayLesson[] = [
-  { lessonId: "photosynthesis", title: "Telling the Time", time: "About 10 min", icon: Clock, href: MOCK_HREF },
-  { lessonId: "photosynthesis", title: "The Lighthouse", time: "About 15 min", icon: BookOpen, href: MOCK_HREF },
-  { lessonId: "photosynthesis", title: "Shapes Around Us", time: "About 8 min", icon: Shapes, href: MOCK_HREF },
+  {
+    lessonId: "photosynthesis",
+    title: "Telling the Time",
+    time: "About 10 min",
+    icon: Clock,
+    href: MOCK_HREF,
+  },
+  {
+    lessonId: "photosynthesis",
+    title: "The Lighthouse",
+    time: "About 15 min",
+    icon: BookOpen,
+    href: MOCK_HREF,
+  },
+  {
+    lessonId: "photosynthesis",
+    title: "Shapes Around Us",
+    time: "About 8 min",
+    icon: Shapes,
+    href: MOCK_HREF,
+  },
 ];
 
 const ENCOURAGEMENT =
@@ -185,7 +203,10 @@ export function HomeDashboard() {
         <div className="mt-6 h-[132px] animate-pulse rounded-[16px] bg-nevo-cream-elevated" />
         <div className="mt-8 grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-[150px] animate-pulse rounded-[12px] bg-nevo-cream-elevated" />
+            <div
+              key={i}
+              className="h-[150px] animate-pulse rounded-[12px] bg-nevo-cream-elevated"
+            />
           ))}
         </div>
       </div>
@@ -217,12 +238,17 @@ export function HomeDashboard() {
     );
   }
 
-  // Signed out: the designed walkthrough. These are a fictional child's
-  // lessons and a sentence about their week, so the region is marked - an
-  // end-to-end run that reached it while signed in must fail rather than read
-  // the fixtures as the very thing it was asserting.
-  return (
-    <SampleRegion kind="student:home">
+  // ONE BODY, TWO MEANINGS. Everything above fills `cont` and `today` from the
+  // live read when there is a session, and from the fixtures when there is not,
+  // so this markup is the child's own dashboard OR the designed walkthrough
+  // depending only on who is looking. The mark has to go on the second, and
+  // this used to wrap both: a signed-in child whose read SUCCEEDED fell through
+  // to here and had their real data stamped `student:home`. That is the sample
+  // mark lying in the more dangerous direction - the end-to-end assertion it
+  // exists for ("no sample marks once signed in") would have failed on a
+  // perfectly healthy Home, and the obvious way to make that test pass is to
+  // delete the mark.
+  const body = (
     <div className="mx-auto w-full max-w-[720px] px-5 py-2 pb-8 sm:px-8 sm:py-6 lg:max-w-[860px]">
       {/* Greeting */}
       <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-500">
@@ -292,8 +318,15 @@ export function HomeDashboard() {
         </>
       )}
     </div>
-    </SampleRegion>
   );
+
+  // Signed in and the read succeeded: this is the child's own week. No mark.
+  if (signedIn) return body;
+
+  // Signed out: a fictional child's lessons and a sentence about their week, so
+  // the region is marked - an end-to-end run that reaches it while signed in
+  // must fail rather than read the fixtures as the answer it was asserting.
+  return <SampleRegion kind="student:home">{body}</SampleRegion>;
 }
 
 /** Primary "pick back up" card — the one at Design System Level 3 elevation. */
@@ -336,7 +369,13 @@ function ContinueCard({ lesson }: { lesson: InProgress }) {
 }
 
 /** A quiet violet arc on a navy-tinted track, with a play glyph — never a %. */
-function ProgressRing({ value, glyph = true }: { value: number; glyph?: boolean }) {
+function ProgressRing({
+  value,
+  glyph = true,
+}: {
+  value: number;
+  glyph?: boolean;
+}) {
   const r = 32;
   const circumference = 2 * Math.PI * r;
   const offset = circumference * (1 - Math.max(0, Math.min(1, value)));
@@ -348,7 +387,14 @@ function ProgressRing({ value, glyph = true }: { value: number; glyph?: boolean 
         viewBox="0 0 68 68"
         className="absolute inset-0 -rotate-90"
       >
-        <circle cx="34" cy="34" r={r} fill="none" stroke="rgba(59,63,110,0.14)" strokeWidth="5" />
+        <circle
+          cx="34"
+          cy="34"
+          r={r}
+          fill="none"
+          stroke="rgba(59,63,110,0.14)"
+          strokeWidth="5"
+        />
         <circle
           cx="34"
           cy="34"
@@ -374,7 +420,11 @@ function ProgressRing({ value, glyph = true }: { value: number; glyph?: boolean 
 function LessonCard({ lesson, index }: { lesson: TodayLesson; index: number }) {
   const Icon = lesson.icon;
   // Alternating violet tints, matching the frame's rhythm.
-  const tints = ["bg-nevo-violet/18", "bg-nevo-violet/12", "bg-nevo-violet/[0.22]"];
+  const tints = [
+    "bg-nevo-violet/18",
+    "bg-nevo-violet/12",
+    "bg-nevo-violet/[0.22]",
+  ];
   const Wrap = lesson.href ? Link : "div";
   return (
     <Wrap
@@ -382,14 +432,18 @@ function LessonCard({ lesson, index }: { lesson: TodayLesson; index: number }) {
       className={`overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-500${lesson.href ? " transition-transform active:scale-[0.98]" : ""}`}
       style={{ animationDelay: `${240 + index * 70}ms` }}
     >
-      <div className={`flex h-[88px] items-center justify-center text-nevo-navy ${tints[index % tints.length]}`}>
+      <div
+        className={`flex h-[88px] items-center justify-center text-nevo-navy ${tints[index % tints.length]}`}
+      >
         <Icon className="size-10" strokeWidth={2} />
       </div>
       <div className="p-3.5">
         <p className="text-[15px] font-semibold leading-[1.3] text-nevo-near-black">
           {lesson.title}
         </p>
-        <p className="mt-1.5 text-[13px] text-nevo-near-black/60">{lesson.time}</p>
+        <p className="mt-1.5 text-[13px] text-nevo-near-black/60">
+          {lesson.time}
+        </p>
       </div>
     </Wrap>
   );

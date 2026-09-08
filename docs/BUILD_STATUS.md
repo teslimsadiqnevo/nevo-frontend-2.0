@@ -196,6 +196,90 @@ decoder, never an API gap.
 
 ---
 
+## Account on Pause — designed, enforced, and NOT WIREABLE. 8 Sep.
+
+Design ruled that a child whose parent withdrew consent is stopped at sign-in with a
+calm screen ("Your Nevo account is on pause. If you have questions, talk to your
+teacher."). The frame is pushed. Backend enforces it: withdrawal deactivates the
+learner, the session dies on the next request, and they cannot log back in.
+
+**It still cannot be built, and the reason is measured, not inferred.** I made a real
+student on the E2E tenant, deactivated it, and compared responses:
+
+| case | response |
+|---|---|
+| active account, **wrong** PIN | `401 {"code":"authentication_failed"}` |
+| **paused** account, **correct** PIN | `401 {"code":"authentication_failed"}` |
+| identifier that never existed | `401 {"code":"authentication_failed"}` |
+
+Byte-identical, message included. Mid-flight a revoked token gets `401 invalid_session`,
+which is also what an ordinary expiry returns. `user_unavailable` never reaches the
+client and appears nowhere in the deployed spec.
+
+**Do not guess at it.** A wrong guess tells a child who mistyped their PIN that their
+account is on pause, which is precisely the harm the copy exists to prevent. Raised with
+backend: distinguish only AFTER credentials verify, so nothing leaks to someone who does
+not already hold a valid PIN. Our own code already takes that posture deliberately —
+`authApi.requestPasswordReset` documents that it "always resolves the same way for any
+address".
+
+### What a withdrawn child sees TODAY — every path blames her
+
+Mapped across all six auth surfaces. Five are reachable; student SSO is not (still
+`resolveMockSso`).
+
+- **Mid-lesson.** A background read 401s → `client.ts:212` `handleAuthFailure` →
+  `/auth/session-expired`, which hardcodes `variant="expired"`: **"You've been away for
+  a while."** She was not away. The route's own comment calls it the "idle timeout
+  landing", and it is now the catch-all for every 401.
+- **Next morning.** The remembered profile is untouched, so the device greets her
+  **"Welcome back, <name>"**. She types her correct PIN. `page.tsx:104` collapses 401
+  and 403 into one boolean, so she gets **"That PIN didn't match. Try again, or ask your
+  teacher."** Forgot PIN → informational → back to sign-in → same loop, blamed each time.
+- **A revoked TEACHER** gets the identical wrong-password treatment
+  (`TeacherSignIn.tsx:124`).
+
+**The plumbing is already there.** `ApiError.detail` carries the parsed error body
+(`client.ts:195-201`, `:214`) and is in scope at every hook point — it is simply never
+read. `tosseErrorMessage` (`tosse.ts:155-161`) already narrows `{detail:{code,message}}`,
+so there is a precedent to copy. The only missing thing is knowing which code to look for.
+
+**Hook points, when a code exists:** `src/app/auth/login/page.tsx:104` (student PIN),
+`src/lib/api/client.ts:211-212` (mid-flight, covers session refresh too),
+`src/components/teacher/Auth/TeacherSignIn.tsx:124` (staff).
+
+**FOR DESIGN:** `SessionEndScreen` has two variants and both assert a CAUSE — "You've
+been away for a while" / "You logged in on another device". Neither is true for a revoked
+session, and there is no neutral variant. Worth a third, or softer wording on `expired`,
+independently of the pause work.
+
+## `POST /api/v1/students` returns 500 — raised 8 Sep
+
+Enrolment is broken. Valid payload, healthy tenant:
+
+- fails identically with the three required fields, with `ageBand`, and with `email`
+- **validation and lookup are fine** — bad `classId` → `404 Class not found`, missing
+  `lastName` → proper `422`. It fails after both, during creation.
+- **not the tenant** — `GET /school` and `/permissions/me` read fine, and
+  `POST /api/v1/invites` works on the same tenant (201)
+- **not the DPA** — accepted `version: "1.0"` (201, reads back) and retried; still 500
+
+`rndr-id`s given to backend: `bb72a09b-7fa7-423b`, `22ca2b26-70b5-4b55`,
+`75bde606-1e2e-4e39`, `1ece64bb-d0ac-465c`.
+
+**Workaround for anyone who needs a student:** `POST /api/v1/invites` →
+`POST /api/v1/join/{token}/accept` with `{pin, firstName, lastName}` creates one and
+returns `loginIdentifier`. That is how the tenant below was seeded.
+
+### The E2E tenant is no longer empty
+
+School `E2E DO NOT USE - automated tests`, code **`751A1136`**. It now holds one class
+and two students — one **active**, one **deactivated** — so the console renders populated
+states, and the `Deactivated` pill has a real row behind it. DPA acceptance is recorded.
+Credentials stay in CI secrets, not here.
+
+---
+
 ## Coordination — read this first
 
 Three sessions build in this SAME worktree in parallel: **student**, **admin**, and

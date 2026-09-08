@@ -10,6 +10,7 @@ import { useBehaviouralCapture } from "@/hooks";
 import { NotificationBell } from "./NotificationBell";
 import { OfflineTakeover, useOnline } from "./OfflineTakeover";
 import { useHasSession } from "@/hooks/useHasSession";
+import { useHydrated } from "@/hooks/useHydrated";
 import { useSessionRefresh } from "@/hooks/useSessionRefresh";
 import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
 import { useDisplayName } from "./useDisplayName";
@@ -36,6 +37,10 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   // The chrome calls the student by their own name, not the fixture's.
   const student = useDisplayName();
   const signedIn = useHasSession();
+  // `useHasSession` is the server's answer until hydration, so gating on it
+  // alone showed a real child the fixture's "Year 4" for a frame. Same reason
+  // `useDisplayName` waits - nobody is described until we know who is looking.
+  const hydrated = useHydrated();
   const online = useOnline();
   // Offline takes over network-backed tabs (board 28); Downloads stays
   // reachable - it is where "See saved lessons" points.
@@ -77,7 +82,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           user={{
             ...MOCK_STUDENT,
             ...student,
-            subtitle: signedIn ? undefined : MOCK_STUDENT.subtitle,
+            subtitle: hydrated && !signedIn ? MOCK_STUDENT.subtitle : undefined,
           }}
           collapsed={collapsed}
           onToggle={setCollapsed}
@@ -137,7 +142,8 @@ function isFullScreen(pathname: string): boolean {
   // `/summary`) are ordinary in-shell screens and keep the sidebar/nav. The
   // review session (37d) reuses the player wholesale, so it runs bare too.
   if (/^\/student\/lessons\/[^/]+\/?$/.test(pathname)) return true;
-  if (/^\/student\/lessons\/[^/]+\/review-session\/?$/.test(pathname)) return true;
+  if (/^\/student\/lessons\/[^/]+\/review-session\/?$/.test(pathname))
+    return true;
   // Feedback + Change PIN are full-screen views with their own back chevron
   // (Nevo Student App: `feedback` / `changepin`).
   if (pathname === "/student/profile/feedback") return true;
