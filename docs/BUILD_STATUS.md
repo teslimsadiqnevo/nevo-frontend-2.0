@@ -970,22 +970,14 @@ primitive, the mirror of `ReadFailed`:
 All five are pinned by tests and mutation-verified: each guard was collapsed
 back to its pre-fix catch and the right test failed.
 
-**STILL OPEN — eight of the ten. Do not assume these are done.**
+**STILL OPEN — four of the ten. Do not assume these are done.**
 
 ~~*The invitation delivery family*~~ — **SHIPPED.** Both halves: the wording
 now reads `deliveryStatus`, and the join links are handed over instead of
 discarded. `needsManualDelivery` finally has callers. Details under
 **The invitation family** below.
 
-*The failed-read family — the #269 shape, in screens that sweep never covered:*
-- **`IepExporterView`**: a failed roster read empties the dropdown, so
-  "Generate draft" is permanently disabled with no explanation — a dead screen.
-- **`AssignTeacherSheet`**: tells a school with no teachers that everyone on
-  staff already teaches this class, which is the exact first-run state the
-  Classes screen sends them to.
-- **`SencoView`**: "No profiles match" for a class whose per-class read failed.
-- **`TeacherDetailView`**: a headcount that coalesces unknown classes to zero,
-  contradicting the Classes card beside it.
+~~*The failed-read family*~~ — **SHIPPED.** All four, details below.
 
 *Smaller:*
 - **`SignUpStep`**: "nothing has been created yet" after the school AND the
@@ -1038,6 +1030,40 @@ What shipped:
   three-second toast, and every row that carries a token now offers Copy link.
 
 14 tests, four mutation-verified guards.
+
+### The failed-read family — shipped 9 Sep
+
+The #269 shape again, in four screens that sweep never reached. All four now
+distinguish a broken GET from an established fact, three of them through the
+existing `ReadFailed` primitive.
+
+- **`IepExporterView`** — the worst, because the empty list was also the
+  disabled state. `.catch(() => setStudents([]))` left the picker with nothing
+  to choose, so `studentId` stayed `""` and "Generate draft" was disabled
+  forever with nothing on screen saying why: a SENCo sitting down to draft an
+  IEP met a dead end. **The guardian read three lines below it in the same file
+  got exactly this fix in #269** — its sibling was missed, which is the argument
+  for grepping the whole file rather than the reported line.
+- **`AssignTeacherSheet`** — one sentence covered three different situations and
+  was true in one. A school that has invited no staff yet is the FIRST-RUN
+  state — `ClassesView`'s own empty state tells them to "create your first
+  class, then assign a teacher" — and it was told everyone on staff already
+  taught the class. Now: a failed read says so, an empty roster says "invite a
+  teacher first", and only a genuinely exhausted roster says everyone teaches
+  it.
+- **`SencoView`** — one roster request per class, each able to fail on its own.
+  A class whose request failed contributed nothing to `classOf`, so filtering to
+  it matched nobody and said "No profiles match", which reads as a fact about
+  the records.
+- **`TeacherDetailView`** — the mechanism was ARCHIVED classes, not a failed
+  read: `classesApi.list()` excludes them, so a class archived at the end of
+  last term went missing from the map, `?? 0`'d out of the headcount, and was
+  still counted by the Classes card beside it. Now the list is fetched with
+  `includeArchived`, archived classes are named rather than silently
+  subtracted, and a class we genuinely cannot see makes the figure a stated
+  floor ("in the classes we could read") instead of a total.
+
+13 tests, six mutation-verified guards.
 
 The 7 Sep deploy changed the picture more than anything else this week - consent,
 the school narrative, typed roster counts, per-student billing fields, a manual

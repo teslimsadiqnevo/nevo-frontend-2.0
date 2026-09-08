@@ -63,7 +63,14 @@ export function TeacherDetailView({ teacherId }: { teacherId: string }) {
     Promise.all([
       teachersApi.get(teacherId),
       classesApi.teacherClasses(teacherId),
-      classesApi.list(),
+      /*
+       * INCLUDING ARCHIVED. `list()` excludes them by default, so a teacher
+       * still holding a class archived at the end of last term had that class
+       * missing from `byId` - and the headcount below coalesced it to 0 while
+       * the Classes card counted it. "3 classes" beside a Students figure that
+       * silently omitted one of them, presented as flatly as any other number.
+       */
+      classesApi.list(true),
     ])
       .then(([t, h, all]) => {
         setTeacher(t);
@@ -126,10 +133,22 @@ export function TeacherDetailView({ teacherId }: { teacherId: string }) {
   }
 
   const byId = new Map(allClasses.map((c) => [c.id, c]));
-  const headcount = held.reduce((sum, h) => sum + (byId.get(h.class_id)?.studentCount ?? 0), 0);
+  /*
+   * An archived class is not one this teacher is currently teaching, so it is
+   * out of both the headcount and the year-group line - and SAID, rather than
+   * quietly subtracted.
+   */
+  const activeHeld = held.filter((h) => !byId.get(h.class_id)?.archivedAt);
+  const archivedCount = held.length - activeHeld.length;
+  /** A class we still cannot see at all: the total is a floor, not a total. */
+  const unknown = activeHeld.some((h) => !byId.has(h.class_id));
+  const headcount = activeHeld.reduce(
+    (sum, h) => sum + (byId.get(h.class_id)?.studentCount ?? 0),
+    0,
+  );
   const years = Array.from(
     new Set(
-      held
+      activeHeld
         .map((h) => yearGroupLabel(byId.get(h.class_id)?.yearGroup))
         .filter((v): v is string => Boolean(v)),
     ),
@@ -171,14 +190,22 @@ export function TeacherDetailView({ teacherId }: { teacherId: string }) {
       {/* Two cards, not the frame's three - see the note at the top of the file. */}
       <div className="mt-7 flex gap-3.5 max-lg:flex-col">
         <StatCard
-          value={String(held.length)}
+          value={String(activeHeld.length)}
           label="Classes"
-          sub={years.length > 0 ? `across ${years.join(" & ")}` : "none assigned yet"}
+          sub={
+            archivedCount > 0
+              ? `${years.length > 0 ? `across ${years.join(" & ")}, ` : ""}plus ${archivedCount} archived`
+              : years.length > 0
+                ? `across ${years.join(" & ")}`
+                : "none assigned yet"
+          }
         />
         <StatCard
           value={String(headcount)}
           label="Students"
-          sub="in their classes"
+          /* A class we cannot see makes this a floor, and the card says so
+             rather than presenting a short number as the total. */
+          sub={unknown ? "in the classes we could read" : "in their classes"}
         />
       </div>
 

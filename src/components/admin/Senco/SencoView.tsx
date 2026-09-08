@@ -91,6 +91,10 @@ export function SencoView() {
   const [now, setNow] = useState(0);
   /** A "mark as seen" the server refused. The row comes back; say why. */
   const [ackFailed, setAckFailed] = useState(false);
+  /** Classes whose own roster read did not answer, by id. */
+  const [classReadFailed, setClassReadFailed] = useState<
+    Record<string, boolean>
+  >({});
 
   const load = useCallback(() => {
     Promise.all([
@@ -104,6 +108,15 @@ export function SencoView() {
         setClasses(c);
         setNow(Date.now());
         setPhase("ready");
+        /*
+         * One request per class, and each can fail on its own. A class whose
+         * roster did not answer contributes NO entries to `classOf`, so
+         * filtering to it matched nobody and the screen said "No profiles
+         * match. Try a different name or filter." - which reads as a fact
+         * about the school's records. A SENCo checking who she holds profiles
+         * for before a review meeting concluded Nevo held none.
+         */
+        setClassReadFailed({});
         c.forEach((klass) => {
           studentsApi
             .list({ classId: klass.id })
@@ -116,7 +129,9 @@ export function SencoView() {
                 return next;
               }),
             )
-            .catch(() => undefined);
+            .catch(() =>
+              setClassReadFailed((prev) => ({ ...prev, [klass.id]: true })),
+            );
         });
       })
       .catch((err: unknown) => setPhase(failureKind(err)));
@@ -386,9 +401,17 @@ export function SencoView() {
             <div className={cn(CARD, "mt-4")}>
               {profiles.length === 0 ? (
                 <div className="px-6 py-12 text-center">
-                  <p className="m-0 text-sm text-nevo-near-black/62">
-                    No profiles match. Try a different name or filter.
-                  </p>
+                  {classId && classReadFailed[classId] ? (
+                    <p className="m-0 text-sm text-nevo-near-black/62">
+                      We couldn&rsquo;t read that class&rsquo;s roster just now,
+                      so there&rsquo;s nothing to show here yet &ndash; this is
+                      not a record that the class has no profiles.
+                    </p>
+                  ) : (
+                    <p className="m-0 text-sm text-nevo-near-black/62">
+                      No profiles match. Try a different name or filter.
+                    </p>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
