@@ -29,7 +29,6 @@ const teacher = (i: number): TeacherSummary => ({
   name: `Folake Adeyemi ${i}`,
   email: `f${i}@school.edu.ng`,
   status: "active",
-  classIds: [],
 });
 
 function sheet(assigned: { teacher_id: string }[] = []) {
