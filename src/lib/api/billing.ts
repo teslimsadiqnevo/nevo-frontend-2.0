@@ -6,16 +6,21 @@ import { api } from "./client";
  * NINE operations are deployed; this file types the four the screen can use,
  * and deliberately leaves the rest alone. What is missing is not plumbing:
  *
- * - `GET /billing/subscription` returns `subscriptionTier`, `studentCountBand`
- *   and a flat `contractValue`. D11/D11b supersede that with per-student
- *   pricing - roster count x N150,000 + 7.5% VAT, "no tiers, no plan
- *   selection" - so the cost sheet cannot be rendered from either side without
- *   a ruling. The fields are typed here because they are real, and the screen
- *   does not display them.
+ * - THE PRICING DISPUTE IS SETTLED (7 Sep). `pricingModel` is a CONST
+ *   `"per_student"` in the contract itself, and the read now carries
+ *   `activeStudentCount`, `perStudentAnnualRate` and `currency` - so the cost
+ *   sheet is computed from the same numbers the school is billed on. The old
+ *   `subscriptionTier` / `studentCountBand` / `contractValue` fields are still
+ *   returned and still not displayed: they are SCRUM-98's model, which D11
+ *   superseded.
  * - `PUT /billing/payment-method` takes `card` or `direct_debit`. D11 says
  *   "no cards, no in-app checkout".
  * - `POST /billing/payments/checkout` returns a Paystack `authorizationUrl` -
  *   a hosted gateway checkout, which is the thing D11 forbids.
+ * - `POST /billing/payments/{reference}/verify` is a WRITE, not a lookup:
+ *   backend's own words are that it asks Paystack about a transaction and
+ *   settles the invoice off the answer, so a bank reference 404s there. Manual
+ *   transfers go through `manualTransfer` below instead.
  * - D11's "How to pay" panel needs Nevo's own bank account, and NOTHING in the
  *   spec carries one (checked field by field across every schema). The frame
  *   fills it with literal account details. Hard-coding a real payable account
@@ -90,9 +95,20 @@ export interface BillingContactDraft {
  * `contractValue` are typed because the endpoint returns them, and are NOT
  * rendered - see the note above.
  */
+/** The three the backend will price in. Never assume naira. */
+export type PricingCurrency = "USD" | "NGN" | "GBP";
+
 export interface Subscription {
   schoolId: string;
   schoolName: string;
+  /** A const in the contract - the model is settled, not a variable. */
+  pricingModel: "per_student";
+  /** What the school is billed ON. Not the same as invited or profiled. */
+  activeStudentCount: number;
+  /** Decimal STRING, and nullable - no rate means no cost sheet. */
+  perStudentAnnualRate: string | null;
+  currency: PricingCurrency;
+  /** SCRUM-98's model. Still returned, never displayed - see the note above. */
   subscriptionTier: string | null;
   studentCountBand: string | null;
   contractValue: string | null;
@@ -111,6 +127,16 @@ export interface ReceivingAccount {
   bankName: string;
   accountNumber: string;
   accountName: string;
+}
+
+/** What the backend made of a declared transfer. */
+export interface PaymentOutcome {
+  transactionId: string;
+  invoiceId: string | null;
+  reference: string;
+  status: "pending" | "success" | "failed" | "abandoned";
+  invoicePaid: boolean;
+  message: string | null;
 }
 
 export const billingApi = {
@@ -136,4 +162,22 @@ export const billingApi = {
   upcoming: () => api.get<UpcomingCharge>("/api/billing/upcoming"),
   updateContact: (draft: BillingContactDraft) =>
     api.put<BillingContact>("/api/billing/billing-contact", draft),
+  /**
+   * Record a bank transfer the school says they have made.
+   *
+   * `bankReference` is the IDEMPOTENCY KEY, not just a label: confirming the
+   * same transfer twice returns the original transaction with
+   * `invoicePaid: false` and a message saying it was already recorded, so a
+   * double-tap cannot settle an invoice twice. The screen surfaces that message
+   * rather than treating the second call as a failure.
+   */
+  manualTransfer: (invoiceId: string, bankReference: string) =>
+    api.post<PaymentOutcome>("/api/billing/payments/manual-transfer", {
+      invoiceId,
+      bankReference,
+    }),
 };
+
+/** The API's own bounds on `bankReference`. */
+export const BANK_REF_MIN = 3;
+export const BANK_REF_MAX = 120;
