@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { NotificationsPanel } from "../Notifications/NotificationsPanel";
 import { AdminSignOutModal } from "./AdminSignOutModal";
 import { activeNavLabel, navForScopes, scopeSummary } from "./adminNav";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 
 /**
  * School Admin rail (`Nevo Admin Sidebar`) - imported by every admin screen,
@@ -336,28 +337,33 @@ export function AdminSidebar() {
             "AA"
           )}
         </span>
-        {expanded && (
-          <span className="flex min-w-0 flex-col text-left">
-            {!signedIn && (
-              <span className="truncate text-sm font-semibold text-nevo-near-black">
-                Mrs. Adebayo
+        {expanded &&
+          (signedIn ? (
+            <span className="flex min-w-0 flex-col text-left">
+              <span
+                className={
+                  "truncate text-sm font-semibold text-nevo-near-black"
+                }
+              >
+                {scopesFailed ? "Couldn't load your access" : scopeSummary(scopes)}
               </span>
-            )}
-            <span
-              className={
-                signedIn
-                  ? "truncate text-sm font-semibold text-nevo-near-black"
-                  : "truncate text-xs text-nevo-near-black/55"
-              }
-            >
-              {!signedIn
-                ? "Proprietor · General oversight"
-                : scopesFailed
-                  ? "Couldn't load your access"
-                  : scopeSummary(scopes)}
             </span>
-          </span>
-        )}
+          ) : (
+            /* The signed-out persona is a FIXTURE - "Mrs. Adebayo" is nobody.
+               Marked so the end-to-end suite can assert a signed-in admin never
+               meets it: this is the identity block, so a fallback here means the
+               console is showing an invented person to a real one. */
+            <SampleRegion kind="admin:sidebar-identity">
+              <span className="flex min-w-0 flex-col text-left">
+                <span className="truncate text-sm font-semibold text-nevo-near-black">
+                  Mrs. Adebayo
+                </span>
+                <span className="truncate text-xs text-nevo-near-black/55">
+                  Proprietor &middot; General oversight
+                </span>
+              </span>
+            </SampleRegion>
+          ))}
       </button>
 
       {signedIn && scopesFailed && expanded && (
