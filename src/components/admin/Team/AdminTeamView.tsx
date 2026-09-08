@@ -5,6 +5,7 @@ import { teamApi, roleForScopes, type TeamMember } from "@/lib/api/team";
 import type { PermissionScope } from "@/lib/constants/permissions";
 import { cn } from "@/lib/utils";
 import { readOnboarding, schoolApi } from "@/lib/api/school";
+import { NoAccess, failureKind } from "../NoAccess";
 import {
   adminSeatAllowance,
   SCOPE_CATALOGUE,
@@ -40,7 +41,7 @@ import {
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 type SendPhase = "idle" | "sending" | "sent";
 
 function ScopePill({ label }: { label: string }) {
@@ -84,7 +85,7 @@ export function AdminTeamView() {
         setTeam(rows);
         setPhase("ready");
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, []);
 
   useEffect(() => {
@@ -118,6 +119,7 @@ export function AdminTeamView() {
           </>
         )}
 
+        {phase === "denied" && <NoAccess what="the admin team" />}
         {phase === "failed" && (
           <>
             <Heading count={null} />

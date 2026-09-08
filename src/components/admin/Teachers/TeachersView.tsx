@@ -16,6 +16,7 @@ import {
   ROW_DIVIDER,
 } from "../Roster/primitives";
 import { StatusPill, isInvited } from "./status";
+import { NoAccess, failureKind } from "../NoAccess";
 
 /**
  * D6 Teachers - admin oversight of staff.
@@ -43,7 +44,7 @@ import { StatusPill, isInvited } from "./status";
  * source line pointing at IT & SSO) cannot be detected and is not built.
  */
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 
 const SEARCH_BAR =
   "flex h-[42px] w-full max-w-[340px] flex-1 items-center gap-[9px] rounded-[10px] border-[1.5px] border-nevo-near-black/10 bg-nevo-cream-elevated px-[15px] text-[14.5px] text-nevo-near-black outline-none transition-colors placeholder:text-nevo-near-black/50 focus-within:border-nevo-navy";
@@ -90,7 +91,7 @@ export function TeachersView() {
             .catch(() => undefined);
         });
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, []);
 
   useEffect(() => {
@@ -130,7 +131,9 @@ export function TeachersView() {
 
         {phase === "loading" ? <div className={cn(CARD, "mt-[22px] h-[320px] animate-pulse")} /> : null}
 
-        {phase === "failed" ? (
+        {phase === "denied" ? (
+          <NoAccess what="your teachers" />
+        ) : phase === "failed" ? (
           <div className={cn(CARD, "mt-[22px] px-[26px] py-7")}>
             <h3 className="text-[17px] font-semibold text-nevo-near-black">
               We couldn&rsquo;t load your teachers

@@ -26,6 +26,7 @@ import {
 } from "../Roster/primitives";
 import { EraseRecordModal } from "./EraseRecordModal";
 import { MoveStudentSheet } from "./MoveStudentSheet";
+import { NoAccess, failureKind } from "../NoAccess";
 
 /**
  * D7b Student detail - the admin-scoped record for one student.
@@ -53,7 +54,7 @@ import { MoveStudentSheet } from "./MoveStudentSheet";
  * per-guardian relationship, "Primary contact" flag and last-active line.
  */
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 
 export function StudentDetailView({ studentId }: { studentId: string }) {
   const router = useRouter();
@@ -90,7 +91,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
             setGuardiansFailed(true);
           });
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, [studentId]);
 
   useEffect(() => {
@@ -101,6 +102,14 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
     return (
       <Wrapper>
         <div className={cn(CARD, "h-[420px] animate-pulse")} />
+      </Wrapper>
+    );
+  }
+
+  if (phase === "denied") {
+    return (
+      <Wrapper>
+        <NoAccess what="this student" />
       </Wrapper>
     );
   }

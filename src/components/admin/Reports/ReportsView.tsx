@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { ReadFailed } from "../ReadFailed";
 import { CARD, PRIMARY_BTN } from "../Roster/primitives";
 import { DualTrackBars, TrendLine, type DualTrackRow, type TrendPoint } from "./charts";
+import { NoAccess, failureKind } from "../NoAccess";
 
 /**
  * D20 Cohort Analytics (SCRUM-65) - the proprietor's proof that Nevo is
@@ -63,7 +64,7 @@ import { DualTrackBars, TrendLine, type DualTrackRow, type TrendPoint } from "./
  * one. That boundary is what keeps cohort analytics inside admin scope.
  */
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 
 /** Enough of a picture to be worth drawing a trend through. */
 const MIN_PERIODS = 3;
@@ -109,7 +110,7 @@ export function ReportsView() {
           .then(setTransformation)
           .catch(() => undefined);
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, []);
 
   useEffect(() => {
@@ -180,7 +181,9 @@ export function ReportsView() {
           <div className={cn(CARD, "mt-7 h-[360px] animate-pulse")} />
         ) : null}
 
-        {phase === "failed" ? (
+        {phase === "denied" ? (
+          <NoAccess what="reports" />
+        ) : phase === "failed" ? (
           <div className={cn(CARD, "mt-7 px-[26px] py-7")}>
             <h3 className="text-[17px] font-semibold text-nevo-near-black">
               We couldn&rsquo;t load your analytics

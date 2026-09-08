@@ -7,6 +7,7 @@ import { intelligenceApi, type AttentionFlag } from "@/lib/api/intelligence";
 import { studentsApi, type AdminStudentRow } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
+import { NoAccess, failureKind } from "../NoAccess";
 import {
   Avatar,
   CARD,
@@ -58,7 +59,7 @@ import {
  * they cost three calls for one learner, and the list carries identity only.
  */
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 type View = "attention" | "profiles";
 
 const SEARCH_BAR =
@@ -115,7 +116,7 @@ export function SencoView() {
             .catch(() => undefined);
         });
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, []);
 
   useEffect(() => {
@@ -207,7 +208,9 @@ export function SencoView() {
           <div className={cn(CARD, "mt-6 h-[320px] animate-pulse")} />
         ) : null}
 
-        {phase === "failed" ? (
+        {phase === "denied" ? (
+          <NoAccess what="learning support" />
+        ) : phase === "failed" ? (
           <div className={cn(CARD, "mt-6 px-[26px] py-7")}>
             <h3 className="text-[17px] font-semibold text-nevo-near-black">
               We couldn&rsquo;t load Learning Support

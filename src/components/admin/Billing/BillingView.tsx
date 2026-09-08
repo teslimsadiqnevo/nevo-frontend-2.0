@@ -16,6 +16,7 @@ import { ReadFailed } from "../ReadFailed";
 import { BillingContactSheet } from "./BillingContactSheet";
 import { CostSheet } from "./CostSheet";
 import { HowToPayPanel } from "./HowToPayPanel";
+import { NoAccess, failureKind } from "../NoAccess";
 
 /**
  * D11 / D11b Billing - the half of the screen that can be built honestly.
@@ -52,7 +53,7 @@ import { HowToPayPanel } from "./HowToPayPanel";
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
 
-type Phase = "loading" | "ready" | "failed";
+type Phase = "loading" | "ready" | "failed" | "denied";
 
 /** Naira, from the API's decimal STRING - never through a float. */
 function naira(amount: string | null): string {
@@ -154,7 +155,7 @@ export function BillingView() {
           })
           .catch(() => setUpcomingFailed(true));
       })
-      .catch(() => setPhase("failed"));
+      .catch((err: unknown) => setPhase(failureKind(err)));
   }, []);
 
   useEffect(() => {
@@ -182,7 +183,8 @@ export function BillingView() {
         </div>
       )}
 
-      {phase === "failed" && (
+      {phase === "denied" && <NoAccess what="billing" />}
+        {phase === "failed" && (
         <div className={cn(CARD, "mt-7 px-6 py-[22px]")}>
           <p className="m-0 text-[15px] font-semibold text-nevo-near-black">
             We couldn&rsquo;t load your billing
