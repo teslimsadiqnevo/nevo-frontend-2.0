@@ -28,6 +28,7 @@ import {
 import { AssignTeacherSheet } from "./AssignTeacherSheet";
 import { ClassFormSheet } from "./ClassFormSheet";
 import { NoAccess, failureKind } from "../NoAccess";
+import { WriteFailed } from "../WriteFailed";
 
 /**
  * D5b Class detail - one class, everything true about it.
@@ -64,6 +65,15 @@ export function ClassDetailView({ classId }: { classId: string }) {
   const [editing, setEditing] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
+  /*
+   * Three writes on this screen ended in a catch that returned the UI to
+   * rest - which is exactly what a SUCCESS looks like. Each now has a flag
+   * so the refusal is visible where the admin is looking.
+   */
+  const [archiveFailed, setArchiveFailed] = useState(false);
+  const [removeFailed, setRemoveFailed] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreFailed, setRestoreFailed] = useState(false);
 
   const load = useCallback(() => {
     Promise.all([
@@ -176,18 +186,32 @@ export function ClassDetailView({ classId }: { classId: string }) {
         </div>
 
         {archived ? (
+          <>
           <button
             type="button"
-            onClick={() =>
+            onClick={() => {
+              if (restoring) return;
+              setRestoring(true);
+              setRestoreFailed(false);
               classesApi
                 .restore(klass.id)
                 .then(load)
-                .catch(() => undefined)
-            }
+                // `.catch(() => undefined)` left the page byte-identical before
+                // and after the press, so a broken write and a dead button were
+                // indistinguishable - and the button stayed clickable, firing
+                // the POST again on every try.
+                .catch(() => setRestoreFailed(true))
+                .finally(() => setRestoring(false));
+            }}
+            disabled={restoring}
             className={GHOST_BTN}
           >
-            Restore this class
+            {restoring ? "Restoring…" : "Restore this class"}
           </button>
+          {restoreFailed ? (
+            <WriteFailed className="mt-3" what="restore this class" />
+          ) : null}
+          </>
         ) : !ssoSourced ? (
           <button type="button" onClick={() => setEditing(true)} className={GHOST_BTN}>
             Edit class
@@ -256,7 +280,10 @@ export function ClassDetailView({ classId }: { classId: string }) {
                   {!archived && !ssoSourced ? (
                     <button
                       type="button"
-                      onClick={() => setRemoving(confirming ? null : t.assignment_id)}
+                      onClick={() => {
+                        setRemoveFailed(false);
+                        setRemoving(confirming ? null : t.assignment_id);
+                      }}
                       aria-label={`Remove ${name} from this class`}
                       className="flex size-[30px] flex-none cursor-pointer items-center justify-center rounded-lg text-nevo-near-black/40 transition-colors hover:bg-nevo-near-black/[0.06] hover:text-nevo-near-black/70"
                     >
@@ -287,7 +314,10 @@ export function ClassDetailView({ classId }: { classId: string }) {
                               setRemoving(null);
                               reload();
                             })
-                            .catch(() => setRemoving(null))
+                            // Closing the strip is what SUCCESS looks like, and
+                            // a teacher who still holds the class still holds
+                            // its children's work.
+                            .catch(() => setRemoveFailed(true))
                         }
                         className="cursor-pointer rounded-lg bg-nevo-navy px-4 py-2 text-[13.5px] font-semibold text-nevo-cream transition-[filter] hover:brightness-110"
                       >
@@ -295,12 +325,21 @@ export function ClassDetailView({ classId }: { classId: string }) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setRemoving(null)}
+                        onClick={() => {
+                          setRemoving(null);
+                          setRemoveFailed(false);
+                        }}
                         className="cursor-pointer rounded-lg px-4 py-2 text-[13.5px] font-semibold text-nevo-near-black/70 transition-colors hover:bg-nevo-near-black/[0.06]"
                       >
                         Keep them
                       </button>
                     </div>
+                    {removeFailed ? (
+                      <WriteFailed
+                        className="mt-3"
+                        what={`remove ${name} from this class`}
+                      />
+                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -398,16 +437,28 @@ export function ClassDetailView({ classId }: { classId: string }) {
       {confirmArchive ? (
         <ArchiveConfirm
           className={klass.name}
-          onCancel={() => setConfirmArchive(false)}
-          onConfirm={() =>
+          onCancel={() => {
+            setConfirmArchive(false);
+            setArchiveFailed(false);
+          }}
+          failed={archiveFailed}
+          onConfirm={() => {
+            setArchiveFailed(false);
             classesApi
               .archive(klass.id)
               .then(() => {
                 setConfirmArchive(false);
                 load();
               })
-              .catch(() => setConfirmArchive(false))
-          }
+              /*
+               * WAS `.catch(() => setConfirmArchive(false))` - the refusal
+               * closed the dialog exactly as a success does, so an admin whose
+               * archive 403'd watched the confirmation disappear and moved on.
+               * The class stayed on every active list. Hold the dialog open and
+               * say so.
+               */
+              .catch(() => setArchiveFailed(true));
+          }}
         />
       ) : null}
     </Wrapper>
@@ -429,14 +480,26 @@ function Wrapper({ children }: { children: React.ReactNode }) {
  */
 function ArchiveConfirm({
   className,
+  failed,
   onCancel,
   onConfirm,
 }: {
   className: string;
+  /** The archive was refused. Stop the spinner and say so. */
+  failed: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  const [working, setWorking] = useState(false);
+  const [pressed, setPressed] = useState(false);
+
+  /*
+   * DERIVED, not latched. `pressed` used to be the whole story and was only
+   * ever cleared by the dialog unmounting - which is what the failure path did,
+   * because its catch closed the dialog. Now that a refusal HOLDS the dialog
+   * open, a latched spinner would read "Archiving…" forever on a class that was
+   * never archived. A refusal is by definition no longer in flight.
+   */
+  const working = pressed && !failed;
   return (
     <Modal
       title="Archive this class?"
@@ -453,7 +516,7 @@ function ArchiveConfirm({
             <button
               type="button"
               onClick={() => {
-                setWorking(true);
+                setPressed(true);
                 onConfirm();
               }}
               className={cn(PRIMARY_BTN, "flex-1 justify-center")}
@@ -472,6 +535,9 @@ function ArchiveConfirm({
         the students in it keep their progress - nothing is deleted. You can
         restore the class at any time.
       </p>
+      {failed ? (
+        <WriteFailed className="mt-4" what="archive this class" />
+      ) : null}
     </Modal>
   );
 }

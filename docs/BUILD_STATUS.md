@@ -746,6 +746,70 @@ debt and deploy/monitoring remain unassessed). That audit found nine launch
 blockers; all nine are closed, seven by PRs #251, #257, #258, #264, #267, #269
 and #281, and two by the 7 Sep backend deploy.
 
+### Audited again, 8 Sep — 15 more, and they are NOT all fixed
+
+A second sweep ran twelve independent lenses over the console against a clean
+checkout, and put every candidate through three adversarial skeptics (does the
+code do this; is it actually launch-blocking; is it already known or shipped).
+**85 candidates, 15 survived.** Ten of the fifteen are ONE defect wearing ten
+faces, which is why they were invisible one screen at a time:
+
+> **A write that failed looked exactly like a write that succeeded.**
+> `.catch(() => setConfirming(false))` closes the dialog, drops the spinner and
+> returns the screen to rest — which is byte-for-byte what the admin saw the
+> last time it worked.
+
+**Shipped (this PR):** the five where the fix is "say it, keep the affordance,
+and put the message where they are looking" — `WriteFailed` is the shared
+primitive, the mirror of `ReadFailed`:
+
+| screen | what a refusal used to do |
+|---|---|
+| Notifications | cleared every unread dot anyway; "Unread only" then said "You're up to date." |
+| Class detail — archive | closed the dialog; the class stayed live on every list |
+| Class detail — restore | nothing at all, and the button stayed double-clickable |
+| SSO disconnect | painted its only message *behind* the modal still covering the screen |
+| Student deactivate | swallowed entirely, under the words "their seat frees up" |
+
+All five are pinned by tests and mutation-verified: each guard was collapsed
+back to its pre-fix catch and the right test failed.
+
+**STILL OPEN — the other ten. Do not assume these are done.**
+
+*The invitation delivery family (needs a design answer, not just a guard):*
+- **`BulkImportModal` says "N invites sent" without reading `deliveryStatus`.**
+  The backend returns `email_not_configured` precisely to say nobody was
+  emailed. `needsManualDelivery` in `deliveryCopy.ts` was written for this and
+  has **no caller anywhere**. Worse than the wording: each row's join `token` is
+  in hand on the response and is thrown away when the modal unmounts, and
+  `InvitationsView` has no copy-link affordance, so a 200-row staff import that
+  emailed nobody has no recovery except revoke-and-reissue one at a time.
+- **`InvitationsView` resend toast** says "Invite resent to <name>" while
+  ignoring the `deliveryStatus` it was just handed.
+
+*The failed-read family — the #269 shape, in screens that sweep never covered:*
+- **`IepExporterView`**: a failed roster read empties the dropdown, so
+  "Generate draft" is permanently disabled with no explanation — a dead screen.
+- **`AssignTeacherSheet`**: tells a school with no teachers that everyone on
+  staff already teaches this class, which is the exact first-run state the
+  Classes screen sends them to.
+- **`SencoView`**: "No profiles match" for a class whose per-class read failed.
+- **`TeacherDetailView`**: a headcount that coalesces unknown classes to zero,
+  contradicting the Classes card beside it.
+
+*Smaller:*
+- **`SignUpStep`**: "nothing has been created yet" after the school AND the
+  founding admin were created — the inverse defect, a confirmed write reading
+  as one that never happened, and Continue is re-armed so they try again.
+- **`SencoView` "Mark as seen"** flips before the server answers, so "Nothing
+  needs your attention right now" can render ahead of a failed write. (The
+  rollback existed; this PR added the words. The optimistic ordering stands.)
+- **`ClassesView`** header sums `studentCount` across classes and silently
+  folds archived ones in when "Show archived" is pressed.
+
+The full finding set, with the skeptics' reasoning, is in the audit output for
+run `wf_107dccdc-839`.
+
 The 7 Sep deploy changed the picture more than anything else this week - consent,
 the school narrative, typed roster counts, per-student billing fields, a manual
 transfer endpoint and a DPA acceptance record all landed together, and every

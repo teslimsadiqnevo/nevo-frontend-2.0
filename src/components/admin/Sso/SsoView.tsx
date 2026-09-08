@@ -12,6 +12,7 @@ import {
 import { schoolApi, type School } from "@/lib/api/school";
 import { cn } from "@/lib/utils";
 import { NoAccess, failureKind } from "../NoAccess";
+import { WriteFailed } from "../WriteFailed";
 
 /**
  * D10 IT & SSO Setup, with D10b's ongoing-management sections stacked into the
@@ -108,6 +109,8 @@ export function SsoView() {
   const [historyFailed, setHistoryFailed] = useState(false);
   const [busy, setBusy] = useState<Busy>("");
   const [confirming, setConfirming] = useState(false);
+  /** Shown INSIDE the dialog - the page behind it is not visible. */
+  const [disconnectFailed, setDisconnectFailed] = useState(false);
   const [notice, setNotice] = useState("");
   /** Which provider's Connect has been pressed. Explains, never acts. */
   const [asked, setAsked] = useState<SsoProvider | null>(null);
@@ -230,6 +233,7 @@ export function SsoView() {
   const disconnect = () => {
     if (busy) return;
     setBusy("disconnecting");
+    setDisconnectFailed(false);
     ssoApi
       .disconnect()
       .then((r) => {
@@ -240,9 +244,13 @@ export function SsoView() {
         setStatus(null);
         load();
       })
-      .catch(() =>
-        setNotice("We couldn't disconnect just now. Try again in a moment."),
-      )
+      /*
+       * The notice renders on the page BEHIND the confirmation dialog, which
+       * is still covering the screen - so the only explanation an IT lead got
+       * was invisible, and the button they could still see stayed pressable.
+       * They press again, and each press fires another disconnect.
+       */
+      .catch(() => setDisconnectFailed(true))
       .finally(() => setBusy(""));
   };
 
@@ -511,7 +519,11 @@ export function SsoView() {
       {confirming && status && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-nevo-near-black/50 p-6 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200"
-          onClick={() => busy === "" && setConfirming(false)}
+          onClick={() => {
+            if (busy !== "") return;
+            setConfirming(false);
+            setDisconnectFailed(false);
+          }}
         >
           <div
             role="dialog"
@@ -577,6 +589,13 @@ export function SsoView() {
               )}
             </div>
 
+            {disconnectFailed && (
+              <WriteFailed
+                className="mt-5"
+                what={`disconnect ${PROVIDER_LABELS[status.provider]}`}
+              />
+            )}
+
             <button
               type="button"
               onClick={disconnect}
@@ -589,7 +608,10 @@ export function SsoView() {
             </button>
             <button
               type="button"
-              onClick={() => setConfirming(false)}
+              onClick={() => {
+                setConfirming(false);
+                setDisconnectFailed(false);
+              }}
               disabled={busy !== ""}
               className="mt-2 h-[46px] w-full cursor-pointer rounded-[10px] text-sm font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6"
             >

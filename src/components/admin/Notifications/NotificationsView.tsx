@@ -8,6 +8,7 @@ import { CARD, PRIMARY_BTN, ROW_DIVIDER } from "../Roster/primitives";
 import { NotificationPreferences } from "./NotificationPreferences";
 import { NotificationRow } from "./NotificationRow";
 import { NoAccess, failureKind } from "../NoAccess";
+import { WriteFailed } from "../WriteFailed";
 
 /**
  * D13b Notifications - the record and the preferences (SCRUM-100).
@@ -118,6 +119,8 @@ export function NotificationsView() {
   const [olderFailed, setOlderFailed] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [allRead, setAllRead] = useState(false);
+  /** What an action failed to do, in the admin's words. "" when none has. */
+  const [writeFailed, setWriteFailed] = useState("");
   const [now, setNow] = useState(0);
 
   const archived = view === "archived";
@@ -183,9 +186,23 @@ export function NotificationsView() {
   }, [visible, now]);
 
   const markAllRead = () => {
+    /*
+     * The rows were painted read optimistically and NEVER put back: the catch
+     * reverted the button only. So a refused POST left every unread dot gone,
+     * and "Unread only" then reported "You're up to date." - a failed WRITE
+     * manufacturing the same false absence that PR #269 spent five fixes
+     * removing from failed READS. Snapshot, and restore what was actually
+     * there rather than guessing.
+     */
+    const before = rows;
     setAllRead(true);
+    setWriteFailed("");
     setRows((prev) => prev.map((n) => ({ ...n, read: true })));
-    notificationsApi.markAllRead().catch(() => setAllRead(false));
+    notificationsApi.markAllRead().catch(() => {
+      setAllRead(false);
+      setRows(before);
+      setWriteFailed("mark everything as read");
+    });
   };
 
   const onRead = (id: string) => {
@@ -290,6 +307,10 @@ export function NotificationsView() {
                 Archiving only tidies your list. You can put anything back -
                 nothing is ever deleted.
               </p>
+            ) : null}
+
+            {writeFailed ? (
+              <WriteFailed className="mt-4" what={writeFailed} />
             ) : null}
 
             {phase === "loading" ? (
