@@ -1,5 +1,8 @@
 import { api } from "./client";
 
+/** The deployed `ClassSource` enum. There is no "sso" member. */
+export type ClassSource = "manual" | "roster_sync";
+
 /**
  * Teacher-class assignment endpoints, typed against the deployed backend
  * (openapi 2.0.0, snake_case bodies). `myClasses` is the teacher console's
@@ -92,9 +95,16 @@ export interface ClassStudent {
  * A class as the admin console reads it (D5 / D5b). camelCase, like the roster
  * route above and unlike the snake_case assignment surface.
  *
- * `source` is what forks every manual-versus-SSO branch in D5: where it is
- * "sso" the provider owns the class list, so Create is ABSENT rather than
- * disabled and archive does not appear at all.
+ * `source` is what forks every manual-versus-SSO branch in D5: where the
+ * provider owns the class list, Create is ABSENT rather than disabled and
+ * archive does not appear at all.
+ *
+ * THE PROVIDER-OWNED VALUE IS `roster_sync`, NOT "sso". `ClassSource` in the
+ * deployed spec is a closed two-value enum, `manual | roster_sync`, and "sso"
+ * has never been a member. Every comparison against "sso" was therefore
+ * permanently false, which silently disabled the whole fork - a synced class
+ * offered a Create button and an archive action the school must not have. It
+ * is typed as the union now so the compiler refuses the next such typo.
  *
  * `subjects` backs the detail header's third clause. It is optional in the
  * schema and often empty, so the header composes only the clauses it has.
@@ -105,7 +115,7 @@ export interface AdminClass {
   code: string | null;
   /** A `YearGroup` enum value. Typed as string: the backend does not narrow it. */
   yearGroup: string | null;
-  source: string | null;
+  source: ClassSource | null;
   subjects: string[];
   studentCount: number;
   /** Non-null means archived. Archive is reversible and never deletes. */

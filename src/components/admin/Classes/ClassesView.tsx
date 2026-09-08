@@ -130,7 +130,8 @@ export function ClassesView() {
   // SSO owns the class list where the school signed in with a provider, so
   // Create is ABSENT rather than disabled - the spec is specific that manual
   // controls go away instead of greying out.
-  const ssoSourced = classes.length > 0 && classes.every((c) => c.source === "sso");
+  const ssoSourced =
+    classes.length > 0 && classes.every((c) => c.source === "roster_sync");
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
