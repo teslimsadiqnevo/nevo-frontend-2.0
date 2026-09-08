@@ -40,14 +40,32 @@ const SLASH_REQUIRED = new Set(["api/v1/ask-nevo", "api/signals"]);
 const DEFAULT_TIMEOUT_MS = 60_000;
 const LONG_RUNNING_TIMEOUT_MS = 240_000;
 
-/** Parsing a document, ingesting an upload, generating a lesson. */
+/**
+ * Parsing a document, ingesting an upload, generating a lesson - and every
+ * route where the backend runs a MODEL.
+ *
+ * The first version of this list was drawn from the one route being debugged
+ * at the time (`regenerate`, which no client method even calls yet) and missed
+ * the five model-backed routes the app calls in normal use. Ask Nevo is the
+ * one that matters most: a child asks a question, the answer is generated, and
+ * a cold start on top of generation is exactly the case the read budget cuts
+ * off. If you add an upstream route that GENERATES rather than reads, add it
+ * here.
+ */
 const LONG_RUNNING: RegExp[] = [
+  // Content ingestion.
   /^api\/content\/parse$/,
   /^api\/content\/upload$/,
   /^api\/content\/lessons\/[^/]+\/regenerate$/,
   /^api\/v1\/uploads$/,
   /^api\/v1\/uploads\/batch$/,
   /^api\/v1\/uploads\/[^/]+\/retry-pages$/,
+  // Model-backed reads and writes.
+  /^api\/v1\/ask-nevo\/?$/,
+  /^api\/intelligence\/adapt$/,
+  /^api\/v1\/exports\/iep$/,
+  /^api\/v1\/school\/narrative$/,
+  /^api\/admin\/compliance-audit\/scan$/,
 ];
 
 function timeoutFor(joined: string): number {
