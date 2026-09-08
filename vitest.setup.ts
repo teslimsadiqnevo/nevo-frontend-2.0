@@ -12,9 +12,10 @@ import { cleanup } from "@testing-library/react";
  * `location` at module scope is not worth that, and a global stub would apply
  * to every test whether it wanted one or not.
  *
- * A test that needs the redirect uses `stubNavigation()` from
- * `src/test/navigation.ts` instead, and gets it for the length of that test
- * only.
+ * A test that needs the redirect should stub it for the length of that test
+ * only, rather than globally. NOTE (8 Sep): this paragraph used to point at
+ * `stubNavigation()` in `src/test/navigation.ts`, which has never existed in
+ * this repo and which nothing imports - don't go looking for it.
  */
 
 /**

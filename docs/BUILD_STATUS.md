@@ -700,8 +700,10 @@ Teachers, Senco, Invitations and Classes.
   five: Student detail, SSO ("Healthy" came from `history?.failed_runs ?? 0`
   coalescing a failed read into the healthy branch), Reports, and both
   notification surfaces. `components/admin/ReadFailed.tsx` carries the wording.
-  Verified by types and inspection, NOT by tests — see the rejection-mocking trap
-  under Testing.
+  **Now pinned by 13 component tests, added 8 Sep**, each mutation-verified by
+  collapsing the guard and watching the right test fail. These shipped untested
+  on a documented trap that turned out to be false — see the retraction under
+  Testing.
 
 - ~~The roster could not say who may begin lessons~~ — **shipped, PR #281.** D07's
   whole purpose. Consent column in four states, the "3 can't begin lessons yet"
@@ -1057,17 +1059,27 @@ then seed localStorage before first paint.
   files complete, so a truncated read catches an intermediate frame: this
   produced a confident "7 passed" mid-run on a 148-test suite, and a "no tests"
   on a file where 5 had passed. Read the tail, or the exit code.
-- **A component whose mocked API call REJECTS fails the file, even when the
-  component catches it.** `mockRejectedValue`, an `async` throw, and a
-  `Promise.reject` with a no-op `.catch` attached were all reported as
-  `Error: <msg>` against the test, with no assertion failure, while the
-  success-path test in the same file rendered the same component fine. The
-  component's own `.catch` is attached correctly and the fix works in the
-  browser. This is why the five failed-read guards in PR #269 ship verified by
-  types and inspection rather than by tests: every admin screen fails this exact
-  way, so none of them can currently be tested for it. Worth solving properly -
-  it blocks the "component tests only on screens rendering a judgement about a
-  child" half of the plan above.
+- ~~**A component whose mocked API call REJECTS fails the file, even when the
+  component catches it.**~~ **THIS ENTRY WAS WRONG. Retracted 8 Sep — ignore it,
+  and do not plan around it.** Rejecting a mocked API call in a component test
+  works exactly as you would expect. Three minimal reproductions (a direct
+  rejection, a nested `.then(...).catch(...)` chain, and a `Promise.all`) all
+  passed, and so did a reconstruction of the original failing test. Whatever the
+  one stubborn failure on 7 Sep actually was, it was local to that file and not a
+  property of the harness — and generalising it into a rule cost the five
+  failed-read guards in #269 their tests for a day. **The lesson worth keeping is
+  the meta one: one stubborn failure is a bug in one file until a minimal
+  reproduction says otherwise.** All five guards now have tests, each
+  mutation-verified: `SsoView`, `ReportsView`, `NotificationsView`,
+  `NotificationsPanel`, `StudentDetailView`.
+- **`container.textContent` runs elements together, so `` assertions silently
+  cannot fail.** "Roster sync" followed by "Healthy" reads as `syncHealthy`, so
+  `/Healthy/` never matches it — which means `expect(...).not.toMatch(/Healthy/)`
+  PASSES on a screen that is shouting the word. This is the same class of false
+  green as the two above and it is invisible: the assertion looks strict. Use
+  `visibleText()` from `src/test/visibleText.ts`, which walks the text nodes and
+  joins them with spaces (and folds curly quotes, so tests can be typed on a
+  normal keyboard).
 - `useLiveQuery`'s effect begins `if (!getToken()) return;` - a hook test with no
   token exercises zero network logic and passes having tested an early return.
 - MSW handlers authored alongside the code inherit its bugs. A handler for the TOSSE
@@ -1157,11 +1169,10 @@ since it is the conversion form.
 
 | item | state |
 |---|---|
-| **Tests** | 102 as of 7 Sep — four shared primitives, the marking logic, and five judgement screens including both hook-driven ones. See **Testing**. |
+| **Tests** | 194 unit + 20 E2E, green as of 8 Sep. `npm test`, enforced by CI alongside types, lint and contract. Four shared primitives, the marking logic, the judgement screens, and the five admin failed-read guards. See **Testing**. |
 | **Landing performance** | **41** deployed / **73** on a local production build (3-run median). Investigated 7 Sep — see below before repeating it. |
 | **Lint** | Green as of 5 Sep (0 errors, 1 warning). Now enforced by CI. |
 | **Contract** | Green as of 6 Sep. `npm run contract`, enforced by CI. |
-| **Tests** | 113 unit + 20 E2E, green. `npm test`, enforced by CI. Four gates now run on every push: types, lint, contract, tests. |
 | **TOSSE** | Working end to end and deployed. One test lead — `27ac8e8a-a46b-45e0-befe-50787d3b9eb9`, "DO NOT CONTACT" — still needs deleting from the booth list. |
 
 ---
