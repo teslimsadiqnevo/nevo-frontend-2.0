@@ -353,6 +353,81 @@ Credentials stay in CI secrets, not here.
 
 ---
 
+## D15d Parent Growth View — NOT BUILDABLE. Measured 8 Sep.
+
+The last unbuilt parent frame, and the blocker is bigger than a missing endpoint:
+**a parent cannot get a Nevo account at all.**
+
+### 1. `parent_guardian` is invite-refused
+
+`POST /api/v1/invites` declares `role: UserRole` — all five values, `parent_guardian`
+included. The deployed endpoint runs TWO validations and the second one is narrower:
+
+```
+role: "parent_guardian"   -> 422  String should match pattern '^(teacher|student)$'
+role: "not_a_real_role"   -> 422  Input should be 'student', 'teacher', 'senco_admin',
+                                  'other_admin' or 'parent_guardian'
+```
+
+The enum lets `parent_guardian` through; the pattern then rejects it. **This is also a
+contract bug in its own right** — the spec advertises a five-value field that the
+implementation accepts two of, so a generated client would 422 at runtime. Raised.
+
+Nothing else mints parent credentials: `/auth/password-reset/*` needs an existing
+account, and `POST /consents/parent/complete` returns a `parent_id` for a record that
+has no way to sign in. That is the same wall that stops D01b's "Set up my parent
+account" button, which is why that button is deliberately unbuilt.
+
+### 2. Nothing in the API is scoped to a parent
+
+`parent_guardian` appears **exactly once** in the whole deployed spec — inside the
+`UserRole` enum that defines it. No endpoint references it. There is no
+"which children am I the parent of" read; `GET /students/{id}/parent-links` runs the
+other way and is admin-scoped. Every progress read (`/api/students/{id}/progress`,
+`/api/mastery/student/{id}`) requires `HTTPBearer` and is keyed by student id.
+
+### 3. The data the frame needs does not exist in any shape
+
+D15d is four plain-language statements about how one child is growing this term:
+
+| the frame's four | |
+|---|---|
+| Staying with hard problems | "working through tricky questions on her own for longer" |
+| Knowing what she knows | "a clearer sense of what she has understood" |
+| Connecting ideas | "carrying what she learns in one subject into another" |
+| Learning new things faster | "new ideas are landing more quickly than last term" |
+
+**Prose, and the frame is emphatic about it: no scores, no percentages, no labels, no
+clinical terms.** So this cannot be derived client-side from numbers — deriving it would
+be inventing a judgement about a child.
+
+What exists is close in shape and wrong in scope:
+
+- `GET /api/transformation-metrics` → `TransformationMetricsResponse` is entirely
+  counts (`lessonsTransformed`, `adaptationsPerSession`, …). That is D15a-c, and it is
+  precisely what D15d must not show a parent.
+- `GET /api/v1/school/narrative` → `SchoolNarrativeResponse` `{headline, summary,
+  highlights, generatedAt, source}` is the RIGHT shape — generated prose with a
+  provenance field — at the wrong scope. **It is the model to copy for a per-child
+  version.**
+- `LearnerObservationResponse` `{pattern, count}` and `LearnerProfileSummaryResponse`
+  are declared in the spec and **served by no endpoint at all**. Orphaned.
+
+### What would unblock it, in order
+
+1. Let `POST /api/v1/invites` actually accept `parent_guardian` (or any route that gives
+   a parent credentials), and fix the enum/pattern mismatch either way.
+2. A parent-scoped read of their own children — the parent equivalent of
+   `students/me`.
+3. A per-child growth narrative shaped like `SchoolNarrativeResponse`, carrying the four
+   dimensions as prose with a `generatedAt` and a `source`, so the screen can say when it
+   was written and never has to compute a judgement itself.
+
+Until 1 and 2 exist there is no signed-in parent to show anything to, so this is not a
+"nearly there" item. **Parent is 2 of 3 frames: D01b and D01c are built and merged.**
+
+---
+
 ## Coordination — read this first
 
 Three sessions build in this SAME worktree in parallel: **student**, **admin**, and
