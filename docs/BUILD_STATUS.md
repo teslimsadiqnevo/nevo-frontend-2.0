@@ -979,7 +979,7 @@ primitive, the mirror of `ReadFailed`:
 All five are pinned by tests and mutation-verified: each guard was collapsed
 back to its pre-fix catch and the right test failed.
 
-**STILL OPEN — three of the ten. Do not assume these are done.**
+**STILL OPEN — two of the ten. Do not assume these are done.**
 
 ~~*The invitation delivery family*~~ — **SHIPPED.** Both halves: the wording
 now reads `deliveryStatus`, and the join links are handed over instead of
@@ -993,8 +993,7 @@ discarded. `needsManualDelivery` finally has callers. Details under
 - **`SencoView` "Mark as seen"** flips before the server answers, so "Nothing
   needs your attention right now" can render ahead of a failed write. (The
   rollback existed; this PR added the words. The optimistic ordering stands.)
-- **`ClassesView`** header sums `studentCount` across classes and silently
-  folds archived ones in when "Show archived" is pressed.
+- ~~**`ClassesView`**~~ — **SHIPPED.** See below.
 
 The full finding set, with the skeptics' reasoning, is in the audit output for
 run `wf_107dccdc-839`.
@@ -1096,6 +1095,31 @@ again, and quotes the school code.
 — three facts the wizard was discarding, including the code the school signs in
 with. The docblock asserting "declares a 201 with no body" was stale. It still
 returns no SESSION, so the second round trip is still needed; that TODO stands.
+
+### The archived toggle — shipped 9 Sep
+
+"Show archived" refetches with `includeArchived`, so the class list grows - and
+the header summed straight across it. Pressing a filter to LOOK at last year's
+groups changed the school's own figures underneath the proprietor: "14 classes ·
+312 students" became "17 classes · 383 students", with nothing saying why, and
+71 of those children in classes nobody teaches any more.
+
+The header counts active classes now and states the archived ones separately
+("· plus 3 archived"), so the toggle reveals rows rather than changing what the
+school has.
+
+**A second reader of the same list turned up while fixing it.** `ssoSourced` is
+`classes.every(c => c.source === "roster_sync")`, and one archived
+manually-created class from before the provider was connected would flip that
+`every` the moment somebody pressed the toggle - putting "Create a class" back
+on an SSO school, where SCRUM-97 says the control is ABSENT rather than
+disabled. It reads active classes too now.
+
+Same arithmetic as `TeacherDetailView` in #306: **`archivedAt` is the thing to
+grep for.** Any figure summed across a list that an `includeArchived` fetch can
+grow is suspect.
+
+4 tests, two mutation-verified guards.
 
 6 tests, three mutation-verified guards. **One of the three initially survived**,
 and it was a fault in the design rather than the test: the never-register-twice
