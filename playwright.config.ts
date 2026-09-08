@@ -3,21 +3,24 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * End-to-end tests.
  *
- * SIGNED-OUT AND READ-ONLY, deliberately, for now. Two things have to exist
- * before this suite can sign in:
+ * SIGNED-OUT AND READ-ONLY - but no longer because it has to be.
  *
- *   1. A seeded tenant. The shared demo account holds REAL school staff and
- *      children (`scripts/shape-probe.mjs` says so, and is GET-only for that
- *      reason), so a write-path test would mutate real people's records.
- *      Blocked on `POST /api/v1/schools/register`, which 500s on valid input -
- *      raised with backend 7 Sep.
- *   2. Nothing else. The sample marks that make a signed-in assertion honest
- *      are already in place; see `lib/sampleData.ts`.
+ * The blocker is gone. `POST /api/v1/schools/register` was returning 500 on
+ * valid input; backend fixed it, and a dedicated E2E tenant now exists - an
+ * empty, isolated school whose every collection reads `[]`, so write-path
+ * tests cannot touch a real child. The sample marks that make a signed-in
+ * assertion honest are already in place; see `lib/sampleData.ts`.
  *
- * So what this covers is what can be checked truthfully without an account:
- * that the route guards send people to the right door, and that the public
- * pages render. Both are real properties - the guard one is security-relevant -
- * and neither can be faked by the fixture fallback.
+ * What remains before a signed-in spec is mechanics, not permission: the token
+ * lives in localStorage, invisible to the server, so `storageState` will not
+ * carry a session on its own. Sign in through the API and seed localStorage
+ * before first paint. Credentials belong in CI secrets, never in this repo.
+ * See `docs/BUILD_STATUS.md` for the tenant's details.
+ *
+ * What this file covers today is what can be checked truthfully without an
+ * account: that the route guards send people to the right door, and that the
+ * public pages render. Both are real properties - the guard one is
+ * security-relevant - and neither can be faked by the fixture fallback.
  *
  * `webServer` builds and starts the app itself, so `npm run e2e` needs nothing
  * running first and CI needs no separate step.

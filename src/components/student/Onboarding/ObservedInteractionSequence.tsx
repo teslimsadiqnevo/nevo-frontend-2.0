@@ -14,7 +14,7 @@ import { useStudentDashboard } from "@/hooks/useStudentDashboard";
 import { randomId } from "@/lib/utils";
 import { ProfilingFlow } from "@/components/student/Profiling/ProfilingFlow";
 import { TransitionScreen } from "./TransitionScreen";
-import { ConsentGate } from "./ConsentGate";
+import { LearningNotice } from "./LearningNotice";
 import { PinCreationScreen } from "./PinCreationScreen";
 import { YoureInScreen } from "./YoureInScreen";
 
@@ -79,7 +79,7 @@ export function ObservedInteractionSequence() {
   }
 
   if (index === 1) {
-    return <ConsentGate onContinue={advance} track={trackEvent} />;
+    return <LearningNotice onContinue={advance} track={trackEvent} />;
   }
 
   if (index === 2) {

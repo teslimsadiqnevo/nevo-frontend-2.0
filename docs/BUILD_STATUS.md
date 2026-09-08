@@ -93,13 +93,49 @@ deployed API with a bad one:
 
 Pinned by a test so a rename fails loudly rather than 422ing a parent's request.
 
-### Also unresolved: SCRUM-80 contradicts itself on gating
+### SCRUM-80 gating — RULED 7 Sep. Nevo is not the consent gate.
 
-The ticket says the notice **never blocks** a child (the school warrants consent in
-the DSA). Lydia's comment on the same ticket has `ConsentGate` blocking while status
-is `pending`, with a five-value enum — and the deployed `ConsentStatus` has only
-`pending | confirmed`. Three versions of one model. Needs a ruling before the student
-consent gate is wired.
+Design's ruling, verbatim in effect: **when the backend says `granted: false`, the
+child proceeds normally.** The school warrants consent through the DSA. `granted:
+false` means the school has not recorded it yet — their administrative task, not a
+blocker for the child.
+
+**One exception: explicit withdrawal.** If a parent withdraws, that child's data must
+stop being processed.
+
+**The API already distinguishes the two.** `ConsentStatus` has FOUR values on the
+deployed spec, not the two this doc used to claim:
+
+| status | `granted` | means | child |
+|---|---|---|---|
+| `not_sent` | false | school has not asked yet | proceeds |
+| `pending` | false | asked, parent has not replied | proceeds |
+| `confirmed` | true | parent granted | proceeds |
+| `withdrawn` | false | parent actively withdrew | **stops** |
+
+**Three of the four are `granted: false`.** So reading `granted` cannot implement the
+ruling — it blocks children whose school merely has not filed paperwork, which is the
+exact failure the ruling exists to prevent. **Read `status`.** The single encoding of
+this is `processingWithdrawn()` in `lib/api/consents.ts`, pinned by six tests plus a
+mutation check.
+
+Done under the ruling:
+
+- `ConsentStatus` corrected from `pending | confirmed` to all four. It was previously
+  missing `withdrawn`, which made the withdrawal rule a TYPE ERROR — literally
+  inexpressible.
+- The onboarding gate call is gone. `ConsentGate.tsx` is now
+  `LearningNotice.tsx`: the screen stays (it is what tells a child they are being
+  profiled — the only notice they get under a school-warrants model), the gating does
+  not. Design asked for the file to be deleted; the file also held frame 14's
+  explanation screen, so the gate was removed and the screen kept. **Flagged to design
+  to overrule if the screen was meant to go too.**
+
+**STILL OPEN — a design question, not a backend one.** What does a withdrawn child
+actually SEE? D01c already promises the parent "your child's account is suspended…
+they can no longer access Nevo", but no student-side frame exists for a suspended
+child. Either D01c over-promises or a frame is needed. Nothing is invented in the
+meantime.
 
 ---
 
@@ -474,6 +510,32 @@ triggers it?**
 - Bulk ingestion shows the parse's `lessonTitle` with the filename beneath.
 - Split a staged unit into lessons; named segment rows under each section.
 
+### UNBLOCKED 7 Sep — per-student consent. FOR THE ADMIN SESSION.
+
+**This was in NEEDS BACKEND and is now buildable.** The old entry said "no GET returns
+consent for any student but the child themselves". That is no longer true. `consent` is
+a **required** field on three responses plus the invite list:
+
+| endpoint | field |
+|---|---|
+| `GET /api/v1/students` | `StudentSummaryResponse.consent` |
+| `GET /api/v1/students/{student_id}` | `StudentDetailResponse.consent` |
+| `GET /api/v1/classes/{class_id}/students` | `ClassStudentResponse.consent` |
+| `GET /api/v1/invites` | `InvitationResponse.consentStatus` |
+
+`StudentConsentSummary` carries `status` (the four values above), `actorName`,
+`timestamp` and `channel` — who recorded it, when, and how. D07b's card was drawn for
+exactly this; nothing needs deriving.
+
+**The seam is already landed** — `StudentConsentSummary` is typed in
+`lib/api/students.ts` and hung on `AdminStudentRow` and `AdminStudentDetail`, both
+required, matching the spec. The stale comments saying consent "cannot be built" are
+corrected. What remains is rendering: **D07's column, count and row action, D07b's
+consent card, and the D5b roster pill.**
+
+One caution carried over: **do not derive consent from the student's `status` field.**
+An account being active is a different fact from a parent having agreed.
+
 ### NEEDS BACKEND
 
 | screen | why |
@@ -793,36 +855,44 @@ because the fallback satisfies them.
 `<SampleRegion kind="student:...">` / `kind="admin:..."`. The E2E is only as good as
 the marks, and an unmarked fallback is invisible to it.
 
-### Prerequisite 2 — a seeded tenant. NOT DONE, and needs a person.
+### Prerequisite 2 — a seeded tenant. DONE 7 Sep. The register bug is FIXED.
 
 `scripts/shape-probe.mjs` records that the demo account holds **real school staff and
 children**. A write-path E2E — assign a lesson, send a message, upload a unit —
 mutates real people's records. So E2E needs its own school before it runs once.
 
-**BLOCKED ON A BACKEND BUG, raised 7 Sep.** `POST /api/v1/schools/register` returns
-**500 on valid, unique input** — reproduced twice at ~00:22 UTC with fresh timestamped
-emails on two different domains. Body is a bare `Internal Server Error`;
-`CF-RAY: a3718f180abdc13d-CPT`, origin `uvicorn` on Render, so the traceback is in the
-Render logs.
+**`POST /api/v1/schools/register` now works.** It was returning 500 on valid unique
+input; re-checked 7 Sep and it returned **201 on four consecutive fresh registrations**
+(3.4-8.0s). Backend fixed it. The blocker text that used to live here is gone because
+it is no longer true.
 
-Validation is healthy (422s correctly, including rejecting reserved domains like
-`.invalid`), so it fails AFTER validation, during creation. It takes 3.5s to fail
-versus 1.4s to reject — it is doing real work first, so **check whether failed
-attempts leave partial rows behind**.
+**The E2E tenant exists:**
 
-This blocks all new school onboarding, not just our test tenant.
+- school `E2E DO NOT USE - automated tests`, code **`751A1136`**,
+  id `8afff4f0-1a7f-48c4-a99f-ab7d930fef01`
+- the admin signs in via `POST /api/v1/auth/login/password` and gets role
+  **`other_admin`** — which is correct, not a bug: `UserRole` is
+  `student | teacher | senco_admin | other_admin | parent_guardian` and there is no
+  `school_admin`. `isAdminRole` in `proxy.ts` already handles it.
+- **every collection is empty** — `/students`, `/teachers`, `/classes`, `/invites` all
+  return `[]`. That is the point: write-path tests cannot touch a real child here.
+- `/api/v1/school` and `/api/v1/school/overview` both read 200. Note the path is
+  `/api/v1/school` SINGULAR; there is no `/api/v1/schools/me`.
 
-What it needs to be:
+**Credentials are deliberately not in this file.** The password goes to CI secrets and
+nowhere else. Ask Olayinka for it, or register a fresh one — it takes 5 seconds now.
 
-- a school named unmistakably for the purpose, e.g. `E2E DO NOT USE — automated tests`
-- an admin address on a domain nobody reads
-- credentials in CI secrets, never in the repo
-- ideally one teacher, one class and two students inside it, so the console has
-  something real to render
+Two caveats before writing against it:
 
-Until that exists, E2E can cover **read-only, signed-out** surfaces only.
+- the admin address is on `example.com`, a reserved domain that **cannot receive mail**,
+  so invite-delivery and password-reset flows cannot be tested end to end on this tenant.
+  A tenant on a real inbox domain is needed for those.
+- the school is empty, so a console will render its EMPTY states, not populated ones.
+  Seeding one teacher, one class and two students is the next step if a test needs
+  something to look at — and those writes are now safe to make.
 
-### Signed-out E2E — DONE 7 Sep. 20 tests, `npm run e2e`.
+
+### Signed-out E2E — DONE 7 Sep. 15 tests in 3 files, `npm run e2e`.
 
 Playwright, chromium only, on port 3100 so it cannot collide with a dev server
 another session is running. `webServer` does a PRODUCTION build rather than
@@ -851,11 +921,12 @@ Two things learned writing it:
   assertion the signed-in suite will make across the console, proven now on a
   surface where the answer is knowable.
 
-### Prerequisite 3 — Playwright, DONE. What remains is the tenant.
+### Prerequisite 3 — Playwright. INSTALLED and running.
 
-Deliberately NOT installed yet. It is the heaviest install in the ecosystem (browser
-binaries) and this lockfile is shared by three sessions, so it should land when the
-tenant exists and the first spec is actually being written — not before.
+`@playwright/test` `^1.63.0` is in devDependencies and `npm run e2e` works. The note
+that used to sit here saying it was "deliberately NOT installed yet" was left behind
+when the install actually landed; it is removed rather than corrected, because a
+prerequisite that is met is not a prerequisite.
 
 Auth will need the programmatic route: the token lives in **localStorage**, invisible
 to the server, so `storageState` alone will not carry a session. Sign in via the API,
@@ -863,7 +934,7 @@ then seed localStorage before first paint.
 
 ### Next, in order
 
-1. Olayinka creates the E2E tenant (above).
+1. ~~Olayinka creates the E2E tenant~~ DONE — it exists, see above.
 2. Playwright lands with the first spec — the no-samples assertion.
 3. Then a small number of flow tests as deployment canaries, not defect detectors.
 3. Then full E2E - which needs a fallback-disabled build mode and a seeded tenant

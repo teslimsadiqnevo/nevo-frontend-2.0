@@ -3,19 +3,38 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Button, IllustrationWrapper } from "@/components/shared";
-import { consentsApi } from "@/lib/api";
 import { BUSY_PHASE, BUSY_REASON, SIGNAL_EVENT_TYPES } from "@/lib/constants";
 import type { TrackEvent } from "@/hooks";
 
 /**
- * Consent Gate (UI/UX spec) — the first screen after baseline profiling. It
- * opens in a brief pending state ("getting things ready") while
- * consent/provisioning is confirmed, then reveals a plain-language explanation
- * of what Nevo does with what it learns, and a single Continue on to PIN
- * creation. Calm, one decision, no dense legalese. The pending spinner is a
- * design-owned wait, bracketed as `system_busy` (SCRUM-94 fix 9).
+ * The first screen after baseline profiling: a plain-language notice of what
+ * Nevo does with what it learns, and a single Continue on to PIN creation.
+ * Calm, one decision, no dense legalese. The opening pending state is a
+ * design-owned beat, bracketed as `system_busy` (SCRUM-94 fix 9).
+ *
+ * WAS `ConsentGate`, AND IS NO LONGER A GATE. Design ruled on SCRUM-80 (7 Sep)
+ * that Nevo does not gate on consent at all: the school warrants it through
+ * the DSA, so `granted: false` means the school has not filed the paperwork,
+ * which is not the child's problem. The screen used to call
+ * `GET /students/me/consent-gate` and dev-log a not-granted result while
+ * revealing anyway - a check whose only consequence was a console line. That
+ * call is gone.
+ *
+ * The SCREEN stays, and the ruling did not ask for it to go: what it does is
+ * TELL A CHILD, in words they can read, that Nevo notices how they learn.
+ * Under a model where a school consents on their behalf, that notice is the
+ * only thing standing between the child and being profiled without ever being
+ * told. It is renamed rather than deleted so that nothing here reads as a gate
+ * again.
+ *
+ * NOT HANDLED HERE: withdrawal. If a parent withdraws, processing must stop
+ * (same ruling), and this screen is the wrong place for it - a child reaching
+ * onboarding has already been profiled one step earlier. See
+ * `processingWithdrawn` in `lib/api/consents.ts` for the seam, and
+ * docs/BUILD_STATUS.md for the open design question of what a withdrawn child
+ * should actually see.
  */
-export function ConsentGate({
+export function LearningNotice({
   onContinue,
   pendingMs = 1400,
   track,
@@ -27,29 +46,12 @@ export function ConsentGate({
 }) {
   const [pending, setPending] = useState(true);
   useEffect(() => {
-    // The pending state is the live consent/provisioning check
-    // (GET /students/me/consent-gate), held at least the design-owned beat.
-    // The gate never blocks: the school warrants consent via the DSA before a
-    // student is invited, and frame 14 has no blocked state - so a failed
-    // check (no session yet, offline) or an explicit not-granted both reveal.
-    // An unconfirmed gate is dev-logged; a designed holding state is flagged
-    // to design if the product ever wants one.
-    let cancelled = false;
-    const beat = new Promise<void>((r) => setTimeout(r, pendingMs));
-    const check = consentsApi
-      .myConsentGate()
-      .then((gate) => {
-        if (!gate.granted && process.env.NODE_ENV === "development") {
-          console.debug("[consent-gate] backend reports not granted:", gate);
-        }
-      })
-      .catch(() => {});
-    void Promise.all([beat, check]).then(() => {
-      if (!cancelled) setPending(false);
-    });
-    return () => {
-      cancelled = true;
-    };
+    // A pure design-owned beat now. It used to also await a consent check, but
+    // that check could not change what happened next, so awaiting it only made
+    // the wait longer on a slow connection - and made a network round trip a
+    // dependency of an onboarding screen that does not need one.
+    const timer = setTimeout(() => setPending(false), pendingMs);
+    return () => clearTimeout(timer);
   }, [pendingMs]);
 
   useEffect(() => {
