@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useHasSession } from "@/hooks/useHasSession";
+import { useHydrated } from "@/hooks/useHydrated";
 import { settingsApi } from "@/lib/api/settings";
 import { getStoredDisplayName, getToken } from "@/lib/auth/session";
 import { MOCK_STUDENT } from "./studentNav";
@@ -28,9 +29,17 @@ function initialsOf(name: string): string {
  * A signed-in student whose name has not resolved yet is briefly nameless
  * rather than briefly "Ada": being called someone else's name is worse than
  * a beat without one.
+ *
+ * THE HYDRATION FRAME COUNTS AS "NOT RESOLVED YET". `useHasSession()` returns
+ * the SERVER's answer - false - until hydration, so gating the fixture on
+ * `!signedIn` alone still called a real child "Ada" (and "AK") for one frame,
+ * which is the thing the paragraph above exists to prevent. Nobody is named
+ * until we know who is looking; a signed-out visitor gets the fixture one
+ * frame later, which costs nothing.
  */
 export function useDisplayName(): { name: string; initials: string } {
   const signedIn = useHasSession();
+  const hydrated = useHydrated();
   const identity = useCurrentUser();
   const [stored, setStored] = useState<string | null>(null);
   const [account, setAccount] = useState<string | null>(null);
@@ -65,11 +74,13 @@ export function useDisplayName(): { name: string; initials: string } {
 
   const serverFirst = identity?.name?.split(/\s+/)[0] ?? null;
   const chosen = stored ?? account;
-  const name = chosen ?? serverFirst ?? (signedIn ? "" : MOCK_STUDENT.name);
+  // Only once we can actually tell a signed-out visitor from a signed-in child.
+  const fixture = hydrated && !signedIn;
+  const name = chosen ?? serverFirst ?? (fixture ? MOCK_STUDENT.name : "");
   const initials =
     (chosen ? initialsOf(chosen) : "") ||
     (identity?.initials ?? "") ||
-    (signedIn ? "" : MOCK_STUDENT.initials);
+    (fixture ? MOCK_STUDENT.initials : "");
 
   return { name, initials };
 }

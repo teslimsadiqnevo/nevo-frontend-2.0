@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Mic, MessageCircle, Send } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { NevoKeyboard, useNevoKeyboardDock } from "@/components/shared";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 import { askNevoApi, asUuid } from "@/lib/api";
 import { LessonContext } from "@/context/LessonContext";
 import { useAuth } from "@/hooks";
@@ -309,37 +310,60 @@ export function AskNevo() {
             </div>
 
             <div className="mt-4 flex flex-col gap-3">
-              {messages.map((message, i) =>
-                message.who === "user" ? (
-                  <div key={i} className="flex justify-end">
-                    <div className="max-w-[82%] rounded-2xl rounded-br-[5px] bg-nevo-navy/15 px-3.5 py-2.5 text-[15px] leading-[1.4]">
-                      {message.text}
+              {messages.map((message, i) => {
+                if (message.who === "user") {
+                  return (
+                    <div key={i} className="flex justify-end">
+                      <div className="max-w-[82%] rounded-2xl rounded-br-[5px] bg-nevo-navy/15 px-3.5 py-2.5 text-[15px] leading-[1.4]">
+                        {message.text}
+                      </div>
                     </div>
+                  );
+                }
+                const bubble = (
+                  <div className="flex max-w-[88%] flex-col gap-3 rounded-2xl rounded-bl-[5px] bg-nevo-violet/22 px-3.5 py-3 text-[15px] leading-[1.5]">
+                    {message.text}
+                    {message.sample && (
+                      <span className="text-[12.5px] leading-[1.4] text-nevo-near-black/60 italic">
+                        I couldn&rsquo;t connect just now, so this is a sample
+                        answer.
+                      </span>
+                    )}
+                    {message.teacherAction && (
+                      <button
+                        type="button"
+                        onClick={() => router.push("/student/connect")}
+                        className="inline-flex h-10 cursor-pointer items-center gap-2 self-start rounded-[10px] bg-nevo-navy px-4 text-sm font-medium text-nevo-cream transition-[filter] hover:brightness-108 active:scale-[0.98]"
+                      >
+                        <MessageCircle className="size-4" strokeWidth={2} />
+                        Message my teacher
+                      </button>
+                    )}
                   </div>
-                ) : (
+                );
+                return (
                   <div key={i} className="flex justify-start">
-                    <div className="flex max-w-[88%] flex-col gap-3 rounded-2xl rounded-bl-[5px] bg-nevo-violet/22 px-3.5 py-3 text-[15px] leading-[1.5]">
-                      {message.text}
-                      {message.sample && (
-                        <span className="text-[12.5px] leading-[1.4] text-nevo-near-black/60 italic">
-                          I couldn&rsquo;t connect just now, so this is a
-                          sample answer.
-                        </span>
-                      )}
-                      {message.teacherAction && (
-                        <button
-                          type="button"
-                          onClick={() => router.push("/student/connect")}
-                          className="inline-flex h-10 cursor-pointer items-center gap-2 self-start rounded-[10px] bg-nevo-navy px-4 text-sm font-medium text-nevo-cream transition-[filter] hover:brightness-108 active:scale-[0.98]"
-                        >
-                          <MessageCircle className="size-4" strokeWidth={2} />
-                          Message my teacher
-                        </button>
-                      )}
-                    </div>
+                    {/* The canned reply is the one fixture in this lane that
+                        reaches a SIGNED-IN child: `askNevoApi.ask` is called
+                        for everyone, and any failure or the 6s abort answers
+                        from `replyFor()` instead. The italic line above already
+                        says so to the child, which is the half that matters -
+                        but only a person can read it, and the end-to-end run
+                        meant to catch a console falling back to invented
+                        content reads the mark. Marked ONLY when it really is a
+                        canned reply: `sampleMark` emits the attribute whatever
+                        it is given, so a wrapper left permanently in place
+                        would label every real answer as sample. */}
+                    {message.sample ? (
+                      <SampleRegion kind="student:ask-nevo">
+                        {bubble}
+                      </SampleRegion>
+                    ) : (
+                      bubble
+                    )}
                   </div>
-                ),
-              )}
+                );
+              })}
               {thinking && (
                 <div className="flex flex-col items-start gap-2">
                   <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-[5px] bg-nevo-violet/22 px-4 py-3.5">
@@ -389,7 +413,9 @@ export function AskNevo() {
               />
               <button
                 type="button"
-                aria-label={recording ? "Stop listening" : "Speak your question"}
+                aria-label={
+                  recording ? "Stop listening" : "Speak your question"
+                }
                 aria-pressed={recording}
                 onClick={toggleMic}
                 className={cn(
