@@ -8,6 +8,9 @@ import { CARD, GHOST_BTN, PRIMARY_BTN, PlusIcon, ROW_DIVIDER } from "../Roster/p
 import { BulkImportModal } from "./BulkImportModal";
 import { InviteStatusPill, normaliseStatus } from "./inviteStatus";
 import { NewInviteModal } from "./NewInviteModal";
+import { LinkHandout } from "./LinkHandout";
+import { needsManualDelivery } from "./deliveryCopy";
+import { inviteeName, joinLink } from "./joinLink";
 import { NoAccess, failureKind } from "../NoAccess";
 
 /**
@@ -88,6 +91,12 @@ export function InvitationsView() {
   const [composing, setComposing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [toast, setToast] = useState("");
+  /*
+   * The invitation whose link the admin now has to deliver themselves.
+   * Persistent and in-row, NOT a toast: a three-second message is no place
+   * to hand someone a link they are responsible for sending.
+   */
+  const [handout, setHandout] = useState<Invitation | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   /** The instant every row's expiry is judged against - see `normaliseStatus`. */
@@ -153,12 +162,34 @@ export function InvitationsView() {
   const noun = tab === "teacher" ? "teachers" : "students";
   const filtering = Boolean(search.trim() || status);
 
+  /** Straight to the clipboard - the recovery this screen never offered. */
+  const copyLink = (invite: Invitation) => {
+    const link = joinLink(invite.token);
+    if (!link) return;
+    navigator.clipboard
+      ?.writeText(link)
+      .then(() => say(`${inviteeName(invite)}'s link is copied`))
+      .catch(() => say("Your browser wouldn't let us copy that"));
+  };
+
   const resend = (invite: Invitation) => {
     setBusy(invite.id);
+    setHandout(null);
     invitesApi
       .resend(invite.id)
       .then((updated) => {
         setInvites((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+        /*
+         * `deliveryStatus` was returned by this very call and never read, so
+         * the toast said "Invite resent to <name>" over a backend answer of
+         * `email_not_configured` - which the spec defines as nobody having
+         * been emailed. Resending again does the same nothing.
+         */
+        if (needsManualDelivery(updated.deliveryStatus)) {
+          setHandout(updated);
+          say("No email went out - their link is in the row below");
+          return;
+        }
         say(`Invite resent to ${updated.email ?? updated.name ?? "them"}`);
       })
       .catch(() => say("That didn't resend. We're on it - try again in a moment."))
@@ -373,6 +404,18 @@ export function InvitationsView() {
                             </span>
                           ) : (
                             <>
+                              {/* Only when the read actually carried a
+                                  token - `token` is nullable in the contract
+                                  and only promised on create. */}
+                              {joinLink(invite.token) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => copyLink(invite)}
+                                  className="cursor-pointer text-[13.5px] font-semibold text-nevo-navy transition-opacity hover:opacity-75"
+                                >
+                                  Copy link
+                                </button>
+                              ) : null}
                               <button
                                 type="button"
                                 disabled={working}
@@ -393,6 +436,14 @@ export function InvitationsView() {
                           )}
                         </span>
                       </div>
+
+                      {handout?.id === invite.id ? (
+                        <LinkHandout
+                          className="mt-3"
+                          invites={[handout]}
+                          lead={`No email was sent to ${inviteeName(handout)} - this school has no mail set up in Nevo, so this link is the only way in.`}
+                        />
+                      ) : null}
 
                       {/* Inline confirm, in the row, saying exactly what happens. */}
                       {confirming ? (
