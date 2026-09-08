@@ -23,8 +23,40 @@ const UPSTREAM =
  */
 const SLASH_REQUIRED = new Set(["api/v1/ask-nevo", "api/signals"]);
 
-function upstreamPath(segments: string[]): string {
-  const joined = segments.join("/");
+/**
+ * How long to wait before giving up, in ms.
+ *
+ * READING A ROW AND GENERATING A LESSON ARE NOT THE SAME REQUEST. The 60s
+ * below was chosen for the worst case of a *read* - Render's free tier
+ * cold-starting - and then applied to everything, including the routes where
+ * the backend runs a model. Regenerating the one lesson in the library runs
+ * past 60s, so this proxy hung up on it every time and the client was handed a
+ * 502; the backend was never the thing that failed.
+ *
+ * So the routes that do work upstream get a budget that fits the work. Nothing
+ * here waits forever - a request that has not answered in four minutes has
+ * failed, it is just allowed to fail for a real reason.
+ */
+const DEFAULT_TIMEOUT_MS = 60_000;
+const LONG_RUNNING_TIMEOUT_MS = 240_000;
+
+/** Parsing a document, ingesting an upload, generating a lesson. */
+const LONG_RUNNING: RegExp[] = [
+  /^api\/content\/parse$/,
+  /^api\/content\/upload$/,
+  /^api\/content\/lessons\/[^/]+\/regenerate$/,
+  /^api\/v1\/uploads$/,
+  /^api\/v1\/uploads\/batch$/,
+  /^api\/v1\/uploads\/[^/]+\/retry-pages$/,
+];
+
+function timeoutFor(joined: string): number {
+  return LONG_RUNNING.some((route) => route.test(joined))
+    ? LONG_RUNNING_TIMEOUT_MS
+    : DEFAULT_TIMEOUT_MS;
+}
+
+function upstreamPath(joined: string): string {
   return SLASH_REQUIRED.has(joined) ? `${joined}/` : joined;
 }
 
@@ -33,7 +65,8 @@ async function forward(
   { params }: { params: Promise<{ path: string[] }> },
 ): Promise<Response> {
   const { path } = await params;
-  const url = new URL(`${UPSTREAM}/${upstreamPath(path)}`);
+  const joined = path.join("/");
+  const url = new URL(`${UPSTREAM}/${upstreamPath(joined)}`);
   request.nextUrl.searchParams.forEach((value, key) =>
     url.searchParams.set(key, value),
   );
@@ -52,13 +85,14 @@ async function forward(
       ? undefined
       : await request.arrayBuffer();
 
+  const budget = timeoutFor(joined);
+
   try {
     const upstream = await fetch(url, {
       method: request.method,
       headers,
       body: raw && raw.byteLength > 0 ? raw : undefined,
-      // Render's free tier cold-starts; give it room rather than failing.
-      signal: AbortSignal.timeout(60_000),
+      signal: AbortSignal.timeout(budget),
     });
     if (upstream.status === 204) return new Response(null, { status: 204 });
     const payload = await upstream.text();
@@ -69,10 +103,22 @@ async function forward(
           upstream.headers.get("content-type") ?? "application/json",
       },
     });
-  } catch {
+  } catch (error) {
+    // A TIMEOUT IS NOT UNREACHABILITY, and collapsing the two cost real time:
+    // three attempts at regenerating a lesson read as the backend being down,
+    // when what actually happened was this handler hanging up on a request
+    // that was still running. `AbortSignal.timeout` rejects with a
+    // `TimeoutError`; checking the name rather than the class keeps this true
+    // whichever runtime it runs on.
+    const timedOut = (error as Error | undefined)?.name === "TimeoutError";
     return Response.json(
-      { detail: "The backend is unreachable right now." },
-      { status: 502 },
+      {
+        detail: timedOut
+          ? `The backend did not answer within ${budget / 1000}s.`
+          : "The backend is unreachable right now.",
+      },
+      // 504, not 502: we reached it, it was still working, we stopped waiting.
+      { status: timedOut ? 504 : 502 },
     );
   }
 }
