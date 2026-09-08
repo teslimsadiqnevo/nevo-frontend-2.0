@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { exportApi, type IepExport } from "@/lib/api/export";
 import { studentsApi, type AdminStudentRow, type ParentLink } from "@/lib/api/students";
 import { cn } from "@/lib/utils";
+import { ReadFailed } from "../ReadFailed";
 import {
   Avatar,
   CARD,
@@ -86,6 +87,8 @@ export function IepExporterView() {
   const [phase, setPhase] = useState<Phase>("picking");
   const [students, setStudents] = useState<AdminStudentRow[]>([]);
   const [studentId, setStudentId] = useState("");
+  /** Distinct from "no students": one is a school, the other is a GET. */
+  const [studentsFailed, setStudentsFailed] = useState(false);
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   const [draft, setDraft] = useState<IepExport | null>(null);
@@ -111,12 +114,33 @@ export function IepExporterView() {
     return () => clearTimeout(t);
   }, []);
 
-  useEffect(() => {
+  /*
+   * A failed ROSTER read is not a school with no students - and this one was
+   * worse than the usual shape, because the empty list is also the disabled
+   * state. `.catch(() => setStudents([]))` left the picker with nothing to
+   * choose, so `studentId` stayed "" and "Generate draft" was permanently
+   * disabled with no explanation anywhere on the screen. A SENCo sitting down
+   * to draft an IEP before a parents' meeting met a dead screen.
+   *
+   * The guardian read three lines below got exactly this fix in #269. This is
+   * its sibling in the same file, and it was missed.
+   */
+  const loadStudents = useCallback(() => {
     studentsApi
       .list()
-      .then(setStudents)
-      .catch(() => setStudents([]));
+      .then((rows) => {
+        setStudents(rows);
+        setStudentsFailed(false);
+      })
+      .catch(() => {
+        setStudents([]);
+        setStudentsFailed(true);
+      });
   }, []);
+
+  useEffect(() => {
+    loadStudents();
+  }, [loadStudents]);
 
   const student = students.find((s) => s.id === studentId);
   const firstName = student?.name.split(" ").filter(Boolean)[0] ?? "this learner";
@@ -243,6 +267,13 @@ export function IepExporterView() {
                     <label htmlFor="iep-student" className={LABEL}>
                       Student
                     </label>
+                    {studentsFailed ? (
+                      <ReadFailed
+                        className="mt-1.5"
+                        what="your student list"
+                        onRetry={loadStudents}
+                      />
+                    ) : null}
                     <select
                       id="iep-student"
                       value={studentId}
@@ -299,6 +330,14 @@ export function IepExporterView() {
                   >
                     Generate draft
                   </button>
+                  {studentsFailed ? (
+                    /* The button is disabled because there is nobody to pick,
+                       and the reason for that is above - not a fault of theirs
+                       and not a school with no learners. */
+                    <p className="m-0 text-[13px] leading-[1.5] text-nevo-near-black/58">
+                      There&rsquo;s nobody to choose from until that list loads.
+                    </p>
+                  ) : null}
                 </div>
               </div>
             )}

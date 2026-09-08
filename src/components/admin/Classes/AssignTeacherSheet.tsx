@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   classesApi,
   type AssignedTeacher,
@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/classes";
 import { teachersApi, type TeacherSummary } from "@/lib/api/teachers";
 import { cn } from "@/lib/utils";
+import { ReadFailed } from "../ReadFailed";
 import {
   CheckIcon,
   FailureLine,
@@ -80,16 +81,29 @@ export function AssignTeacherSheet({
   onAssigned: () => void;
 }) {
   const [teachers, setTeachers] = useState<TeacherSummary[]>([]);
+  const [teachersFailed, setTeachersFailed] = useState(false);
   const [teacherId, setTeacherId] = useState("");
   const [role, setRole] = useState<TeacherAssignmentRole | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
 
-  useEffect(() => {
+  const loadTeachers = useCallback(() => {
     teachersApi
       .list()
-      .then(setTeachers)
-      .catch(() => setTeachers([]));
+      .then((rows) => {
+        setTeachers(rows);
+        setTeachersFailed(false);
+      })
+      .catch(() => {
+        // "Everyone on staff already teaches this class" is a claim about the
+        // school's staff, and a failed GET does not license it.
+        setTeachers([]);
+        setTeachersFailed(true);
+      });
   }, []);
+
+  useEffect(() => {
+    loadTeachers();
+  }, [loadTeachers]);
 
   // Somebody already assigned cannot be assigned again from here; the row's own
   // "Remove from this class" is how a role changes.
@@ -188,7 +202,26 @@ export function AssignTeacherSheet({
             </option>
           ))}
         </select>
-        {assignable.length === 0 ? (
+        {/*
+          * THREE DIFFERENT THINGS, and all three used to say the same sentence.
+          *
+          * A school that has not invited any staff yet is the FIRST-RUN state -
+          * the Classes screen's own empty state tells them to "Create your
+          * first class, then assign a teacher", so they arrive here with an
+          * empty roster by design and were told everyone already teaches it.
+          */}
+        {teachersFailed ? (
+          <ReadFailed
+            className="mt-2"
+            what="your staff list"
+            onRetry={loadTeachers}
+          />
+        ) : teachers.length === 0 ? (
+          <p className="mt-2 text-[12.5px] leading-[1.5] text-nevo-near-black/55">
+            No staff to assign yet. Invite a teacher first, and they&rsquo;ll
+            appear here.
+          </p>
+        ) : assignable.length === 0 ? (
           <p className="mt-2 text-[12.5px] leading-[1.5] text-nevo-near-black/55">
             Everyone on staff already teaches this class.
           </p>
