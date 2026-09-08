@@ -14,8 +14,10 @@ export const metadata: Metadata = {
 // main one moved off it, so a real lesson id 404'd here - the same bug, left
 // behind in the file next door.
 //
-// TODO(api): `GET /api/scheduler/due-reviews/{student_id}` is what should send
-// a student here in the first place; it is still unread.
+// `GET /api/scheduler/due-reviews/{student_id}` is what sends a child here, via
+// the "Ready for another look" chips on Subject Detail. Those chips were plain
+// text until the entrance was wired, so this route rendered correctly and was
+// reachable only by typing the URL.
 export default async function ReviewSessionPage({
   params,
 }: {
