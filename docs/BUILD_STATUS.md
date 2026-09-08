@@ -979,7 +979,7 @@ primitive, the mirror of `ReadFailed`:
 All five are pinned by tests and mutation-verified: each guard was collapsed
 back to its pre-fix catch and the right test failed.
 
-**STILL OPEN — four of the ten. Do not assume these are done.**
+**STILL OPEN — three of the ten. Do not assume these are done.**
 
 ~~*The invitation delivery family*~~ — **SHIPPED.** Both halves: the wording
 now reads `deliveryStatus`, and the join links are handed over instead of
@@ -989,9 +989,7 @@ discarded. `needsManualDelivery` finally has callers. Details under
 ~~*The failed-read family*~~ — **SHIPPED.** All four, details below.
 
 *Smaller:*
-- **`SignUpStep`**: "nothing has been created yet" after the school AND the
-  founding admin were created — the inverse defect, a confirmed write reading
-  as one that never happened, and Continue is re-armed so they try again.
+- ~~**`SignUpStep`**~~ — **SHIPPED.** See below.
 - **`SencoView` "Mark as seen"** flips before the server answers, so "Nothing
   needs your attention right now" can render ahead of a failed write. (The
   rollback existed; this PR added the words. The optimistic ordering stands.)
@@ -1073,6 +1071,38 @@ existing `ReadFailed` primitive.
   floor ("in the classes we could read") instead of a total.
 
 13 tests, six mutation-verified guards.
+
+### The half-created school — shipped 9 Sep
+
+The inverse of every other defect in this audit: a write that DID happen,
+reported as one that never did.
+
+Onboarding does two round trips — `POST /schools/register`, then a sign-in,
+because the register response carries no session — and they sat in one promise
+chain under one `.catch`. Register succeeds, the login times out, and the
+proprietor reads *"That didn't go through, and nothing has been created yet"*
+while their school and their own admin account both exist. Continue is still
+armed, so they press it, register a SECOND time, and get "this email is already
+set up with a school" — which reads as their mistake, on a school they
+successfully made.
+
+The two are separated now, and once the school exists this step will not
+register again at any price: the fields lock and the only action left is to
+retry the sign-in. The panel names the school, says nothing needs creating
+again, and quotes the school code.
+
+**`POST /schools/register` was typed `void` and returns a body.**
+`SchoolRegistrationResponse` is `{schoolId, adminId, schoolCode}`, all required
+— three facts the wizard was discarding, including the code the school signs in
+with. The docblock asserting "declares a 201 with no body" was stale. It still
+returns no SESSION, so the second round trip is still needed; that TODO stands.
+
+6 tests, three mutation-verified guards. **One of the three initially survived**,
+and it was a fault in the design rather than the test: the never-register-twice
+guard sat in `submit()` while the button's `onClick` already re-pointed to
+`signIn` when registered, so nothing could reach it. Both actions route through
+one entry point now, and the rule is provable by pressing the same button twice
+— which is what a proprietor actually does.
 
 The 7 Sep deploy changed the picture more than anything else this week - consent,
 the school narrative, typed roster counts, per-student billing fields, a manual
