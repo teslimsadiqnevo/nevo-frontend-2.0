@@ -118,6 +118,14 @@ export interface DpaAcceptance {
   acceptedAt: string;
 }
 
+/** What `POST /schools/register` answers with. */
+export interface SchoolRegistration {
+  schoolId: string;
+  adminId: string;
+  /** The code everyone signs in with until an identity provider is connected. */
+  schoolCode: string;
+}
+
 export const schoolApi = {
   /**
    * The school's DPA acceptance - a compliance record, and now a typed one.
@@ -144,12 +152,22 @@ export const schoolApi = {
    * wizard signs in with the credentials just submitted - which works, but is
    * a second round trip that a returned session would remove.
    */
+  /**
+   * Create the school and its founding admin.
+   *
+   * IT RETURNS A BODY, and this was typed `void`. `SchoolRegistrationResponse`
+   * carries `{schoolId, adminId, schoolCode}`, all required - three facts the
+   * onboarding wizard was throwing away, including the join code the school
+   * signs in with. Still no SESSION, so the wizard does have to sign in
+   * afterwards; see `SignUpStep`, which now tells those two round trips apart.
+   */
   register: (payload: {
     schoolName: string;
     adminName: string;
     email: string;
     password: string;
-  }) => api.post<void>("/api/v1/schools/register", payload),
+  }) =>
+    api.post<SchoolRegistration>("/api/v1/schools/register", payload),
 
   get: () => api.get<School>("/api/v1/school"),
 

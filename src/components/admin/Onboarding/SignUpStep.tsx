@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { authApi } from "@/lib/api/auth";
-import { schoolApi } from "@/lib/api/school";
+import { schoolApi, type SchoolRegistration } from "@/lib/api/school";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { Spinner } from "../Roster/primitives";
@@ -38,14 +38,37 @@ import {
  * set it at onboarding. That makes the D1.2 gap a missing write, not a missing
  * model, which should be the easier half to close.
  *
- * TODO(api): `POST /api/v1/schools/register` declares a 201 with no body.
- * SCRUM-39 expects a session back, so the wizard signs in immediately
- * afterwards with the same credentials to get one - the later steps need a
- * session to write to `PATCH /api/v1/school`. A session on the register
- * response would remove that second round trip.
+ * TWO ROUND TRIPS, AND THEY FAIL DIFFERENTLY. `POST /schools/register` answers
+ * `{schoolId, adminId, schoolCode}` and NO session, so the wizard signs in
+ * immediately afterwards to get one - the later steps need a session to write
+ * to `PATCH /api/v1/school`.
+ *
+ * Both used to sit in one promise chain under one `.catch`, which made the
+ * second failure lie about the first. Register succeeds, the login round trip
+ * times out, and the proprietor reads "nothing has been created yet" - while
+ * their school and their own admin account both exist. They press Continue
+ * again, register a second time, and get "this email is already set up with a
+ * school", which reads as their mistake.
+ *
+ * So the two are separated, and once the school EXISTS this step will not
+ * register again at any price: the fields lock and the only action left is to
+ * retry the sign-in.
+ *
+ * TODO(api): a session on the register response would remove the second round
+ * trip and this whole class of half-done state with it.
  */
 
-type Phase = "idle" | "submitting" | "duplicate" | "failed";
+type Phase =
+  | "idle"
+  /** Creating the school. Nothing exists yet. */
+  | "registering"
+  /** The school EXISTS; we are getting a session for it. */
+  | "signingIn"
+  | "duplicate"
+  /** Registration itself failed - nothing was created. */
+  | "failed"
+  /** Registered, but not signed in. The difference is the whole point. */
+  | "signInFailed";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 10;
@@ -63,8 +86,14 @@ export function SignUpStep({
   const [confirm, setConfirm] = useState("");
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [phase, setPhase] = useState<Phase>("idle");
+  /**
+   * Set the moment the school exists. Nothing may register again after this -
+   * a second attempt with an edited email would create a SECOND school.
+   */
+  const [registered, setRegistered] = useState<SchoolRegistration | null>(null);
 
-  const submitting = phase === "submitting";
+  const busy = phase === "registering" || phase === "signingIn";
+  const submitting = busy;
   const blur = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
 
   const emailValid = EMAIL.test(state.email.trim());
@@ -77,9 +106,19 @@ export function SignUpStep({
     passwordValid &&
     confirmValid;
 
+  /** The second round trip, on its own, so its failure describes itself. */
+  const signIn = () => {
+    setPhase("signingIn");
+    authApi
+      .loginPassword({ email: state.email.trim(), password })
+      .then(() => onDone())
+      .catch(() => setPhase("signInFailed"));
+  };
+
   const submit = () => {
-    if (!valid) return;
-    setPhase("submitting");
+    // Never twice. By here the school may already exist.
+    if (!valid || registered) return;
+    setPhase("registering");
     schoolApi
       .register({
         schoolName: state.schoolName.trim(),
@@ -87,11 +126,13 @@ export function SignUpStep({
         email: state.email.trim(),
         password,
       })
-      // The register response carries no session, so sign in for one. The
-      // later steps cannot write to the school record without it.
-      .then(() => authApi.loginPassword({ email: state.email.trim(), password }))
-      .then(() => onDone())
+      .then((created) => {
+        setRegistered(created);
+        signIn();
+      })
       .catch((e: unknown) => {
+        // Only REGISTRATION's failures are described here. A 409 is a duplicate
+        // email; anything else genuinely created nothing.
         if (e instanceof ApiError && e.status === 409) {
           setPhase("duplicate");
           return;
@@ -115,7 +156,7 @@ export function SignUpStep({
           <input
             id="ob-school"
             value={state.schoolName}
-            readOnly={submitting}
+            readOnly={submitting || registered !== null}
             onChange={(e) => onChange({ schoolName: e.target.value })}
             onBlur={() => blur("school")}
             placeholder="Brightgate Academy"
@@ -131,7 +172,7 @@ export function SignUpStep({
           <input
             id="ob-name"
             value={state.adminName}
-            readOnly={submitting}
+            readOnly={submitting || registered !== null}
             onChange={(e) => onChange({ adminName: e.target.value })}
             onBlur={() => blur("name")}
             placeholder="Folake Adebayo"
@@ -148,7 +189,7 @@ export function SignUpStep({
             id="ob-email"
             type="email"
             value={state.email}
-            readOnly={submitting}
+            readOnly={submitting || registered !== null}
             onChange={(e) => {
               onChange({ email: e.target.value });
               if (phase === "duplicate") setPhase("idle");
@@ -180,7 +221,7 @@ export function SignUpStep({
             id="ob-password"
             type="password"
             value={password}
-            readOnly={submitting}
+            readOnly={submitting || registered !== null}
             onChange={(e) => setPassword(e.target.value)}
             onBlur={() => blur("password")}
             autoComplete="new-password"
@@ -206,7 +247,7 @@ export function SignUpStep({
             id="ob-confirm"
             type="password"
             value={confirm}
-            readOnly={submitting}
+            readOnly={submitting || registered !== null}
             onChange={(e) => setConfirm(e.target.value)}
             onBlur={() => blur("confirm")}
             autoComplete="new-password"
@@ -227,17 +268,53 @@ export function SignUpStep({
         </div>
       ) : null}
 
+      {phase === "signInFailed" ? (
+        /*
+         * The opposite of the panel above, and it used to BE that panel. The
+         * school and the admin account are real; only the session is missing.
+         * Telling them nothing was created sends them round again to a
+         * duplicate-email error on a school they successfully made.
+         */
+        <div className="mt-6 rounded-[10px] bg-nevo-violet/[0.18] px-4 py-3.5">
+          <p className="m-0 text-[13.5px] leading-[1.55] text-nevo-navy">
+            <strong>{state.schoolName.trim()} is created</strong>, and so is your
+            admin account &ndash; we just couldn&rsquo;t sign you in. Nothing
+            needs creating again.
+          </p>
+          {registered?.schoolCode ? (
+            <p className="m-0 mt-1.5 text-[13.5px] leading-[1.55] text-nevo-navy">
+              Your school code is{" "}
+              <span className="font-mono font-semibold">
+                {registered.schoolCode}
+              </span>
+              .
+            </p>
+          ) : null}
+          <p className="m-0 mt-1.5 text-[13.5px] leading-[1.55] text-nevo-navy">
+            Try again below, or{" "}
+            <Link href="/auth/admin" className="underline underline-offset-2">
+              sign in directly
+            </Link>
+            .
+          </p>
+        </div>
+      ) : null}
+
       <button
         type="button"
-        onClick={submit}
-        disabled={!valid || submitting}
+        onClick={registered ? signIn : submit}
+        disabled={busy || (!registered && !valid)}
         className={cn(WIZARD_PRIMARY, "mt-8")}
       >
-        {submitting ? (
+        {busy ? (
           <span className="inline-flex items-center justify-center gap-2.5">
             <Spinner />
-            Creating your workspace…
+            {phase === "signingIn"
+              ? "Signing you in…"
+              : "Creating your workspace…"}
           </span>
+        ) : registered ? (
+          "Try signing in"
         ) : (
           "Continue"
         )}
