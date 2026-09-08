@@ -14,6 +14,7 @@ import {
   gettingStartedSteps,
 } from "./overviewGettingStarted";
 import { schoolApi, type SchoolNarrative, type SchoolRosterCounts } from "@/lib/api/school";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 import { WORTH_A_GLANCE } from "./overviewSample";
 import { NoAccess, failureKind } from "../NoAccess";
 
@@ -403,6 +404,11 @@ export function OverviewView() {
                 })}
               </div>
             ) : (
+            /* The last sample left on this screen. Marked so the end-to-end
+               suite can see it: a signed-in admin should never meet an invented
+               roll-up, and an UNMARKED fallback is invisible to that test - it
+               walks past reporting success, which is worse than no test. */
+            <SampleRegion kind="admin:overview-worth-a-glance">
             <div className={cn(CARD, "mt-3 overflow-hidden")}>
               {WORTH_A_GLANCE.map((g, i) => (
                 <Link
@@ -428,6 +434,7 @@ export function OverviewView() {
                 </Link>
               ))}
             </div>
+            </SampleRegion>
             )}
             {!early && (
               <SampleNote>
