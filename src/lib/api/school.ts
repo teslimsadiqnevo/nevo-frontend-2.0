@@ -68,7 +68,46 @@ export function readOnboarding(school: School): OnboardingProfile {
   return raw && typeof raw === "object" ? (raw as OnboardingProfile) : {};
 }
 
+/**
+ * The board summary, written from the school's own data.
+ *
+ * `source` is a CONST `"live_school_data"` in the contract, which is the whole
+ * point: the Overview used to lead with D04's sample paragraph under a note
+ * admitting the figures were not this school's. There is now a real one.
+ */
+export interface SchoolNarrative {
+  headline: string;
+  summary: string;
+  highlights: string[];
+  generatedAt: string;
+  source?: string;
+}
+
+/**
+ * Roster counts, typed at last - this was an untyped `{[k: string]: number}`
+ * bag until 7 Sep.
+ *
+ * ACTIVE AND INVITED ARE SEPARATE POPULATIONS and must not be summed for a seat
+ * count; backend was explicit about that. Every field is optional in the
+ * contract, so a missing count reads as unknown rather than as zero.
+ */
+export interface SchoolRosterCounts {
+  activeStudents?: number;
+  invitedStudents?: number;
+  teachers?: number;
+  sencoAdmins?: number;
+  otherAdmins?: number;
+  classes?: number;
+}
+
+export interface SchoolOverview {
+  schoolId: string;
+  counts: SchoolRosterCounts;
+}
+
 export const schoolApi = {
+  narrative: () => api.get<SchoolNarrative>("/api/v1/school/narrative"),
+  overview: () => api.get<SchoolOverview>("/api/v1/school/overview"),
   /**
    * Create the school and its founding admin. PUBLIC - this is the one call in
    * the admin surface made before any session exists.

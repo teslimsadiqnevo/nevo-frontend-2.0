@@ -13,7 +13,8 @@ import {
   STEP_WORKSPACE,
   gettingStartedSteps,
 } from "./overviewGettingStarted";
-import { NARRATIVE_SAMPLE, WORTH_A_GLANCE } from "./overviewSample";
+import { schoolApi, type SchoolNarrative, type SchoolRosterCounts } from "@/lib/api/school";
+import { WORTH_A_GLANCE } from "./overviewSample";
 
 /**
  * D04 Overview Dashboard - the first thing a general-oversight admin sees,
@@ -78,14 +79,24 @@ export function OverviewView() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [audit, setAudit] = useState<ComplianceAudit | null>(null);
   const [adaptationTotal, setAdaptationTotal] = useState<number | null>(null);
+  const [narrative, setNarrative] = useState<SchoolNarrative | null>(null);
+  const [narrativeFailed, setNarrativeFailed] = useState(false);
+  const [counts, setCounts] = useState<SchoolRosterCounts | null>(null);
 
   const load = useCallback(() => {
     Promise.all([
       schoolIntelligenceApi.complianceAudit(),
       schoolIntelligenceApi.adaptationLog({ limit: 1 }).catch(() => null),
+      // The board narrative and the roster counts are their own cards and
+      // their own failures - neither should take the page down.
+      schoolApi.narrative().catch(() => null),
+      schoolApi.overview().catch(() => null),
     ])
-      .then(([a, log]) => {
+      .then(([a, log, n, ov]) => {
         setAudit(a);
+        setNarrative(n);
+        setNarrativeFailed(n === null);
+        setCounts(ov ? ov.counts : null);
         setAdaptationTotal(log?.total ?? a.adaptationEventsLogged);
         setPhase("ready");
       })
@@ -146,7 +157,7 @@ export function OverviewView() {
               <h3 className="text-[19px] font-semibold text-nevo-near-black">
                 {early
                   ? `Welcome to Nevo, ${school}`
-                  : `What Nevo is doing for ${school}`}
+                  : (narrative?.headline ?? `What Nevo is doing for ${school}`)}
               </h3>
               {early ? (
                 <>
@@ -167,14 +178,35 @@ export function OverviewView() {
                   <p className="mt-1 text-[13.5px] text-nevo-near-black/55">
                     This half-term
                   </p>
-                  <p className="mt-4 max-w-[68ch] text-[15px] leading-[1.7] text-nevo-near-black/78">
-                    {NARRATIVE_SAMPLE}
-                  </p>
-                  <SampleNote>
-                    This summary is a sample. Nothing yet writes your
-                    school&rsquo;s own board narrative, so none of the figures
-                    above are {school}&rsquo;s.
-                  </SampleNote>
+                  {narrative ? (
+                    /* The school's OWN summary. `source` is a const
+                       "live_school_data" in the contract, which is why the
+                       sample note that used to sit here is gone rather than
+                       reworded. */
+                    <>
+                      <p className="mt-4 max-w-[68ch] text-[15px] leading-[1.7] text-nevo-near-black/78">
+                        {narrative.summary}
+                      </p>
+                      {narrative.highlights.length > 0 ? (
+                        <ul className="mt-4 max-w-[68ch] list-disc space-y-1.5 pl-5 text-[14.5px] leading-[1.6] text-nevo-near-black/72">
+                          {narrative.highlights.map((h) => (
+                            <li key={h}>{h}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </>
+                  ) : narrativeFailed ? (
+                    <p className="mt-4 max-w-[68ch] text-[15px] leading-[1.7] text-nevo-near-black/62">
+                      We couldn&rsquo;t load your summary just now. Nothing has
+                      changed for {school} &ndash; the figures below are still
+                      live.
+                    </p>
+                  ) : (
+                    <div
+                      aria-hidden
+                      className="mt-4 h-16 animate-pulse rounded-lg bg-nevo-near-black/[0.06]"
+                    />
+                  )}
                 </>
               )}
             </div>
@@ -214,8 +246,14 @@ export function OverviewView() {
             <h3 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
               {early ? "Where things stand" : "Activity this half-term"}
             </h3>
-            {/* Only the figures the audit actually returns. Classes active and
-                teachers active have no source, so they are not here. */}
+            {/* The frame's classes and teachers tiles had no source until the
+                roster counts were typed (7 Sep). They render only when the
+                count is actually present - every field on `SchoolRosterCounts`
+                is optional, and a missing count is unknown, not zero.
+
+                ACTIVE AND INVITED ARE NOT SUMMED. They are separate
+                populations and backend was explicit that adding them is not a
+                seat count. */}
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className={cn(CARD, "px-[22px] py-5")}>
                 <span className="text-[30px] leading-none font-semibold text-nevo-near-black">
@@ -245,6 +283,51 @@ export function OverviewView() {
                   See the log &rarr;
                 </Link>
               </div>
+
+              {typeof counts?.classes === "number" ? (
+                <div className={cn(CARD, "px-[22px] py-5")}>
+                  <span className="text-[30px] leading-none font-semibold text-nevo-near-black">
+                    {counts.classes}
+                  </span>
+                  <p className="mt-2 text-[14.5px] font-semibold text-nevo-near-black">
+                    Classes
+                  </p>
+                  <p className="mt-px text-[13px] text-nevo-near-black/58">
+                    on your roster
+                  </p>
+                </div>
+              ) : null}
+
+              {typeof counts?.teachers === "number" ? (
+                <div className={cn(CARD, "px-[22px] py-5")}>
+                  <span className="text-[30px] leading-none font-semibold text-nevo-near-black">
+                    {counts.teachers}
+                  </span>
+                  <p className="mt-2 text-[14.5px] font-semibold text-nevo-near-black">
+                    Teachers
+                  </p>
+                  <p className="mt-px text-[13px] text-nevo-near-black/58">
+                    with a Nevo account
+                  </p>
+                </div>
+              ) : null}
+
+              {typeof counts?.activeStudents === "number" ? (
+                <div className={cn(CARD, "px-[22px] py-5")}>
+                  <span className="text-[30px] leading-none font-semibold text-nevo-near-black">
+                    {counts.activeStudents}
+                  </span>
+                  <p className="mt-2 text-[14.5px] font-semibold text-nevo-near-black">
+                    Students enrolled
+                  </p>
+                  <p className="mt-px text-[13px] text-nevo-near-black/58">
+                    {typeof counts.invitedStudents === "number" &&
+                    counts.invitedStudents > 0
+                      ? `${counts.invitedStudents} more invited, not yet joined`
+                      : "active on your roster"}
+                  </p>
+                </div>
+              ) : null}
             </div>
 
             <h3 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
