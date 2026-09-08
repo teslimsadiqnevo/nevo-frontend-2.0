@@ -15,6 +15,10 @@ import type {
 } from "./progressData";
 import { SessionDetailSheet } from "./SessionDetailSheet";
 
+/** One "ready for another look" chip, openable or not. */
+const DUE_CHIP =
+  "rounded-full bg-nevo-navy/10 px-3 py-1.5 text-[13px] text-nevo-navy ring-1 ring-nevo-navy/20 ring-inset";
+
 /** Smooth path through the timeline points (0–320 × 0–80 space). */
 function smoothPath(points: [number, number][]): string {
   if (points.length < 2) return "";
@@ -336,14 +340,32 @@ function LiveSubjectDetail({
             Ready for another look
           </h2>
           <div className="mt-3 flex flex-wrap gap-2">
-            {ready.map((c) => (
-              <span
-                key={c.conceptId}
-                className="rounded-full bg-nevo-navy/10 px-3 py-1.5 text-[13px] text-nevo-navy ring-1 ring-nevo-navy/20 ring-inset"
-              >
-                {c.name}
-              </span>
-            ))}
+            {ready.map((c) => {
+              // THE ENTRANCE TO THE SPACED-RETRIEVAL LOOP. The route, the
+              // player variant and the schedule read all existed; nothing
+              // linked them, so a child was told a concept was ready for
+              // another look and given no way to take one.
+              //
+              // `playable` is the hook's own answer to "which of these can
+              // actually be opened" - a due concept whose schedule row carries
+              // no lesson is due but not openable, and stays a plain chip
+              // rather than becoming a link to nowhere.
+              const lessonId = review.playable.get(c.conceptId);
+              return lessonId ? (
+                <Link
+                  key={c.conceptId}
+                  href={`/student/lessons/${lessonId}/review-session`}
+                  aria-label={`Take another look at ${c.name}`}
+                  className={`${DUE_CHIP} cursor-pointer transition hover:bg-nevo-navy/[0.16] active:scale-[0.98]`}
+                >
+                  {c.name}
+                </Link>
+              ) : (
+                <span key={c.conceptId} className={DUE_CHIP}>
+                  {c.name}
+                </span>
+              );
+            })}
           </div>
         </>
       )}
