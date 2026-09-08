@@ -116,8 +116,19 @@ export function SignUpStep({
   };
 
   const submit = () => {
-    // Never twice. By here the school may already exist.
-    if (!valid || registered) return;
+    if (busy) return;
+    /*
+     * ONE ENTRY POINT, and the branch lives here rather than on the button's
+     * `onClick`. Wiring the button to `signIn` instead would work equally well
+     * today and be untestable: a mutation that deletes this line has to be
+     * caught by a test that presses the same button twice, which is what a
+     * proprietor actually does. Registering twice makes a SECOND school.
+     */
+    if (registered) {
+      signIn();
+      return;
+    }
+    if (!valid) return;
     setPhase("registering");
     schoolApi
       .register({
@@ -302,7 +313,7 @@ export function SignUpStep({
 
       <button
         type="button"
-        onClick={registered ? signIn : submit}
+        onClick={submit}
         disabled={busy || (!registered && !valid)}
         className={cn(WIZARD_PRIMARY, "mt-8")}
       >
