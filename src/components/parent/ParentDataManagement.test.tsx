@@ -137,6 +137,100 @@ describe("a parent who already withdrew", () => {
   });
 });
 
+describe("a student the school never named", () => {
+  // NOT hypothetical. The backend sends the LITERAL string "your child" when a
+  // school entered no first name, and confirmed there is such a student in the
+  // data. A `?? "your child"` fallback does not help - the field is always
+  // present, so the literal flows into whatever sentence it lands in.
+  const NAMELESS = { ...INVITATION, studentFirstName: "your child" };
+
+  it("capitalises the name where it opens a heading", async () => {
+    getInvitation.mockResolvedValue(NAMELESS);
+    render(<ParentDataManagement token={TOKEN} />);
+
+    // "Your child’s data on Nevo", never "your child’s data on Nevo".
+    expect(
+      await screen.findByRole("heading", { name: /^Your child[’']s data on Nevo$/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("capitalises it on the suspended heading too", async () => {
+    getInvitation.mockResolvedValue({ ...NAMELESS, status: "withdrawn" });
+    render(<ParentDataManagement token={TOKEN} />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Your child[’']s account is suspended$/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves it lowercase mid-sentence, where capitals would be wrong", async () => {
+    getInvitation.mockResolvedValue(NAMELESS);
+    render(<ParentDataManagement token={TOKEN} />);
+
+    expect(
+      await screen.findByText(/enrolled your child on Nevo/),
+    ).toBeInTheDocument();
+  });
+
+  it("does not mangle a real name", async () => {
+    render(<ParentDataManagement token={TOKEN} />);
+    expect(await screen.findByText(/Amara[’']s data on Nevo/)).toBeInTheDocument();
+  });
+});
+
+describe("when the withdrawal happened", () => {
+  it("says the date, rather than only that it happened", async () => {
+    getInvitation.mockResolvedValue({
+      ...INVITATION,
+      status: "withdrawn",
+      decidedAt: "2026-09-03T10:15:00Z",
+    });
+    render(<ParentDataManagement token={TOKEN} />);
+
+    expect(
+      await screen.findByText(/You withdrew consent on 3 September 2026, so they can no longer access Nevo\./),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the comma attached when there is no date", async () => {
+    // Guards the sentence as a whole. Note this one does NOT fail if the
+    // interpolated form comes back - JSX strips newline-adjacent whitespace,
+    // so that form spaces correctly. The case that actually breaks is the
+    // unparseable date below.
+    getInvitation.mockResolvedValue({
+      ...INVITATION,
+      status: "withdrawn",
+      decidedAt: null,
+    });
+    render(<ParentDataManagement token={TOKEN} />);
+
+    expect(
+      await screen.findByText(/^You withdrew consent, so they can no longer access Nevo\.$/),
+    ).toBeInTheDocument();
+  });
+
+  it("renders no date rather than 'Invalid Date' on a bad value", async () => {
+    getInvitation.mockResolvedValue({
+      ...INVITATION,
+      status: "withdrawn",
+      decidedAt: "not-a-date",
+    });
+    render(<ParentDataManagement token={TOKEN} />);
+
+    expect(await screen.findByText(/^You withdrew consent, so/)).toBeInTheDocument();
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+  });
+});
+
+describe("who the link is for", () => {
+  it("names the parent the school recorded, because a link can be forwarded", async () => {
+    render(<ParentDataManagement token={TOKEN} />);
+    expect(
+      await screen.findByText(/This link was sent to Ngozi Okafor\./),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("objecting", () => {
   it("offers a box for the concern, now that something receives it", async () => {
     // The inverse of the old assertion. The textarea was deliberately withheld

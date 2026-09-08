@@ -64,7 +64,7 @@ const SECTIONS: { heading: string; body: (child: string) => string }[] = [
   {
     heading: "What Nevo collects",
     body: (c) =>
-      `${c}’s name, their year group, and how they interact with each lesson - what they answer, how long they spend, and when they ask for help.`,
+      `${sentenceCase(c)}’s name, their year group, and how they interact with each lesson - what they answer, how long they spend, and when they ask for help.`,
   },
   {
     heading: "How profiling works",
@@ -158,7 +158,14 @@ export function ParentDataManagement({ token }: { token: string }) {
     );
   }
 
+  // TWO FORMS, because the backend can legitimately send the literal string
+  // "your child" - it does that when the school never entered a first name,
+  // which is real in the data. A `??` fallback does not help: the field is
+  // always present, so the literal flows straight into whatever sentence it
+  // lands in. Mid-sentence that reads correctly; at the head of a heading it
+  // renders "your child's data on Nevo" with a lowercase y.
   const child = invitation?.studentFirstName ?? "your child";
+  const childLead = sentenceCase(child);
   // Suspended on ARRIVAL as well as after the act. A parent who withdrew last
   // week must not be shown the withdrawal actions again.
   const suspended =
@@ -169,9 +176,17 @@ export function ParentDataManagement({ token }: { token: string }) {
     return (
       <Shell>
         <div className={CARD}>
-          <h2 className={H3}>{child}&rsquo;s account is suspended</h2>
+          <h2 className={H3}>{childLead}&rsquo;s account is suspended</h2>
+          {/* One expression rather than text-expression-text. Not for spacing -
+              JSX strips newline-adjacent whitespace around an expression, so
+              that form joins cleanly; I checked by reintroducing it. The reason
+              is that the date has THREE states, not two: absent, valid, and
+              present-but-unparseable. Interpolating on `decidedAt` being truthy
+              gets the third wrong, emitting " on " with nothing in it and
+              rendering "You withdrew consent on , so ...". Composing the whole
+              sentence from the FORMATTED value collapses that to two states. */}
           <p className={BODY}>
-            You withdrew consent, so they can no longer access Nevo.
+            {withdrawalSentence(invitation?.decidedAt ?? null)}
           </p>
           <p className={BODY}>
             To restore access, contact {schoolPhrase(invitation)}. The school
@@ -210,7 +225,7 @@ export function ParentDataManagement({ token }: { token: string }) {
     <Shell>
       <div className={CARD}>
         <h1 className="text-[21px] font-semibold tracking-[-0.015em] text-nevo-near-black">
-          {child}&rsquo;s data on Nevo
+          {childLead}&rsquo;s data on Nevo
         </h1>
         <p className={BODY}>
           {invitation
@@ -218,6 +233,14 @@ export function ParentDataManagement({ token }: { token: string }) {
             : "Your child’s school enrolled them on Nevo."}{" "}
           This page explains what that means, and lets you act on it.
         </p>
+        {/* A tokenised link can be forwarded. Naming the parent the school
+            recorded lets someone who received it in error see that at once.
+            FLAGGED TO DESIGN: the wording is ours, not from a frame. */}
+        {invitation?.parentName && (
+          <p className="mt-2.5 text-[13px] text-nevo-near-black/50">
+            This link was sent to {invitation.parentName}.
+          </p>
+        )}
       </div>
 
       <div className="mt-3.5 overflow-hidden rounded-[14px] bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
@@ -398,6 +421,47 @@ export function ParentDataManagement({ token }: { token: string }) {
  * be. The school's own phone and email are null for most schools today, so
  * this stays prose rather than becoming a link that might go nowhere.
  */
+/**
+ * Capitalise a leading word without touching the rest.
+ *
+ * Deliberately NOT a general title-caser: a real first name arrives already
+ * cased ("Amara"), and forcing case on it would mangle names like "de Souza".
+ * This only lifts the first character, which is all a sentence-initial
+ * position needs.
+ */
+function sentenceCase(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+/**
+ * "3 September 2026". The year is kept: a withdrawal from a previous year
+ * reading as a bare "3 September" would look like it happened days ago.
+ * An unparseable value yields nothing rather than "Invalid Date".
+ */
+function formatDecided(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+}
+
+/**
+ * Built as one string so the comma cannot drift away from the clause before
+ * it. Falls back to the undated sentence when `decidedAt` is null (a parent
+ * mid-decision) or unparseable - saying WHEN is an improvement, not a
+ * precondition for telling them their child is suspended.
+ */
+function withdrawalSentence(decidedAt: string | null): string {
+  const when = decidedAt ? formatDecided(decidedAt) : "";
+  return when
+    ? `You withdrew consent on ${when}, so they can no longer access Nevo.`
+    : "You withdrew consent, so they can no longer access Nevo.";
+}
+
 function schoolPhrase(inv: ParentInvitation | null): string {
   return inv?.schoolName ?? "your child’s school";
 }
