@@ -103,6 +103,63 @@ consent gate is wired.
 
 ---
 
+## API re-audit, 7 Sep — all 97 `TODO(api)` markers vs the live spec
+
+Every marker in the tree was written against an OLDER spec, and the spec moves daily.
+Re-checked all 97 against the deployed document, with each "now unblocked" claim
+adversarially verified twice before being called that.
+
+| verdict | n | meaning |
+|---|---|---|
+| unblocked | 4 | build it today |
+| **partially** unblocked | 26 | the READ landed, the WRITE (or 1 of 3 needs) did not |
+| still blocked | 50 | genuinely absent |
+| **stale** | 17 | **delete the comment — the need is already met or was never an API gap** |
+
+The 26 are the interesting pile: in nearly every case a screen can now render its data
+and still cannot perform its action. Do not read "partially" as "blocked".
+
+### Two live bugs this turned up — FIXED, see the enum-mismatch PR
+
+- **`ClassSource` has no `"sso"` member** (it is `manual | roster_sync`). Both
+  `ClassesView.tsx:133` and `ClassDetailView.tsx:133` compared against `"sso"`, so
+  `ssoSourced` was permanently false and a provider-owned class was offered Create and
+  archive actions the school must not have.
+- **A revoked teacher was labelled "Invited".** `isInvited` was `status !== "active"`,
+  and `UserStatus` is `active | invited | deactivated`. `GET /teachers` has no
+  include-inactive filter, so a revoked teacher returns in the ordinary list.
+
+Both were silent — no error, correct-looking code. **If you fix one instance of a
+mismatch like this, grep for siblings**; the second `ssoSourced` was at the same line
+number in a different file and was nearly missed.
+
+### Endpoints that exist and nothing calls — 8 rated high value
+
+**FOR THE ADMIN SESSION, the big one: `POST /api/v1/students` is not wired.** There is
+no student-create call anywhere in `src/`, and the students screen has TWO "Enrol a
+student" buttons (`StudentsView.tsx:159` and `:361`). `students.ts` has patch,
+deactivate and restore — no create. Also unwired: `POST /students/{id}/pin/reset`
+(referenced only in comments in `ForgotPinScreen.tsx`), and `GET /school/overview`,
+`GET /school/narrative` and `POST|GET /school/dpa-acceptance` — the last of which is
+the compliance record `DpaStep.tsx` says it cannot persist.
+
+**FOR THE TEACHER SESSION:** `PATCH` and `DELETE /api/v1/assignments/{id}` are both
+unused, so an assignment can be created and never edited or cancelled. And
+`POST /api/content/lessons/{lesson_id}/regenerate` — the only endpoint in the spec
+carrying its own description — would turn a failed lesson parse from a dead end into a
+retry.
+
+### 17 markers to simply delete
+
+Cheap and worth doing: the comment is the only thing left. Notably every `lib/mocks/teacher*.ts`
+marker (the C16 intelligence surfaces, C09 insights, teacher home flags and the C01
+onboarding round trip all shipped), `lessonCatalog.ts`, `lesson.ts`, `session.ts:137`,
+`connectData.ts`, `ProfileSettings.tsx:40` (already implemented in that same file), and
+both `TeacherJoin.tsx` QR markers — QR capture is `getUserMedia` plus a client-side
+decoder, never an API gap.
+
+---
+
 ## Coordination — read this first
 
 Three sessions build in this SAME worktree in parallel: **student**, **admin**, and
