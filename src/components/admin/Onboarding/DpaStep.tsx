@@ -25,15 +25,17 @@ import { StepHeading, WIZARD_PRIMARY, WIZARD_SECONDARY } from "./OnboardingWizar
  * which version a school actually agreed to. If the words change and the
  * version does not, that record silently becomes a lie.
  *
- * TODO(api): SCRUM-39 asks for `GET dpa {version, html}` and
- * `POST acceptance {school_id, admin_id, dpa_version, accepted_at}`. Neither
- * exists. The text is local (and marked placeholder, as counsel has not
- * returned final wording), and the acceptance is written into
- * `profile.onboarding` alongside the other two provisional keys.
+ * THE ACCEPTANCE IS NOW A REAL RECORD (backend, 7 Sep).
+ * `POST /api/v1/school/dpa-acceptance` takes the version and stores the
+ * document version, the accepting administrator and the timestamp - so D12 and
+ * D22 can say which version a school agreed to, and WHO agreed. It used to go
+ * into `profile.onboarding` as an untyped blob with no admin id, which was the
+ * worst-kept of the three things this wizard stored precisely because it is a
+ * compliance record of an agreement a school signed.
  *
- * Of the three things this wizard cannot properly store, THIS IS THE ONE THAT
- * MATTERS MOST: it is a compliance record of an agreement a school signed, and
- * an untyped blob on a school row is not where it belongs.
+ * TODO(api): SCRUM-39 also asks for `GET dpa {version, html}` so the TEXT comes
+ * from the server. It does not exist, so the wording is still local and still
+ * marked placeholder - counsel has not returned final copy.
  */
 
 type Phase = "idle" | "saving" | "failed";
@@ -85,11 +87,10 @@ export function DpaStep({
     }
     setNotAccepted(false);
     setPhase("saving");
+    // The typed record, not the profile blob. The backend stamps the admin and
+    // the time from the session, so neither is sent - and neither can drift.
     schoolApi
-      .saveOnboarding({
-        dpaVersion: DPA_VERSION,
-        dpaAcceptedAt: new Date().toISOString(),
-      })
+      .acceptDpa(DPA_VERSION)
       .then(() => onDone())
       .catch(() => setPhase("failed"));
   };
@@ -187,7 +188,7 @@ export function DpaStep({
           role="alert"
           className="mt-2 pl-8 text-[12.5px] font-medium text-nevo-navy"
         >
-          Please accept the terms and conditions to continue.
+          Please accept the agreement to continue.
         </p>
       ) : null}
 

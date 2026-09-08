@@ -26,8 +26,22 @@ async function enabledContinue(getByText: (t: string) => HTMLElement) {
   return btn();
 }
 
+// Forwards EVERY argument. An earlier version of this mock forwarded only the
+// first, which made the "sends only the version" assertion below structurally
+// unable to fail - a second argument was swallowed before the spy saw it.
+const acceptDpa = vi.fn(async (...args: unknown[]) => {
+  void args;
+  return {
+    id: "a1",
+    schoolId: "s1",
+    version: "0.9-draft",
+    acceptedByUserId: "u1",
+    acceptedByName: "Mrs. Adebayo",
+    acceptedAt: "2026-09-08T09:00:00Z",
+  };
+});
 vi.mock("@/lib/api/school", () => ({
-  schoolApi: { saveOnboarding: vi.fn(async () => ({})) },
+  schoolApi: { acceptDpa: (...args: unknown[]) => acceptDpa(...args) },
 }));
 
 const shown = (c: HTMLElement) => (c.textContent ?? "").replace(/\u2019/g, "'");
@@ -47,7 +61,7 @@ describe("DpaStep acceptance gate", () => {
 
     await waitFor(() =>
       expect(shown(container)).toMatch(
-        /Please accept the terms and conditions to continue/,
+        /Please accept the agreement to continue/,
       ),
     );
     // Inline only - the ruling was explicit that this is not a modal.
@@ -63,6 +77,20 @@ describe("DpaStep acceptance gate", () => {
     (container.querySelector('[role="checkbox"]') as HTMLElement).click();
 
     await waitFor(() => expect(shown(container)).not.toMatch(/Please accept/));
+  });
+
+  it("records the acceptance as a typed record, sending only the version", async () => {
+    // The admin and the timestamp are stamped server-side from the session, so
+    // neither is sent - and neither can drift from what actually happened.
+    const { container, getByText } = renderStep();
+    const go = await enabledContinue(getByText);
+    (container.querySelector('[role="checkbox"]') as HTMLElement).click();
+    await waitFor(() =>
+      expect(shown(container)).not.toMatch(/Please accept/),
+    );
+    go.click();
+    await waitFor(() => expect(acceptDpa).toHaveBeenCalledTimes(1));
+    expect(acceptDpa.mock.calls[0]).toHaveLength(1);
   });
 
   it("keeps Continue shut until the agreement has been read", () => {

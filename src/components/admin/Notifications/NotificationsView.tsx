@@ -34,12 +34,22 @@ import { NotificationRow } from "./NotificationRow";
  * page for the same reason - there is no `q` parameter. All three become real
  * the moment a category lands on the row.
  *
- * TODO(api): the `NotificationType` enum holds three values, all of them
- * teacher and student console events. None of the admin events SCRUM-100
- * promises - roster sync finishing, an invoice arriving, a parent confirming
- * consent, a teacher accepting an invitation - can arrive yet. This page is
- * built to render whatever comes rather than to switch on admin types that do
- * not exist; when they do, only the icon map needs touching.
+ * THE ADMIN EVENTS ARRIVE NOW (backend, 7 Sep): admin_welcome,
+ * consent_action_required, roster_sync_completed, roster_sync_needs_attention,
+ * invoice_issued and sso_needs_attention. This page needed no change to show
+ * them - it renders whatever comes - so an admin's inbox is no longer empty on
+ * day one.
+ *
+ * There is deliberately no per-type icon. The design has ONE accent treatment
+ * (soft violet for unread, navy for the rest) and no urgency glyphs anywhere in
+ * the set; picking six new icons would be inventing design rather than applying
+ * it.
+ *
+ * TODO(api): a `category` ON THE ROW. `NotificationCategory` exists for
+ * preferences, but `NotificationResponse` carries only `type` - so the category
+ * filter, the per-category label and "mark these as read" still have no source.
+ * Three of SCRUM-100's six admin categories (roster, SSO, teacher) have no enum
+ * value either, so this needs a design and backend answer together.
  */
 
 type Phase = "loading" | "ready" | "failed";

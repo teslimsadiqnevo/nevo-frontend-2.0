@@ -42,9 +42,13 @@ export type EnrolmentBand = "boutique" | "mid_market" | "premium" | "enterprise"
 export interface OnboardingProfile {
   authMethod?: SchoolAuthMethod;
   band?: EnrolmentBand;
-  /** The version accepted, never assumed - D12 and D22 read this later. */
+  /**
+   * RETIRED (7 Sep) - acceptance is a typed record now, see `acceptDpa`. These
+   * two remain on the type ONLY so a school onboarded before the change can
+   * still be read back without the parse dropping fields it does not know.
+   * Nothing writes them.
+   */
   dpaVersion?: string;
-  /** ISO timestamp of acceptance. */
   dpaAcceptedAt?: string;
   /** Whether the wizard ran to the end, so a resumed session knows. */
   completedAt?: string;
@@ -105,7 +109,29 @@ export interface SchoolOverview {
   counts: SchoolRosterCounts;
 }
 
+export interface DpaAcceptance {
+  id: string;
+  schoolId: string;
+  version: string;
+  acceptedByUserId: string;
+  acceptedByName: string;
+  acceptedAt: string;
+}
+
 export const schoolApi = {
+  /**
+   * The school's DPA acceptance - a compliance record, and now a typed one.
+   *
+   * It used to be written into `profile.onboarding` as `{dpaVersion,
+   * dpaAcceptedAt}`: an untyped blob on a school row, with no admin id, that
+   * nothing could read back. D12 and D22 both display which version a school
+   * agreed to, so that record mattered more than anything else the wizard
+   * stored and was the worst-kept of the three.
+   */
+  dpaAcceptance: () =>
+    api.get<DpaAcceptance>("/api/v1/school/dpa-acceptance"),
+  acceptDpa: (version: string) =>
+    api.post<DpaAcceptance>("/api/v1/school/dpa-acceptance", { version }),
   narrative: () => api.get<SchoolNarrative>("/api/v1/school/narrative"),
   overview: () => api.get<SchoolOverview>("/api/v1/school/overview"),
   /**

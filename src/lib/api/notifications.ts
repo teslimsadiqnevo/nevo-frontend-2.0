@@ -11,25 +11,37 @@ import { api } from "./client";
  *
  * `type` was a bare string when this file was written; the backend has since
  * enumerated it as `NotificationType`. It is still typed loosely here on
- * purpose - `(string & {})` keeps the three known values as autocomplete
- * without making a fourth one a compile error, because a new server-side type
- * must never render as a blank square.
+ * purpose - `(string & {})` keeps the known values as autocomplete without
+ * making a new one a compile error, because a server-side type we have not
+ * seen must never render as a blank square.
  */
 
 /**
  * What a notification is about. Drives the icon and the navigation target.
  *
- * All three of these are TEACHER AND STUDENT console events. None of the admin
- * events SCRUM-100 promises - a roster sync finishing, an invoice arriving, a
- * parent confirming consent, a teacher accepting an invitation - exists as a
- * type yet, which is why the admin notification surfaces are built to render
- * whatever arrives rather than to switch on a set of admin types that is not
- * there. Raised with backend.
+ * THE ADMIN EVENTS EXIST NOW (backend, 7 Sep). The first three are teacher and
+ * student console events; the rest are the admin ones SCRUM-100 asked for. The
+ * admin surfaces needed no change to receive them - they were built to render
+ * whatever arrives rather than to switch on a set of types that was not there,
+ * so listing them here is documentation and autocomplete, not dispatch.
+ *
+ * Still NOT here: a `category` on the row. `NotificationCategory` exists for
+ * preferences, but `NotificationResponse` carries only `type`, so the category
+ * filter and "mark this category read" remain unbuildable - see the note on
+ * `NotificationsView`. Deriving a category from the type would be an invented
+ * mapping, and three of SCRUM-100's six admin categories have no enum value to
+ * map onto anyway.
  */
 export type NotificationType =
   | "attention_summary"
   | "modality_shift"
-  | "pin_reset_requested";
+  | "pin_reset_requested"
+  | "admin_welcome"
+  | "consent_action_required"
+  | "roster_sync_completed"
+  | "roster_sync_needs_attention"
+  | "invoice_issued"
+  | "sso_needs_attention";
 
 export interface Notification {
   notificationId: string;
