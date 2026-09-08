@@ -45,6 +45,16 @@ function smoothPath(points: [number, number][]): string {
  * time, so drawing a trend from it would be inventing a shape the data does
  * not have. Direction of travel, not data - the frame's own words.
  */
+/**
+ * "design-technology" -> "Design technology". Sentence case, because the app
+ * writes to children in sentence case everywhere else, and because title-casing
+ * a subject we do not have a real name for would be inventing a proper noun.
+ */
+function titleFromSlug(slug: string): string {
+  const words = slug.replace(/-+/g, " ").trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : "Progress";
+}
+
 export function SubjectDetail({
   subject,
   slug,
@@ -79,7 +89,12 @@ export function SubjectDetail({
   if (signedIn) {
     return (
       <LiveSubjectDetail
-        name={liveSubject?.name ?? subject?.name ?? "Progress"}
+        // Falls back to the SLUG, not to `subject` - `subject` is the designed
+        // fixture for the signed-out walkthrough, and a signed-in render must
+        // not read from it even for a heading. The slug is what the child
+        // actually asked for, so it is the honest label when the live read has
+        // no subject by that name.
+        name={liveSubject?.name ?? titleFromSlug(slug)}
         reflection={own.reflection}
         concepts={liveSubject?.concepts ?? []}
         lessons={live.lessons}
@@ -113,7 +128,10 @@ export function SubjectDetail({
           aria-label="Back to Progress"
           className="flex size-11 items-center justify-center rounded-[10px] transition-colors hover:bg-nevo-near-black/[0.06]"
         >
-          <ChevronLeft className="size-6 text-nevo-near-black" strokeWidth={2} />
+          <ChevronLeft
+            className="size-6 text-nevo-near-black"
+            strokeWidth={2}
+          />
         </Link>
         <span className="ml-1.5 text-sm text-nevo-near-black/60 max-sm:hidden">
           Progress
@@ -166,7 +184,10 @@ export function SubjectDetail({
                   aria-label={`View session: ${s.title}, ${s.date}`}
                   onClick={() => openSession(s)}
                   className="absolute flex size-11 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-transform active:scale-95"
-                  style={{ left: `${(x / 320) * 100}%`, top: `${(y / 80) * 100}%` }}
+                  style={{
+                    left: `${(x / 320) * 100}%`,
+                    top: `${(y / 80) * 100}%`,
+                  }}
                 >
                   {dot}
                 </button>
@@ -174,7 +195,10 @@ export function SubjectDetail({
                 <span
                   key={i}
                   className="absolute flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center"
-                  style={{ left: `${(x / 320) * 100}%`, top: `${(y / 80) * 100}%` }}
+                  style={{
+                    left: `${(x / 320) * 100}%`,
+                    top: `${(y / 80) * 100}%`,
+                  }}
                 >
                   {dot}
                 </span>
@@ -222,7 +246,10 @@ function DetailFrame({ children }: { children: React.ReactNode }) {
           aria-label="Back to Progress"
           className="flex size-11 items-center justify-center rounded-[10px] transition-colors hover:bg-nevo-near-black/[0.06]"
         >
-          <ChevronLeft className="size-6 text-nevo-near-black" strokeWidth={2} />
+          <ChevronLeft
+            className="size-6 text-nevo-near-black"
+            strokeWidth={2}
+          />
         </Link>
         <span className="ml-1.5 text-sm text-nevo-near-black/60 max-sm:hidden">
           Progress
@@ -284,8 +311,8 @@ function LiveSubjectDetail({
           {name}
         </h1>
         <p className="mt-4 text-[15px] leading-[1.55] text-nevo-near-black/66">
-          We couldn&rsquo;t load this just now. Nothing is lost &mdash; give it a
-          moment and try again.
+          We couldn&rsquo;t load this just now. Nothing is lost &mdash; give it
+          a moment and try again.
         </p>
       </DetailFrame>
     );
