@@ -11,11 +11,13 @@ import {
   type Subscription,
   type UpcomingCharge,
 } from "@/lib/api/billing";
+import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { ReadFailed } from "../ReadFailed";
 import { BillingContactSheet } from "./BillingContactSheet";
 import { CostSheet } from "./CostSheet";
 import { HowToPayPanel } from "./HowToPayPanel";
+import { InvoicePdfLink } from "./InvoicePdfLink";
 import { NoAccess, failureKind } from "../NoAccess";
 
 /**
@@ -55,13 +57,11 @@ const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.0
 
 type Phase = "loading" | "ready" | "failed" | "denied";
 
-/** Naira, from the API's decimal STRING - never through a float. */
-function naira(amount: string | null): string {
-  if (!amount) return "—";
-  const [whole = "0"] = amount.split(".");
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `₦${grouped}`;
-}
+/*
+ * `naira()` lived here and stamped a naira sign on every figure on the screen.
+ * See `lib/money.ts` - amounts carry their own currency now, and the fraction
+ * is no longer truncated away.
+ */
 
 function longDate(iso: string | null): string {
   if (!iso) return "—";
@@ -212,7 +212,7 @@ export function BillingView() {
             </div>
           )}
 
-          <CostSheet subscription={subscription} />
+          <CostSheet pricing={subscription.pricing} />
 
           <h2 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
             Next charge
@@ -224,7 +224,7 @@ export function BillingView() {
               <div className="flex flex-wrap items-baseline justify-between gap-4">
                 <div>
                   <span className="text-[30px] leading-none font-semibold text-nevo-near-black tabular-nums">
-                    {naira(upcoming.amount)}
+                    {formatMoney(upcoming.amount, subscription.pricing.currency)}
                   </span>
                   <p className="m-0 mt-2 text-[13.5px] text-nevo-near-black/62">
                     Due {longDate(upcoming.dueAt)}
@@ -278,7 +278,7 @@ export function BillingView() {
                 >
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="text-[15px] font-semibold text-nevo-near-black tabular-nums">
-                      {naira(inv.amount)}
+                      {formatMoney(inv.amount, inv.currency)}
                     </span>
                     <span className="mt-0.5 text-[13px] text-nevo-near-black/58">
                       {inv.invoiceNumber} &middot; issued{" "}
@@ -295,16 +295,10 @@ export function BillingView() {
                   ) : (
                     <StatusPill status={inv.status} />
                   )}
-                  {/* The API hands us the PDF's own URL, so this is a plain
-                      link rather than a fetch-and-blob. */}
-                  <a
-                    href={inv.pdfUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 text-[13.5px] font-semibold text-nevo-navy hover:underline"
-                  >
-                    PDF
-                  </a>
+                  <InvoicePdfLink
+                    invoice={inv}
+                    className="shrink-0 cursor-pointer text-[13.5px] font-semibold text-nevo-navy hover:underline"
+                  />
                 </div>
               ))
             )}
@@ -361,7 +355,12 @@ export function BillingView() {
           <HowToPayPanel
             account={account}
             reference={upcoming?.invoiceNumber ?? null}
-            amount={upcoming?.amount ? naira(upcoming.amount) : null}
+            amount={
+              upcoming?.amount
+                ? formatMoney(upcoming.amount, subscription.pricing.currency)
+                : null
+            }
+            billedIn={subscription.pricing.currency}
             invoiceId={upcoming?.invoiceId ?? null}
             recorded={
               upcoming?.invoiceNumber

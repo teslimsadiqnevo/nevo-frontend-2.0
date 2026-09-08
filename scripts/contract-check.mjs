@@ -87,6 +87,24 @@ for (const [path, methods] of Object.entries(spec.paths ?? {})) {
   }
 }
 
+/**
+ * The client's method names, mapped to HTTP verbs.
+ *
+ * THIS USED TO BE `["post", "put", "patch"]`, and only inside the body check -
+ * so the path of a READ was never compared to the spec at all. 81 of the 159
+ * call sites in this layer are `api.get`, and `api.del` was not in the list
+ * under any name, so more than half the client could name an endpoint that does
+ * not exist and this gate would report "No contract violations".
+ *
+ * It was not hypothetical: `GET /api/billing/receiving-account` shipped as a
+ * provisional path, the endpoint landed under a different name, and the gate
+ * that exists to catch exactly that stayed green.
+ */
+const VERB = { get: "get", blob: "get", post: "post", put: "put", patch: "patch", del: "delete" };
+
+/** Verbs that carry a JSON body, and therefore have a body to check. */
+const BODY_VERBS = new Set(["post", "put", "patch"]);
+
 /** `${lessonId}` and `{lesson_id}` both collapse so the two sides can meet. */
 const norm = (p) =>
   p
@@ -101,7 +119,18 @@ function walk(dir) {
   });
 }
 
-const FILES = walk(API_DIR).filter((f) => /\.tsx?$/.test(f));
+/*
+ * Tests are NOT part of the client layer.
+ *
+ * They were being walked with it, which cost both checks. Check 1 read fixture
+ * paths in `client.dom.test.ts` as though they were production call sites, and
+ * check 2 counted a field named only in a test as a field the client "reads" -
+ * so a response field no screen consumes went unreported the moment a test
+ * mentioned it.
+ */
+const FILES = walk(API_DIR).filter(
+  (f) => /\.tsx?$/.test(f) && !/\.(test|spec)\.tsx?$/.test(f),
+);
 
 /* ------------------------------------------------------------------ *
  * CHECK 1 - request bodies                                            *
@@ -153,9 +182,15 @@ for (const file of FILES) {
   };
 
   const visit = (node) => {
-    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
-      const method = node.expression.name.text;
-      if (["post", "put", "patch"].includes(method)) {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      ts.isIdentifier(node.expression.expression) &&
+      node.expression.expression.text === "api"
+    ) {
+      const method = VERB[node.expression.name.text];
+      if (method) {
+        const hasBody = BODY_VERBS.has(method);
         const raw = pathText(node.arguments[0]);
         /*
          * A call carrying `baseUrl` targets one of OUR OWN Next route
@@ -166,9 +201,10 @@ for (const file of FILES) {
          * defect that is not one. This was the gate's first false positive
          * and it is exactly the kind that gets a gate switched off.
          */
-        const sameOrigin = (node.arguments[2] &&
-          ts.isObjectLiteralExpression(node.arguments[2]) &&
-          node.arguments[2].properties.some(
+        const opts = node.arguments[hasBody ? 2 : 1];
+        const sameOrigin = (opts &&
+          ts.isObjectLiteralExpression(opts) &&
+          opts.properties.some(
             (pr) => pr.name && pr.name.getText(sf).replace(/["']/g, "") === "baseUrl",
           )) || false;
         if (raw && raw.startsWith("/api/") && !sameOrigin) {
@@ -177,12 +213,22 @@ for (const file of FILES) {
             (o) => norm(o.path) === target && o.method === method,
           );
           if (!match) {
+            /*
+             * A path that exists under a DIFFERENT verb is a different bug from
+             * a path that does not exist, and it has a different fix. Saying
+             * which one it is turns a finding into an instruction.
+             */
+            const otherVerbs = OPS.filter((o) => norm(o.path) === target).map(
+              (o) => o.method.toUpperCase(),
+            );
             note(
               "unknown-path",
               where(node),
-              `${method.toUpperCase()} ${raw} is not in the deployed spec`,
+              otherVerbs.length
+                ? `${method.toUpperCase()} ${raw} is not in the deployed spec - that path exists, but only as ${otherVerbs.join(", ")}`
+                : `${method.toUpperCase()} ${raw} is not in the deployed spec`,
             );
-          } else {
+          } else if (hasBody) {
             const body = match.op.requestBody?.content?.["application/json"]?.schema;
             const props = propertiesOf(body);
             const keys = literalKeys(node.arguments[1]);
