@@ -14,6 +14,15 @@ import { cn } from "@/lib/utils";
  *
  * Tapping it opens a small reassurance popover (player frame copy) - the one
  * interaction it has, and it changes nothing.
+ *
+ * ZERO-TAG APPLIES TO THE ACCESSIBLE NAME TOO. This carried
+ * `aria-label={`Support level: ${level}`}`, where `level` is the raw value off
+ * the adaptation plan - so a screen reader announced "Support level: full"
+ * while the visual deliberately says nothing but the word "Support". That is
+ * an engine parameter rendered as a label about a child, to exactly the users
+ * the SEND framing exists to protect, and a Zero-Tag review that reads only
+ * rendered text walks straight past it. The button's name is now its visible
+ * text, and the dots are `aria-hidden` because the dots ARE the level.
  */
 export function ScaffoldIndicator({
   level,
@@ -33,14 +42,16 @@ export function ScaffoldIndicator({
       <button
         type="button"
         aria-expanded={infoOpen}
-        aria-label={`Support level: ${level}`}
         onClick={() => setInfoOpen((o) => !o)}
         className={cn(
           "flex h-[26px] cursor-pointer items-center gap-2 rounded-2xl bg-nevo-near-black/6 px-[11px] transition-transform active:scale-[0.98]",
           pulse && "motion-safe:animate-nevo-glow",
         )}
       >
-        <span className="flex gap-[5px]">
+        {/* Decorative: the dots ARE the level, and the level is an engine
+            parameter. Hidden from assistive tech so the accessible name is the
+            visible word "Support" and nothing more. */}
+        <span aria-hidden="true" className="flex gap-[5px]">
           {Array.from({ length: 4 }, (_, i) => (
             <span
               key={i}
