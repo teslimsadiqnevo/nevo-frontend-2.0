@@ -178,6 +178,42 @@ Two browsers, or one profile per console, avoids it entirely. Worth knowing that
 `useDisplayName` prefers the device-remembered name, so a signed-OUT student
 screen can still greet you by name — the greeting is not evidence of a session.
 
+### Before you push to main, check what you are actually pushing
+
+One `.git`, three sessions, one working tree — so **your local `main` can contain
+another session's commits**, and `git log -1` after a pull shows THEIR HEAD, not
+what is on the remote.
+
+This bit on 8 Sep. A doc commit was ready, `git pull` reported success, and
+`git log -1` looked right — but the branch carried two unpushed commits from the
+parent-portal session. Pushing would have merged their unreviewed branch into
+`main` on their behalf. A rejected push was the only thing that surfaced it.
+
+**So, every time, before pushing to `main`:**
+
+```
+git fetch origin
+git log --oneline origin/main..HEAD
+```
+
+If that lists anything you did not write, stop. Do not `git pull --rebase` and
+push — that publishes their work too. Instead:
+
+```
+git checkout -b <your-branch> origin/main
+git cherry-pick <your commit>
+```
+
+**And check the file, not just the commits.** The same incident had a second
+half: their commit also rewrote a section of THIS file, so the cherry-pick
+conflicted and taking "mine" wholesale would have published their doc changes
+along with it. Resolve a shared-file conflict hunk by hunk — keep yours, leave
+theirs for them to land.
+
+None of this loses work: their commits were already on their own pushed branch.
+The risk is not deletion, it is publishing something on someone else's behalf
+before they are ready.
+
 ### Whose files are whose
 
 | area | owner |
