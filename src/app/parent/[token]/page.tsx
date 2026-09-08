@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
-import { ParentDataManagement } from "@/components/parent/ParentDataManagement";
+import { ParentPortal } from "@/components/parent/ParentPortal";
 
 /**
- * The parent action page (SCRUM-80, D01c).
+ * The parent action page (SCRUM-80, D01b and D01c).
+ *
+ * ONE URL, TWO SCREENS. A parent gets a single link and may tap it before
+ * deciding or long after; `ParentPortal` reads the record and shows whichever
+ * is true - the consent request, or data management. See that file for why the
+ * route does not choose.
  *
  * PUBLIC. `proxy.ts` guards /teacher, /admin and /student, so this needs no
  * exemption - but it is worth stating rather than rediscovering: a parent
@@ -23,5 +28,5 @@ export default async function ParentPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  return <ParentDataManagement token={token} />;
+  return <ParentPortal token={token} />;
 }

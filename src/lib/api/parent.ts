@@ -62,6 +62,22 @@ export interface ParentInvitation {
   decidedAt: string | null;
 }
 
+/**
+ * 200 of POST /api/v1/consents/parent/complete — the moment consent is given.
+ *
+ * `confirmed_types` is what was ACTUALLY recorded, which need not be every type
+ * the invitation asked for. Snake_case here and camelCase on the invitation
+ * read: the two endpoints disagree and the wire is the wire.
+ */
+export interface ParentConsentCompletion {
+  invitation_id: string;
+  parent_link_id: string;
+  parent_id: string;
+  student_id: string;
+  confirmed_types: ConsentType[];
+  completed_at: string;
+}
+
 /** 202 of POST /api/v1/parent/{token}/rights. */
 export interface ParentRightReceipt {
   requestId: string;
@@ -89,6 +105,20 @@ export const parentApi = {
     api.get<ParentInvitation>(
       `/api/v1/consents/parent/${encodeURIComponent(token)}`,
     ),
+
+  /**
+   * Give consent (D01b). The token is the whole request — there is nothing to
+   * choose, because design ruled one blanket consent and one tap, and the
+   * invitation already carries which `consentTypes` it covers.
+   *
+   * This is the call that creates the parent account and flips the school's
+   * roster row to Confirmed, so it is the single consequential action on that
+   * screen. Unauthenticated, like everything else a parent touches.
+   */
+  completeConsent: (token: string) =>
+    api.post<ParentConsentCompletion>("/api/v1/consents/parent/complete", {
+      token,
+    }),
 
   /**
    * Exercise one right on behalf of the child named by the token.

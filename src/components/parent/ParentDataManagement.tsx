@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   parentApi,
@@ -34,7 +34,7 @@ import {
  * degrades to plain text rather than rendering a blank or a dead link.
  */
 
-type Phase = "loading" | "idle" | "sending" | "done" | "failed" | "gone";
+type Phase = "idle" | "sending" | "done" | "failed" | "gone";
 
 /** Which action produced the current outcome, so the copy can match it. */
 type Outcome = {
@@ -83,33 +83,25 @@ const SECTIONS: { heading: string; body: (child: string) => string }[] = [
   },
 ];
 
-export function ParentDataManagement({ token }: { token: string }) {
-  const [invitation, setInvitation] = useState<ParentInvitation | null>(null);
+/**
+ * The invitation arrives as a PROP, read once by `ParentPortal`. This screen
+ * used to fetch it itself, which was right when it was the only parent screen
+ * and wrong as soon as D01b joined it: two components reading the same record
+ * meant two requests, two loading states, and a window in which they could
+ * disagree about whether consent had been given.
+ */
+export function ParentDataManagement({
+  token,
+  invitation,
+}: {
+  token: string;
+  invitation: ParentInvitation;
+}) {
   const [open, setOpen] = useState<string | null>(null);
-  const [phase, setPhase] = useState<Phase>("loading");
+  const [phase, setPhase] = useState<Phase>("idle");
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [confirming, setConfirming] = useState(false);
   const [reason, setReason] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    parentApi
-      .getInvitation(token)
-      .then((inv) => {
-        if (cancelled) return;
-        setInvitation(inv);
-        setPhase("idle");
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        // 404 covers unknown, revoked AND expired - all the same dead end for a
-        // parent, and all resolved the same way: the school issues a new link.
-        setPhase(e instanceof ApiError && e.status === 404 ? "gone" : "failed");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
 
   async function exercise(right: ParentRightType) {
     const withReason = right === "object" ? reason : undefined;
@@ -128,20 +120,9 @@ export function ParentDataManagement({ token }: { token: string }) {
     }
   }
 
-  if (phase === "loading") {
-    return (
-      <Shell>
-        <div className={CARD}>
-          <span
-            role="status"
-            aria-label="Loading"
-            className="mx-auto block size-[22px] rounded-full border-[2.5px] border-nevo-navy/20 border-t-nevo-navy motion-safe:animate-spin motion-safe:[animation-duration:800ms]"
-          />
-        </div>
-      </Shell>
-    );
-  }
-
+  // No loading state here any more - `ParentPortal` owns the read and does not
+  // render this screen until it has one. `gone` survives, because a link can
+  // still be revoked BETWEEN opening the page and tapping an action.
   if (phase === "gone") {
     return (
       <Shell>
@@ -164,12 +145,12 @@ export function ParentDataManagement({ token }: { token: string }) {
   // always present, so the literal flows straight into whatever sentence it
   // lands in. Mid-sentence that reads correctly; at the head of a heading it
   // renders "your child's data on Nevo" with a lowercase y.
-  const child = invitation?.studentFirstName ?? "your child";
+  const child = invitation.studentFirstName;
   const childLead = sentenceCase(child);
   // Suspended on ARRIVAL as well as after the act. A parent who withdrew last
   // week must not be shown the withdrawal actions again.
   const suspended =
-    invitation?.status === "withdrawn" ||
+    invitation.status === "withdrawn" ||
     (phase === "done" && outcome?.right === "withdraw_consent");
 
   if (suspended) {
@@ -186,7 +167,7 @@ export function ParentDataManagement({ token }: { token: string }) {
               rendering "You withdrew consent on , so ...". Composing the whole
               sentence from the FORMATTED value collapses that to two states. */}
           <p className={BODY}>
-            {withdrawalSentence(invitation?.decidedAt ?? null)}
+            {withdrawalSentence(invitation.decidedAt)}
           </p>
           <p className={BODY}>
             To restore access, contact {schoolPhrase(invitation)}. The school
