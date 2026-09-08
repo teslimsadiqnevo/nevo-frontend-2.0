@@ -1,0 +1,161 @@
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { visibleText } from "@/test/visibleText";
+import type { Invitation, InvitationDeliveryStatus } from "@/lib/api/invites";
+import { BulkImportModal } from "./BulkImportModal";
+
+/**
+ * "N invites sent" was printed over a navy tick for every created row, without
+ * reading the field the backend returns precisely to say nobody was emailed.
+ *
+ * `email_not_configured` is defined in the contract as "the invitation exists
+ * and its link is valid, but nobody was emailed, so the caller has to deliver
+ * it another way". A school with no mail set up imports its staff on day one,
+ * every invite is created, none is emailed, and the console reports success -
+ * while the join tokens that were the only recovery arrive on that very
+ * response and are dropped when this modal unmounts.
+ */
+
+const bulk = vi.fn();
+
+vi.mock("@/lib/api/invites", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/invites")>();
+  return {
+    ...actual,
+    invitesApi: { ...actual.invitesApi, bulk: (d: unknown) => bulk(d) },
+  };
+});
+
+const created = (
+  i: number,
+  deliveryStatus: InvitationDeliveryStatus | null,
+  token: string | null = `tok${i}`,
+): Invitation => ({
+  id: `inv${i}`,
+  token,
+  role: "teacher",
+  email: `teacher${i}@school.edu.ng`,
+  name: `Teacher ${i}`,
+  status: "pending",
+  expiresAt: "2026-10-01T00:00:00Z",
+  deliveryStatus,
+});
+
+const CSV =
+  "name,email,class\n" +
+  "Folake Adeyemi,adeyemi.f@school.edu.ng,\n" +
+  "Ngozi Okonkwo,okonkwo.n@school.edu.ng,\n";
+
+/** Drive upload -> preview -> send, which is the only way to reach "done". */
+async function importFile(container: HTMLElement) {
+  const input = container.querySelector(
+    'input[type="file"]',
+  ) as HTMLInputElement;
+  const file = new File([CSV], "staff.csv", { type: "text/csv" });
+  Object.defineProperty(input, "files", { value: [file] });
+  fireEvent.change(input);
+
+  const send = await screen.findByRole("button", { name: /^Send 2 invites$/ });
+  fireEvent.click(send);
+}
+
+function open() {
+  return render(
+    <BulkImportModal
+      role="teacher"
+      classes={[]}
+      onClose={() => {}}
+      onSent={() => {}}
+    />,
+  );
+}
+
+describe("BulkImportModal delivery", () => {
+  it("does not say invites were sent when nobody was emailed", async () => {
+    bulk.mockResolvedValue({
+      created: [
+        created(1, "email_not_configured"),
+        created(2, "email_not_configured"),
+      ],
+      rejected: [],
+    });
+
+    const { container } = open();
+    await importFile(container);
+
+    await waitFor(() =>
+      expect(visibleText(container)).toMatch(/2 invitations created/),
+    );
+    // The word that was false.
+    expect(visibleText(container)).not.toMatch(/2 invites sent/);
+    expect(visibleText(container)).toMatch(/No email went out/i);
+  });
+
+  it("hands over the links it used to throw away", async () => {
+    bulk.mockResolvedValue({
+      created: [
+        created(1, "email_not_configured"),
+        created(2, "email_not_configured"),
+      ],
+      rejected: [],
+    });
+
+    const { container } = open();
+    await importFile(container);
+
+    await waitFor(() => expect(visibleText(container)).toMatch(/2 links/));
+    // The actual join addresses, per person, plus a copy-all.
+    expect(visibleText(container)).toMatch(/\/join\/tok1/);
+    expect(visibleText(container)).toMatch(/\/join\/tok2/);
+    expect(visibleText(container)).toMatch(/Teacher 1/);
+    expect(
+      screen.getByRole("button", { name: "Copy all" }),
+    ).toBeInTheDocument();
+  });
+
+  it("still says sent when the backend actually emailed them", async () => {
+    bulk.mockResolvedValue({
+      created: [created(1, "sent"), created(2, "sent")],
+      rejected: [],
+    });
+
+    const { container } = open();
+    await importFile(container);
+
+    await waitFor(() => expect(visibleText(container)).toMatch(/2 invites sent/));
+    expect(visibleText(container)).not.toMatch(/No email went out/i);
+    expect(visibleText(container)).not.toMatch(/\/join\//);
+  });
+
+  it("counts a partial failure without generalising it", async () => {
+    bulk.mockResolvedValue({
+      created: [created(1, "sent"), created(2, "email_not_configured")],
+      rejected: [],
+    });
+
+    const { container } = open();
+    await importFile(container);
+
+    await waitFor(() =>
+      expect(visibleText(container)).toMatch(/2 invitations created/),
+    );
+    expect(visibleText(container)).toMatch(/No email went out for 1 of them/);
+    // Only the undelivered one's link is handed over.
+    expect(visibleText(container)).toMatch(/\/join\/tok2/);
+    expect(visibleText(container)).not.toMatch(/\/join\/tok1/);
+  });
+
+  it("admits a missing token rather than inventing a link", async () => {
+    bulk.mockResolvedValue({
+      created: [created(1, "email_not_configured", null)],
+      rejected: [],
+    });
+
+    const { container } = open();
+    await importFile(container);
+
+    await waitFor(() => expect(visibleText(container)).toMatch(/No email went out/i));
+    expect(visibleText(container)).not.toMatch(/\/join\/null/);
+    expect(visibleText(container)).toMatch(/Resend from the invitations list/i);
+  });
+});

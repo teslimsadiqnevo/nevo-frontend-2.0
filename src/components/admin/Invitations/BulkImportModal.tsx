@@ -16,6 +16,8 @@ import {
   Spinner,
 } from "../Roster/primitives";
 import { MAX_ROWS, TEMPLATE, parseInviteCsv, toDraft, type ParsedRow } from "./csv";
+import { needsManualDelivery } from "./deliveryCopy";
+import { LinkHandout } from "./LinkHandout";
 
 /**
  * D19 bulk import: upload, read, preview, send, confirm.
@@ -37,6 +39,22 @@ import { MAX_ROWS, TEMPLATE, parseInviteCsv, toDraft, type ParsedRow } from "./c
  * backend rejects rows we cannot anticipate (a duplicate against people
  * already invited, say), and reporting our own optimistic number would tell a
  * school it invited people it did not.
+ *
+ * AND THE CONFIRMATION READS `deliveryStatus`, WHICH IT DID NOT.
+ * The title said "N invites sent" over a navy tick for every created row. A
+ * comment below this one used to assert that the bulk response "carries no
+ * delivery state at all"; it is wrong, and it justified the claim for a week.
+ * `created` is an array of full `InvitationResponse`, each carrying
+ * `deliveryStatus` AND `token`.
+ *
+ * That matters because `email_not_configured` is a live condition here - the
+ * spec defines it as "the invitation exists and its link is valid, but nobody
+ * was emailed, so the caller has to deliver it another way". A school with no
+ * mail set up imports 200 staff on day one, every invite is created, none is
+ * emailed, and the console says "200 invites sent". The tokens to recover with
+ * were in hand on that very response and were dropped when this modal
+ * unmounted, and no other screen in the console builds a join link. The
+ * school's entire staff never gets in.
  */
 
 type Phase = "upload" | "reading" | "preview" | "sending" | "done" | "failed";
@@ -132,9 +150,23 @@ export function BulkImportModal({
   // --------------------------------------------------------------- DONE ---
   if (phase === "done" && result) {
     const skipped = result.rejected.length + broken.length;
+    /*
+     * Which of the created invitations definitely reached nobody. "Sent" is a
+     * claim about an email; "created" is a claim about a record, and only the
+     * second one is safe when the backend says it emailed no one.
+     */
+    const undelivered = result.created.filter((i) =>
+      needsManualDelivery(i.deliveryStatus),
+    );
+    const allDelivered = undelivered.length === 0;
+    const n = result.created.length;
     return (
       <Modal
-        title={`${result.created.length} ${result.created.length === 1 ? "invite" : "invites"} sent`}
+        title={
+          allDelivered
+            ? `${n} ${n === 1 ? "invite" : "invites"} sent`
+            : `${n} ${n === 1 ? "invitation" : "invitations"} created`
+        }
         onClose={onClose}
         footer={
           <button
@@ -168,6 +200,18 @@ export function BulkImportModal({
             Each student&rsquo;s parent contact was recorded. None can begin
             lessons until consent is confirmed.
           </p>
+        ) : null}
+
+        {undelivered.length > 0 ? (
+          <LinkHandout
+            className="mt-4"
+            invites={undelivered}
+            lead={
+              undelivered.length === n
+                ? `No email went out. ${n === 1 ? "This school has" : "This school has"} no mail set up in Nevo, so ${n === 1 ? "this link is" : "these links are"} the only way in.`
+                : `No email went out for ${undelivered.length} of them, so their links below are the only way in.`
+            }
+          />
         ) : null}
 
         {result.rejected.length > 0 ? (

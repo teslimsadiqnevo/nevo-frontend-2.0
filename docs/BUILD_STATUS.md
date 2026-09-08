@@ -847,18 +847,12 @@ primitive, the mirror of `ReadFailed`:
 All five are pinned by tests and mutation-verified: each guard was collapsed
 back to its pre-fix catch and the right test failed.
 
-**STILL OPEN — the other ten. Do not assume these are done.**
+**STILL OPEN — eight of the ten. Do not assume these are done.**
 
-*The invitation delivery family (needs a design answer, not just a guard):*
-- **`BulkImportModal` says "N invites sent" without reading `deliveryStatus`.**
-  The backend returns `email_not_configured` precisely to say nobody was
-  emailed. `needsManualDelivery` in `deliveryCopy.ts` was written for this and
-  has **no caller anywhere**. Worse than the wording: each row's join `token` is
-  in hand on the response and is thrown away when the modal unmounts, and
-  `InvitationsView` has no copy-link affordance, so a 200-row staff import that
-  emailed nobody has no recovery except revoke-and-reissue one at a time.
-- **`InvitationsView` resend toast** says "Invite resent to <name>" while
-  ignoring the `deliveryStatus` it was just handed.
+~~*The invitation delivery family*~~ — **SHIPPED.** Both halves: the wording
+now reads `deliveryStatus`, and the join links are handed over instead of
+discarded. `needsManualDelivery` finally has callers. Details under
+**The invitation family** below.
 
 *The failed-read family — the #269 shape, in screens that sweep never covered:*
 - **`IepExporterView`**: a failed roster read empties the dropdown, so
@@ -882,6 +876,45 @@ back to its pre-fix catch and the right test failed.
 
 The full finding set, with the skeptics' reasoning, is in the audit output for
 run `wf_107dccdc-839`.
+
+### The invitation family — shipped 8 Sep
+
+The console could create 200 staff invitations, email none of them, and report
+"200 invites sent" over a navy tick. `InvitationDeliveryStatus` is
+`not_requested | sent | email_not_configured`, and the contract's own words for
+the last one are "the invitation exists and its link is valid, but nobody was
+emailed, so the caller has to deliver it another way". Nothing read it.
+`needsManualDelivery` was written for exactly this and had **no caller
+anywhere**.
+
+Wording alone would not have fixed it. The join `token` arrives on the create
+response, `BulkImportModal` was the only thing holding it, and it was dropped
+when the modal unmounted — while `NewInviteModal` was the ONLY place in the
+entire admin surface that built a `/join/<token>` link. So a school whose import
+emailed nobody had one recovery: revoke and reissue, one person at a time,
+through a modal that rejects duplicates.
+
+What shipped:
+
+- **`joinLink.ts`** — the link, the invitee's display name, and a pasteable
+  block, in one place instead of inline in one modal. Returns null on a missing
+  token: `token` is nullable in the contract and only promised on create, and a
+  button yielding `/join/null` is worse than an admitted gap.
+- **`LinkHandout.tsx`** — the links for invitations nobody was emailed, with a
+  per-row Copy and a Copy-all that produces a block a bursar can paste into
+  WhatsApp. Rows without a token are counted and named, never faked. Scrolls, so
+  a 200-row import does not push the modal's actions off screen.
+- **`BulkImportModal`** — titles "N invitations created" rather than "N invites
+  sent" whenever any row went undelivered, says how many, and hands over their
+  links. A stale comment in that file asserted the bulk response "carries no
+  delivery state at all"; it is wrong — `created` is an array of full
+  `InvitationResponse` — and it had been justifying the false claim.
+- **`InvitationsView`** — Resend reads the row it is handed instead of
+  announcing "Invite resent to <name>" over an answer of `email_not_configured`.
+  When nobody was emailed it opens the handout **in the row** rather than in a
+  three-second toast, and every row that carries a token now offers Copy link.
+
+14 tests, four mutation-verified guards.
 
 The 7 Sep deploy changed the picture more than anything else this week - consent,
 the school narrative, typed roster counts, per-student billing fields, a manual
