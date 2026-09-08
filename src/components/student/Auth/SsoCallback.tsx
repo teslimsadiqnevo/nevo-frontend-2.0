@@ -6,8 +6,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Check, Info } from "lucide-react";
 import { Button } from "@/components/shared";
 import { useAuth, useSignals } from "@/hooks";
-import { BUSY_PHASE, BUSY_REASON, SIGNAL_EVENT_TYPES } from "@/lib/constants";
-import { FIRST_LESSON_ID, resolveMockSso, SSO_RESOLVE_MS } from "@/lib/mocks";
+import { authApi } from "@/lib/api/auth";
+import { setSession } from "@/lib/auth/session";
+import {
+  BUSY_PHASE,
+  BUSY_REASON,
+  SIGNAL_EVENT_TYPES,
+  type UserRole,
+} from "@/lib/constants";
 import { randomId } from "@/lib/utils";
 
 type Phase = "signing-in" | "success" | "error";
@@ -25,12 +31,40 @@ const SUCCESS_HOLD_MS = 900;
  *
  * This keeps SSO architecturally separate from the manual Welcome → Steps 1–3
  * entry; the two paths converge only at the sequence.
+ *
+ * A REAL HANDSHAKE, OR NONE. This used to hand a genuine `code` and `state`
+ * to `resolveMockSso`, which ignored both and invented
+ * `{ id: "sso-<random>", schoolId: "school-demo" }`, called `signIn()` on it
+ * and routed to a mock lesson. No token was ever stored, so `AuthContext` said
+ * `authenticated` while `useHasSession()` stayed false - and every screen the
+ * child then opened rendered fixtures. Any school signing in through an
+ * identity provider would have onboarded every one of its children into an
+ * account that did not exist.
+ *
+ * The TODO that stood here said the contract had not landed. It had:
+ * `authApi.ssoCallback` is typed against the deployed spec and
+ * `TeacherSsoCallback` has been calling it. This is the same implementation,
+ * and the same rule - with no `provider`, `code` and `state` there is no
+ * handshake to complete and nothing to sign in with, so the screen says so
+ * rather than inventing one.
+ *
+ * Starting the flow is separately blocked on the `schoolSlug` chicken-and-egg
+ * (see `lib/api/sso.ts`), so in practice that is what a visitor here sees
+ * today - which is the truth.
  */
 export function SsoCallback() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signIn } = useAuth();
   const [phase, setPhase] = useState<Phase>("signing-in");
+  // Read at render time: what the URL carries is a render-time fact, and
+  // deriving it in an effect would be the setState-in-effect the codebase
+  // rules out. All three are REQUIRED by the contract.
+  const provider = searchParams.get("provider") ?? "";
+  const code = searchParams.get("code") ?? "";
+  const state = searchParams.get("state") ?? "";
+  const incomplete = !provider || !code || !state;
+  const shown: Phase = incomplete ? "error" : phase;
   // Short-lived signal session for the handshake window (SCRUM-94.8): waiting
   // on the identity provider is the system's time, marked so it is never read
   // as the student hesitating.
@@ -38,7 +72,7 @@ export function SsoCallback() {
   const { trackEvent } = useSignals(signalSession);
 
   useEffect(() => {
-    if (phase !== "signing-in") return;
+    if (shown !== "signing-in") return;
     trackEvent(SIGNAL_EVENT_TYPES.SYSTEM_BUSY, {
       reason: BUSY_REASON.AUTH_PENDING,
       phase: BUSY_PHASE.START,
@@ -48,61 +82,40 @@ export function SsoCallback() {
         reason: BUSY_REASON.AUTH_PENDING,
         phase: BUSY_PHASE.END,
       });
-  }, [phase, trackEvent]);
+  }, [shown, trackEvent]);
 
-  const resolveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Schedule the (mock) handshake. Only sets state asynchronously, from inside
-  // the timers — never synchronously, so the mount effect stays side-effect-safe.
   const resolve = useCallback(() => {
-    if (resolveTimer.current) clearTimeout(resolveTimer.current);
-    resolveTimer.current = setTimeout(() => {
-      // A REAL handshake, an EXPLICIT demo, or none.
-      //
-      // This used to resolve success by DEFAULT: landing here with no query at
-      // all fabricated an SSO student and routed them into onboarding, with
-      // `AuthContext.status === "authenticated"` while `useHasSession()` stayed
-      // false. It looked signed in and was not - the same shape the teacher
-      // callback was fixed for, though without its consequences, since the
-      // route guard covers teacher and admin only and a token-less student
-      // reaches nothing but fixtures.
-      //
-      // An identity provider returns `code` and `state`. With neither, and no
-      // explicit `?mock=`, there is no handshake to complete and nothing to
-      // sign in with, so the screen says so rather than inventing one.
-      // TODO(api): replace with authApi.ssoCallback(query) once the contract
-      // lands - the teacher side already calls it.
-      const demo = searchParams.get("mock") ?? undefined;
-      const hasHandshake =
-        Boolean(searchParams.get("code")) && Boolean(searchParams.get("state"));
-      if (!demo && !hasHandshake) {
-        setPhase("error");
-        return;
-      }
-      const result = resolveMockSso({ mock: demo });
-
-      if (result.status === "error" || !result.user) {
-        setPhase("error");
-        return;
-      }
-
-      signIn(result.user);
-      setPhase("success");
-      redirectTimer.current = setTimeout(() => {
-        router.replace(
-          result.isFirstUse
-            ? "/student/onboarding/sequence"
-            : `/student/lessons/${FIRST_LESSON_ID}`,
-        );
-      }, SUCCESS_HOLD_MS);
-    }, SSO_RESOLVE_MS);
-  }, [searchParams, signIn, router]);
+    if (incomplete) return;
+    void authApi
+      .ssoCallback({ provider, code, state })
+      .then((res) => {
+        const role = res.role as UserRole;
+        setSession({
+          token: res.access_token,
+          expiresAt: res.expires_at,
+          userId: res.user_id,
+          role,
+        });
+        // The callback carries no school, and `AuthUser.schoolId` is not
+        // optional - so it is left to `users/me`, which returns the real one
+        // once the session exists. Seeding a placeholder here would put an
+        // invented school into the signed-in child.
+        signIn({ id: res.user_id, role, schoolId: "", method: "sso" });
+        setPhase("success");
+        redirectTimer.current = setTimeout(() => {
+          // Where a first-ever sign-in goes is the SERVER's answer now. It used
+          // to be a mock's `isFirstUse` flag, which nothing real set.
+          router.replace(res.destination || "/student/dashboard");
+        }, SUCCESS_HOLD_MS);
+      })
+      .catch(() => setPhase("error"));
+  }, [router, signIn, provider, code, state, incomplete]);
 
   useEffect(() => {
     resolve();
     return () => {
-      if (resolveTimer.current) clearTimeout(resolveTimer.current);
       if (redirectTimer.current) clearTimeout(redirectTimer.current);
     };
   }, [resolve]);
@@ -123,7 +136,7 @@ export function SsoCallback() {
         className="mb-9 h-5 w-auto"
       />
 
-      {phase === "signing-in" && (
+      {shown === "signing-in" && (
         <>
           <Spinner className="size-[26px]" />
           <p className="mt-6 text-base text-nevo-near-black sm:text-[17px]">
@@ -132,7 +145,7 @@ export function SsoCallback() {
         </>
       )}
 
-      {phase === "success" && (
+      {shown === "success" && (
         <>
           <span className="flex size-16 items-center justify-center rounded-full bg-nevo-navy motion-safe:animate-nevo-pop">
             <Check className="size-[30px] text-nevo-cream" strokeWidth={2.4} />
@@ -147,7 +160,7 @@ export function SsoCallback() {
         </>
       )}
 
-      {phase === "error" && (
+      {shown === "error" && (
         <>
           <span className="flex size-16 items-center justify-center rounded-full bg-nevo-violet/20">
             <Info className="size-[30px] text-nevo-navy" strokeWidth={2} />
