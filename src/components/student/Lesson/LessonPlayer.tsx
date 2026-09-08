@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { AdaptiveToggleBar, ProgressBar, type ToggleSegment } from "@/components/shared";
+import {
+  AdaptiveToggleBar,
+  ProgressBar,
+  type ToggleSegment,
+} from "@/components/shared";
 import {
   AFFECTIVE_STATES,
   BREAK_TYPES,
@@ -113,7 +117,9 @@ function openingModality(
   planned: Modality | undefined,
 ): Modality {
   if (planned && hasContent(segment, planned)) return planned;
-  return segment.modalities.find((m) => hasContent(segment, m)) ?? MODALITY.TEXT;
+  return (
+    segment.modalities.find((m) => hasContent(segment, m)) ?? MODALITY.TEXT
+  );
 }
 
 /**
@@ -628,7 +634,9 @@ export function LessonPlayer({
           });
           // Record the pick (first per question) for the Review Answers screen.
           reviewAnswers.current = [
-            ...reviewAnswers.current.filter((a) => a.questionIndex !== questionIndex),
+            ...reviewAnswers.current.filter(
+              (a) => a.questionIndex !== questionIndex,
+            ),
             { questionIndex, selectedId },
           ];
           saveReviewAnswers(lesson.id, reviewAnswers.current);
@@ -800,7 +808,12 @@ export function LessonPlayer({
 
       {/* Two-level position line for modular lessons (SCRUM-101.3) - its own
           full-width row directly above the progress bar (frame: 0 16px 7px). */}
-      <div className={cn("shrink-0 px-4 pb-[7px]", affectDim(anxious, attentionOn))}>
+      <div
+        className={cn(
+          "shrink-0 px-4 pb-[7px]",
+          affectDim(anxious, attentionOn),
+        )}
+      >
         <span className="block min-w-0 truncate font-mono text-[11px] tracking-[0.02em] text-nevo-near-black/50">
           {positionLine(lesson, index)}
         </span>
@@ -847,7 +860,22 @@ export function LessonPlayer({
       <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
         <div
           className={cn(
-            "mx-auto w-full max-w-full p-6 sm:max-w-[620px] sm:p-8 lg:max-w-[680px] lg:p-10",
+            // The bottom padding clears the Ask Nevo trigger, which is
+            // `fixed` and therefore lands ON this scrolling column rather than
+            // below it. The arithmetic, on mobile: the chevron nav is
+            // pt-2 + size-12 + pb-6 = 80px and `shrink-0`, so this region ends
+            // 80px off the bottom; the trigger is `bottom-[82px]` and 52px
+            // tall, so it sits between 134px and 82px off the bottom - inside
+            // this column, over the last line's right-hand end. 88px of slack
+            // means text always stops above it.
+            //
+            // Not needed from `sm:` up: there the trigger is the 44px pill at
+            // `bottom-6`, which ends 68px off the bottom - below this region
+            // entirely, in the nav row, and clear of the centred chevrons.
+            // `sm:p-8` and `lg:p-10` reset it on their own - measured against
+            // the real stylesheet at 375 / 700 / 1280, giving 88 / 32 / 40px -
+            // because their media rules come after the base utility.
+            "mx-auto w-full max-w-full p-6 pb-[88px] sm:max-w-[620px] sm:p-8 lg:max-w-[680px] lg:p-10",
             affect === AFFECTIVE_STATES.BOREDOM &&
               "rounded-[12px] border-2 border-nevo-violet/45",
           )}
