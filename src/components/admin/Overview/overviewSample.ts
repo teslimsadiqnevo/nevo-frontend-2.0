@@ -1,19 +1,21 @@
 /**
- * The two parts of D04 that have no endpoint behind them.
+ * The ONE part of D04 that still has no endpoint behind it.
+ *
+ * The board narrative used to live here too. It is gone: `GET
+ * /api/v1/school/narrative` landed on 7 Sep with `source` as a const
+ * "live_school_data", so the Overview shows the school's own summary and the
+ * note admitting the figures were not theirs went with it.
  *
  * Kept in one file, separate from the screen, so it is obvious at a glance what
  * on the Overview is fixture and what is real - and so deleting this file is
- * all it takes once the endpoints exist. Both are rendered under an explicit
- * sample note; neither is ever passed off as the school's own position.
+ * all it takes once the last endpoint exists. It renders under an explicit
+ * sample note and is never passed off as the school’s own position.
  *
- * TODO(api): a board-narrative endpoint, and a roll-up of what actually needs a
- * decision. Until then this copy is D04's, verbatim.
+ * TODO(api): a roll-up of what actually needs a decision. Until then this copy
+ * is D04's, verbatim, and rendered under an explicit sample note.
  */
 
 /** D04's `narrativePop`, verbatim - a worked example of the register. */
-export const NARRATIVE_SAMPLE =
-  "This half-term, 287 students across 12 active classes have been learning with Nevo. The clearest movement has been in comprehension: across JSS 2 and JSS 3, students are working through reading-heavy lessons more steadily than last term, and fewer are stalling on the written sections that used to slow them down. Teachers have leaned on Nevo's adaptations most in Mathematics, where the listen-first versions are helping students who found dense worked examples hard to hold onto. Nine students have been flagged for a closer look; every one has been picked up by their teacher, and four have already settled. Nothing in the picture is cause for concern - the school is using Nevo the way it's meant to be used.";
-
 export interface GlanceRow {
   title: string;
   sub: string;
