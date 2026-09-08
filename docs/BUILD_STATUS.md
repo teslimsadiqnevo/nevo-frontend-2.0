@@ -666,6 +666,54 @@ receive anything we send**, and that sits upstream of every invite and consent f
 
 ## Student app
 
+### Four defects fixed 8 Sep, and what an audit found is still open
+
+Landed: **#294** (session refresh retried a failure in a tight loop for the whole
+2-minute margin — mounted in `StudentShell`, so it ran on a child's metered data
+mid-lesson), **#295** (`ScaffoldIndicator` announced `"Support level: full"` to
+screen readers while the visual is deliberately wordless — Zero-Tag leaking
+through the accessible name), **#299** (Home marked a signed-in child's OWN
+dashboard as sample data; Ask Nevo's canned reply carried no mark at all; the
+shell called a real child "Ada" for one hydration frame), **#304** (a verified
+school with an empty roster was shown fourteen invented class names, then
+`classId: undefined` broke account creation three screens later with nothing said
+to the child), **#305** (a real SSO handshake was signed into a fabricated
+account — `resolveMockSso` ignored `code`/`state`, invented an id, and stored no
+token, so `AuthContext` said authenticated while every screen rendered fixtures).
+
+**Still open in the student lane, verified against the code on 8 Sep:**
+
+- **Ask Nevo is absent from the lesson player.** `StudentShell` returns at :54-61
+  for full-screen routes, before `<AskNevo />` at :128 — so the drawer is on every
+  tab and missing from the one screen where "I'm stuck" happens. NEEDS A DESIGN
+  DECISION, not just code: frame 26 says Ask Nevo is "always reachable, never
+  interruptive", but frame 17 does not draw it in the player, and the mobile pill
+  is positioned (`bottom-[82px]`) to clear a bottom nav the player does not have.
+  Someone should rule on placement before this is built.
+- **Two hand-offs send a signed-in child to the mock photosynthesis lesson.**
+  `WarmUpRun.tsx:62-68` and `ObservedInteractionSequence.tsx:173-178` both read
+  `assigned ? real : dashboard ? "/student/lessons" : FIRST_LESSON_ID`, and
+  `useStudentDashboard` returns `data: null` while LOADING as well as when signed
+  out — so a real child who taps "Start today's lesson" before the read lands goes
+  to the fixture.
+- **`SubjectDetail.tsx:81`** falls back to the FIXTURE's subject name
+  (`liveSubject?.name ?? subject?.name ?? "Progress"`).
+- **The spaced-retrieval loop has no entrance.** `/student/lessons/[id]/review-session`
+  renders, but nothing links to it, and `useDueReviews`' concepts are plain
+  non-clickable spans in `SubjectDetail`.
+- **`useProfile` is an orphan** exported from the hooks barrel with no callers —
+  and it is the only caller of `intelligenceApi.getProfile`, so `api-audit.mjs`
+  reports that endpoint as USED. A dead hook is keeping a dead endpoint alive in
+  the audit.
+- **Content-blocked, not code-blocked:** the after-lesson chain (`fromContent`
+  builds no `assessment` and no `summary`, so a child finishes and gets a bare
+  "Done"), and four of five modalities (`RENDERABLE = [MODALITY.TEXT]`). Both wait
+  on the library being more than one 2-segment lesson.
+
+**Note for whoever owns E2E:** since #265 guards `/student/*`, the signed-out
+walkthrough is unreachable in a browser, so every student fixture except Ask
+Nevo's canned reply is now dead weight. Worth deciding whether they stay.
+
 ### THE CHOKEPOINT IS OPEN. The gap is now CONTENT. — 7 Sep
 
 `fromContent.ts` carries checkpoints through (#253) and `lessons.ts` declares the
