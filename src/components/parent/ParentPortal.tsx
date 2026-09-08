@@ -1,0 +1,108 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { ApiError } from "@/lib/api/client";
+import { parentApi, type ParentInvitation } from "@/lib/api/parent";
+import { ParentConsent } from "./ParentConsent";
+import { ParentDataManagement } from "./ParentDataManagement";
+
+/**
+ * The whole parent surface behind one tokenised link (SCRUM-80).
+ *
+ * A parent gets ONE link and taps it whenever they think of it - before
+ * deciding, right after deciding, or six weeks later. So the route does not
+ * decide what to show; the record does:
+ *
+ *   not_sent / pending  -> D01b, the consent request
+ *   confirmed           -> D01c, data management
+ *   withdrawn           -> D01c, which opens in its suspended state
+ *
+ * Backend made this possible on purpose: an already-decided link still
+ * resolves rather than 404ing, precisely so "a parent who already decided
+ * lands on the state of that decision, not on the question again". Asking a
+ * parent to consent to something they already consented to - or worse,
+ * something they already withdrew - would be the single worst bug this
+ * surface could have.
+ *
+ * The read happens HERE and once. Both screens take the invitation as a prop
+ * rather than fetching their own, so there is one request, one loading state,
+ * and no window where the two disagree about the same record.
+ */
+
+type Phase = "loading" | "ready" | "gone" | "failed";
+
+export function ParentPortal({ token }: { token: string }) {
+  const [invitation, setInvitation] = useState<ParentInvitation | null>(null);
+  const [phase, setPhase] = useState<Phase>("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    parentApi
+      .getInvitation(token)
+      .then((inv) => {
+        if (cancelled) return;
+        setInvitation(inv);
+        setPhase("ready");
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        // 404 covers unknown, revoked AND expired. All three are the same dead
+        // end for a parent and have the same fix: the school issues a new link.
+        setPhase(e instanceof ApiError && e.status === 404 ? "gone" : "failed");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  if (phase === "loading") {
+    return (
+      <Shell>
+        <span
+          role="status"
+          aria-label="Loading"
+          className="mx-auto block size-[22px] rounded-full border-[2.5px] border-nevo-navy/20 border-t-nevo-navy motion-safe:animate-spin motion-safe:[animation-duration:800ms]"
+        />
+      </Shell>
+    );
+  }
+
+  if (phase === "gone" || !invitation) {
+    return (
+      <Shell>
+        <div className="rounded-[14px] bg-nevo-cream-elevated px-[22px] py-5 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+          <h1 className="text-[21px] font-semibold text-nevo-near-black">
+            {phase === "failed"
+              ? "We couldn’t open this page"
+              : "This link is no longer active"}
+          </h1>
+          <p className="mt-3 text-[15px] leading-[1.6] text-nevo-near-black/68">
+            {phase === "failed"
+              ? "Something went wrong at our end. Please try the link again in a moment."
+              : "It may have expired, been replaced by a newer one, or the school may have updated your details. Contact your child’s school and they can send you a fresh link."}
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+
+  // Only an affirmative decision moves a parent off the consent request.
+  // `not_sent` and `pending` both mean "not decided yet" - see `consents.ts`,
+  // where the same distinction is the whole of design's SCRUM-80 ruling.
+  const decided =
+    invitation.status === "confirmed" || invitation.status === "withdrawn";
+
+  return decided ? (
+    <ParentDataManagement token={token} invitation={invitation} />
+  ) : (
+    <ParentConsent token={token} invitation={invitation} />
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="min-h-dvh bg-nevo-cream px-5 py-8 text-nevo-near-black">
+      <div className="mx-auto w-full max-w-[560px]">{children}</div>
+    </main>
+  );
+}
