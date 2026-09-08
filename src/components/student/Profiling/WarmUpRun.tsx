@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWarmUpDimension } from "@/hooks/useWarmUpDimension";
-import { useStudentDashboard } from "@/hooks/useStudentDashboard";
+import { useNextLessonHref } from "@/hooks/useNextLessonHref";
 import { ArrowRight, Check } from "lucide-react";
 import { cn, randomId } from "@/lib/utils";
 import { baselineApi } from "@/lib/api";
-import { FIRST_LESSON_ID } from "@/lib/mocks";
 import {
   BASELINE_DIMENSIONS,
   type BaselineDimension,
@@ -57,15 +56,10 @@ export function WarmUpRun({
   // null until the write settles; false means it never reached Nevo.
   const [saved, setSaved] = useState<boolean | null>(null);
   // "Start today's lesson" sent every child to the mock photosynthesis lesson,
-  // whatever their teacher had actually set - the same hand-off onboarding had.
-  // A real assignment when there is one; their lessons list when there is not.
-  const { data: dashboard } = useStudentDashboard();
-  const assigned = dashboard?.assignments.find((a) => a.status !== "completed");
-  const todaysLesson = assigned
-    ? `/student/lessons/${assigned.lesson.id}`
-    : dashboard
-      ? "/student/lessons"
-      : `/student/lessons/${FIRST_LESSON_ID}`;
+  // whatever their teacher had actually set. The fix for that then read the
+  // dashboard's `data` to tell a signed-in child from a visitor, which put the
+  // mock back for the whole time the read was in flight - see the hook.
+  const todaysLesson = useNextLessonHref();
   const [capture] = useState(() => new BaselineCapture(`warmup-${randomId()}`));
   const startedAt = useRef(0);
   const submitted = useRef(false);
@@ -80,7 +74,9 @@ export function WarmUpRun({
       submitted.current = true;
       const durationMs = Math.round(performance.now() - startedAt.current);
       baselineApi
-        .submit(capture.sessionId, [{ module: "warmup", dimension, durationMs }])
+        .submit(capture.sessionId, [
+          { module: "warmup", dimension, durationMs },
+        ])
         .then(() => setSaved(true))
         .catch(() => setSaved(false))
         // The raw stream is purged either way - only the reduced vector ever
@@ -97,7 +93,14 @@ export function WarmUpRun({
           DAILY WARM-UP
         </span>
         <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden>
-          <circle cx="17" cy="17" r="15" fill="none" stroke="rgba(154,156,203,0.25)" strokeWidth="3" />
+          <circle
+            cx="17"
+            cy="17"
+            r="15"
+            fill="none"
+            stroke="rgba(154,156,203,0.25)"
+            strokeWidth="3"
+          />
           <circle
             cx="17"
             cy="17"
@@ -140,7 +143,11 @@ export function WarmUpRun({
       ) : (
         <div className="flex min-h-0 flex-1 items-center justify-center px-7 pb-10">
           <div className="flex w-full max-w-[480px] flex-col items-center gap-[26px]">
-            <WarmUpTask dimension={dimension} capture={capture} onDone={finish} />
+            <WarmUpTask
+              dimension={dimension}
+              capture={capture}
+              onDone={finish}
+            />
           </div>
         </div>
       )}
@@ -286,9 +293,12 @@ function SingleChoice({
   useEffect(() => {
     onDoneRef.current = onDone;
   }, [onDone]);
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   const choose = (i: number) => {
     if (picked !== -1) return;
@@ -303,7 +313,12 @@ function SingleChoice({
         {prompt}
       </p>
       {stimulus}
-      <div className={cn("flex w-full gap-3.5", stacked ? "flex-col" : "justify-center")}>
+      <div
+        className={cn(
+          "flex w-full gap-3.5",
+          stacked ? "flex-col" : "justify-center",
+        )}
+      >
         {options.map((o, i) => {
           const soft = softLast && i === options.length - 1;
           return (
@@ -390,7 +405,9 @@ function WarmUpGrid({
   return (
     <>
       <p className="text-center text-[17px] leading-[1.5] font-medium text-nevo-near-black">
-        {inputOn ? "Tap the tiles you saw, in reverse order." : "Watch the tiles"}
+        {inputOn
+          ? "Tap the tiles you saw, in reverse order."
+          : "Watch the tiles"}
       </p>
       <div className="grid grid-cols-4 gap-2 sm:gap-2.5">
         {Array.from({ length: 16 }, (_, i) => (
@@ -406,7 +423,9 @@ function WarmUpGrid({
               tapped.has(i) && "bg-nevo-navy",
               i === wrongCell &&
                 "border-2 border-nevo-violet bg-nevo-cream shadow-[0_0_0_3px_rgba(154,156,203,0.35)]",
-              i !== lit && !tapped.has(i) && i !== wrongCell &&
+              i !== lit &&
+                !tapped.has(i) &&
+                i !== wrongCell &&
                 "border-2 border-nevo-navy bg-nevo-cream",
               inputOn ? "cursor-pointer" : "pointer-events-none",
             )}
@@ -479,7 +498,9 @@ function WarmUpDots({
                 style={{ left: `${d.x}%`, top: `${d.y}%` }}
               />
             ))}
-            {masked && <div className="absolute inset-0 bg-nevo-cream-elevated" />}
+            {masked && (
+              <div className="absolute inset-0 bg-nevo-cream-elevated" />
+            )}
           </div>
         ))}
       </div>

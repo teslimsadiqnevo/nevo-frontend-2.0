@@ -9,8 +9,7 @@ import {
   getOnboardingDraft,
   rememberOnboardedStudent,
 } from "@/lib/auth/onboarding";
-import { FIRST_LESSON_ID } from "@/lib/mocks";
-import { useStudentDashboard } from "@/hooks/useStudentDashboard";
+import { useNextLessonHref } from "@/hooks/useNextLessonHref";
 import { randomId } from "@/lib/utils";
 import { ProfilingFlow } from "@/components/student/Profiling/ProfilingFlow";
 import { TransitionScreen } from "./TransitionScreen";
@@ -42,7 +41,7 @@ export function ObservedInteractionSequence() {
   const identifierRef = useRef<string | null>(null);
   // Where "You're In" hands off to. Read here rather than at the tap so the
   // answer is ready by the time a child gets to the last screen.
-  const { data: dashboard } = useStudentDashboard();
+  const firstLesson = useNextLessonHref();
   /*
    * One profile-seeding session spans the whole sequence.
    *
@@ -159,28 +158,11 @@ export function ObservedInteractionSequence() {
   }
 
   // "You're In" — the hand-off out of onboarding straight into the first lesson
-  // (Product Arch B.2: land in a lesson, never an empty dashboard).
-  //
-  // This sent EVERY child into `FIRST_LESSON_ID` - the mock photosynthesis
-  // lesson - whatever their year group, subject or what their teacher had
-  // actually set. B.2 asks us to land them in a lesson; it does not ask us to
-  // invent one. A real assignment is used when there is one, and when there is
-  // not the child goes to their lessons list, which after the truthfulness
-  // pass says plainly that nothing is set yet rather than inventing something.
-  //
-  // Signed out, the mock remains the destination: the whole of onboarding is
-  // the designed walkthrough in that state, and the demo lesson is the point.
-  const assigned = dashboard?.assignments.find((a) => a.status !== "completed");
-  const firstLesson = assigned
-    ? `/student/lessons/${assigned.lesson.id}`
-    : dashboard
-      ? "/student/lessons"
-      : `/student/lessons/${FIRST_LESSON_ID}`;
-
+  // (Product Arch B.2: land in a lesson, never an empty dashboard). B.2 asks us
+  // to land them in a lesson; it does not ask us to invent one, and this screen
+  // fires the instant an account is created - so the dashboard read is almost
+  // always still in flight here. `useNextLessonHref` is where that is decided.
   return (
-    <YoureInScreen
-      onDone={() => router.push(firstLesson)}
-      track={trackEvent}
-    />
+    <YoureInScreen onDone={() => router.push(firstLesson)} track={trackEvent} />
   );
 }
