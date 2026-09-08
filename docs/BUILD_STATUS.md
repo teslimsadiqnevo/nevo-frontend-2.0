@@ -196,6 +196,79 @@ decoder, never an API gap.
 
 ---
 
+## HANDOFF — the teacher session changed files in YOUR consoles. 8 Sep.
+
+**Read this if you own the admin or student console.** I crossed into both while acting on
+design's SCRUM-80 ruling, and the changes are already merged. Nothing here needs undoing —
+it is green and tested — but you should hear it from this doc rather than from a conflict.
+
+**It already cost us once.** While I was typing a consent seam into `lib/api/students.ts`,
+the admin session was independently building D07's consent column with the same four
+values under a different name. That surfaced as a rebase conflict where both halves were
+the same idea. I took theirs and deleted mine. That duplication is exactly what the
+console split exists to prevent, and it happened because I followed a contract change
+outward into whoever's screens it touched instead of stopping at the boundary.
+
+### FOR THE ADMIN SESSION — three of your files, and two breaking signatures
+
+Merged in PR #285 and PR #283.
+
+| file | what changed |
+|---|---|
+| `components/admin/Teachers/status.tsx` | rewritten — see the breaking change below |
+| `components/admin/Teachers/status.test.tsx` | NEW, 7 tests |
+| `components/admin/Classes/ClassesView.tsx` | `c.source === "sso"` → `"roster_sync"` |
+| `components/admin/Classes/ClassDetailView.tsx` | same fix, same line number |
+| `lib/api/teachers.ts` | added `UserStatus`; `status` narrowed from `string` |
+| `lib/api/classes.ts` | added `ClassSource`; `source` narrowed from `string \| null` |
+| `lib/api/students.ts` | your `ConsentState` now ALIASES `ConsentStatus` — one definition, same four values, no behaviour change |
+
+**Breaking signature 1.** `isInvited`, `isActive` and `StatusPill` now take `UserStatus`,
+not `string`. Passing a bare string no longer typechecks.
+
+**Breaking signature 2.** `AdminClass.source` is `ClassSource | null`. A literal `"sso"`
+is now a compile error — deliberately, see below.
+
+**The two bugs behind those changes**, in case you would rather re-do the fixes your own way:
+
+- `ClassSource` has no `"sso"` member; it is `manual | roster_sync`. Both files compared
+  against `"sso"`, so `ssoSourced` was permanently false and a provider-owned class was
+  offered Create and archive actions the school must not have.
+- `isInvited` was `status !== "active"`, so a **deactivated** teacher rendered as
+  **"Invited"** — telling an admin an invitation was outstanding for someone whose access
+  they had just revoked. `GET /teachers` has no include-inactive filter, so it is
+  reachable in ordinary use.
+
+**Design ruled on the pill (8 Sep):** keep the third pill, keep the word "Deactivated",
+do NOT filter deactivated teachers out of the list — an admin should see who was removed.
+D6 goes from two labels to three. The tint and flat treatment as shipped are approved.
+
+### FOR THE STUDENT SESSION — two files, and a screen that was renamed
+
+Merged in PR #283.
+
+- **`components/student/Onboarding/ConsentGate.tsx` is now `LearningNotice.tsx`.**
+  The gating is gone; the SCREEN is unchanged. Design ruled that Nevo never blocks on
+  consent — the school warrants it through the DSA — so the old
+  `GET /students/me/consent-gate` call had nothing to decide and only dev-logged. Design
+  asked for the file to be deleted; it also held frame 14's explanation screen, so the
+  gate was removed and the screen kept, renamed so nothing reads as a gate again.
+- **`components/student/Onboarding/ObservedInteractionSequence.tsx`** — import and usage
+  updated to match. Still step 1 of the sequence, between profiling and PIN creation.
+
+**The rule to carry forward, because it is easy to get backwards:** three of the four
+`ConsentStatus` values report `granted: false`. Reading `granted` blocks children whose
+school merely has not filed paperwork. Read `status`, or use `processingWithdrawn()` in
+`lib/api/consents.ts` — one definition, six tests, mutation-checked.
+
+### The Account-on-Pause work is YOURS, not mine
+
+It is student auth and I should not have carried it as far as I did. Everything known is
+in the section below: design's ruling, the pushed frame, the six mapped auth surfaces
+with hook points, and the measurement showing a paused account is currently
+indistinguishable from a wrong PIN. **It is blocked on backend returning a
+distinguishable code** — when that lands, it is the student session's to build, not mine.
+
 ## Account on Pause — designed, enforced, and NOT WIREABLE. 8 Sep.
 
 Design ruled that a child whose parent withdrew consent is stopped at sign-in with a
