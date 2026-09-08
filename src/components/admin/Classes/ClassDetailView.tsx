@@ -130,7 +130,7 @@ export function ClassDetailView({ classId }: { classId: string }) {
   const archived = Boolean(klass.archivedAt);
   // Where the provider owns the class list, membership is read-only and archive
   // is absent - the school does not hand-edit a synced roster.
-  const ssoSourced = klass.source === "sso";
+  const ssoSourced = klass.source === "roster_sync";
 
   const meta = [
     yearGroupLabel(klass.yearGroup),

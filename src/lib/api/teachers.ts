@@ -1,6 +1,15 @@
 import { api } from "./client";
 
 /**
+ * The deployed `UserStatus` enum - the lifecycle state of an account.
+ *
+ * There is no "pending". That value was guessed when the schema typed `status`
+ * as a bare string and the live probe had only ever returned "active"; the spec
+ * now closes the enum, and `deactivated` is the member that was missed.
+ */
+export type UserStatus = "active" | "invited" | "deactivated";
+
+/**
  * The school's teachers, as the admin console reads them (D6 / D5c).
  *
  * Distinct from `teacherHome.ts`, which is the signed-in teacher's own view of
@@ -16,8 +25,7 @@ export interface TeacherSummary {
   /** Always present - the backend composes its own fallback for a missing name. */
   name: string;
   email: string | null;
-  /** No enum in the spec; "active" and "pending" are what the roster shows. */
-  status: string;
+  status: UserStatus;
 }
 
 export interface TeacherDetail extends TeacherSummary {
