@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ReceivingAccount } from "@/lib/api/billing";
+import {
+  BANK_REF_MAX,
+  BANK_REF_MIN,
+  type PaymentOutcome,
+  type ReceivingAccount,
+} from "@/lib/api/billing";
 import { cn } from "@/lib/utils";
 
 /**
@@ -9,34 +14,32 @@ import { cn } from "@/lib/utils";
  *
  * BOUND, NEVER LITERAL. The frame fills this panel in with Kuda Bank and an
  * account number; those are its illustration. Every value here comes from
- * `billingApi.receivingAccount`, and when that answers with nothing - which is
- * today, because the endpoint does not exist yet - the panel says the details
- * are not available and points at what IS known: the reference, which the
- * invoice already carries. It never invents an account.
+ * `billingApi.receivingAccount`, and when that answers with nothing the panel
+ * says the details are not available and points at what IS known: the
+ * reference, which the invoice already carries. It never invents an account.
  *
- * "PENDING VERIFICATION" IS THE ADMIN'S CLAIM, NOT OURS. `InvoiceStatus` is
- * `[paid, pending, overdue]`; there is no fourth value, and no endpoint we can
- * honestly call on a bank transfer. So per the design ruling this state is
- * local and optimistic: it records that the admin SAYS they have transferred,
- * it is worded as their assertion rather than a confirmed payment, and it does
- * not survive a reload. The webhook drives the real status, and the invoice
- * pill follows the backend once it does.
+ * THE TRANSFER IS NOW RECORDED, NOT ASSUMED (backend, 7 Sep).
+ * `POST /billing/payments/manual-transfer` takes the invoice and the school's
+ * own bank reference, so "I've made this transfer" tells the backend rather
+ * than only colouring a pill. The reference is required, 3-120 characters, so
+ * the button expands IN PLACE to ask for it - still no modal, per the ruling.
  *
- * (A `POST /billing/payments/{reference}/verify` does exist. It is deliberately
- * not wired: its semantics for a bank-transfer reference are unconfirmed, and
- * guessing on a payments endpoint is not worth the convenience.)
+ * THE REFERENCE IS AN IDEMPOTENCY KEY. Sending the same one twice returns the
+ * ORIGINAL transaction with `invoicePaid: false` and a message saying it was
+ * already recorded. That is not a failure and is not shown as one: a
+ * double-tap cannot settle an invoice twice, and the admin is told their
+ * transfer is already on file.
+ *
+ * `POST /billing/payments/{reference}/verify` is deliberately NOT used -
+ * backend's own words are that it is a write which asks Paystack about a
+ * transaction and settles the invoice off the answer, so a bank reference 404s
+ * there.
  */
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
 const COPIED_MS = 1800;
 
-function CopyField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function CopyField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -82,8 +85,10 @@ export function HowToPayPanel({
   account,
   reference,
   amount,
-  declared,
-  onDeclare,
+  invoiceId,
+  recorded,
+  onRecord,
+  onRecorded,
 }: {
   /** Null until the endpoint exists, or when it answers incompletely. */
   account: ReceivingAccount | null;
@@ -91,10 +96,38 @@ export function HowToPayPanel({
   reference: string | null;
   /** Formatted, already grouped by the caller. */
   amount: string | null;
-  /** The admin has said they transferred - local, optimistic, this session. */
-  declared: boolean;
-  onDeclare: () => void;
+  /** Absent when there is no invoice to pay against. */
+  invoiceId: string | null;
+  /** The backend has this transfer on file. */
+  recorded: PaymentOutcome | null;
+  onRecord: (
+    invoiceId: string,
+    bankReference: string,
+  ) => Promise<PaymentOutcome>;
+  onRecorded: (outcome: PaymentOutcome) => void;
 }) {
+  const [entering, setEntering] = useState(false);
+  const [bankRef, setBankRef] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const trimmed = bankRef.trim();
+  const validRef =
+    trimmed.length >= BANK_REF_MIN && trimmed.length <= BANK_REF_MAX;
+
+  const record = () => {
+    if (!invoiceId || !validRef || saving) return;
+    setSaving(true);
+    setFailed(false);
+    onRecord(invoiceId, trimmed)
+      .then(onRecorded)
+      .catch(() => {
+        // Stay open, keep their reference, and say nothing changed.
+        setFailed(true);
+        setSaving(false);
+      });
+  };
+
   return (
     <>
       <h2 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
@@ -161,21 +194,71 @@ export function HowToPayPanel({
         )}
 
         <div className="mt-5">
-          {declared ? (
-            /* Swaps in place - no modal, per the ruling. Worded as what the
-               ADMIN told us, because nothing has confirmed it. */
+          {recorded ? (
             <p
               role="status"
               className="m-0 rounded-[10px] bg-nevo-violet/[0.18] px-4 py-3 text-[13.5px] leading-[1.5] text-nevo-navy"
             >
-              Payment sent, pending verification. We&rsquo;ll update this
-              invoice as soon as the transfer is confirmed.
+              {/* The backend's own words when this reference was already on
+                  file, so a repeat reads as "we have it" rather than a
+                  failure. */}
+              {recorded.message ??
+                "Payment sent, pending verification. We’ll update this invoice as soon as the transfer is confirmed."}
             </p>
+          ) : entering ? (
+            /* Expands in place - no modal, per the ruling. */
+            <div>
+              <label className="block">
+                <span className="text-[13px] font-semibold text-nevo-near-black/70">
+                  Your bank&rsquo;s transfer reference
+                </span>
+                <input
+                  value={bankRef}
+                  onChange={(e) => setBankRef(e.target.value)}
+                  autoFocus
+                  maxLength={BANK_REF_MAX}
+                  placeholder="From your bank&rsquo;s confirmation"
+                  className="mt-1.5 h-11 w-full max-w-[420px] rounded-[10px] border border-nevo-near-black/15 bg-nevo-cream px-3.5 text-[15px] text-nevo-near-black outline-none focus:border-nevo-navy"
+                />
+              </label>
+              <p className="m-0 mt-1.5 text-[12.5px] text-nevo-near-black/55">
+                We use this to match your transfer. Sending the same reference
+                twice won&rsquo;t pay the invoice twice.
+              </p>
+              {failed && (
+                <p className="m-0 mt-2.5 rounded-[10px] bg-nevo-violet/[0.18] px-4 py-3 text-[13.5px] leading-[1.5] text-nevo-navy">
+                  That didn&rsquo;t record, so nothing has changed. Your
+                  reference is still here &ndash; try again in a moment.
+                </p>
+              )}
+              <div className="mt-3 flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={record}
+                  disabled={!validRef || saving || !invoiceId}
+                  className="h-11 cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-[14.5px] font-semibold text-nevo-cream transition-[filter] hover:brightness-93 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? "Recording…" : "Record transfer"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEntering(false);
+                    setFailed(false);
+                  }}
+                  disabled={saving}
+                  className="h-11 cursor-pointer rounded-[10px] px-4 text-[14.5px] font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           ) : (
             <button
               type="button"
-              onClick={onDeclare}
-              className="h-11 cursor-pointer rounded-[10px] border border-nevo-navy bg-nevo-cream px-5 text-[14.5px] font-semibold text-nevo-navy transition-colors hover:bg-nevo-navy/6"
+              onClick={() => setEntering(true)}
+              disabled={!invoiceId}
+              className="h-11 cursor-pointer rounded-[10px] border border-nevo-navy bg-nevo-cream px-5 text-[14.5px] font-semibold text-nevo-navy transition-colors hover:bg-nevo-navy/6 disabled:cursor-not-allowed disabled:opacity-60"
             >
               I&rsquo;ve made this transfer
             </button>

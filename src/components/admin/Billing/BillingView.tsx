@@ -6,6 +6,7 @@ import {
   type BillingContact,
   type Invoice,
   type InvoiceStatus,
+  type PaymentOutcome,
   type ReceivingAccount,
   type Subscription,
   type UpcomingCharge,
@@ -13,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ReadFailed } from "../ReadFailed";
 import { BillingContactSheet } from "./BillingContactSheet";
+import { CostSheet } from "./CostSheet";
 import { HowToPayPanel } from "./HowToPayPanel";
 
 /**
@@ -25,13 +27,12 @@ import { HowToPayPanel } from "./HowToPayPanel";
  * WHAT IS DELIBERATELY ABSENT, and why - a billing screen missing its cost is a
  * conspicuous hole, and the next reader deserves the reason rather than a guess:
  *
- * 1. THE COST SHEET. D11 is unambiguous - "the annual cost is the school's
- *    active student count times N150,000, plus 7.5% VAT. No tiers, no plan
- *    selection" - and the API answers with `subscriptionTier`,
- *    `studentCountBand` and one flat `contractValue`, which is SCRUM-98, the
- *    older spec those frames superseded. Rendering either version states a
- *    school's annual bill on the strength of a disagreement. That is a business
- *    ruling (Lydia + Teslim), not a frontend choice.
+ * 1. THE COST SHEET IS BUILT (7 Sep). The dispute that blocked it is settled in
+ *    the contract itself: `pricingModel` is a const `"per_student"`, and the
+ *    read carries `activeStudentCount`, `perStudentAnnualRate` and `currency`.
+ *    See `CostSheet` - it computes from the numbers the school is billed on,
+ *    not from `studentsProfiled` or `invitedStudents`, which are different
+ *    populations.
  * 2. THE "HOW TO PAY" PANEL now exists (D11c, design ruling 7 Sep) but as a
  *    SEAM: Teslim is building the endpoint, nothing serves one yet, and until
  *    it answers the panel says the details are not available rather than
@@ -100,12 +101,12 @@ export function BillingView() {
   const [editing, setEditing] = useState(false);
   const [account, setAccount] = useState<ReceivingAccount | null>(null);
   /**
-   * Invoice numbers the admin has SAID they transferred, this session only
-   * (D11c). Deliberately not persisted: `InvoiceStatus` has no fourth value and
-   * nothing has confirmed the payment, so this must not outlive the tab and
-   * come back looking like a fact.
+   * Transfers the BACKEND has on file this session, keyed by invoice number.
+   * No longer optimistic: `manual-transfer` records it, and a repeat of the
+   * same bank reference comes back as the original transaction rather than
+   * paying twice.
    */
-  const [declared, setDeclared] = useState<Set<string>>(new Set());
+  const [recorded, setRecorded] = useState<Record<string, PaymentOutcome>>({});
 
   const load = useCallback(() => {
     // The subscription read owns the page - it carries the school name and the
@@ -209,6 +210,8 @@ export function BillingView() {
             </div>
           )}
 
+          <CostSheet subscription={subscription} />
+
           <h2 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
             Next charge
           </h2>
@@ -283,7 +286,7 @@ export function BillingView() {
                         : `due ${longDate(inv.dueAt)}`}
                     </span>
                   </span>
-                  {declared.has(inv.invoiceNumber) && inv.status !== "paid" ? (
+                  {recorded[inv.invoiceNumber] && inv.status !== "paid" ? (
                     <span className="shrink-0 rounded-full bg-nevo-violet/25 px-3 py-1 text-[12.5px] font-semibold text-nevo-navy">
                       Pending verification
                     </span>
@@ -357,23 +360,26 @@ export function BillingView() {
             account={account}
             reference={upcoming?.invoiceNumber ?? null}
             amount={upcoming?.amount ? naira(upcoming.amount) : null}
-            declared={
+            invoiceId={upcoming?.invoiceId ?? null}
+            recorded={
               upcoming?.invoiceNumber
-                ? declared.has(upcoming.invoiceNumber)
-                : false
+                ? (recorded[upcoming.invoiceNumber] ?? null)
+                : null
             }
-            onDeclare={() => {
+            onRecord={billingApi.manualTransfer}
+            onRecorded={(outcome) => {
               const ref = upcoming?.invoiceNumber;
-              if (!ref) return;
-              setDeclared((prev) => new Set(prev).add(ref));
+              if (ref) setRecorded((prev) => ({ ...prev, [ref]: outcome }));
+              // The backend may have settled it outright; re-read so the
+              // invoice list shows what it now says rather than our guess.
+              if (outcome.invoicePaid) load();
             }}
           />
 
           {/* Name the hole, rather than letting it read as unfinished. */}
           <p className="mt-8 text-[13px] leading-[1.6] text-nevo-near-black/55 italic">
-            Your cost breakdown isn&rsquo;t here yet &ndash; the pricing model
-            is being confirmed. Your invoices above carry the amount and the
-            reference in the meantime.
+            Plan options and switching aren&rsquo;t here yet (D11d). Your cost
+            above is the model your school is billed on.
           </p>
         </>
       )}
