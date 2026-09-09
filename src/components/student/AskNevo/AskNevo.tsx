@@ -6,6 +6,7 @@ import { Mic, MessageCircle, Send } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { NevoKeyboard, useNevoKeyboardDock } from "@/components/shared";
 import { SampleRegion } from "@/components/shared/SampleRegion";
+import { useDraggablePill } from "./useDraggablePill";
 import { askNevoApi, asUuid } from "@/lib/api";
 import { LessonContext } from "@/context/LessonContext";
 import { useAuth } from "@/hooks";
@@ -129,6 +130,13 @@ export function AskNevo() {
   // One conversation thread per mount - continuity for the backend assistant.
   const threadId = useRef(randomId());
   const [open, setOpen] = useState(false);
+  // One per breakpoint because they are different sizes and clamp differently,
+  // but they share a stored offset - only ever one of them is on screen, and a
+  // child who moves it on their own device means it for that device.
+  const compactRef = useRef<HTMLButtonElement>(null);
+  const fullRef = useRef<HTMLButtonElement>(null);
+  const compact = useDraggablePill(compactRef, () => setOpen(true));
+  const full = useDraggablePill(fullRef, () => setOpen(true));
   const [messages, setMessages] = useState<Message[]>([]);
   const [thinking, setThinking] = useState(false);
   const [input, setInput] = useState("");
@@ -258,19 +266,32 @@ export function AskNevo() {
 
   return (
     <>
-      {/* Idle affordances - docked button (mobile), corner pill (desktop). */}
+      {/* Idle affordances - docked button (mobile), corner pill (desktop).
+          Both can be dragged out of the way and stay where they are put; see
+          `useDraggablePill` for why that is the child's call and not ours. */}
       <button
         type="button"
         aria-label="Ask Nevo"
-        onClick={() => setOpen(true)}
-        className="fixed right-[18px] bottom-[82px] z-30 flex size-[52px] cursor-pointer items-center justify-center rounded-full bg-nevo-navy text-nevo-cream shadow-[0_6px_20px_rgba(43,43,47,0.22)] transition-[filter,transform] hover:brightness-108 active:scale-[0.96] md:hidden"
+        ref={compactRef}
+        style={compact.style}
+        {...compact.handlers}
+        className={cn(
+          "fixed right-[18px] bottom-[82px] z-30 flex size-[52px] cursor-pointer items-center justify-center rounded-full bg-nevo-navy text-nevo-cream shadow-[0_6px_20px_rgba(43,43,47,0.22)] transition-[filter,transform] hover:brightness-108 md:hidden",
+          // No press-scale mid-drag: it would fight the finger.
+          compact.dragging ? "cursor-grabbing" : "active:scale-[0.96]",
+        )}
       >
         <MessageCircle className="size-6" strokeWidth={2} />
       </button>
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        className="fixed right-6 bottom-6 z-30 hidden h-11 cursor-pointer items-center gap-2 rounded-full bg-nevo-navy px-[18px] text-sm font-medium text-nevo-cream shadow-[0_6px_20px_rgba(43,43,47,0.22)] transition-[filter,transform] hover:brightness-108 active:scale-[0.98] md:flex"
+        ref={fullRef}
+        style={full.style}
+        {...full.handlers}
+        className={cn(
+          "fixed right-6 bottom-6 z-30 hidden h-11 cursor-pointer items-center gap-2 rounded-full bg-nevo-navy px-[18px] text-sm font-medium text-nevo-cream shadow-[0_6px_20px_rgba(43,43,47,0.22)] transition-[filter,transform] hover:brightness-108 md:flex",
+          full.dragging ? "cursor-grabbing" : "active:scale-[0.98]",
+        )}
       >
         <MessageCircle className="size-[18px]" strokeWidth={2} />
         Ask Nevo
