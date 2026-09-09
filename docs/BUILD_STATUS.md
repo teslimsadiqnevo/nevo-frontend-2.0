@@ -538,7 +538,8 @@ The backend is healthy throughout: in the same window, same proxy, same token,
 `GET /api/content/lessons/{id}` answered `200` in 4.9s and `/api/v1/teachers/me/home`
 `200` in 6.6s. This is specific to `regenerate`.
 
-Written up and sent to Teslim, with three questions: does it complete server-side; how
+Written up for Teslim (**not yet sent** — it is with Olayinka to forward), with three
+questions: does it complete server-side; how
 is a client meant to observe completion (the operation declares only `200`/`422`, no
 `202`, yet `ContentParseStatus` has `pending`/`processing` and **nothing in the spec
 accepts the `parseRunId` it returns**); and does it need the original source document,
