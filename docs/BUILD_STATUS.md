@@ -993,7 +993,21 @@ primitive, the mirror of `ReadFailed`:
 All five are pinned by tests and mutation-verified: each guard was collapsed
 back to its pre-fix catch and the right test failed.
 
-**STILL OPEN — one of the ten. Do not assume it is done.**
+**ALL FIFTEEN ARE SHIPPED**, across PRs #301, #303, #306, #310, #312 and #314.
+
+**CORRECTION (9 Sep).** Four PR bodies and this section said a "minor
+notification-row item" was still open. It never was. That came from reading
+`reproduce:NotificationRow.tsx` in the labels of agents that DIED on a session
+limit during the audit - an unverified candidate, not a confirmed finding - and
+repeating it without checking it against the confirmed fifteen. Nothing about
+`NotificationRow` was ever confirmed. If you went looking for it, that is why
+you found nothing.
+
+What IS true, and is the real caveat on this audit: **the sweep never finished.**
+Of 269 agents, 214 died on the session limit, so its own completeness critic,
+second round and ranking never ran. 85 candidates were raised and only a
+fraction reached a verdict. Fifteen confirmed and fixed is a floor, not a
+ceiling.
 
 ~~*The invitation delivery family*~~ — **SHIPPED.** Both halves: the wording
 now reads `deliveryStatus`, and the join links are handed over instead of
