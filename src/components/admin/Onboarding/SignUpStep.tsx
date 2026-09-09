@@ -86,11 +86,16 @@ export function SignUpStep({
   const [confirm, setConfirm] = useState("");
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [phase, setPhase] = useState<Phase>("idle");
-  /**
+  /*
    * Set the moment the school exists. Nothing may register again after this -
    * a second attempt with an edited email would create a SECOND school.
+   *
+   * IT LIVES ON THE WIZARD, not here: this step unmounts as soon as the wizard
+   * moves on, and step 1's Back button remounts it. As local state the guard
+   * lasted one mount, and one press of Back unlocked the fields again.
    */
-  const [registered, setRegistered] = useState<SchoolRegistration | null>(null);
+  const registered = state.registration;
+  const setRegistered = (r: SchoolRegistration) => onChange({ registration: r });
 
   const busy = phase === "registering" || phase === "signingIn";
   const submitting = busy;

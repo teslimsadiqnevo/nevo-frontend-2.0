@@ -194,13 +194,26 @@ export function NotificationsView() {
      * removing from failed READS. Snapshot, and restore what was actually
      * there rather than guessing.
      */
-    const before = rows;
+    /*
+     * Restore the READ FLAGS, not the array. `setRows(before)` was a whole
+     * array overwrite, so anything that landed while the POST was in flight -
+     * a "Show older" page, an archive - was thrown away with it, and the older
+     * page's disappearance put "That's everything." back on a list that had
+     * more. A failed write manufacturing an absence again, one level down.
+     */
+    const readBefore = new Map(rows.map((n) => [n.notificationId, n.read]));
     setAllRead(true);
     setWriteFailed("");
     setRows((prev) => prev.map((n) => ({ ...n, read: true })));
     notificationsApi.markAllRead().catch(() => {
       setAllRead(false);
-      setRows(before);
+      setRows((prev) =>
+        prev.map((n) =>
+          readBefore.has(n.notificationId)
+            ? { ...n, read: readBefore.get(n.notificationId) as boolean }
+            : n,
+        ),
+      );
       setWriteFailed("mark everything as read");
     });
   };

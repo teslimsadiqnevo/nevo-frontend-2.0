@@ -113,4 +113,19 @@ describe("SencoView class filter", () => {
     );
     expect(visibleText(container)).not.toMatch(/couldn't read/i);
   });
+  it("does not report an empty class while that class's roster is still loading", async () => {
+    // `setPhase("ready")` fires before the per-class fan-out is even launched,
+    // so the filter was usable during a window in which no class had answered.
+    classList.mockResolvedValue([klass("c1", "JSS 2A")]);
+    perClass.mockImplementation(() => new Promise(() => {}));
+
+    const { container } = render(<SencoView />);
+    await openProfilesAndFilter(container, "c1");
+
+    await waitFor(() =>
+      expect(visibleText(container)).toMatch(/Still reading that class's roster/i),
+    );
+    expect(visibleText(container)).not.toMatch(/No profiles match/i);
+    expect(visibleText(container)).not.toMatch(/couldn't read/i);
+  });
 });

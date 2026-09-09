@@ -90,4 +90,22 @@ describe("AssignTeacherSheet staff list", () => {
     expect(visibleText(container)).not.toMatch(/No staff to assign yet/i);
     expect(visibleText(container)).not.toMatch(/couldn't read/i);
   });
+  it("says nothing about the staff while the read is still in the air", async () => {
+    /*
+     * The state that had no name. `teachers: []` and no failure are ALSO the
+     * values on first render, so this sheet spent every request telling a
+     * school with forty teachers to go and invite one - an instruction, on a
+     * read that had not answered. Every other mock in this suite settles
+     * synchronously, which is why nothing saw it.
+     */
+    list.mockImplementation(() => new Promise(() => {}));
+
+    const { container } = sheet();
+    await waitFor(() =>
+      expect(visibleText(container)).toMatch(/Looking up your staff/i),
+    );
+    expect(visibleText(container)).not.toMatch(/No staff to assign yet/i);
+    expect(visibleText(container)).not.toMatch(/already teaches this class/i);
+    expect(visibleText(container)).not.toMatch(/couldn't read/i);
+  });
 });

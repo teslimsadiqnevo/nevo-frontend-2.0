@@ -44,7 +44,10 @@ const invite = (over: Partial<Invitation> = {}): Invitation => ({
 });
 
 const refreshed = (
-  deliveryStatus: InvitationDeliveryStatus,
+  // NULLABLE ON PURPOSE. The fixture used to be typed
+  // `InvitationDeliveryStatus`, which excluded null - so the branch that
+  // claimed delivery from an unread field could not even be expressed here.
+  deliveryStatus: InvitationDeliveryStatus | null,
   token: string | null = "tok1",
 ): Invitation => invite({ deliveryStatus, token });
 
@@ -108,5 +111,44 @@ describe("InvitationsView resend", () => {
     // `token` is nullable in the contract and only promised on create, so the
     // affordance appears exactly where a link can actually be built.
     expect(screen.getAllByRole("button", { name: "Copy link" })).toHaveLength(1);
+  });
+  it("does not claim delivery when the response carried no status at all", async () => {
+    /*
+     * `deliveryStatus` is nullable in the contract and `client.ts` casts the
+     * JSON unchecked, so an omitted key arrives as null or undefined. The check
+     * was `needsManualDelivery(...)`, which treats "not known to be manual" as
+     * emailed - so this said "Invite resent to <email>" over a response that
+     * established nothing.
+     */
+    list.mockResolvedValue([invite()]);
+    resend.mockResolvedValue(refreshed(null));
+
+    const { container } = render(<InvitationsView />);
+    fireEvent.click(await screen.findByRole("button", { name: "Resend" }));
+
+    await waitFor(() =>
+      expect(visibleText(container)).toMatch(/couldn't confirm an email/i),
+    );
+    expect(visibleText(container)).not.toMatch(/Invite resent to/);
+    expect(visibleText(container)).toMatch(/\/join\/tok1/);
+  });
+
+  it("does not send them back to the button they just pressed", async () => {
+    // The handout's default hint is "Resend from the invitations list to get
+    // one" - correct for the bulk-import caller, circular here.
+    list.mockResolvedValue([invite()]);
+    resend.mockResolvedValue(refreshed("email_not_configured", null));
+
+    const { container } = render(<InvitationsView />);
+    fireEvent.click(await screen.findByRole("button", { name: "Resend" }));
+
+    await waitFor(() =>
+      expect(visibleText(container)).toMatch(/no link came back/i),
+    );
+    expect(visibleText(container)).not.toMatch(/Resend from the invitations list/i);
+    expect(visibleText(container)).toMatch(/Revoke and invite them again/i);
+    // And it must not point at a link that is not there.
+    expect(visibleText(container)).not.toMatch(/this link is the only way in/i);
+    expect(visibleText(container)).not.toMatch(/link is in the row below/i);
   });
 });

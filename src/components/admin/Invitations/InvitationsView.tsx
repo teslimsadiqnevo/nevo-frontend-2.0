@@ -9,7 +9,7 @@ import { BulkImportModal } from "./BulkImportModal";
 import { InviteStatusPill, normaliseStatus } from "./inviteStatus";
 import { NewInviteModal } from "./NewInviteModal";
 import { LinkHandout } from "./LinkHandout";
-import { needsManualDelivery } from "./deliveryCopy";
+import { confirmedSent, needsManualDelivery } from "./deliveryCopy";
 import { inviteeName, joinLink } from "./joinLink";
 import { NoAccess, failureKind } from "../NoAccess";
 
@@ -185,9 +185,25 @@ export function InvitationsView() {
          * `email_not_configured` - which the spec defines as nobody having
          * been emailed. Resending again does the same nothing.
          */
-        if (needsManualDelivery(updated.deliveryStatus)) {
+        /*
+         * ASSERT DELIVERY ONLY WHEN TOLD. The check used to be
+         * `needsManualDelivery(...)`, so a null or absent `deliveryStatus` -
+         * nullable in the contract, and cast unchecked by the client - fell
+         * through to "Invite resent to <name>" over a response that
+         * established nothing.
+         */
+        if (!confirmedSent(updated.deliveryStatus)) {
           setHandout(updated);
-          say("No email went out - their link is in the row below");
+          const hasLink = Boolean(joinLink(updated.token));
+          say(
+            needsManualDelivery(updated.deliveryStatus)
+              ? hasLink
+                ? "No email went out - their link is in the row below"
+                : "No email went out, and no link came back"
+              : hasLink
+                ? "We couldn't confirm an email - their link is in the row below"
+                : "We couldn't confirm an email went out",
+          );
           return;
         }
         say(`Invite resent to ${updated.email ?? updated.name ?? "them"}`);
@@ -441,7 +457,17 @@ export function InvitationsView() {
                         <LinkHandout
                           className="mt-3"
                           invites={[handout]}
-                          lead={`No email was sent to ${inviteeName(handout)} - this school has no mail set up in Nevo, so this link is the only way in.`}
+                          lead={
+                            needsManualDelivery(handout.deliveryStatus)
+                              ? joinLink(handout.token)
+                                ? `No email was sent to ${inviteeName(handout)} - this school has no mail set up in Nevo, so this link is the only way in.`
+                                : `No email was sent to ${inviteeName(handout)}, and this resend carried no link.`
+                              : `We couldn't confirm an email reached ${inviteeName(handout)}.`
+                          }
+                          /* NOT "resend from the invitations list" - this IS
+                             the invitations list, and that is the button they
+                             just pressed. */
+                          noLinkHint="Revoke and invite them again to get a fresh link."
                         />
                       ) : null}
 

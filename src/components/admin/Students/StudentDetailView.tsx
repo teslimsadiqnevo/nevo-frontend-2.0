@@ -461,6 +461,11 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                       .deactivate(student.id)
                       .then(() => {
                         setConfirmDeactivate(false);
+                        // The one exit that did not clear this. A later read
+                        // showing the student still active reopens the dialog,
+                        // and a stale banner would then say the removal failed
+                        // about one that succeeded.
+                        setDeactivateFailed(false);
                         load();
                       })
                       // Swallowed entirely. The dialog returned to rest under
