@@ -197,7 +197,15 @@ export function ClassesView() {
               </p>
             ) : null}
           </div>
-          {phase === "ready" && classes.length > 0 && !ssoSourced ? (
+          {/*
+            * `activeClasses`, matching `ssoSourced` above. Gating on the raw
+            * list while `ssoSourced` reads the active one makes this fail OPEN:
+            * an SSO school whose last live synced class is archived has
+            * `activeClasses.length === 0`, which short-circuits `ssoSourced` to
+            * false, and Create - which SCRUM-97 says must be ABSENT - comes
+            * back. Introduced by the fix that narrowed `ssoSourced`.
+            */}
+          {phase === "ready" && activeClasses.length > 0 && !ssoSourced ? (
             <button type="button" onClick={() => setCreating(true)} className={PRIMARY_BTN}>
               <PlusIcon />
               Create a class

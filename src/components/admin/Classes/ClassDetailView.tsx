@@ -75,8 +75,15 @@ export function ClassDetailView({ classId }: { classId: string }) {
   const [restoring, setRestoring] = useState(false);
   const [restoreFailed, setRestoreFailed] = useState(false);
 
+  /*
+   * RETURNS ITS CHAIN. It did not, so `.then(load)` on the restore resolved in
+   * the same microtask and `.finally(() => setRestoring(false))` re-enabled the
+   * button while the three GETs were still in flight - the double-click window
+   * the guard was added to close, still open, and a refused duplicate then
+   * printed "nothing has changed" about a class that HAD been restored.
+   */
   const load = useCallback(() => {
-    Promise.all([
+    return Promise.all([
       classesApi.get(classId),
       classesApi.classTeachers(classId),
       classesApi.classStudents(classId),
@@ -186,7 +193,13 @@ export function ClassDetailView({ classId }: { classId: string }) {
         </div>
 
         {archived ? (
-          <>
+          /*
+           * A BLOCK, not a fragment. A fragment made the failure banner a third
+           * item of the header's `justify-between` flex row, so it laid out
+           * BESIDE the button and squeezed the class name, instead of sitting
+           * under it as its `mt-3` intends.
+           */
+          <div className="flex flex-col items-start">
           <button
             type="button"
             onClick={() => {
@@ -211,7 +224,7 @@ export function ClassDetailView({ classId }: { classId: string }) {
           {restoreFailed ? (
             <WriteFailed className="mt-3" what="restore this class" />
           ) : null}
-          </>
+          </div>
         ) : !ssoSourced ? (
           <button type="button" onClick={() => setEditing(true)} className={GHOST_BTN}>
             Edit class

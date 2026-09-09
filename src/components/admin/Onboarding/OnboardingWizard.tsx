@@ -7,6 +7,7 @@ import { AuthMethodStep } from "./AuthMethodStep";
 import { BandStep } from "./BandStep";
 import { DpaStep } from "./DpaStep";
 import { HandoverStep } from "./HandoverStep";
+import type { SchoolRegistration } from "@/lib/api/school";
 import { SignUpStep } from "./SignUpStep";
 
 /**
@@ -40,6 +41,15 @@ export interface WizardState {
   email: string;
   authMethod: SchoolAuthMethod | null;
   band: EnrolmentBand | null;
+  /**
+   * The school, once it exists. LIVES HERE, not in `SignUpStep`, because the
+   * step is unmounted the moment the wizard leaves step 0 - and step 1's Back
+   * button brings it back with fresh state. Held locally, the never-register-
+   * twice guard survived exactly one mount: one press of Back reset it to null,
+   * unlocked the fields, and let a second school be created for a school that
+   * already existed.
+   */
+  registration: SchoolRegistration | null;
 }
 
 const TOTAL = 5;
@@ -52,6 +62,7 @@ export function OnboardingWizard() {
     email: "",
     authMethod: null,
     band: null,
+    registration: null,
   });
 
   const patch = (p: Partial<WizardState>) => setState((s) => ({ ...s, ...p }));

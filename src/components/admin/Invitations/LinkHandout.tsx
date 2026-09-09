@@ -85,12 +85,20 @@ function LinkRow({ invite }: { invite: Invitation }) {
 export function LinkHandout({
   invites,
   lead,
+  noLinkHint = "Resend from the invitations list to get one.",
   className,
 }: {
   /** Only the ones nobody was emailed. */
   invites: Invitation[];
   /** The sentence above the list, which the caller words for its own case. */
   lead: string;
+  /**
+   * What to do about a row with no token. The default points at the
+   * invitations list, which is right for the bulk-import caller and CIRCULAR
+   * for the invitations list itself - it would tell an admin to press the
+   * button they just pressed.
+   */
+  noLinkHint?: string;
   className?: string;
 }) {
   const [copiedAll, copyAll] = useCopied();
@@ -135,7 +143,7 @@ export function LinkHandout({
           {missing === invites.length
             ? `No link came back for ${missing === 1 ? "them" : "any of them"}.`
             : `${missing} of them came back without a link.`}{" "}
-          Resend from the invitations list to get one.
+          {noLinkHint}
         </p>
       ) : null}
     </div>

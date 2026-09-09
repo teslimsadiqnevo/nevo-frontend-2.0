@@ -89,6 +89,8 @@ export function IepExporterView() {
   const [studentId, setStudentId] = useState("");
   /** Distinct from "no students": one is a school, the other is a GET. */
   const [studentsFailed, setStudentsFailed] = useState(false);
+  /** So a retry that fails again still visibly did something. */
+  const [studentsLoading, setStudentsLoading] = useState(true);
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   const [draft, setDraft] = useState<IepExport | null>(null);
@@ -135,8 +137,19 @@ export function IepExporterView() {
       .catch(() => {
         setStudents([]);
         setStudentsFailed(true);
-      });
+      })
+      .finally(() => setStudentsLoading(false));
   }, []);
+
+  /*
+   * The retry mutated no state when it failed a second time - `studentsFailed`
+   * was already true and `students` already empty - so the DOM was byte
+   * identical before and after the press and the button read as broken.
+   */
+  const retryStudents = () => {
+    setStudentsLoading(true);
+    loadStudents();
+  };
 
   useEffect(() => {
     loadStudents();
@@ -267,11 +280,15 @@ export function IepExporterView() {
                     <label htmlFor="iep-student" className={LABEL}>
                       Student
                     </label>
-                    {studentsFailed ? (
+                    {studentsLoading ? (
+                      <p className="mt-1.5 text-[13px] text-nevo-near-black/45">
+                        Looking up your students&hellip;
+                      </p>
+                    ) : studentsFailed ? (
                       <ReadFailed
                         className="mt-1.5"
                         what="your student list"
-                        onRetry={loadStudents}
+                        onRetry={retryStudents}
                       />
                     ) : null}
                     <select

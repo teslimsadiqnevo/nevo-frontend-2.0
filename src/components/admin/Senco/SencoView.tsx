@@ -93,9 +93,14 @@ export function SencoView() {
   const [ackFailed, setAckFailed] = useState(false);
   /** The flag currently being marked, so the row can say it is in flight. */
   const [acking, setAcking] = useState<string | null>(null);
-  /** Classes whose own roster read did not answer, by id. */
-  const [classReadFailed, setClassReadFailed] = useState<
-    Record<string, boolean>
+  /**
+   * How each class's own roster read went. THREE STATES: the previous fix had
+   * only "failed", and `undefined` doubled as both "fine" and "still in the
+   * air" - so selecting a class before its request landed printed "No profiles
+   * match", the same false absence, in a different window.
+   */
+  const [classRead, setClassRead] = useState<
+    Record<string, "pending" | "ok" | "failed">
   >({});
 
   const load = useCallback(() => {
@@ -118,21 +123,24 @@ export function SencoView() {
          * about the school's records. A SENCo checking who she holds profiles
          * for before a review meeting concluded Nevo held none.
          */
-        setClassReadFailed({});
+        setClassRead(
+          Object.fromEntries(c.map((k) => [k.id, "pending" as const])),
+        );
         c.forEach((klass) => {
           studentsApi
             .list({ classId: klass.id })
-            .then((inClass) =>
+            .then((inClass) => {
               setClassOf((prev) => {
                 const next = { ...prev };
                 inClass.forEach((st) => {
                   next[st.id] = klass.id;
                 });
                 return next;
-              }),
-            )
+              });
+              setClassRead((prev) => ({ ...prev, [klass.id]: "ok" }));
+            })
             .catch(() =>
-              setClassReadFailed((prev) => ({ ...prev, [klass.id]: true })),
+              setClassRead((prev) => ({ ...prev, [klass.id]: "failed" })),
             );
         });
       })
@@ -424,11 +432,16 @@ export function SencoView() {
             <div className={cn(CARD, "mt-4")}>
               {profiles.length === 0 ? (
                 <div className="px-6 py-12 text-center">
-                  {classId && classReadFailed[classId] ? (
+                  {classId && classRead[classId] === "failed" ? (
                     <p className="m-0 text-sm text-nevo-near-black/62">
                       We couldn&rsquo;t read that class&rsquo;s roster just now,
                       so there&rsquo;s nothing to show here yet &ndash; this is
                       not a record that the class has no profiles.
+                    </p>
+                  ) : classId && classRead[classId] !== "ok" ? (
+                    /* Still in the air. Not an answer, so not a claim. */
+                    <p className="m-0 text-sm text-nevo-near-black/62">
+                      Still reading that class&rsquo;s roster&hellip;
                     </p>
                   ) : (
                     <p className="m-0 text-sm text-nevo-near-black/62">

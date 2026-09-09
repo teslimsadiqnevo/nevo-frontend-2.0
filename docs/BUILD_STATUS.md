@@ -994,7 +994,64 @@ primitive, the mirror of `ReadFailed`:
 All five are pinned by tests and mutation-verified: each guard was collapsed
 back to its pre-fix catch and the right test failed.
 
-**STILL OPEN — one of the ten. Do not assume it is done.**
+**ALL FIFTEEN ARE SHIPPED**, across PRs #301, #303, #306, #310, #312 and #314.
+
+**CORRECTION (9 Sep).** Four PR bodies and this section said a "minor
+notification-row item" was still open. It never was. That came from reading
+`reproduce:NotificationRow.tsx` in the labels of agents that DIED on a session
+limit during the audit - an unverified candidate, not a confirmed finding - and
+repeating it without checking it against the confirmed fifteen. Nothing about
+`NotificationRow` was ever confirmed. If you went looking for it, that is why
+you found nothing.
+
+### Closed out and re-audited, 9 Sep — READ THIS BEFORE TRUSTING THE FIFTEEN
+
+The fifteen were re-verified against a clean checkout of main, one skeptic per
+finding, asking whether each fix was actually closed rather than whether the
+original finding was real. **Five were not** (3, 4, 5, 9, 15), one had shipped
+with no test that could fail (12), and two of the fixes had introduced new
+defects. All of that is now fixed in a seventh PR; the numbers below are after
+that.
+
+**The pattern, and it is worth carrying to the other consoles:**
+
+> The six PRs taught the console to tell FAILED from FINE. They did not teach it
+> to tell IN FLIGHT from ANSWERED.
+
+`AssignTeacherSheet`, `SencoView`'s per-class fan-out and the IEP exporter each
+had two read states where they needed three, and `[]` plus `failed: false` are
+also the values on first render. So each printed a signed statement about a
+school's staff, a class's children or a roster during the window when nothing
+had answered - and `AssignTeacherSheet` had been made WORSE, because the new
+copy ("No staff to assign yet. Invite a teacher first") is an instruction where
+the old wrong sentence was merely inert.
+
+**The tests could not see any of it**: every mock in the admin suite settled
+synchronously, so a test asserting the empty-state copy passed against a promise
+that never resolved. The pending-window tests now hold a request open with
+`new Promise(() => {})`, which is the only way that state is reachable.
+
+**Two regressions the fixes introduced, both now closed:**
+- `ClassesView` — narrowing `ssoSourced` to active classes while the Create gate
+  still read the raw list made it fail OPEN: an SSO school whose last live class
+  was archived got "Create a class" back, which SCRUM-97 says must be absent.
+- `SignUpStep` — the never-register-twice guard was local state, and the wizard
+  unmounts the step whenever it moves on. Step 1's Back remounted it with the
+  guard reset, so one press unlocked the fields on a school that already
+  existed. `registration` lives on `WizardState` now.
+
+**Three claims that were true in one direction and wrong in the other:**
+`deliveryStatus` is nullable and the client casts JSON unchecked, so a null
+took the confident arm in both invitation surfaces ("Invite resent to X", "N
+invites sent") - the claim is asserted only on `sent` now, via `confirmedSent`.
+`StudentDetailView` never cleared its failure flag on success. `LinkHandout`
+told an admin on the invitations list to "resend from the invitations list".
+
+What IS true, and is the real caveat on this audit: **the sweep never finished.**
+Of 269 agents, 214 died on the session limit, so its own completeness critic,
+second round and ranking never ran. 85 candidates were raised and only a
+fraction reached a verdict. Fifteen confirmed and fixed is a floor, not a
+ceiling.
 
 ~~*The invitation delivery family*~~ — **SHIPPED.** Both halves: the wording
 now reads `deliveryStatus`, and the join links are handed over instead of

@@ -81,7 +81,17 @@ export function AssignTeacherSheet({
   onAssigned: () => void;
 }) {
   const [teachers, setTeachers] = useState<TeacherSummary[]>([]);
-  const [teachersFailed, setTeachersFailed] = useState(false);
+  /*
+   * THREE STATES, NOT TWO.
+   *
+   * `teachers: []` and `teachersFailed: false` are also the values on FIRST
+   * RENDER, before the GET has answered - so the sheet spent every request
+   * telling a school with forty teachers "No staff to assign yet. Invite a
+   * teacher first". The previous fix replaced an inert wrong sentence with an
+   * actionable wrong one; the hole underneath was that an UNANSWERED read
+   * licenses a claim about the staff no more than a failed one does.
+   */
+  const [read, setRead] = useState<"loading" | "ready" | "failed">("loading");
   const [teacherId, setTeacherId] = useState("");
   const [role, setRole] = useState<TeacherAssignmentRole | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -91,15 +101,21 @@ export function AssignTeacherSheet({
       .list()
       .then((rows) => {
         setTeachers(rows);
-        setTeachersFailed(false);
+        setRead("ready");
       })
       .catch(() => {
         // "Everyone on staff already teaches this class" is a claim about the
         // school's staff, and a failed GET does not license it.
         setTeachers([]);
-        setTeachersFailed(true);
+        setRead("failed");
       });
   }, []);
+
+  /** Pressing Try again must visibly do something, even if it fails again. */
+  const retryTeachers = () => {
+    setRead("loading");
+    loadTeachers();
+  };
 
   useEffect(() => {
     loadTeachers();
@@ -210,11 +226,16 @@ export function AssignTeacherSheet({
           * first class, then assign a teacher", so they arrive here with an
           * empty roster by design and were told everyone already teaches it.
           */}
-        {teachersFailed ? (
+        {read === "loading" ? (
+          /* Nothing is known yet, so nothing is said. */
+          <p className="mt-2 text-[12.5px] leading-[1.5] text-nevo-near-black/45">
+            Looking up your staff&hellip;
+          </p>
+        ) : read === "failed" ? (
           <ReadFailed
             className="mt-2"
             what="your staff list"
-            onRetry={loadTeachers}
+            onRetry={retryTeachers}
           />
         ) : teachers.length === 0 ? (
           <p className="mt-2 text-[12.5px] leading-[1.5] text-nevo-near-black/55">

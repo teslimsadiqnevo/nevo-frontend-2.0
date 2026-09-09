@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { visibleText } from "@/test/visibleText";
 import { ApiError } from "@/lib/api/client";
+import type { WizardState } from "./OnboardingWizard";
 import { SignUpStep } from "./SignUpStep";
 
 /**
@@ -44,18 +46,34 @@ const CREATED = {
   schoolCode: "BGA-4827",
 };
 
-const state = {
+const INITIAL: WizardState = {
   schoolName: "Brightgate Academy",
   adminName: "Folake Adebayo",
   email: "f.adebayo@brightgate.edu.ng",
   authMethod: null,
   band: null,
+  registration: null,
 };
 
-function step(onDone = vi.fn()) {
-  const view = render(
-    <SignUpStep state={state} onChange={() => {}} onDone={onDone} />,
+/*
+ * A stateful host, because `registration` lives on the WIZARD now - the step is
+ * unmounted whenever the wizard moves on, and step 1's Back remounts it, so a
+ * guard held in the step's own state lasted exactly one mount. A test that
+ * passes a frozen `state` and a no-op `onChange` could not see that.
+ */
+function Host({ onDone }: { onDone: () => void }) {
+  const [state, setState] = useState<WizardState>(INITIAL);
+  return (
+    <SignUpStep
+      state={state}
+      onChange={(patch) => setState((s) => ({ ...s, ...patch }))}
+      onDone={onDone}
+    />
   );
+}
+
+function step(onDone = vi.fn()) {
+  const view = render(<Host onDone={onDone} />);
   // Password and confirm are local state, so they have to be typed.
   const set = (id: string, value: string) => {
     const el = view.container.querySelector(`#${id}`) as HTMLInputElement;
@@ -69,6 +87,28 @@ function step(onDone = vi.fn()) {
   set("ob-password", "a-long-enough-password");
   set("ob-confirm", "a-long-enough-password");
   return { ...view, onDone };
+}
+
+/** The wizard's own shape: the step unmounts when you leave, and comes back. */
+function HostWithBack({ onDone }: { onDone: () => void }) {
+  const [state, setState] = useState<WizardState>(INITIAL);
+  const [away, setAway] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setAway((a) => !a)}>
+        Toggle step
+      </button>
+      {away ? (
+        <p>another step</p>
+      ) : (
+        <SignUpStep
+          state={state}
+          onChange={(patch) => setState((s) => ({ ...s, ...patch }))}
+          onDone={onDone}
+        />
+      )}
+    </>
+  );
 }
 
 const submit = () =>
@@ -178,5 +218,47 @@ describe("SignUpStep", () => {
       expect(visibleText(container)).toMatch(/already set up with a school/i),
     );
     expect(visibleText(container)).not.toMatch(/is created/);
+  });
+  it("still refuses to register again after the wizard has left the step and come back", async () => {
+    /*
+     * The guard used to be local state, so it lasted exactly one mount. Step 1
+     * has an unconditional Back wired to setStep(0), which remounts this step
+     * with the parent still holding the school name, admin name and email - so
+     * one press of Back reset `registered` to null, unlocked the fields, and
+     * let a second school be created for a school that already existed.
+     */
+    register.mockResolvedValue(CREATED);
+    loginPassword.mockRejectedValue(new Error("timeout"));
+
+    const { container } = render(<HostWithBack onDone={vi.fn()} />);
+    const set = (id: string, value: string) => {
+      const el = container.querySelector(`#${id}`) as HTMLInputElement;
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )!.set!;
+      setter.call(el, value);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    set("ob-password", "a-long-enough-password");
+    set("ob-confirm", "a-long-enough-password");
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled(),
+    );
+    submit();
+    await screen.findByRole("button", { name: "Try signing in" });
+
+    // Leave the step and come back, exactly as Back does.
+    const toggle = screen.getByRole("button", { name: "Toggle step" });
+    fireEvent.click(toggle);
+    await screen.findByText("another step");
+    fireEvent.click(toggle);
+
+    // The school still exists, so this step must still know it.
+    await screen.findByRole("button", { name: "Try signing in" });
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    expect(container.querySelector("#ob-school")).toHaveAttribute("readonly");
+    expect(register).toHaveBeenCalledTimes(1);
   });
 });

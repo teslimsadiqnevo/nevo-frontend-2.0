@@ -236,7 +236,11 @@ export function TeacherDetailView({ teacherId }: { teacherId: string }) {
         ) : (
           held.map((h, i) => {
             const info = byId.get(h.class_id);
+            // The card counts ACTIVE classes; without this the list below it
+            // shows more rows than the card admits to, and nothing says which
+            // of them the card left out.
             const meta = [
+              info?.archivedAt ? "Archived" : null,
               yearGroupLabel(info?.yearGroup),
               info ? `${info.studentCount} ${info.studentCount === 1 ? "student" : "students"}` : null,
             ]

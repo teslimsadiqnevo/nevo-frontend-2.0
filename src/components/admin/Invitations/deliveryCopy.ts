@@ -48,9 +48,27 @@ export function deliveryLine(status: InvitationDeliveryStatus | null): string {
   }
 }
 
+/**
+ * True ONLY when the backend said it emailed them.
+ *
+ * The claim sites used to ask `!needsManualDelivery(status)`, which treats
+ * "not known to be manual" as delivered - and `deliveryStatus` is nullable in
+ * the contract, with `client.ts` casting the JSON unchecked, so an absent field
+ * arrives as null or undefined and took the confident arm. The console then
+ * said "Invite resent to <name>" and "N invites sent" over a response that
+ * established no delivery at all.
+ *
+ * Delivery is a claim about the outside world. Assert it only when told.
+ */
+export function confirmedSent(
+  status: InvitationDeliveryStatus | null | undefined,
+): boolean {
+  return status === "sent";
+}
+
 /** True when the invite definitely did not reach anyone by email. */
 export function needsManualDelivery(
-  status: InvitationDeliveryStatus | null,
+  status: InvitationDeliveryStatus | null | undefined,
 ): boolean {
   return status === "email_not_configured" || status === "not_requested";
 }

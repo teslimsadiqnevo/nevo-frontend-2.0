@@ -122,4 +122,19 @@ describe("TeacherDetailView headcount", () => {
     expect(t).not.toMatch(/archived/i);
     expect(t).not.toMatch(/could read/i);
   });
+  it("marks the archived row the card left out", async () => {
+    // The fix made the two cards agree and, in doing so, made the Classes card
+    // disagree with the list right below it: 2 on the card, 3 rows beneath.
+    teacherClasses.mockResolvedValue([held("c1"), held("c2"), held("c3")]);
+    list.mockResolvedValue([
+      klass("c1", 24),
+      klass("c2", 18),
+      klass("c3", 30, "2026-07-31T00:00:00Z"),
+    ]);
+
+    const { container } = render(<TeacherDetailView teacherId="t1" />);
+    await waitFor(() => expect(visibleText(container)).toMatch(/Class c3/));
+    // The row says which one it is, so the count and the list can be reconciled.
+    expect(visibleText(container)).toMatch(/Class c3 Archived/);
+  });
 });

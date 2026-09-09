@@ -16,7 +16,7 @@ import {
   Spinner,
 } from "../Roster/primitives";
 import { MAX_ROWS, TEMPLATE, parseInviteCsv, toDraft, type ParsedRow } from "./csv";
-import { needsManualDelivery } from "./deliveryCopy";
+import { confirmedSent, needsManualDelivery } from "./deliveryCopy";
 import { LinkHandout } from "./LinkHandout";
 
 /**
@@ -155,9 +155,19 @@ export function BulkImportModal({
      * claim about an email; "created" is a claim about a record, and only the
      * second one is safe when the backend says it emailed no one.
      */
-    const undelivered = result.created.filter((i) =>
+    /*
+     * TWO REASONS A LINK IS NEEDED, and they are told apart because one is a
+     * certainty and one is an absence. `email_not_configured` means nobody was
+     * emailed; a NULL status means the read carried no answer, which the
+     * earlier fix let fall into the confident "sent" arm.
+     */
+    const notEmailed = result.created.filter((i) =>
       needsManualDelivery(i.deliveryStatus),
     );
+    const unconfirmed = result.created.filter(
+      (i) => !confirmedSent(i.deliveryStatus) && !needsManualDelivery(i.deliveryStatus),
+    );
+    const undelivered = [...notEmailed, ...unconfirmed];
     const allDelivered = undelivered.length === 0;
     const n = result.created.length;
     return (
@@ -207,9 +217,13 @@ export function BulkImportModal({
             className="mt-4"
             invites={undelivered}
             lead={
-              undelivered.length === n
-                ? `No email went out. ${n === 1 ? "This school has" : "This school has"} no mail set up in Nevo, so ${n === 1 ? "this link is" : "these links are"} the only way in.`
-                : `No email went out for ${undelivered.length} of them, so their links below are the only way in.`
+              unconfirmed.length === 0
+                ? notEmailed.length === n
+                  ? `No email went out. This school has no mail set up in Nevo, so ${n === 1 ? "this link is" : "these links are"} the only way in.`
+                  : `No email went out for ${notEmailed.length} of them, so their links below are the only way in.`
+                : notEmailed.length === 0
+                  ? `We couldn't confirm an email went out${unconfirmed.length === n ? "" : ` for ${unconfirmed.length} of them`}, so the ${unconfirmed.length === 1 ? "link" : "links"} below ${unconfirmed.length === 1 ? "is" : "are"} the surest way in.`
+                  : `No email went out for ${notEmailed.length} of them, and we couldn't confirm one for ${unconfirmed.length} more. Their links are below.`
             }
           />
         ) : null}

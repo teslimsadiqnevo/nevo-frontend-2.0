@@ -125,4 +125,24 @@ describe("ClassesView header", () => {
     await waitFor(() => expect(list).toHaveBeenCalledWith(true));
     expect(screen.queryByRole("button", { name: /Create a class/ })).toBeNull();
   });
+  it("keeps Create absent on an SSO school whose only live class was archived", async () => {
+    /*
+     * The regression the narrowing introduced. `ssoSourced` moved to
+     * `activeClasses` while the Create gate still read the raw list, so an SSO
+     * school with zero ACTIVE classes short-circuited `ssoSourced` to false
+     * while the archived rows still satisfied `classes.length > 0` - and
+     * Create, which SCRUM-97 says must be ABSENT, came back.
+     */
+    const synced = [klass("a", 20, null, "roster_sync")];
+    const allArchived = [klass("a", 20, "2026-07-31T00:00:00Z", "roster_sync")];
+    list.mockImplementation((includeArchived?: boolean) =>
+      Promise.resolve(includeArchived ? allArchived : synced),
+    );
+
+    render(<ClassesView />);
+    await showArchived();
+    await waitFor(() => expect(list).toHaveBeenCalledWith(true));
+
+    expect(screen.queryByRole("button", { name: /Create a class/ })).toBeNull();
+  });
 });

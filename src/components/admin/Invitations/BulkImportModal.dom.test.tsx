@@ -158,4 +158,38 @@ describe("BulkImportModal delivery", () => {
     expect(visibleText(container)).not.toMatch(/\/join\/null/);
     expect(visibleText(container)).toMatch(/Resend from the invitations list/i);
   });
+  it("does not report invites as sent when the response carried no status", async () => {
+    // `allDelivered` asked "is none of them known-manual?", so a null status
+    // took the confident arm and printed "2 invites sent".
+    bulk.mockResolvedValue({
+      created: [created(1, null), created(2, null)],
+      rejected: [],
+    });
+
+    const { container } = open();
+    await importFile(container);
+
+    await waitFor(() =>
+      expect(visibleText(container)).toMatch(/2 invitations created/),
+    );
+    expect(visibleText(container)).not.toMatch(/2 invites sent/);
+    expect(visibleText(container)).toMatch(/couldn't confirm an email/i);
+    // The links are handed over for these too - not knowing is reason enough.
+    expect(visibleText(container)).toMatch(/\/join\/tok1/);
+  });
+
+  it("tells a certain non-delivery apart from an unknown one", async () => {
+    bulk.mockResolvedValue({
+      created: [created(1, "email_not_configured"), created(2, null)],
+      rejected: [],
+    });
+
+    const { container } = open();
+    await importFile(container);
+
+    await waitFor(() =>
+      expect(visibleText(container)).toMatch(/No email went out for 1 of them/),
+    );
+    expect(visibleText(container)).toMatch(/couldn't confirm one for 1 more/i);
+  });
 });
