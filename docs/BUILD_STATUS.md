@@ -528,11 +528,25 @@ Two things changed (PR #291):
   and `FeedbackPanel` both match on `err.status === 0`), so nothing needed changing —
   but check yours if you add any.
 
-Still unanswered, and Teslim's to answer: whether regeneration actually completes
-server-side when it is not abandoned, and whether it needs the original source document
-— `Fractions Lesson 3` may have been seeded directly rather than parsed from an upload.
-The re-read after the abandoned admin attempt showed the lesson **unchanged**, so
-nothing was half-written.
+**ANSWERED 9 Sep, and it is now genuinely the backend's.** Retried as a teacher through
+the fixed proxy: the call ran the **full 240s** and returned `504 "The backend did not
+answer within 240s."` (283s client-side). Re-reading the lesson afterwards gives exactly
+what it gave before — 2 segments, `bodyChars: [111, 111]`, 0 checkpoints, 0 variants,
+`["text","visual"]` with a null `visualVariant`. Four minutes, nothing persisted.
+
+The backend is healthy throughout: in the same window, same proxy, same token,
+`GET /api/content/lessons/{id}` answered `200` in 4.9s and `/api/v1/teachers/me/home`
+`200` in 6.6s. This is specific to `regenerate`.
+
+Written up and sent to Teslim, with three questions: does it complete server-side; how
+is a client meant to observe completion (the operation declares only `200`/`422`, no
+`202`, yet `ContentParseStatus` has `pending`/`processing` and **nothing in the spec
+accepts the `parseRunId` it returns**); and does it need the original source document,
+since this lesson may have been seeded directly rather than parsed from an upload.
+
+**Do not plan student content work around regeneration until that comes back.** The
+after-lesson chain, four of five modalities, every checkpoint and the spaced-retrieval
+loop are all built and all inert for one reason: the library is one 2-segment lesson.
 
 ### Before you push to main, check what you are actually pushing
 
