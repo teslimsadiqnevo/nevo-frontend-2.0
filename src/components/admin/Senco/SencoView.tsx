@@ -89,8 +89,10 @@ export function SencoView() {
   const [search, setSearch] = useState("");
   const [classId, setClassId] = useState("");
   const [now, setNow] = useState(0);
-  /** A "mark as seen" the server refused. The row comes back; say why. */
+  /** A "mark as seen" the server refused. Nothing moved; say why. */
   const [ackFailed, setAckFailed] = useState(false);
+  /** The flag currently being marked, so the row can say it is in flight. */
+  const [acking, setAcking] = useState<string | null>(null);
   /** Classes whose own roster read did not answer, by id. */
   const [classReadFailed, setClassReadFailed] = useState<
     Record<string, boolean>
@@ -156,22 +158,38 @@ export function SencoView() {
       .filter((s) => (needle ? s.name.toLowerCase().includes(needle) : true));
   }, [students, search, classId, classOf]);
 
+  /*
+   * PESSIMISTIC, AND DELIBERATELY SO.
+   *
+   * This used to flip the flag first and roll it back on failure. That is the
+   * usual optimistic trade, and it is the wrong one HERE, because the flag
+   * disappearing is not a cosmetic state - it is what makes the card below
+   * render "Nothing needs your attention right now". Clearing the last open
+   * flag therefore stated the SENCo's whole queue was empty before the POST had
+   * returned, and on a failure the row came back with the reassurance already
+   * read. A screen whose job is to say what needs looking at must not say
+   * "nothing" on the strength of a write nobody has confirmed.
+   *
+   * #301 added the words for the failure but left this ordering, which is the
+   * half that produces the false claim.
+   *
+   * The rollback is gone with it: there is nothing to roll back if nothing
+   * moved, and the old rollback called `setAckFailed` from inside a `setFlags`
+   * updater - a side effect in a function React is free to run twice.
+   */
   const acknowledge = (flagId: string) => {
+    if (acking) return;
+    setAcking(flagId);
     setAckFailed(false);
-    setFlags((prev) =>
-      prev.map((f) => (f.id === flagId ? { ...f, acknowledged: true } : f)),
-    );
-    intelligenceApi.acknowledgeFlag(flagId).catch(() =>
-      // The rollback was already here and is right; what was missing is any
-      // word of it. A row that vanishes and silently returns reads as a UI
-      // glitch, not as "we did not record that".
-      setFlags((prev) => {
-        setAckFailed(true);
-        return prev.map((f) =>
-          f.id === flagId ? { ...f, acknowledged: false } : f,
-        );
-      }),
-    );
+    intelligenceApi
+      .acknowledgeFlag(flagId)
+      .then(() =>
+        setFlags((prev) =>
+          prev.map((f) => (f.id === flagId ? { ...f, acknowledged: true } : f)),
+        ),
+      )
+      .catch(() => setAckFailed(true))
+      .finally(() => setAcking(null));
   };
 
   const describeClass = (studentId: string) => {
@@ -329,9 +347,10 @@ export function SencoView() {
                         <button
                           type="button"
                           onClick={() => acknowledge(f.id)}
-                          className="cursor-pointer text-[13px] font-semibold text-nevo-near-black/55 transition-opacity hover:text-nevo-near-black/80"
+                          disabled={acking !== null}
+                          className="cursor-pointer text-[13px] font-semibold text-nevo-near-black/55 transition-opacity hover:text-nevo-near-black/80 disabled:cursor-wait disabled:opacity-50"
                         >
-                          Mark as seen
+                          {acking === f.id ? "Marking…" : "Mark as seen"}
                         </button>
                       </div>
                     </div>
