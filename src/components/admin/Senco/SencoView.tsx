@@ -178,6 +178,10 @@ export function SencoView() {
    * updater - a side effect in a function React is free to run twice.
    */
   const acknowledge = (flagId: string) => {
+    // A BACKSTOP, not the guard that does the work: every row's button is
+    // disabled while one is in flight, which is what the test can actually
+    // reach and what stops two acknowledgements racing each other's
+    // `setFlags`. This line only matters if that `disabled` is ever dropped.
     if (acking) return;
     setAcking(flagId);
     setAckFailed(false);

@@ -979,7 +979,7 @@ primitive, the mirror of `ReadFailed`:
 All five are pinned by tests and mutation-verified: each guard was collapsed
 back to its pre-fix catch and the right test failed.
 
-**STILL OPEN — two of the ten. Do not assume these are done.**
+**STILL OPEN — one of the ten. Do not assume it is done.**
 
 ~~*The invitation delivery family*~~ — **SHIPPED.** Both halves: the wording
 now reads `deliveryStatus`, and the join links are handed over instead of
@@ -990,9 +990,7 @@ discarded. `needsManualDelivery` finally has callers. Details under
 
 *Smaller:*
 - ~~**`SignUpStep`**~~ — **SHIPPED.** See below.
-- **`SencoView` "Mark as seen"** flips before the server answers, so "Nothing
-  needs your attention right now" can render ahead of a failed write. (The
-  rollback existed; this PR added the words. The optimistic ordering stands.)
+- ~~**`SencoView` "Mark as seen"**~~ — **SHIPPED.** See below.
 - ~~**`ClassesView`**~~ — **SHIPPED.** See below.
 
 The full finding set, with the skeptics' reasoning, is in the audit output for
@@ -1095,6 +1093,27 @@ again, and quotes the school code.
 — three facts the wizard was discarding, including the code the school signs in
 with. The docblock asserting "declares a 201 with no body" was stale. It still
 returns no SESSION, so the second round trip is still needed; that TODO stands.
+
+### "Mark as seen" — shipped 9 Sep
+
+The optimistic half of the #301 fix, now closed. The flag was flipped before the
+POST returned and rolled back on failure — the usual trade, and the wrong one
+here, because **the flag disappearing is what makes the card say "Nothing needs
+your attention right now"**. Clearing the last open flag therefore stated the
+SENCo's entire queue was empty on a write nobody had confirmed, and on a failure
+the row returned with the reassurance already read.
+
+It waits for the server now. The row stays, the button reads "Marking…" and
+every row's control is held while one is in flight — two in-flight
+acknowledgements would race each other's `setFlags`.
+
+The rollback went with it: there is nothing to roll back if nothing moved. That
+also removed a `setAckFailed` call from **inside** a `setFlags` updater, added
+in #301 — a side effect in a function React is free to run twice.
+
+4 tests. One of the two mutations survived and the guard is labelled as what it
+is: `if (acking) return;` is a backstop, and the `disabled` on every row's
+button is what actually enforces one-at-a-time and what the test reaches.
 
 ### The archived toggle — shipped 9 Sep
 
