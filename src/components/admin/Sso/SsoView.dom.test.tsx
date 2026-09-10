@@ -15,6 +15,20 @@ import { SsoView } from "./SsoView";
  * deactivates real student and staff records. Fixed in #269; pinned here.
  */
 
+/*
+ * THESE FIXTURES WERE snake_case, AND THE ENDPOINT ANSWERS camelCase.
+ *
+ * `RosterSyncHistoryResponse` is `{windowDays, successfulRuns, failedRuns}`.
+ * The fixtures below were copied from the CLIENT INTERFACE rather than from
+ * the spec, and the interface was wrong - so "names real failures when the
+ * history reports them" passed here while, against the real API,
+ * `failed_runs` was `undefined`, `?? 0` made it zero, and the screen said
+ * "Healthy" no matter how many syncs had failed.
+ *
+ * A fixture copied from the type under test can only ever prove the code
+ * agrees with itself. `npm run contract` compares the type to the deployed
+ * document, which is the thing that caught this.
+ */
 const status = vi.fn();
 const syncHistory = vi.fn();
 
@@ -75,9 +89,9 @@ describe("SsoView roster sync health", () => {
   it("says Healthy only when the history actually reports no failures", async () => {
     status.mockResolvedValue(CONNECTED);
     syncHistory.mockResolvedValue({
-      window_days: 30,
-      successful_runs: 12,
-      failed_runs: 0,
+      windowDays: 30,
+      successfulRuns: 12,
+      failedRuns: 0,
       runs: [],
     });
 
@@ -90,9 +104,9 @@ describe("SsoView roster sync health", () => {
   it("names real failures when the history reports them", async () => {
     status.mockResolvedValue(CONNECTED);
     syncHistory.mockResolvedValue({
-      window_days: 30,
-      successful_runs: 9,
-      failed_runs: 3,
+      windowDays: 30,
+      successfulRuns: 9,
+      failedRuns: 3,
       runs: [],
     });
 

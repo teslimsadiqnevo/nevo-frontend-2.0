@@ -65,6 +65,13 @@ export const NOTIFICATION_CATEGORIES = [
 ] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
+/** What a WRITE answers: a summary, not the rows back. */
+export interface NotificationPreferencesWritten {
+  preferences: NotificationPreference[];
+  savedCount: number;
+  rejected?: unknown[];
+}
+
 export interface NotificationPreference {
   category: string;
   inApp: boolean;
@@ -76,8 +83,16 @@ export const notificationPrefsApi = {
     api.get<NotificationPreference[]>("/api/v1/notification-preferences"),
 
   /** Replaces the rows sent; categories not included are left alone. */
+  /**
+   * The WRITE answers a summary, not the rows back.
+   * `NotificationPreferencesWriteResponse` is `{preferences, savedCount,
+   * rejected}`; this was typed as a bare array, so `savedCount` and any
+   * `rejected` row were invisible. Latent rather than live - nothing consumes
+   * the return today - but a caller that started to would have read
+   * `undefined`.
+   */
   update: (rows: NotificationPreference[]) =>
-    api.put<NotificationPreference[]>(
+    api.put<NotificationPreferencesWritten>(
       "/api/v1/notification-preferences",
       rows,
     ),
