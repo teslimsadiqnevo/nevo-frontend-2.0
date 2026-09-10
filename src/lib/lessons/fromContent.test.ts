@@ -124,23 +124,92 @@ describe("lessonFromContent — the visual channel", () => {
     expect(illustration?.alt).toBe("");
     expect(illustration?.caption).toBeUndefined();
   });
+});
 
-  it("leaves audio off, because the player only pretends to play it", () => {
-    // `AudioSegment` animates a waveform on a timer and defaults durationSec to
-    // 40. The asset is real; the playback is not. Offering it would be a play
-    // button that runs a progress line over silence.
+describe("lessonFromContent - the audio channel", () => {
+  const audioVariant = (over: Record<string, unknown> = {}) =>
+    ({
+      script: "The number on top is the numerator.",
+      audioUrl: "https://cdn.example/a.mp3",
+      storagePath: "lessons/seg-1.mp3",
+      durationMs: 0,
+      provider: "elevenlabs",
+      voice: null,
+      format: "mp3",
+      requiresAuthentication: false,
+      urlExpiresInSeconds: null,
+      stepId: null,
+      ...over,
+    }) as never;
+
+  it("carries a clip and its words through", () => {
     const out = lessonFromContent(
       lesson([
         segment({
           availableModalities: ["text", "audio"],
-          audioVariant: {
-            script: "The number on top is the numerator.",
-            audioUrl: "https://cdn.example/a.mp3",
-          } as never,
+          audioVariant: audioVariant(),
         }),
       ]),
     );
 
+    expect(out?.segments[0].audio?.src).toBe("https://cdn.example/a.mp3");
+    expect(out?.segments[0].audio?.transcript).toBe(
+      "The number on top is the numerator.",
+    );
+    expect(out?.segments[0].modalities).toContain("audio");
+  });
+
+  it("refuses a clip with no transcript to fall back on", () => {
+    // The transcript is what a child reads when the audio will not play, what a
+    // deaf child uses instead, and the only part that survives a dead URL.
+    const out = lessonFromContent(
+      lesson([
+        segment({
+          availableModalities: ["text", "audio"],
+          audioVariant: audioVariant({ script: "   " }),
+        }),
+      ]),
+    );
+
+    expect(out?.segments[0].audio).toBeUndefined();
     expect(out?.segments[0].modalities).toEqual(["text"]);
+  });
+
+  it("does not believe a segment that claims audio with no clip", () => {
+    const out = lessonFromContent(
+      lesson([segment({ availableModalities: ["text", "audio"] })]),
+    );
+
+    expect(out?.segments[0].modalities).toEqual(["text"]);
+  });
+
+  it("omits a zero duration rather than claiming a clip of no length", () => {
+    // The backend returns durationMs: 0 on real narration - verified against an
+    // 80,893-byte mp3 that plays. It is un-computed metadata, not an empty clip,
+    // and the audio element is the only thing that actually knows.
+    const out = lessonFromContent(
+      lesson([
+        segment({
+          availableModalities: ["text", "audio"],
+          audioVariant: audioVariant({ durationMs: 0 }),
+        }),
+      ]),
+    );
+
+    expect(out?.segments[0].audio).toBeDefined();
+    expect(out?.segments[0].audio?.durationSec).toBeUndefined();
+  });
+
+  it("uses a real duration when the backend computes one", () => {
+    const out = lessonFromContent(
+      lesson([
+        segment({
+          availableModalities: ["text", "audio"],
+          audioVariant: audioVariant({ durationMs: 42_000 }),
+        }),
+      ]),
+    );
+
+    expect(out?.segments[0].audio?.durationSec).toBe(42);
   });
 });
