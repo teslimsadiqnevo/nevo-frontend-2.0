@@ -346,6 +346,34 @@ export function LessonPlayer({
   const scrollDepth = useRef(0);
   const scrollMarks = useRef<Set<number>>(new Set());
 
+  /**
+   * Put focus on the new segment when the content changes underneath it.
+   *
+   * Three things ride on this, and only the first is obvious:
+   *
+   * 1. A keyboard or switch-access child keeps their place. The remount drops
+   *    focus to <body>, so without this they restart from the top of the
+   *    document after every advance.
+   * 2. A screen reader announces where they now are, from the group's label.
+   * 3. THE SCROLL POSITION RESETS. Nothing reset it before - a child who read
+   *    to the bottom of a long segment and pressed Next arrived halfway down
+   *    the next one. Focusing scrolls its target into view, so the fix for the
+   *    first two carries this one, and it applies to every child rather than
+   *    only those using a keyboard.
+   *
+   * Not on first render: arriving at a lesson should leave focus where the
+   * browser put it, not seize it.
+   */
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const settled = useRef(false);
+  useEffect(() => {
+    if (!settled.current) {
+      settled.current = true;
+      return;
+    }
+    bodyRef.current?.focus();
+  }, [segment.id, modality]);
+
   // time_on_segment: one event per segment, emitted when it's left (index
   // change) or on unmount. Keyed on `index` so within-segment modality/density
   // changes don't split the timing.
@@ -902,7 +930,26 @@ export function LessonPlayer({
             // Remount on either axis so entry motion replays and per-modality
             // state (audio playback, ticked steps) never leaks across segments.
             key={`${segment.id}:${modality}`}
-            className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:ease-nevo-slide"
+            ref={bodyRef}
+            /*
+             * FOCUSABLE, BECAUSE THE REMOUNT ABOVE DESTROYS FOCUS.
+             *
+             * Changing the key throws this subtree away and builds a new one,
+             * so anything focused inside it goes with it and the browser drops
+             * focus to <body>. A child using a keyboard or switch access was
+             * therefore returned to the top of the document on every single
+             * advance, and had to tab back down through the whole player to
+             * reach the next piece of content. Nothing on screen said so.
+             *
+             * `role="group"` with the position as its name so that landing here
+             * announces "Module 2 of 3 · Segment 1 of 4 in this module" before
+             * the content - the orientation a sighted child gets for free from
+             * the line above the progress bar.
+             */
+            tabIndex={-1}
+            role="group"
+            aria-label={positionLine(lesson, index)}
+            className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:ease-nevo-slide focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nevo-navy"
           >
             <SegmentBody
               segment={segment}
