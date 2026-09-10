@@ -9,11 +9,40 @@ import {
   NevoKeyboard,
   useNevoKeyboardDock,
 } from "@/components/shared";
-import { mergeOnboardingDraft } from "@/lib/auth/onboarding";
+import {
+  getOnboardingDraft,
+  mergeOnboardingDraft,
+  type OnboardingDraft,
+} from "@/lib/auth/onboarding";
 import { OnboardingShell } from "./OnboardingShell";
 import { AgeStepper, isAgeInRange } from "./AgeStepper";
 
-const NEXT_STEP = "/student/onboarding/school";
+const SCHOOL_STEP = "/student/onboarding/school";
+const SEQUENCE_STEP = "/student/onboarding/sequence";
+
+/**
+ * Where this child goes after telling us their name.
+ *
+ * THIS USED TO BE THE SCHOOL STEP FOR EVERYONE, and that was the second half of
+ * the same wall. A child who arrived through an invite link or a teacher's
+ * class code already has their class - and no school code to type. They were
+ * funnelled into a screen asking for one anyway, and the class step after it
+ * would then have offered them a list of invented class names, because that
+ * list appears whenever `draft.schoolCode` is unset.
+ *
+ * Both of those children are already connected by the time they get here:
+ * `WelcomeScreen` stores a join token, `TeacherJoin` stores the class it
+ * resolved. `ObservedInteractionSequence` knows how to redeem either. So the
+ * steps in between have nothing left to ask, and skipping them is not a
+ * shortcut - it is refusing to ask a question we already have the answer to.
+ */
+export function nextStepAfterName(draft: OnboardingDraft): string {
+  if (draft.joinToken) return SEQUENCE_STEP;
+  if (draft.classCode || (draft.classId && draft.schoolCode)) {
+    return SEQUENCE_STEP;
+  }
+  return SCHOOL_STEP;
+}
 
 /**
  * Onboarding Step 1 — Name & Age (UI/UX spec B.2 Step 1). Captures the minimum
@@ -34,7 +63,7 @@ export function NameAndAgeStep() {
     if (!valid) return;
     // The draft folds into the device's remembered profile at PIN creation.
     mergeOnboardingDraft({ name: name.trim(), age: Number(ageText) });
-    router.push(NEXT_STEP);
+    router.push(nextStepAfterName(getOnboardingDraft()));
   };
 
   return (

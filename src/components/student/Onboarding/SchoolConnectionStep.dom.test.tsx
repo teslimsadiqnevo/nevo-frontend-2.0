@@ -7,7 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { SchoolConnectionStep } from "./SchoolConnectionStep";
-import { normaliseCode } from "./SchoolCodeInput";
+import { SCHOOL_CODE_MAX, normaliseCode } from "./CodeInput";
 import {
   clearOnboardingDraft,
   getOnboardingDraft,
@@ -163,12 +163,12 @@ describe("SchoolConnectionStep", () => {
 
 describe("normaliseCode", () => {
   it("uppercases, and keeps only what a code can contain", () => {
-    expect(normaliseCode("751a1136")).toBe("751A1136");
-    expect(normaliseCode("bga-4827")).toBe("BGA-4827");
-    expect(normaliseCode("75 1a/11.36")).toBe("751A1136");
+    expect(normaliseCode("751a1136", SCHOOL_CODE_MAX)).toBe("751A1136");
+    expect(normaliseCode("bga-4827", SCHOOL_CODE_MAX)).toBe("BGA-4827");
+    expect(normaliseCode("75 1a/11.36", SCHOOL_CODE_MAX)).toBe("751A1136");
   });
 
   it("stops at the contract's ceiling", () => {
-    expect(normaliseCode("A".repeat(80))).toHaveLength(50);
+    expect(normaliseCode("A".repeat(80), SCHOOL_CODE_MAX)).toHaveLength(50);
   });
 });

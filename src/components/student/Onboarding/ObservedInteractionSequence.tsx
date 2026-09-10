@@ -121,10 +121,18 @@ export function ObservedInteractionSequence() {
            * consent gate sit in between. Asking for it at the moment it is
            * spent means it cannot go stale in a child's hands.
            */
-          const connection = await authApi.connectClassCode({
-            classId: draft.classId,
-            schoolCode: draft.schoolCode,
-          });
+          /*
+           * EITHER FORM. `{ classCode }` alone is what a Teacher Join child
+           * has, and it is the more reliable of the two: `ConnectionResponse`
+           * declares `schoolCode` nullable, so the `{ classId, schoolCode }`
+           * pair is not always available even after a successful join. A child
+           * who came through the school-code route has the pair and no code.
+           */
+          const connection = await authApi.connectClassCode(
+            draft.classCode
+              ? { classCode: draft.classCode }
+              : { classId: draft.classId, schoolCode: draft.schoolCode },
+          );
           if (!connection.onboardingToken) {
             throw new Error("no onboarding token");
           }
