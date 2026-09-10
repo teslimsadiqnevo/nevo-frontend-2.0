@@ -3,7 +3,13 @@
 import Image from "next/image";
 import { useState } from "react";
 import { ApiError } from "@/lib/api/client";
-import { parentApi, type ParentInvitation } from "@/lib/api/parent";
+import { setSession } from "@/lib/auth/session";
+import {
+  apiErrorCode,
+  parentApi,
+  type ParentContactMethod,
+  type ParentInvitation,
+} from "@/lib/api/parent";
 
 /**
  * D01b Parent Consent (SCRUM-80).
@@ -25,7 +31,7 @@ import { parentApi, type ParentInvitation } from "@/lib/api/parent";
  * as they were.
  */
 
-type Phase = "idle" | "asking" | "sending" | "done" | "failed" | "gone";
+type Phase = "idle" | "asking" | "sending" | "done" | "skipped" | "failed" | "gone";
 
 const CARD =
   "rounded-[14px] bg-nevo-cream-elevated px-[22px] py-5 shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
@@ -77,6 +83,9 @@ export function ParentConsent({
   invitation: ParentInvitation;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
+  // Where a copy of the decision actually went, straight from the receipt. The
+  // line is rendered only when there IS one - the screen never assumes.
+  const [receipt, setReceipt] = useState<ParentContactMethod | null>(null);
 
   // The API sends the LITERAL string "your child" when the school entered no
   // first name - it is a real row, not a hypothetical - so the name has to be
@@ -87,7 +96,8 @@ export function ParentConsent({
   async function consent() {
     setPhase("sending");
     try {
-      await parentApi.completeConsent(token);
+      const res = await parentApi.completeConsent(token);
+      setReceipt(res.receipt_sent_to);
       setPhase("done");
     } catch (e) {
       // 404 covers unknown, revoked and expired - the same dead end, and the
@@ -124,30 +134,47 @@ export function ParentConsent({
           <h1 className="mt-6 text-[23px] font-semibold leading-[1.3] tracking-[-0.01em] text-nevo-near-black">
             Thank you &mdash; that&rsquo;s all we needed.
           </h1>
-          <p className="mt-3 max-w-[300px] text-[15px] leading-[1.6] text-nevo-near-black/68">
-            {childLead} can start learning with her class.
+          <p className="mt-3 max-w-[320px] text-[15px] leading-[1.6] text-nevo-near-black/68">
+            {childLead} can start learning with her class. Set up an account and
+            you can follow how she&rsquo;s getting on, whenever you like.
           </p>
-          {/*
-            * TWO THINGS FROM THE FRAME ARE DELIBERATELY NOT HERE.
-            *
-            * 1. "Set up my parent account" / "Maybe later". `POST
-            *    /consents/parent/complete` returns a `parent_id`, so a record
-            *    exists - but there is NO endpoint to give that parent
-            *    credentials, and D15d Parent Growth View is unbuilt, so the
-            *    button has nowhere to go. A primary call to action that does
-            *    nothing is worse than none, and "Maybe later" is meaningless
-            *    without it. The frame's sentence about following her progress
-            *    is cut for the same reason: it promises a thing that does not
-            *    exist yet.
-            *
-            * 2. "A copy of your consent has been sent to your phone." Nothing
-            *    in the contract says a copy is sent, and the completion
-            *    response does not report one. On a consent page, telling a
-            *    parent they have a receipt they may not have is the kind of
-            *    small untruth that costs the whole page its credibility.
-            *
-            * Both return the moment the API supports them. Raised.
-            */}
+
+          <AccountSetup
+            token={token}
+            /* Both of these used to be withheld. The button had no endpoint to
+               call and nowhere to land; the receipt line promised a copy that
+               nothing sent. Both exist now. */
+            onSkip={() => setPhase("skipped")}
+          />
+
+          {receipt && (
+            <p className="mt-6 text-center text-[12px] leading-[1.5] text-nevo-near-black/50">
+              A copy of your consent has been sent to your{" "}
+              {receipt === "sms" ? "phone" : "email"}.
+            </p>
+          )}
+        </div>
+      </Shell>
+    );
+  }
+
+  if (phase === "skipped") {
+    return (
+      <Shell>
+        <div className="flex min-h-[70dvh] flex-col items-center justify-center text-center">
+          <h1 className="text-[23px] font-semibold leading-[1.3] tracking-[-0.01em] text-nevo-near-black">
+            All done &mdash; thank you.
+          </h1>
+          <p className="mt-3 max-w-[320px] text-[15px] leading-[1.6] text-nevo-near-black/68">
+            {childLead} can start learning with her class. You can set up an
+            account later from the same link.
+          </p>
+          {receipt && (
+            <p className="mt-6 text-[12px] leading-[1.5] text-nevo-near-black/50">
+              A copy of your consent has been sent to your{" "}
+              {receipt === "sms" ? "phone" : "email"}.
+            </p>
+          )}
         </div>
       </Shell>
     );
@@ -326,6 +353,153 @@ export function ParentConsent({
         Your details are never sold or shared beyond the school.
       </p>
     </Shell>
+  );
+}
+
+/**
+ * D01b's "Set up my parent account", which the frame has always drawn and which
+ * only became buildable on 10 Sep.
+ *
+ * The consent token is the authorisation — it went to this parent, for this
+ * child — so no email is asked for and no second link is sent. The response
+ * carries a session, which is why this signs them straight in rather than
+ * handing them a password and a door to find.
+ *
+ * MINIMUM 8 CHARACTERS is the server's rule, checked here too so a parent is
+ * told before the round trip rather than after it.
+ */
+function AccountSetup({
+  token,
+  onSkip,
+}: {
+  token: string;
+  onSkip: () => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<"created" | "sms-only" | "exists" | null>(
+    null,
+  );
+
+  const tooShort = password.length > 0 && password.length < 8;
+
+  async function create() {
+    if (password.length < 8) {
+      setError("Please choose a password of at least 8 characters.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const account = await parentApi.createAccount(token, password);
+      setSession({
+        token: account.session.access_token,
+        expiresAt: account.session.expires_at,
+        userId: account.session.user_id,
+        role: account.session.role,
+      });
+      setDone("created");
+      // A hard navigation, not a router push: the session and its mirror cookie
+      // must have settled before the portal is asked for.
+      window.location.assign("/parent-portal");
+    } catch (e) {
+      setBusy(false);
+      if (!(e instanceof ApiError)) {
+        setError("We couldn’t set that up just now. Please try again.");
+        return;
+      }
+      const code = apiErrorCode(e.detail);
+      if (code === "parent_contact_not_email") {
+        // Password sign-in is email-only. Nigeria is SMS-first, so this is a
+        // real slice of parents, not an edge case - and it is not their fault,
+        // so it does not read as an error.
+        setDone("sms-only");
+      } else if (e.status === 409) {
+        setDone("exists");
+      } else if (e.status === 404) {
+        setError(
+          "This link is no longer active. Your child’s school can send you a new one.",
+        );
+      } else {
+        setError("We couldn’t set that up just now. Please try again.");
+      }
+    }
+  }
+
+  if (done === "created") {
+    return (
+      <p className="mt-6 text-[15px] text-nevo-near-black/68">
+        Taking you to your account…
+      </p>
+    );
+  }
+
+  if (done === "sms-only") {
+    return (
+      <div className="mt-6 w-full max-w-[340px] rounded-[12px] bg-nevo-violet/14 px-5 py-4 text-left">
+        <p className="text-[14.5px] leading-[1.55] text-nevo-near-black/80">
+          We can&rsquo;t set up an account with a phone number just yet &mdash;
+          sign-in needs an email address. Your consent is recorded either way,
+          and the link the school sent you still works.
+        </p>
+      </div>
+    );
+  }
+
+  if (done === "exists") {
+    return (
+      <div className="mt-6 w-full max-w-[340px] rounded-[12px] bg-nevo-violet/14 px-5 py-4 text-left">
+        <p className="text-[14.5px] leading-[1.55] text-nevo-near-black/80">
+          You&rsquo;ve already set up an account for {""}
+          this child, so there&rsquo;s nothing more to do here. Use the password
+          you chose then.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-7 w-full max-w-[340px] text-left">
+      <label
+        htmlFor="parent-password"
+        className="block text-[14px] font-medium text-nevo-near-black/80"
+      >
+        Choose a password
+      </label>
+      <input
+        id="parent-password"
+        type="password"
+        autoComplete="new-password"
+        value={password}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          setError(null);
+        }}
+        className="mt-1.5 h-[52px] w-full rounded-[10px] border border-nevo-navy/20 bg-nevo-cream px-3.5 text-[16px] text-nevo-near-black outline-none focus:border-nevo-navy/45"
+      />
+      <p className="mt-1.5 text-[12.5px] text-nevo-near-black/50">
+        At least 8 characters.
+      </p>
+
+      <button
+        type="button"
+        className={PRIMARY}
+        disabled={busy || password.length < 8}
+        onClick={() => void create()}
+      >
+        {busy ? "Setting up…" : "Set up my parent account"}
+      </button>
+      <button type="button" className={TEXT_BTN} disabled={busy} onClick={onSkip}>
+        Maybe later
+      </button>
+
+      {(error || tooShort) && (
+        <p role="alert" className="mt-2 text-[13.5px] leading-[1.5] text-nevo-navy">
+          {error ?? "Please choose a password of at least 8 characters."}
+        </p>
+      )}
+    </div>
   );
 }
 
