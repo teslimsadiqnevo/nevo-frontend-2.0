@@ -1,5 +1,11 @@
 /** Barrel for the API client + endpoint modules (FE Architecture §1 & §9). */
-export { api, request, ApiError, BASE_URL, type RequestOptions } from "./client";
+export {
+  api,
+  request,
+  ApiError,
+  BASE_URL,
+  type RequestOptions,
+} from "./client";
 export { authApi } from "./auth";
 export {
   schoolApi,
@@ -33,7 +39,13 @@ export {
   type SignalSessionType,
 } from "./signals";
 export { intelligenceApi, type AttentionFlag } from "./intelligence";
-export { contentApi, type ParseContentRequest, type ParseContentResponse } from "./content";
+export {
+  contentApi,
+  awaitParseRun,
+  type ParseContentRequest,
+  type ParseAccepted,
+  type ParseRunStatus,
+} from "./content";
 export { exportApi, type IepExport, type IepExportShare } from "./export";
 export {
   classesApi,
