@@ -8,7 +8,8 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --font-brand: var(--font-agile, var(--font-sans));
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -63,6 +64,24 @@
   /* Card-on-card surface (C16 pulse tiles, observation chips) */
   --color-nevo-cream-inset: #e5dfd3;
   --color-nevo-violet: #9a9ccb;
+  /*
+   * VIOLET, DARK ENOUGH TO READ. `--color-nevo-violet` is a surface and accent
+   * colour and is lovely as one, but as TEXT it measures 2.34:1 on cream and
+   * 2.15:1 on cream-elevated. WCAG AA wants 4.5:1 for text this size, so the
+   * quiet violet sentences a child is meant to read - "that code doesn't match
+   * a class", and the note after a wrong answer - were the least readable text
+   * in the app.
+   *
+   * That mattered most in exactly the wrong place: the Quick Check's correct
+   * note is navy at 8.8:1, and its recovery note was violet at 2.34:1. The
+   * child who got it right could read theirs; the child who got it wrong could
+   * not read the one telling them how to recover.
+   *
+   * Same hue, darkened until it passes: 5.43:1 on cream, 4.99:1 on
+   * cream-elevated. A text-only variant, not a new brand colour - the accent
+   * stays exactly as it was. Flagged to design, who may want to own it.
+   */
+  --color-nevo-violet-text: #5b5e8f;
   --color-nevo-near-black: #2b2b2f;
 
   /* Spacing uses Tailwind's numeric scale (0.25rem base). The DS names map as
@@ -72,7 +91,7 @@
 
   /* Elevation (Level 1–3) — elevation.ts (Design System v2 §8) */
   --shadow-elevation-1: 0 2px 8px rgba(0, 0, 0, 0.06);
-  --shadow-elevation-2: 0 4px 16px rgba(0, 0, 0, 0.10);
+  --shadow-elevation-2: 0 4px 16px rgba(0, 0, 0, 0.1);
   --shadow-elevation-3: 0 8px 32px rgba(0, 0, 0, 0.16);
 
   /* Motion easings — motion.ts (durations live on :root below) */
@@ -100,7 +119,8 @@
   --animate-nevo-dot: nevo-dot 1200ms ease-in-out infinite;
   --animate-nevo-mic-pulse: nevo-mic-pulse 2000ms ease-in-out infinite;
   /* Teacher join (03): the viewfinder scan line - state-bound, only while scanning. */
-  --animate-nevo-scanline: nevo-scan 2600ms cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+  --animate-nevo-scanline: nevo-scan 2600ms cubic-bezier(0.45, 0, 0.55, 1)
+    infinite alternate;
   --animate-nevo-nudge: nevo-nudge 460ms ease-out both;
   --animate-nevo-fill: nevo-fill 460ms cubic-bezier(0.33, 1, 0.68, 1) both;
   /* Baseline profiling (SCRUM-104) */
@@ -521,6 +541,14 @@ html[data-contrast="high"] .text-nevo-near-black\/65,
 html[data-contrast="high"] .text-nevo-near-black\/68,
 html[data-contrast="high"] .text-nevo-near-black\/70,
 html[data-contrast="high"] .text-nevo-near-black\/72 {
+  color: rgba(43, 43, 47, 0.92) !important;
+}
+/* Violet text was outside this list entirely, so a child who turned High
+ * Contrast ON still could not read the app's quiet violet sentences - at
+ * 2.34:1 they are the faintest text there is. Both the accent and the darkened
+ * text variant resolve to the same near-black as everything else here. */
+html[data-contrast="high"] .text-nevo-violet,
+html[data-contrast="high"] .text-nevo-violet-text {
   color: rgba(43, 43, 47, 0.92) !important;
 }
 html[data-contrast="high"] .border-nevo-near-black\/8,
