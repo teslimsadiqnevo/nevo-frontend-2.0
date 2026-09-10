@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { contentApi, type ParseContentResponse } from "@/lib/api/content";
+import { awaitParseRun, contentApi } from "@/lib/api/content";
+import { lessonsApi, type LessonDetailResponse } from "@/lib/api/lessons";
 import { ApiError } from "@/lib/api/client";
 import { useStagedUpload } from "@/hooks/useStagedUpload";
 import { getToken } from "@/lib/auth/session";
@@ -48,9 +49,11 @@ import { UploadResult } from "./UploadResult";
  * work - the browser-side pdfjs extraction this flow used to need could never
  * cover Word or PowerPoint, and is gone.
  *
- * The response is the parsed lesson, and the lesson exists from that moment:
- * there is no separate commit on this path, so step 3 reviews what came back
- * rather than asking for approval it does not need.
+ * The upload now answers 202 with a receipt rather than the parsed lesson, so
+ * this flow is accept -> poll the run -> read the lesson. The lesson exists
+ * from the moment the receipt arrives; there is still no separate commit on
+ * this path, so step 3 reviews what was parsed rather than asking for approval
+ * it does not need.
  *
  * The block path's staged parse is still the designed demo beat, but the
  * reason changed on 31 Aug and the copy says the new one. The staged
@@ -194,7 +197,7 @@ export function UploadWizard() {
   const [sample, setSample] = useState(false);
   const staged = useStagedUpload();
   /** What the upload actually returned, when it was live. */
-  const [parsed, setParsed] = useState<ParseContentResponse | null>(null);
+  const [parsed, setParsed] = useState<LessonDetailResponse | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -267,8 +270,24 @@ export function UploadWizard() {
       return;
     }
 
+    // THREE STEPS NOW, NOT ONE. `POST /api/content/upload` answers 202 with a
+    // receipt (`lessonId`, `parseRunId`, `pollUrl`) and the parse carries on
+    // without us, so the finished lesson is not in that response. Poll the run
+    // until `finished`, then read the lesson that was created.
+    //
+    // `finished` covers `failed` as well as the two completed statuses, so a
+    // run that genuinely could not be done arrives here as a run with a
+    // `failureReason` - not as a hang. That is the point of polling it rather
+    // than the lesson.
     void contentApi
       .upload(file)
+      .then(async (accepted) => {
+        const run = await awaitParseRun(accepted.parseRunId);
+        if (run.status === "failed") {
+          throw new ApiError(500, run.failureReason ?? "The parse failed.");
+        }
+        return lessonsApi.detail(accepted.lessonId);
+      })
       .then((lesson) => {
         setParsed(lesson);
         setPhase("review");

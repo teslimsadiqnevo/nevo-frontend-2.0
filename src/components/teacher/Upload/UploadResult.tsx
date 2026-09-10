@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import type { LessonDetailResponse } from "@/lib/api/lessons";
 import type {
   ContentModality,
   LessonContentType,
-  ParseContentResponse,
   ParsedLessonSegment,
 } from "@/lib/api/content";
 import { cn } from "@/lib/utils";
@@ -46,7 +46,13 @@ const MODALITY_LABEL: Record<ContentModality, string> = {
   interactive: "interactive",
 };
 
-function Segment({ segment, index }: { segment: ParsedLessonSegment; index: number }) {
+function Segment({
+  segment,
+  index,
+}: {
+  segment: ParsedLessonSegment;
+  index: number;
+}) {
   return (
     <div
       className={cn(
@@ -96,7 +102,7 @@ export function UploadResult({
   fileName,
   onUploadAnother,
 }: {
-  lesson: ParseContentResponse;
+  lesson: LessonDetailResponse;
   fileName: string;
   onUploadAnother: () => void;
 }) {
@@ -116,7 +122,17 @@ export function UploadResult({
 
       <div className="mt-5 flex max-w-[660px] items-start gap-3.5 rounded-[12px] bg-nevo-cream-elevated px-[22px] py-5 shadow-elevation-1">
         <span className="mt-px shrink-0 text-nevo-navy">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
             <path d="M20 6L9 17l-5-5" />
           </svg>
         </span>
@@ -149,7 +165,7 @@ export function UploadResult({
 
       <div className="mt-7 flex flex-wrap items-center gap-3">
         <Link
-          href={`/teacher/lessons/${lesson.lessonId}`}
+          href={`/teacher/lessons/${lesson.id}`}
           className="inline-flex h-[50px] cursor-pointer items-center rounded-[10px] bg-nevo-navy px-[22px] text-[15px] font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
         >
           Open the lesson

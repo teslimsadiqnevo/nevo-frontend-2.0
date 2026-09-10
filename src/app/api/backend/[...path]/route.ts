@@ -53,10 +53,11 @@ const LONG_RUNNING_TIMEOUT_MS = 240_000;
  * here.
  */
 const LONG_RUNNING: RegExp[] = [
-  // Content ingestion.
-  /^api\/content\/parse$/,
-  /^api\/content\/upload$/,
-  /^api\/content\/lessons\/[^/]+\/regenerate$/,
+  // Content ingestion. NOTE what is NOT here any more: `api/content/parse`,
+  // `api/content/upload` and `api/content/lessons/{id}/regenerate` all answer
+  // 202 in well under a second now and do the work behind a poll, so giving
+  // them four minutes would only mean waiting four minutes to find out a
+  // socket had died. They were the reason this list was written.
   /^api\/v1\/uploads$/,
   /^api\/v1\/uploads\/batch$/,
   /^api\/v1\/uploads\/[^/]+\/retry-pages$/,
