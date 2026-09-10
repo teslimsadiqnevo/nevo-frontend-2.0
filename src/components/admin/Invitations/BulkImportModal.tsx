@@ -15,7 +15,13 @@ import {
   PRIMARY_BTN,
   Spinner,
 } from "../Roster/primitives";
-import { MAX_ROWS, TEMPLATE, parseInviteCsv, toDraft, type ParsedRow } from "./csv";
+import {
+  MAX_ROWS,
+  TEMPLATE,
+  parseInviteCsv,
+  toDraft,
+  type ParsedRow,
+} from "./csv";
 import { confirmedSent, needsManualDelivery } from "./deliveryCopy";
 import { LinkHandout } from "./LinkHandout";
 
@@ -165,7 +171,9 @@ export function BulkImportModal({
       needsManualDelivery(i.deliveryStatus),
     );
     const unconfirmed = result.created.filter(
-      (i) => !confirmedSent(i.deliveryStatus) && !needsManualDelivery(i.deliveryStatus),
+      (i) =>
+        !confirmedSent(i.deliveryStatus) &&
+        !needsManualDelivery(i.deliveryStatus),
     );
     const undelivered = [...notEmailed, ...unconfirmed];
     const allDelivered = undelivered.length === 0;
@@ -278,6 +286,7 @@ export function BulkImportModal({
   if (phase === "preview" || phase === "sending") {
     return (
       <Modal
+        busy={phase === "sending"}
         title={title}
         onClose={onClose}
         widthClass="max-w-[720px]"
@@ -286,7 +295,8 @@ export function BulkImportModal({
             <div className="flex flex-1 items-center justify-center gap-2.5 py-3">
               <Spinner />
               <span className="text-sm text-nevo-near-black/60">
-                Sending {valid.length} {valid.length === 1 ? "invite" : "invites"}…
+                Sending {valid.length}{" "}
+                {valid.length === 1 ? "invite" : "invites"}…
               </span>
             </div>
           ) : (
@@ -339,18 +349,27 @@ export function BulkImportModal({
               <tr className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50">
                 <th className="px-3 py-2.5">Name</th>
                 <th className="px-3 py-2.5">Class</th>
-                <th className="px-3 py-2.5">{isStudent ? "Student email" : "Email"}</th>
-                {isStudent ? <th className="px-3 py-2.5">Parent email</th> : null}
+                <th className="px-3 py-2.5">
+                  {isStudent ? "Student email" : "Email"}
+                </th>
+                {isStudent ? (
+                  <th className="px-3 py-2.5">Parent email</th>
+                ) : null}
                 <th className="px-3 py-2.5">Status</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.line} className="border-t border-nevo-near-black/[0.07]">
+                <tr
+                  key={r.line}
+                  className="border-t border-nevo-near-black/[0.07]"
+                >
                   <td className={CELL}>{r.name || "—"}</td>
                   <td className={CELL}>{r.className || "—"}</td>
                   <td className={CELL}>{r.email || "—"}</td>
-                  {isStudent ? <td className={CELL}>{r.parentContact || "—"}</td> : null}
+                  {isStudent ? (
+                    <td className={CELL}>{r.parentContact || "—"}</td>
+                  ) : null}
                   <td className="px-3 py-2.5">
                     {r.error ? (
                       <span className="text-[13px] font-semibold text-nevo-navy">
@@ -382,7 +401,11 @@ export function BulkImportModal({
       }
       onClose={onClose}
       footer={
-        <button type="button" onClick={onClose} className={cn(GHOST_BTN, "flex-1")}>
+        <button
+          type="button"
+          onClick={onClose}
+          className={cn(GHOST_BTN, "flex-1")}
+        >
           Cancel
         </button>
       }
@@ -443,7 +466,10 @@ export function BulkImportModal({
           Download CSV template
         </button>
         <span className="text-[12.5px] text-nevo-near-black/55">
-          Columns: {isStudent ? "name, class, student_email, parent_contact" : "name, email, class"}
+          Columns:{" "}
+          {isStudent
+            ? "name, class, student_email, parent_contact"
+            : "name, email, class"}
         </span>
       </div>
     </Modal>

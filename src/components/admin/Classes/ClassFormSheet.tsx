@@ -29,7 +29,8 @@ import {
  * rather than saying "that didn't save" over a class that now exists.
  */
 
-const LABEL = "mb-[7px] block text-[12.5px] font-semibold text-nevo-near-black/60";
+const LABEL =
+  "mb-[7px] block text-[12.5px] font-semibold text-nevo-near-black/60";
 
 const FIELD =
   "h-[50px] w-full cursor-pointer rounded-[10px] border-[1.5px] border-nevo-near-black/16 bg-nevo-cream px-[15px] text-[15px] text-nevo-near-black outline-none transition-colors focus:border-nevo-navy";
@@ -86,22 +87,25 @@ export function ClassFormSheet({
           onSaved(created.id);
           return;
         }
-        return classesApi
-          .createAssignment({
-            teacher_id: teacherId,
-            class_id: created.id,
-            role: "primary",
-          })
-          .then(() => onSaved(created.id))
-          // The class exists either way. Send them to it and say what is left
-          // undone, rather than stranding them in a sheet over a saved class.
-          .catch(() => setPhase("assign-failed"));
+        return (
+          classesApi
+            .createAssignment({
+              teacher_id: teacherId,
+              class_id: created.id,
+              role: "primary",
+            })
+            .then(() => onSaved(created.id))
+            // The class exists either way. Send them to it and say what is left
+            // undone, rather than stranding them in a sheet over a saved class.
+            .catch(() => setPhase("assign-failed"))
+        );
       })
       .catch(() => setPhase("failed"));
   };
 
   return (
     <Sheet
+      busy={phase === "saving"}
       title={editing ? "Edit class" : "Create a class"}
       subtitle={editing ? existing?.name : "It can be renamed later."}
       onClose={onClose}
@@ -129,11 +133,7 @@ export function ClassFormSheet({
               The class was created, but the teacher wasn&rsquo;t assigned. You
               can assign one from the class itself.
             </FailureLine>
-            <button
-              type="button"
-              onClick={onClose}
-              className={PRIMARY_BTN}
-            >
+            <button type="button" onClick={onClose} className={PRIMARY_BTN}>
               Close
             </button>
           </>
@@ -209,8 +209,8 @@ export function ClassFormSheet({
             ))}
           </select>
           <p className="mt-2 text-[12.5px] leading-[1.5] text-nevo-near-black/55">
-            The primary teacher leads the class. You can add co-teachers once
-            it exists.
+            The primary teacher leads the class. You can add co-teachers once it
+            exists.
           </p>
         </div>
       ) : null}

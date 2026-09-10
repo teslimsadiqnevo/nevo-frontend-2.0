@@ -950,6 +950,59 @@ An account being active is a different fact from a parent having agreed.
 
 ---
 
+## Admin console — dialog dismissal, 10 Sep
+
+**Every admin dialog could be dismissed while its own write was in flight**, and
+none of the three routes could see the write. `Sheet` and `Modal` gated Escape,
+the backdrop press and the X on nothing at all.
+
+Nothing in `lib/api` carries an AbortController, so a dismissed request always
+completes. The `.then` then sets state on an unmounted tree, React discards it
+in silence, and the dialog's own honest copy is never shown to anybody: "the
+class was created, but the teacher wasn't assigned", the half-applied count on
+a bulk revoke, the erase confirmation. **That is the inverse of the law this
+console has fixed fifteen times** - a write that DID happen, reading as one
+that did not - and `WriteFailed`'s own header states the assumption every one
+of those fixes rested on: "the dialog stays open and the button stays
+pressable".
+
+**THE RULE: reflex dismissal is inert while `busy`; deliberate dismissal is not.**
+
+- **Escape** - inert. No target, no confirmation, and it is the gesture most
+  likely to be fired BECAUSE a write is slow.
+- **Backdrop** - inert. It fires on mousedown, before a release could be
+  redirected, so it already catches a click meant to refocus the window.
+- **The X** - stays live. It is the only route that must be acquired and
+  clicked, the only one named in the accessibility tree, and the only one a
+  keyboard reaches by decision. Every dialog already withdraws its own Cancel
+  mid-write, so deadening the X too would leave a browser reload as the only
+  exit - which loses strictly more than the dismissal does.
+
+Three overlays already worked this way by hand and were the precedent:
+`AdminSignOutModal` gates Escape on `!busy`, `BillingContactSheet` and
+`SsoView` gate their backdrops. None has an X, which is why they were silent
+on it. `AuthMethodStep` was already inert on all three and needed no change.
+
+**THE TRAP, and it is the whole reason this could have shipped broken.** The
+keydown effect's deps were `[onClose]`, and callers pass a stable handler - so a
+`busy` read inside the listener is captured on the first run and keeps its
+MOUNT-TIME value for the life of the dialog. The guard reads correctly in the
+source and does nothing. A ref is the usual dodge and `react-hooks/refs`
+forbids writing one during render, so `busy` is in the deps; re-registering a
+document keydown twice per dialog is cheap. **There is a test for exactly this**,
+and the mutation that drops `busy` from the deps kills it.
+
+Nine dialogs wired, `aria-busy` on both panels, 14 tests, three
+mutation-verified guards.
+
+**Still open, logged rather than folded in:** the teacher-removal confirm strip
+in `ClassDetailView` is inline, not an overlay, so the prop cannot reach it - it
+has no in-flight state at all, its confirm double-fires, and "Keep them" stays
+live mid-DELETE. `StudentDetailView`'s "Restore this student" fails the same law
+by a different door (`.catch(() => undefined)`). Both are their own tickets.
+
+---
+
 ## Admin console — Settings, 10 Sep
 
 **`/admin/settings` was a nine-line placeholder, and the rail linked every admin
