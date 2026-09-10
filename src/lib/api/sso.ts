@@ -48,33 +48,76 @@ export interface SsoStatus {
   data_flow: SsoDataFlowCategory[];
 }
 
+/**
+ * THE CASING HERE IS THE API'S, NOT A CONVENTION.
+ *
+ * This resource is mixed and the mix is real: `SsoConnectionHealthResponse` is
+ * snake_case (`school_entry_url`, `last_successful_sync_at`) and
+ * `RosterSyncRunResponse` is camelCase. Both are copied from the deployed
+ * document rather than normalised, because a type that disagrees with the wire
+ * is a cast that lies - see the note on `RosterSyncHistory`.
+ */
 export interface RosterSyncRun {
   id: string;
   provider: SsoProvider;
   status: RosterSyncStatus;
-  imported_students: number;
-  imported_teachers: number;
-  missing_teacher_class_mappings: number;
-  failure_reason: string | null;
-  triggered_manually: boolean;
-  started_at: string;
-  completed_at: string | null;
+  importedStudents: number;
+  importedTeachers: number;
+  missingTeacherClassMappings: number;
+  failureReason: string | null;
+  triggeredManually: boolean;
+  startedAt: string;
+  completedAt: string | null;
   issues: unknown[];
 }
 
+/**
+ * ============================================================================
+ * THIS WAS snake_case AND THE ENDPOINT ANSWERS camelCase.
+ *
+ * `RosterSyncHistoryResponse` is `{windowDays, successfulRuns, failedRuns,
+ * runs}`, all required. The client declared `window_days`, `successful_runs`
+ * and `failed_runs`, so every one of them read `undefined` at runtime - and
+ * `SsoView` asks `(history?.failed_runs ?? 0) > 0`, which coalesced to 0 and
+ * fell straight into the HEALTHY branch.
+ *
+ * So the defect PR #269 was written to fix - a school being told its roster
+ * sync was "Healthy" while runs were failing - was still live afterwards, by a
+ * different route. #269 fixed the FAILED-READ path; the field names were wrong
+ * on the successful path all along.
+ *
+ * The tests passed because the fixtures were hand-written in snake_case,
+ * copied from this interface rather than from the spec. That is the whole
+ * argument for check 3 in `scripts/contract-check.mjs`, which found this.
+ * ============================================================================
+ */
 export interface RosterSyncHistory {
-  window_days: number;
-  successful_runs: number;
-  failed_runs: number;
+  windowDays: number;
+  successfulRuns: number;
+  failedRuns: number;
   runs: RosterSyncRun[];
 }
 
-export interface RosterSyncResult {
+/**
+ * WHAT STARTING A SYNC ACTUALLY RETURNS, which is not what it used to.
+ *
+ * `POST /admin/sso/roster-sync` answers **202 Accepted** with
+ * `{runId, status, pollUrl}` - it QUEUES a run. The client typed it as a
+ * finished result carrying `imported_students`, `imported_teachers` and
+ * `missing_teacher_class_mappings`, and `SsoView` built its confirmation out
+ * of them, so pressing "Sync now" rendered "Synced. undefined students and
+ * undefined staff imported."
+ *
+ * The counts live on the RUN, fetched from `pollUrl` / `runDetail(runId)`,
+ * which is why `GET /admin/sso/roster-sync/{run_id}` sat unconsumed.
+ *
+ * TODO(api): poll the run and report the real counts. Until then the screen
+ * says a sync has started and stops claiming numbers it does not have.
+ */
+export interface RosterSyncAccepted {
+  runId: string;
   status: RosterSyncStatus;
-  imported_students: number;
-  imported_teachers: number;
-  missing_teacher_class_mappings: number;
-  issue_ids: string[];
+  pollUrl: string;
 }
 
 export interface SsoDisconnected {
@@ -99,9 +142,13 @@ export const ssoApi = {
       params: windowDays ? { window_days: windowDays } : undefined,
     }),
 
-  /** POST /api/v1/admin/sso/roster-sync - the "Sync now" button. */
+  /** POST /api/v1/admin/sso/roster-sync - queues a run, 202 Accepted. */
   rosterSync: () =>
-    api.post<RosterSyncResult>("/api/v1/admin/sso/roster-sync"),
+    api.post<RosterSyncAccepted>("/api/v1/admin/sso/roster-sync"),
+
+  /** GET /api/v1/admin/sso/roster-sync/{run_id} - where the counts live. */
+  runDetail: (runId: string) =>
+    api.get<RosterSyncRun>(`/api/v1/admin/sso/roster-sync/${runId}`),
 
   /** POST /api/v1/admin/sso/reauthorise - returns the provider's consent URL. */
   reauthorise: () =>

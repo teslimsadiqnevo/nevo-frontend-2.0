@@ -136,7 +136,7 @@ export function SsoView() {
       .then((s) => {
         setStatus(s);
         setPhase("ready");
-        // `history?.failed_runs ?? 0` coalesces a FAILED read into the
+        // `history?.failedRuns ?? 0` coalesces a FAILED read into the
         // healthy branch below, so a school whose sync history did not answer
         // was told its sync was fine. Track the failure separately.
         setHistoryFailed(false);
@@ -179,30 +179,24 @@ export function SsoView() {
       .rosterSync()
       .then((r) => {
         /*
-         * READ THE STATUS. `RosterSyncStatus` is
-         * `completed | partial_manual_review | failed`, and this used to
-         * branch only on `missing_teacher_class_mappings` - so a run the
-         * server reported as FAILED still told the admin "Synced.", on an
-         * operation that creates, matches and deactivates student and staff
-         * records. A sync that did not happen must never read as one that did.
+         * A 202. IT HAS QUEUED A RUN, NOT FINISHED ONE.
+         *
+         * `POST /admin/sso/roster-sync` answers `{runId, status, pollUrl}` and
+         * carries no counts, because none exist yet. This branch used to read
+         * `imported_students`, `imported_teachers` and
+         * `missing_teacher_class_mappings` off it and render
+         * "Synced. undefined students and undefined staff imported." - every
+         * one of those was `undefined`, and the type said otherwise because
+         * `api.post<T>` is a cast the compiler never checks.
+         *
+         * So the console no longer claims a result it has not been given. The
+         * counts live on the run, and `ssoApi.runDetail(r.runId)` is where
+         * they come from once this polls - see the TODO(api) on the type.
          */
-        const manual = r.missing_teacher_class_mappings;
-        const imported = `${r.imported_students} students and ${r.imported_teachers} staff imported`;
         setNotice(
           r.status === "failed"
-            ? /*
-               * Don't promise "nothing changed" - the response still carries
-               * counts on a failure, because a run can fail partway through
-               * having already written records. Only say it when they're zero.
-               */
-              r.imported_students + r.imported_teachers === 0
-              ? "That sync didn’t complete, and nothing was changed. Try again, and if it keeps failing your provider connection may need reauthorising."
-              : `That sync didn’t complete. ${imported} before it stopped, so the roster is part-updated - run it again, and if it keeps failing your provider connection may need reauthorising.`
-            : r.status === "partial_manual_review"
-              ? `Partly synced: ${imported}. Some records need a look before the rest can go through${manual > 0 ? `, and ${manual} teacher-class assignments still need doing by hand` : ""}.`
-              : manual > 0
-                ? `Synced. ${manual} teacher-class assignments still need doing by hand.`
-                : `Synced. ${imported}.`,
+            ? "That sync didn’t start. Try again, and if it keeps failing your provider connection may need reauthorising."
+            : "Sync started. It runs in the background and can take a few minutes — the run history below shows the result once it finishes.",
         );
         load();
       })
@@ -441,14 +435,14 @@ export function SsoView() {
                     <div className="min-w-0">
                       <span className="text-[16px] font-semibold text-nevo-near-black">
                         {/* "Healthy" was asserted from the connection state
-                            alone, while `failed_runs` was fetched and thrown
+                            alone, while `failedRuns` was fetched and thrown
                             away - so a school whose last five syncs failed
                             read as healthy so long as the connection held. */}
                         {needsAttention
                           ? "Paused until we're reconnected"
                           : historyFailed
                             ? "Connected - sync history unavailable"
-                            : (history?.failed_runs ?? 0) > 0
+                            : (history?.failedRuns ?? 0) > 0
                               ? "Syncing, with failures to look at"
                               : "Healthy"}
                       </span>
@@ -457,7 +451,7 @@ export function SsoView() {
                         {historyFailed
                           ? " · we couldn't read the run history just now, so this does not account for failed runs"
                           : history
-                            ? ` · ${history.successful_runs} successful run${history.successful_runs === 1 ? "" : "s"}${history.failed_runs > 0 ? ` and ${history.failed_runs} failed` : ""} in the last ${history.window_days} days`
+                            ? ` · ${history.successfulRuns} successful run${history.successfulRuns === 1 ? "" : "s"}${history.failedRuns > 0 ? ` and ${history.failedRuns} failed` : ""} in the last ${history.windowDays} days`
                             : ""}
                       </p>
                     </div>
