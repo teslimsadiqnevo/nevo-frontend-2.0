@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/classes";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
+import { ConsentPill } from "../Students/ConsentPill";
 import {
   Avatar,
   CARD,
@@ -400,6 +401,9 @@ export function ClassDetailView({ classId }: { classId: string }) {
               <span className="flex-1 truncate text-[14.5px] font-semibold text-nevo-near-black">
                 {s.displayName}
               </span>
+              {/* The same pill the roster shows, from a field that was on the
+                  wire all along - see `ClassStudent.consent`. */}
+              <ConsentPill consent={s.consent} />
             </Link>
           ))
         )}

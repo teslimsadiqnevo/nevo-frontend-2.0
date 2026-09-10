@@ -26,7 +26,10 @@ import { SampleRegion } from "@/components/shared/SampleRegion";
  * `user_id` and a role and no name, so a signed-in admin gets their scope
  * summary over a neutral glyph rather than the frame's fixture persona.
  *
- * TODO(api): a profile endpoint, after which the name and job title are real.
+ * DONE, and this said otherwise. It read "TODO(api): a profile endpoint,
+ * after which the name and job title are real." `GET /api/v1/users/me`
+ * returns `{user_id, role, first_name, last_name, display_name, email,
+ * school}` and `PATCH` writes it; `usersApi.me` is consumed two files away.
  *
  * THE NOTIFICATIONS INDICATOR IS A DOT, NEVER A COUNT. SCRUM-100's first rule,
  * and its "done when" goes further: no count is rendered OR EVEN FETCHED. So
