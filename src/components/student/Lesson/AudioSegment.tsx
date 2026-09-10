@@ -19,10 +19,28 @@ function clock(sec: number): string {
 
 /**
  * Audio modality (Lesson Player frame 17) — a narration card with a violet
- * waveform, navy progress line and time, plus a transcript disclosure. Real
- * narration assets are producer-generated (TODO(audio)); until then playback is
- * simulated so the UI shell and signals (replay, transcript open) can be
- * exercised.
+ * waveform, navy progress line and time, plus a transcript disclosure.
+ *
+ * IT PLAYS THE REAL CLIP NOW. It used to animate the waveform on a
+ * `setInterval` against a hardcoded 40-second duration, with
+ * `TODO(audio): play the real narrated clip` where the playback should be. That
+ * was written when no narration existed, and it was honest then. It stopped
+ * being honest the moment the backend started producing assets: a child would
+ * have pressed play and watched a progress line run over silence.
+ *
+ * The simulation survives for one case only — content with NO `src`, which is
+ * the two authored demo lessons. There it animates a placeholder in the
+ * designed walkthrough rather than claiming a clip played, and a signed-out
+ * visitor is the only one who sees it.
+ *
+ * `durationSec` IS NOT TRUSTED when there is an asset. The backend returns
+ * `durationMs: 0` on real narration today despite the file being 80KB of
+ * mp3 — it is un-computed metadata, not an empty clip — so the duration comes
+ * from the element, which is the only thing that actually knows.
+ *
+ * A clip that will not load says so and points at the transcript, which is
+ * required on `AudioContent` and carries the same words. That is the honest
+ * fallback: silence with a moving progress bar is not.
  */
 export function AudioSegment({
   content,
@@ -39,23 +57,36 @@ export function AudioSegment({
    */
   onBusy?: (phase: "start" | "end") => void;
 }) {
-  const duration = content.durationSec ?? 40;
+  // No asset means the designed demo, which animates a placeholder. Anything
+  // with a `src` is a real clip and plays for real.
+  const simulated = !content.src;
   const [playing, setPlaying] = useState(false);
   const [pct, setPct] = useState(0);
+  const [failed, setFailed] = useState(false);
+  /** What the element says the clip is; null until metadata lands. */
+  const [assetDuration, setAssetDuration] = useState<number | null>(null);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const onBusyRef = useRef(onBusy);
   const playingRef = useRef(false);
+
+  const duration = simulated
+    ? (content.durationSec ?? 40)
+    : (assetDuration ?? 0);
 
   useEffect(() => {
     onBusyRef.current = onBusy;
   }, [onBusy]);
 
-  useEffect(() => () => {
-    if (timer.current) clearInterval(timer.current);
-    // Unmounting mid-clip must still close the busy window.
-    if (playingRef.current) onBusyRef.current?.("end");
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearInterval(timer.current);
+      // Unmounting mid-clip must still close the busy window.
+      if (playingRef.current) onBusyRef.current?.("end");
+    },
+    [],
+  );
 
   const setPlayState = (on: boolean) => {
     if (playingRef.current === on) return;
@@ -70,14 +101,37 @@ export function AudioSegment({
   };
 
   const toggle = () => {
+    // A clip that would not load has nothing to toggle. The transcript below
+    // is the way in, and the card says so.
+    if (failed) return;
+
     if (playing) {
-      stop();
-      setPlayState(false);
+      if (simulated) {
+        stop();
+        setPlayState(false);
+      } else {
+        audioRef.current?.pause();
+      }
       return;
     }
+
     // Pressing play on a finished clip restarts it — that's a replay.
     if (pct >= 100) onReplay?.();
-    // TODO(audio): play the real narrated clip; drive `pct` from timeupdate.
+
+    if (!simulated) {
+      const el = audioRef.current;
+      if (!el) return;
+      if (pct >= 100) el.currentTime = 0;
+      // `play()` rejects when the browser refuses it (a codec it cannot
+      // decode, a dead URL, an autoplay policy). Reporting that is the whole
+      // point: the old code could not fail, because it never played anything.
+      void el.play().catch(() => {
+        setFailed(true);
+        setPlayState(false);
+      });
+      return;
+    }
+
     setPct((p) => (p >= 100 ? 0 : p));
     setPlayState(true);
     const step = 100 / (duration * 10); // ~10 ticks/sec
@@ -108,18 +162,60 @@ export function AudioSegment({
         </p>
       )}
 
+      {/* The real clip. `preload="metadata"` so the duration is known before a
+          child presses anything - the card would otherwise read 0:00 until the
+          first play. Playing state is driven by the ELEMENT's own play/pause
+          events rather than set optimistically, so a pause from the OS, a
+          headphone unplug or the lock screen keeps the card truthful. */}
+      {content.src && (
+        <audio
+          ref={audioRef}
+          src={content.src}
+          preload="metadata"
+          onLoadedMetadata={(e) => {
+            const d = e.currentTarget.duration;
+            if (Number.isFinite(d) && d > 0) setAssetDuration(d);
+          }}
+          onTimeUpdate={(e) => {
+            const el = e.currentTarget;
+            if (!Number.isFinite(el.duration) || el.duration <= 0) return;
+            setPct(Math.min(100, (el.currentTime / el.duration) * 100));
+          }}
+          onPlay={() => setPlayState(true)}
+          onPause={() => setPlayState(false)}
+          onEnded={() => {
+            setPct(100);
+            setPlayState(false);
+          }}
+          onError={() => {
+            setFailed(true);
+            setPlayState(false);
+          }}
+        />
+      )}
+
       <div className="mt-[22px] flex flex-col gap-[18px] rounded-[12px] bg-nevo-cream-elevated p-[22px] shadow-elevation-1">
         <div className="flex items-center gap-3.5">
           <button
             type="button"
             aria-label={playing ? "Pause" : "Play"}
+            disabled={failed}
             onClick={toggle}
-            className="flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-nevo-navy text-nevo-cream transition-transform active:scale-[0.98]"
+            className={cn(
+              "flex size-[52px] shrink-0 items-center justify-center rounded-full bg-nevo-navy text-nevo-cream transition-transform",
+              failed
+                ? "cursor-not-allowed opacity-40"
+                : "cursor-pointer active:scale-[0.98]",
+            )}
           >
             {playing ? (
               <Pause className="size-5" fill="currentColor" strokeWidth={0} />
             ) : (
-              <Play className="ml-0.5 size-5" fill="currentColor" strokeWidth={0} />
+              <Play
+                className="ml-0.5 size-5"
+                fill="currentColor"
+                strokeWidth={0}
+              />
             )}
           </button>
           <div className="min-w-0 flex-1">
@@ -129,7 +225,15 @@ export function AudioSegment({
               </p>
             )}
             <span className="text-[13px] text-nevo-near-black/60">
-              {clock(played)} / {clock(duration)}
+              {failed ? (
+                // Not "0:00 / 0:00", which reads as a clip of no length rather
+                // than one we could not load.
+                "Couldn't load this recording"
+              ) : (
+                <>
+                  {clock(played)} / {duration > 0 ? clock(duration) : "--:--"}
+                </>
+              )}
             </span>
           </div>
         </div>
@@ -155,6 +259,15 @@ export function AudioSegment({
           />
         </div>
       </div>
+
+      {failed && (
+        <p
+          role="status"
+          className="mt-3 text-[14px] leading-[1.55] text-nevo-near-black/70"
+        >
+          The recording didn&rsquo;t load. You can read the same words below.
+        </p>
+      )}
 
       {/* Transcript disclosure */}
       <button

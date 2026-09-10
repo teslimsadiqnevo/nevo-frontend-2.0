@@ -9,6 +9,7 @@ import type {
   Lesson,
   LessonModule,
   LessonSegment,
+  AudioContent,
   QuickCheck,
   TextContent,
   VisualContent,
@@ -38,15 +39,15 @@ import type {
  * segments, two checkpoints, `fallbackSegmentCount: 0`, and an image of
  * 1,409,572 bytes that fetches 200 `image/png`.
  *
+ * ON as of 10 Sep: AUDIO, once `AudioSegment` was made to actually play the
+ * clip. It had simulated playback on a timer against a hardcoded 40 seconds,
+ * so switching this on any earlier would have handed a child a play button that
+ * ran a fake progress line over silence. The asset is real - 80,893 bytes of
+ * `audio/mpeg`, fetched 200 - and every segment of a regenerated lesson has
+ * one, which for a child who finds reading effortful is the channel that
+ * matters most.
+ *
  * STILL OFF, and why:
- *   - AUDIO maps cleanly (`audioUrl` -> `src`, `script` -> `transcript`) and
- *     the asset is real - 80,893 bytes of `audio/mpeg`, fetched 200. THE
- *     PLAYER IS THE PROBLEM: `AudioSegment` simulates playback. It animates a
- *     waveform on a timer, defaults `durationSec` to 40, and carries
- *     `TODO(audio): play the real narrated clip`. Switching this on would hand
- *     a child a play button that runs a fake progress line over silence -
- *     fabricated success, which is worse than a modality never offered. Real
- *     playback first, then this.
  *   - INTERACTIVE does not map at all. The wire's `InteractiveVariant` is a
  *     QUESTION (`prompt`, `options`, `answerKey`); the player's
  *     `InteractiveContent` is tickable STEPS with an outcome. Two different
@@ -65,7 +66,11 @@ import type {
  */
 
 /** The channels this adapter can actually populate from parsed content. */
-const RENDERABLE: readonly Modality[] = [MODALITY.TEXT, MODALITY.VISUAL];
+const RENDERABLE: readonly Modality[] = [
+  MODALITY.TEXT,
+  MODALITY.VISUAL,
+  MODALITY.AUDIO,
+];
 
 /**
  * What the player will be offered for a segment: the backend's own list,
@@ -79,7 +84,8 @@ function modalitiesFor(segment: ContentSegment): Modality[] {
       // A segment can CLAIM a modality it has no payload for - the library did
       // exactly that for months, listing `visual` with a null `visualVariant`.
       // Claiming is not having.
-      (m !== MODALITY.VISUAL || visualFor(segment, "") !== undefined),
+      (m !== MODALITY.VISUAL || visualFor(segment, "") !== undefined) &&
+      (m !== MODALITY.AUDIO || audioFor(segment, "") !== undefined),
   );
   return offered.length > 0 ? offered : [MODALITY.TEXT];
 }
@@ -139,6 +145,40 @@ function visualFor(
 }
 
 /**
+ * The segment's narration, when there is a clip AND words to fall back on.
+ *
+ * `transcript` is required by `AudioContent` and is not decoration: it is what
+ * a child reads when the audio will not play, what a deaf child uses instead,
+ * and the only part of this that survives a dead URL. A clip with no script is
+ * therefore not offered at all - narration nobody can fall back from is exactly
+ * the blank frame the rule at the top forbids.
+ *
+ * `durationMs` IS DELIBERATELY NOT MAPPED WHEN ZERO. The backend returns 0 on
+ * real narration today - verified against an 80,893-byte mp3 that plays - so it
+ * is un-computed metadata rather than an empty clip. Passing 0 through would
+ * have the card claim a clip of no length; omitting it lets the audio element
+ * report the truth once it has the file.
+ */
+function audioFor(
+  segment: ContentSegment,
+  lessonTitle: string,
+): AudioContent | undefined {
+  const variant = segment.audioVariant;
+  const transcript = variant?.script?.trim();
+  if (!variant?.audioUrl || !transcript) return undefined;
+  const heading = segment.title ?? lessonTitle;
+  return {
+    heading,
+    title: `Narrated: ${heading}`,
+    src: variant.audioUrl,
+    transcript,
+    ...(variant.durationMs > 0
+      ? { durationSec: Math.round(variant.durationMs / 1000) }
+      : {}),
+  };
+}
+
+/**
  * The segment's inline check, if it has one this app can honestly mark.
  *
  * `toQuickCheck` returns null for a checkpoint with no answer key, a
@@ -161,12 +201,14 @@ function segmentFor(
 ): LessonSegment {
   const quickCheck = quickCheckFor(segment);
   const visual = visualFor(segment, lessonTitle);
+  const audio = audioFor(segment, lessonTitle);
   return {
     id: segment.id,
     modalities: modalitiesFor(segment),
     text: textFor(segment, lessonTitle),
     // Omitted rather than null: the player's `hasContent` tests presence.
     ...(visual ? { visual } : {}),
+    ...(audio ? { audio } : {}),
     // Omitted rather than set undefined: the player tests `segment.quickCheck`
     // for presence, and an absent check must not gate progress.
     ...(quickCheck ? { quickCheck } : {}),
