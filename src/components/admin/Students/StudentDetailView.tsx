@@ -13,6 +13,10 @@ import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import { ReadFailed } from "../ReadFailed";
 import { ConsentPill, consentDetailLine } from "./ConsentPill";
+import {
+  consentRequestLine,
+  useConsentRequests,
+} from "./useConsentRequests";
 import { erasable, statusLabel, studentStatus, wasHere } from "./status";
 import {
   Avatar,
@@ -64,6 +68,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
   const [classes, setClasses] = useState<AdminClass[]>([]);
   const [guardians, setGuardians] = useState<ParentLink[]>([]);
   const [guardiansFailed, setGuardiansFailed] = useState(false);
+  const { stateFor: consentStateFor, send: sendConsent } = useConsentRequests();
   const [moving, setMoving] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [erasing, setErasing] = useState(false);
@@ -153,6 +158,8 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
     student.loginIdentifier ||
     "This student";
   const firstName = student.firstName ?? name.split(" ")[0];
+  const consentState = consentStateFor(studentId);
+  const consentLine = consentRequestLine(consentState, firstName);
   /*
    * THREE states, not two. `UserStatus` is `active | invited | deactivated`,
    * and this read `!== "active"` - so an INVITED child, who has never signed
@@ -279,6 +286,41 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
           </div>
           <ConsentPill consent={student.consent} />
         </div>
+
+        {/*
+          * D07b's card action, and the reason this whole surface existed on
+          * paper only: `consentsApi.requestParentConsent` was typed with no
+          * caller anywhere, so nothing in Nevo could send a family the link -
+          * and the finished parent console had no way to be reached.
+          *
+          * Offered only where consent is not already confirmed. The frame's
+          * own words for the two cases, and it never claims delivery it has
+          * not been told about - the receipt's `delivery_status` decides.
+          */}
+        {student.consent && student.consent.status !== "confirmed" ? (
+          <div className="mt-4 border-t border-nevo-near-black/8 pt-4">
+            <button
+              type="button"
+              onClick={() => sendConsent(student.id)}
+              disabled={consentState.kind === "sending"}
+              className="cursor-pointer text-[13.5px] font-semibold text-nevo-navy transition-opacity hover:opacity-75 disabled:cursor-wait disabled:opacity-55"
+            >
+              {consentState.kind === "sending"
+                ? "Sending…"
+                : student.consent.status === "pending"
+                  ? "Send a gentle reminder"
+                  : "Send the consent request"}
+            </button>
+            {consentLine ? (
+              <p
+                role="status"
+                className="m-0 mt-2 max-w-[54ch] text-[13.5px] leading-[1.55] text-nevo-near-black/62"
+              >
+                {consentLine}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <SectionLabel>Parent / guardian accounts</SectionLabel>
