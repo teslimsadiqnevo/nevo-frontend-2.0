@@ -9,20 +9,32 @@ import { useSignals } from "@/hooks";
 import { mergeOnboardingDraft } from "@/lib/auth/onboarding";
 import { randomId } from "@/lib/utils";
 import { OnboardingShell } from "./OnboardingShell";
-import { SchoolCodeInput, type CodeStatus } from "./SchoolCodeInput";
+import {
+  SchoolCodeInput,
+  codeIsEnterable,
+  type CodeStatus,
+} from "./SchoolCodeInput";
 
 const NEXT_STEP = "/student/onboarding/class";
 
 /**
  * Onboarding Step 2 — School Connection (UI/UX spec B.2 Step 2). Identifies the
- * school via code entry. On a full code it validates (brief pending), then either
- * confirms + auto-advances, or shows a warm-toned (non-alarming) error. The
- * validation wait is the system's, bracketed as `system_busy` (SCRUM-94 fix 9)
- * via a short-lived signal session (no onboarding session exists yet here).
+ * school via code entry: the child submits a code, it validates, and then it
+ * either confirms + auto-advances or shows a warm-toned (non-alarming) error.
+ * The validation wait is the system's, bracketed as `system_busy` (SCRUM-94 fix
+ * 9) via a short-lived signal session (no onboarding session exists yet here).
+ *
+ * THE CODE IS SENT AS TYPED. This used to post `NEVO-${entered}` against a
+ * four-character field, so the only codes it could express were four characters
+ * behind a prefix - and real ones are neither (`751A1136` from our own E2E
+ * tenant, `BGA-4827`). `SchoolCodeRequest` is an exact 2-50 character lookup,
+ * so nothing on the server could rescue a code we had reshaped. Every entrance
+ * to the product funnels through this screen, which made a prefix nobody uses
+ * the reason no child could get in.
  */
 export function SchoolConnectionStep() {
   const router = useRouter();
-  const [code, setCode] = useState(["", "", "", ""]);
+  const [code, setCode] = useState("");
   const [status, setStatus] = useState<CodeStatus>("idle");
   // A school that does not exist and a check we could not run are different
   // sentences, and a child should never wonder if they mistyped when we
@@ -52,21 +64,28 @@ export function SchoolConnectionStep() {
 
   const reset = () => {
     timers.current.forEach(clearTimeout);
-    timers.current = [];
+    // EMPTIED, NOT REPLACED. The unmount effect above captures this array at
+    // mount to satisfy `react-hooks/exhaustive-deps`, so assigning a new one
+    // here left it holding the old, empty array - and the 900ms advance timer
+    // scheduled after any keystroke was then never cleared. A child who typed a
+    // code, got a match, and went back within that beat was dragged forward to
+    // the class step anyway, from a component that had already unmounted.
+    timers.current.length = 0;
   };
 
-  const handleChange = (next: string[]) => {
+  const handleChange = (next: string) => {
     reset();
     setStatus("idle");
     setTrouble(false);
     setCode(next);
   };
 
-  const handleComplete = (entered: string) => {
+  const handleSubmit = (entered: string) => {
+    if (!codeIsEnterable(entered) || status === "pending") return;
     setStatus("pending");
     setTrouble(false);
-    // Canonical form: the UI's fixed prefix + the four typed characters.
-    const schoolCode = `NEVO-${entered}`;
+    // As typed. The code belongs to the school, not to our input field.
+    const schoolCode = entered.trim();
     void authApi.verifySchoolCode(schoolCode).then(
       (school) => {
         setStatus("success");
@@ -127,7 +146,7 @@ export function SchoolConnectionStep() {
         <SchoolCodeInput
           value={code}
           onChange={handleChange}
-          onComplete={handleComplete}
+          onSubmit={handleSubmit}
           status={status}
         />
       </div>
@@ -140,12 +159,21 @@ export function SchoolConnectionStep() {
         )}
       </div>
 
+      {/* One button doing the honest thing at each stage: it checks the code,
+          and once a school has answered to it, it moves on. It used to be
+          Continue alone, disabled until a success that could not arrive
+          because the code being checked was one the child had not typed. */}
       <Button
-        onClick={() => router.push(NEXT_STEP)}
-        disabled={status !== "success"}
+        onClick={() =>
+          status === "success" ? router.push(NEXT_STEP) : handleSubmit(code)
+        }
+        disabled={
+          status === "pending" ||
+          (status !== "success" && !codeIsEnterable(code))
+        }
         className="mt-7 w-full sm:mt-8"
       >
-        Continue
+        {status === "success" ? "Continue" : "Check my code"}
       </Button>
     </OnboardingShell>
   );
