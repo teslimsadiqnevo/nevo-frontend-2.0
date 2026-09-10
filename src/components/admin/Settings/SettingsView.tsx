@@ -1,16 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { usePermissions } from "@/hooks";
+import { PERMISSION_SCOPES } from "@/lib/constants/permissions";
 import { cn } from "@/lib/utils";
 import { AccountSettings } from "./AccountSettings";
 import { SchoolSettings } from "./SchoolSettings";
 
 /**
- * D12 / D12b / D12c Settings (SCRUM-99), as two sections behind one route.
+ * D12 / D12b / D12c Settings (SCRUM-99), as two stacks on one page.
  *
- * The frames themselves draw the split - D12b's breadcrumb reads "Settings ·
- * Your school", D12c's reads "Settings · You" - so the tabs are the design's
- * own division rather than an invention.
+ * NOT TABS, and that is the spec's word twice over. SCRUM-99's first rule is
+ * "'Your school' and 'You' are separate stacks under separate headings, not
+ * tabs. An admin should never wonder whether a change affects the school or
+ * only themselves", and D12.1 repeats it: "a single scrolling column with a
+ * section index, not tabs". This shipped as a tablist on the strength of the
+ * frames' breadcrumbs; the spec governs, and the reason is legible - a tab
+ * hides half the page, so the one question the division exists to answer
+ * ("does this change my school or just me?") gets asked again on every visit.
+ *
+ * THE SCHOOL HALF IS OVERSIGHT-SCOPED. D12.1: a non-oversight admin sees
+ * "'Your school' absent entirely, not greyed", and the done-when is "a
+ * billing-only admin sees a coherent page with no empty school section". It
+ * previously rendered for everybody.
+ *
+ * An UNRESOLVED scope list is not an answer about this admin, so nothing is
+ * hidden or shown on the strength of one - the same rule the rail follows.
  *
  * WHAT IS BLOCKED, and it is a third of this ticket:
  *
@@ -30,48 +44,84 @@ import { SchoolSettings } from "./SchoolSettings";
  * between year groups and silently does nothing would be genuinely dangerous.
  */
 
-type Tab = "school" | "you";
+/** The section index, D12.1: text links in a row, desktop only, never tabs. */
+const INDEX: { href: string; label: string; school: boolean }[] = [
+  { href: "#settings-school", label: "Your school", school: true },
+  { href: "#settings-you", label: "You", school: false },
+];
+
+function SuperHeading({ id, children }: { id: string; children: string }) {
+  return (
+    <h3
+      id={id}
+      className="m-0 mt-10 border-b border-nevo-near-black/10 pb-2.5 text-[19px] font-semibold text-nevo-near-black"
+    >
+      {children}
+    </h3>
+  );
+}
 
 export function SettingsView() {
-  const [tab, setTab] = useState<Tab>("school");
+  const { hasScope, resolved, status, refresh } = usePermissions();
+  /*
+   * Three states, not two - the lesson from the in-flight sweep. `false` is
+   * also what `hasScope` says before the read has answered, so gating on it
+   * alone would hide a proprietor's own school settings for the length of a
+   * request and call it a permission.
+   */
+  const scopesFailed = status === "failed";
+  const showSchool = resolved && hasScope(PERMISSION_SCOPES.GENERAL_OVERSIGHT);
 
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
-      <div className="mx-auto max-w-[720px]">
+      <div className="mx-auto max-w-[680px]">
         <h2 className="m-0 text-[28px] font-semibold tracking-[-0.018em] text-nevo-near-black">
           Settings
         </h2>
 
-        <div
-          role="tablist"
-          aria-label="Settings"
-          className="mt-6 flex gap-1 border-b border-nevo-near-black/10"
+        {/* Desktop only, per D12.1: "not a sidebar, not tabs". */}
+        <nav
+          aria-label="Settings sections"
+          className="mt-4 hidden flex-wrap gap-[18px] xl:flex"
         >
-          {(
-            [
-              ["school", "Your school"],
-              ["you", "You"],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={tab === key}
-              onClick={() => setTab(key)}
-              className={cn(
-                "-mb-px cursor-pointer border-b-2 px-4 pb-3 pt-2 text-[14.5px] font-semibold transition-colors",
-                tab === key
-                  ? "border-nevo-navy text-nevo-navy"
-                  : "border-transparent text-nevo-near-black/55 hover:text-nevo-near-black/80",
-              )}
+          {INDEX.filter((i) => !i.school || showSchool).map((i) => (
+            <a
+              key={i.href}
+              href={i.href}
+              className="text-[13.5px] font-semibold text-nevo-navy hover:underline"
             >
-              {label}
-            </button>
+              {i.label}
+            </a>
           ))}
-        </div>
+        </nav>
 
-        {tab === "school" ? <SchoolSettings /> : <AccountSettings />}
+        {scopesFailed ? (
+          /* Not "you don't have access" - that would be a claim about this
+             admin produced by a broken GET. The rail says the same thing. */
+          <div className={cn(SETTINGS_CARD, "mt-6")}>
+            <p className="m-0 text-[14.5px] leading-[1.55] text-nevo-near-black/72">
+              We couldn&rsquo;t check which parts of Settings you can see, so
+              your school&rsquo;s settings aren&rsquo;t shown here yet.
+            </p>
+            <button
+              type="button"
+              onClick={refresh}
+              className="mt-3.5 cursor-pointer text-[13.5px] font-semibold text-nevo-navy hover:underline"
+            >
+              Try again
+            </button>
+          </div>
+        ) : null}
+
+        {showSchool ? (
+          <>
+            <SuperHeading id="settings-school">Your school</SuperHeading>
+            <SchoolSettings />
+          </>
+        ) : null}
+
+        <SuperHeading id="settings-you">You</SuperHeading>
+        <AccountSettings />
       </div>
     </div>
   );
