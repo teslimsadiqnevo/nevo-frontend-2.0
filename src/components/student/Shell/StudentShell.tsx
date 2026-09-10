@@ -134,7 +134,19 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
             The Text Size preference is applied here as a numeric `zoom`
             (`zoom: var(...)` isn't supported, so it's read from context). */}
         <main
-          className="min-h-0 flex-1 overflow-y-auto"
+          // The bottom padding clears the Ask Nevo trigger, which is `fixed`
+          // and so lands ON this scrolling region rather than below it. #313
+          // did this for the lesson player; these are the five tabs, where the
+          // same trigger has sat over the bottom-right of the content since it
+          // was built.
+          //
+          // Mobile: the nav below is py-1.5 + size-10 + gap-1.5 + a 3px
+          // indicator = 61px, plus its wrapper's pb-3 = 73px. The trigger is
+          // `bottom-[82px]` and 52px tall, so it occupies 82-134px off the
+          // viewport - intruding 61px into this region. Desktop has no nav, so
+          // this region reaches the viewport floor and the 44px pill at
+          // `bottom-6` intrudes 68px. A few px of margin on each.
+          className="min-h-0 flex-1 overflow-y-auto pb-[68px] md:pb-[76px]"
           style={{ zoom: TEXT_ZOOM[textSize] }}
         >
           {offlineTakeover ? <OfflineTakeover /> : children}
