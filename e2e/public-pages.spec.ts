@@ -69,6 +69,38 @@ test.describe("the way in", () => {
   });
 });
 
+test.describe("a locked-out admin", () => {
+  /*
+   * `AdminSignIn` told them to "reset your password" and offered nothing to
+   * press, while its own docblock claimed "No reset endpoint exists anywhere in
+   * the spec". Two do, and the teacher console had been consuming both since
+   * 1 Sep. A proprietor locked out of their own school had no way back.
+   *
+   * In a browser rather than a unit test because the value here is the PATH -
+   * a link that renders but 404s, or a route that renders a placeholder, is
+   * still no way back in.
+   */
+  test("can reach a reset screen from the sign-in page", async ({ page }) => {
+    await page.goto("/auth/admin");
+    const link = page.getByRole("link", { name: "Forgot your password?" });
+    await expect(link).toBeVisible();
+
+    await link.click();
+    await page.waitForURL("**/auth/admin/reset");
+    // The real screen, not the placeholder that was there before.
+    await expect(page.locator("body")).not.toContainText("Placeholder");
+    await expect(page.locator('input[type="email"]').first()).toBeVisible();
+  });
+
+  test("the role-neutral reset route is no longer a placeholder", async ({ page }) => {
+    // The backend composes the emailed link, so this side cannot know which URL
+    // it points at. If it sends anyone here, they must not land on nothing.
+    const response = await page.goto("/auth/forgot-password");
+    expect(response?.status()).toBeLessThan(400);
+    await expect(page.locator("body")).not.toContainText("Placeholder");
+  });
+});
+
 test.describe("the TOSSE interest page", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/tosse");
