@@ -31,9 +31,18 @@
  * Each is one call; none is worth adding to this screen's failure surface
  * until they can be fetched together.
  *
- * The consent row's action is "When ready" rather than a link, and that is the
- * frame's own wording - it anticipated that consent is not yet actionable from
- * here. No endpoint reads consent for a roster, so there is nothing to link to.
+ * THAT WAS TRUE AND IS NOT ANY MORE. This used to read: "The consent row's
+ * action is 'When ready' rather than a link... No endpoint reads consent for a
+ * roster, so there is nothing to link to."
+ *
+ * Both halves are now false. `AdminStudentRow` carries `consent`, which is
+ * what `blockedByConsent` counts on the roster header, and
+ * `consentsApi.requestParentConsent` finally has callers - the row and the
+ * student's own record. So the row links to the place the action lives.
+ *
+ * Left as a caution rather than deleted: a docblock that stops being true is
+ * the most expensive comment in a codebase, because the next person re-makes
+ * the decision on it. Four were found wrong in a single pass on 10 Sep.
  */
 
 export interface StartStep {
@@ -73,7 +82,8 @@ export function gettingStartedSteps(school: string): StartStep[] {
     {
       title: "Send parent consent requests",
       sub: "Students can begin lessons once a parent confirms.",
-      cta: "When ready",
+      cta: "Send requests",
+      href: "/admin/students",
     },
   ];
 }

@@ -1100,6 +1100,56 @@ caught the 202 above.
 
 ---
 
+## Consent requests — the trigger nothing had, 10 Sep
+
+`consentsApi.requestParentConsent` was typed with **zero callers**, and the
+whole parent surface sat behind it: three finished, merged screens that no
+family could reach, because nothing in Nevo could send anybody a link.
+
+**Three of the four surfaces are live now.** D07's row action ("Send request",
+the frame's own words), D07b's card action ("Send a gentle reminder" on a
+pending request, "Sending…" in flight), and the Overview checklist's dead row,
+which now links to `/admin/students` instead of reading `cta: "When ready"`.
+
+**The parent's details come from the record, not a form.** The endpoint needs
+`{parent_name, parent_contact, contact_method}` and `ParentLink` carries all
+three, so the admin presses one thing — D07 is explicit that "sending a request
+is deliberate and per-student". The roster row does not carry the link, so it is
+fetched on the press.
+
+**The receipt is READ, not assumed.** The endpoint answers 202 with
+`delivery_status`, and only `sent` means a parent was written to. `queued` and
+`processing` say queued. This is the same distinction the invite surfaces got
+wrong until 8 Sep and it is not being repeated.
+
+**A child with no guardian contact is not an error** — it is the ordinary state
+of a child enrolled before anyone recorded one, and it gets its own outcome
+rather than a failure. Nothing is posted on its behalf.
+
+**Two drifts fixed on the way.** `ConsentDeliveryStatus` was narrowed to three
+values in the client; the spec has four (`processing` was missing), so a real
+value would have fallen through every branch. The response-shape check compares
+property NAMES, not enum members, so it cannot see this class — worth knowing
+about the tool. And `ParentLink.contact_method` is a bare `string` on our side
+against an `email | sms` enum, so an unrecognised value is now decided by the
+contact itself rather than passed through and 422'd.
+
+**A stale docblock corrected, one of the four the handoff flagged.**
+`overviewGettingStarted.ts` claimed "No endpoint reads consent for a roster, so
+there is nothing to link to". `AdminStudentRow` carries `consent` — it is what
+`blockedByConsent` counts on the roster header. Left in place as a struck-
+through caution rather than deleted, because a docblock that stops being true is
+the most expensive comment in a codebase.
+
+9 tests, four mutation-verified guards.
+
+**The fourth surface is not done:** the roster header's "N can't begin lessons
+yet" clause still only counts. Settling the Overview checklist row from data
+(rather than just linking it) also remains — it needs the Overview to fetch the
+roster, which is a call that screen does not make today.
+
+---
+
 ## Admin console — dialog dismissal, 10 Sep
 
 **Every admin dialog could be dismissed while its own write was in flight**, and

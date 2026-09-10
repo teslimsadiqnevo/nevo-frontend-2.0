@@ -69,12 +69,27 @@ export interface ConsentConfirmation {
   confirmed_at: string | null;
 }
 
+/**
+ * `ConsentDeliveryStatus` is `queued | processing | sent | failed`.
+ *
+ * This was narrowed to three - `processing` was missing - so a real value
+ * would have fallen through every branch that switched on it. The response
+ * SHAPE check in `scripts/contract-check.mjs` compares property names, not
+ * enum members, so it cannot see this class; it was caught by reading the
+ * document.
+ */
+export type ConsentDeliveryStatus =
+  | "queued"
+  | "processing"
+  | "sent"
+  | "failed";
+
 export interface ParentConsentRequestReceipt {
   invitation_id: string;
   parent_link_id: string;
   student_id: string;
   consent_types: ConsentType[];
-  delivery_status: "queued" | "sent" | "failed";
+  delivery_status: ConsentDeliveryStatus;
   expires_at: string;
 }
 
