@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { Assignment } from "@/lib/api/assignments";
+import { AssignmentSchedule } from "./AssignmentSchedule";
 import type {
   LessonClassProgress,
   LessonContentType,
@@ -321,6 +322,11 @@ export function LiveLessonDetail({
             {progress.slowdownNote}
           </p>
         )}
+
+        {/* Sits ABOVE the lesson's contents, because a teacher who has come
+            here to undo a mis-assignment is not looking for the segment list -
+            they are looking for the class they got wrong. */}
+        <AssignmentSchedule assignments={assignments} />
 
         <h3 className={cn(SECTION_H, "mt-8")}>
           What&rsquo;s in this lesson
