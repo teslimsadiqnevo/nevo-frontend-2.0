@@ -11,6 +11,7 @@ import type {
   LessonSegment,
   QuickCheck,
   TextContent,
+  VisualContent,
 } from "@/lib/types";
 
 /**
@@ -30,23 +31,41 @@ import type {
  * and careful enough to refuse a checkpoint it cannot mark - had no caller and
  * the player's `QuickCheckSheet` never drew for a live lesson.
  *
+ * ON as of 10 Sep: VISUAL. The backend's 4,096-token output ceiling meant every
+ * lesson in the library was deterministic fallback text with no variants at
+ * all, so there was nothing for this to carry. Raised to 16,384, a regenerated
+ * lesson comes back with real ones - measured on `Fractions Lesson 3`: four
+ * segments, two checkpoints, `fallbackSegmentCount: 0`, and an image of
+ * 1,409,572 bytes that fetches 200 `image/png`.
+ *
  * STILL OFF, and why:
- *   - VISUAL and AUDIO map cleanly (`imageUrl`/`audioUrl` -> `illustration.src`
- *     /`src`, `script` -> `transcript`), but both URLs are SIGNED and EXPIRE -
- *     they carry `urlExpiresInSeconds`, and `contentApi.mediaUrl` mints a fresh
- *     one from `storagePath`. A lesson is read once and can sit open far longer
- *     than the URL lives, so switching these on without that minting is exactly
- *     the blank frame the rule forbids. That is the next step, not this one.
+ *   - AUDIO maps cleanly (`audioUrl` -> `src`, `script` -> `transcript`) and
+ *     the asset is real - 80,893 bytes of `audio/mpeg`, fetched 200. THE
+ *     PLAYER IS THE PROBLEM: `AudioSegment` simulates playback. It animates a
+ *     waveform on a timer, defaults `durationSec` to 40, and carries
+ *     `TODO(audio): play the real narrated clip`. Switching this on would hand
+ *     a child a play button that runs a fake progress line over silence -
+ *     fabricated success, which is worse than a modality never offered. Real
+ *     playback first, then this.
  *   - INTERACTIVE does not map at all. The wire's `InteractiveVariant` is a
  *     QUESTION (`prompt`, `options`, `answerKey`); the player's
  *     `InteractiveContent` is tickable STEPS with an outcome. Two different
  *     things sharing a name - a design question, not a wiring one.
  *   - CALCULATION is partial: `CalculationSegment` needs `scaffold`
  *     (kind/parts/rows) and `problem.answer`, and the wire carries neither.
+ *
+ * ON EXPIRING URLS, which used to be the stated reason visual was off: the
+ * variants carry `urlExpiresInSeconds`, and `contentApi.mediaUrl` mints a fresh
+ * URL from `storagePath`. On real generated content that field is NULL - which
+ * `mediaUrlExpired` reads as "does not expire" - so there is nothing to mint
+ * today, and a signature already in the URL is what makes it fetchable without
+ * a bearer. If the backend ever starts issuing expiring URLs, `visualFor` must
+ * gain that minting before it can keep this promise; the check belongs in the
+ * component, which is the only place that knows how long a lesson has been open.
  */
 
 /** The channels this adapter can actually populate from parsed content. */
-const RENDERABLE: readonly Modality[] = [MODALITY.TEXT];
+const RENDERABLE: readonly Modality[] = [MODALITY.TEXT, MODALITY.VISUAL];
 
 /**
  * What the player will be offered for a segment: the backend's own list,
@@ -54,8 +73,13 @@ const RENDERABLE: readonly Modality[] = [MODALITY.TEXT];
  * modality still reads as text, which is what `body` is.
  */
 function modalitiesFor(segment: ContentSegment): Modality[] {
-  const offered = segment.availableModalities.filter((m): m is Modality =>
-    (RENDERABLE as readonly string[]).includes(m),
+  const offered = segment.availableModalities.filter(
+    (m): m is Modality =>
+      (RENDERABLE as readonly string[]).includes(m) &&
+      // A segment can CLAIM a modality it has no payload for - the library did
+      // exactly that for months, listing `visual` with a null `visualVariant`.
+      // Claiming is not having.
+      (m !== MODALITY.VISUAL || visualFor(segment, "") !== undefined),
   );
   return offered.length > 0 ? offered : [MODALITY.TEXT];
 }
@@ -70,6 +94,47 @@ function textFor(segment: ContentSegment, lessonTitle: string): TextContent {
     heading: segment.title ?? lessonTitle,
     // No density reshapes exist in the contract - see `TextContent.body`.
     body: { default: segment.body },
+  };
+}
+
+/**
+ * The segment's picture, when there is one a child should actually be shown.
+ *
+ * TWO GATES, and both matter.
+ *
+ * `imageUrl` must exist - `availableModalities` listing `visual` is a claim,
+ * not a payload, and the whole library claimed it with a null variant for
+ * months.
+ *
+ * `qualityValidated` must be true. These are generated images with a review
+ * pass behind them (`reviewedBy` on the one measured was `claude-opus-4-8`, so
+ * a model rather than a person), and an image that failed its own review is one
+ * we have been told not to trust. Showing a child a wrong or confusing picture
+ * of a concept they are trying to learn is a worse failure than showing them
+ * none - more so here, where a picture may be the channel they rely on.
+ *
+ * `caption` carries the alt text as well as the visible caption: it is the only
+ * human-readable description on the variant. `prompt` is NOT used - it is the
+ * instruction we gave a generator, not a description of what was drawn, and it
+ * has no business reaching a child or a screen reader.
+ */
+function visualFor(
+  segment: ContentSegment,
+  lessonTitle: string,
+): VisualContent | undefined {
+  const variant = segment.visualVariant;
+  if (!variant?.imageUrl || !variant.qualityValidated) return undefined;
+  const caption = variant.caption?.trim();
+  return {
+    heading: segment.title ?? lessonTitle,
+    illustration: {
+      src: variant.imageUrl,
+      // Without a caption there is no honest description, and an empty alt is
+      // the correct way to say "this adds nothing a screen reader needs" -
+      // better than narrating a generator's prompt at a child.
+      alt: caption ?? "",
+      ...(caption ? { caption } : {}),
+    },
   };
 }
 
@@ -95,10 +160,13 @@ function segmentFor(
   lessonTitle: string,
 ): LessonSegment {
   const quickCheck = quickCheckFor(segment);
+  const visual = visualFor(segment, lessonTitle);
   return {
     id: segment.id,
     modalities: modalitiesFor(segment),
     text: textFor(segment, lessonTitle),
+    // Omitted rather than null: the player's `hasContent` tests presence.
+    ...(visual ? { visual } : {}),
     // Omitted rather than set undefined: the player tests `segment.quickCheck`
     // for presence, and an absent check must not gate progress.
     ...(quickCheck ? { quickCheck } : {}),
