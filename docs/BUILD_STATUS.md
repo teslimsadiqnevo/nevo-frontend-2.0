@@ -1,7 +1,11 @@
 # Nevo frontend — what is left
 
-Last updated **7 September 2026**. Written from a survey of the source and the
+Last updated **10 September 2026**. Written from a survey of the source and the
 deployed OpenAPI document, not from tickets.
+
+**Start with the section directly below.** It is the only measured, whole-product
+view in this file; everything after it is per-area detail, and some of it predates
+that measurement.
 
 Keep this current. Two rules make it useful rather than decorative:
 
@@ -12,6 +16,103 @@ Keep this current. Two rules make it useful rather than decorative:
    before believing a summary.
 2. **Say which pile a thing is in.** "Not done" hides the difference between work
    we can do today and work nobody can do yet.
+
+---
+
+## WHERE THE PRODUCT ACTUALLY IS — measured 10 Sep
+
+Assessed against the deployed OpenAPI document, the design repo and a worktree
+pinned to `origin/main`. Every headline below was re-verified by hand, not taken
+from an agent.
+
+**80% of screens are built. Close to 0% of the product is usable end to end**,
+because every console is missing its front door. This is not a "last 20%"
+problem — it is a small number of missing entrances in front of a great deal of
+finished work.
+
+| console | screens | usable | demoable | hours |
+|---|---|---|---|---|
+| Student | 51 / 63 | **no** | **no** | 135 |
+| Teacher | 22 / 29 | partly | with care | 115 |
+| Admin | 41 / 51 | partly | with care | 80 |
+| Parent | 3 / 3 | **no** (unreachable) | with care | 31 |
+| **total** | **117 / 146 (80%)** | | | **361** |
+
+Screen counting is judgement-heavy: two independent passes over admin gave 50/63
+and 41/51. The RATIO held at ~80% both times. Treat denominators as ±15%.
+
+**API: 132 of 183 endpoints (72%) are truly reachable**, not the 87% a naive
+path-match suggests. **27 are referenced but never called** — the recurring
+shape being a typed client method with no caller.
+
+### The three missing doors — fix these before anything else
+
+1. **`/admin/onboarding` is unlinked.** Only references in `src/` are
+   `proxy.ts:52` and `AdminShell.tsx:19`, both config. The landing page's only
+   `href` is `mailto:support@nevolearning.com`. No school can sign up.
+2. **The student school-code box holds 4 characters** behind a hardcoded `NEVO–`
+   prefix (`SchoolCodeInput.tsx:11`, `SchoolConnectionStep.tsx:69`). Issued codes
+   are 8 chars — `751A1136`, `BGA-4827`. `SchoolCodeRequest` is an exact lookup,
+   so no server-side normalisation can rescue it. Continue is disabled until it
+   verifies. **No child can create an account.**
+3. **Nothing can invite a parent.** `consentsApi.requestParentConsent`
+   (`consents.ts:113`) has ZERO callers. The parent surface is finished and
+   merged and **completely unreachable**.
+
+Together these are perhaps 20–30 hours. They convert the product from unusable to
+demoable end to end.
+
+### The long pole is not screens
+
+`RENDERABLE = [MODALITY.TEXT]` (`lib/lessons/fromContent.ts:49`). **A live lesson
+renders text only** — visual, audio, interactive and calculation never appear
+from parsed content. `lesson.assessment` and `lesson.summary` are never set, so
+the assessment, summary and review-answers routes 404 on a real lesson id. Nine
+built lesson screens are unreachable by a real child. Adaptive multimodal
+learning is the product's central claim and it is the one thing that cannot
+render on live data. ~44h, and it is product work rather than plumbing.
+
+### The demo hazard to fix first
+
+`useStudentLesson.ts:203` answers a live 404 or failed read with an **authored
+fixture of the same id** (`failed: failed && !mock`). A child whose lesson is
+deleted or still parsing is handed the photosynthesis fixture — a rich
+multi-modal lesson that does not exist in their school's library, shown exactly
+when the backend failed. `SampleRegion` is `display:contents`: detectable by a
+test, invisible to anyone watching.
+
+Same class, admin side: the getting-started checklist renders three steps as OPEN
+circles regardless of whether the school has done them
+(`overviewGettingStarted.ts` admits only two of five are signal-backed).
+
+### How far out
+
+**361 engineering hours.** Against observed velocity — 143 PRs merged in 10 days
+across three sessions — that is **4–6 weeks to genuinely shippable**, with the
+three doors landing in days.
+
+### Stale docblocks are misdirecting people
+
+Four verified wrong in one admin pass: "No reset endpoint exists anywhere in the
+spec" (two exist and teacher consumes them), "`GET /api/v1/users/me` is the only
+route on that resource" (PATCH is live), `JoinLanding`'s "Students do not have an
+activation flow" (they do), `AdminSidebar`'s "TODO(api): a profile endpoint"
+(`usersApi.me` is consumed two files away). **43 `TODO(api)` markers remain in
+admin components, none re-checked against the deployed spec.** The 7 Sep re-audit
+found 17 of 97 markers repo-wide were already stale; assume the same rate here.
+
+### Corrections to things this document previously asserted
+
+- **"The parent surface is complete."** Three of three screens are built and
+  merged. Nothing can reach them. Complete and unreachable are different states.
+- **Parent sign-in was recorded as needing a design ruling.**
+  `POST /api/v1/auth/login/parent` is live in the deployed spec and unconsumed;
+  its `contact` field is a bare string, NOT `format: email`, which is very likely
+  the SMS-only answer already shipped. Confirm with backend before treating it as
+  a design question.
+- **D01b ships seven gendered `she/her` strings** (`ParentConsent.tsx` 51, 60,
+  138, 139, 169, 293, 299), copied from the Amara frame, written the same day
+  backend was flagged for gendered templates. Same bug, ours.
 
 ---
 
