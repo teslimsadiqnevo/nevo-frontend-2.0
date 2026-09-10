@@ -246,26 +246,25 @@ export function Sheet({
   const panel = useRef<HTMLDivElement>(null);
 
   /*
-   * `busy` is read through a ref, not closed over.
+   * `busy` IS IN THE DEPS, and it has to be.
    *
-   * The effect's deps are `[onClose]`, and most callers pass a stable handler,
-   * so a `busy` read inside the listener would be captured on the first run
-   * and stay `false` for the life of the dialog - the guard would look right
-   * in the source and do nothing at all. Adding `busy` to the deps instead
-   * would re-register the listener on every toggle, which is fine but noisier;
-   * a ref keeps one listener and always reads the current value.
+   * These deps were `[onClose]`, and most callers pass a stable handler - so a
+   * `busy` read inside the listener would be captured on the first run and stay
+   * `false` for the life of the dialog. The guard would read correctly in the
+   * source and do nothing at all, which is the worst kind of fix.
+   *
+   * A ref would also solve it and is the usual dodge, but writing one during
+   * render is what `react-hooks/refs` forbids. Re-registering a document
+   * keydown when `busy` flips is cheap and happens at most twice per dialog.
    */
-  const busyRef = useRef(busy);
-  busyRef.current = busy;
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busyRef.current) onClose();
+      if (e.key === "Escape" && !busy) onClose();
     };
     document.addEventListener("keydown", onKey);
     panel.current?.focus();
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, busy]);
 
   return (
     <div
@@ -348,18 +347,15 @@ export function Modal({
 }) {
   const panel = useRef<HTMLDivElement>(null);
 
-  /** Through a ref for the same reason as `Sheet` - the deps are `[onClose]`. */
-  const busyRef = useRef(busy);
-  busyRef.current = busy;
-
+  /** `busy` in the deps for the same reason as `Sheet` - see the note there. */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busyRef.current) onClose();
+      if (e.key === "Escape" && !busy) onClose();
     };
     document.addEventListener("keydown", onKey);
     panel.current?.focus();
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, busy]);
 
   return (
     <div
