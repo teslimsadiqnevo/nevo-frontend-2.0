@@ -9,6 +9,7 @@ import { studentsApi, type AdminStudentRow } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import { ConsentPill, blockedByConsent } from "./ConsentPill";
+import { consentRequestLine, useConsentRequests } from "./useConsentRequests";
 import { statusLabel, studentStatus } from "./status";
 import { NoAccess, failureKind } from "../NoAccess";
 import {
@@ -68,6 +69,7 @@ function SearchIcon() {
 
 export function StudentsView() {
   const router = useRouter();
+  const { stateFor: consentStateFor, send: sendConsent } = useConsentRequests();
   const params = useSearchParams();
   const [phase, setPhase] = useState<Phase>("loading");
   const [students, setStudents] = useState<AdminStudentRow[]>([]);
@@ -79,7 +81,10 @@ export function StudentsView() {
 
   const load = useCallback((cid: string, inactive: boolean) => {
     Promise.all([
-      studentsApi.list({ classId: cid || undefined, includeInactive: inactive }),
+      studentsApi.list({
+        classId: cid || undefined,
+        includeInactive: inactive,
+      }),
       classesApi.list(),
     ])
       .then(([rows, cls]) => {
@@ -162,7 +167,9 @@ export function StudentsView() {
           ) : null}
         </div>
 
-        {phase === "loading" ? <div className={cn(CARD, "mt-[22px] h-[320px] animate-pulse")} /> : null}
+        {phase === "loading" ? (
+          <div className={cn(CARD, "mt-[22px] h-[320px] animate-pulse")} />
+        ) : null}
 
         {phase === "denied" ? (
           <NoAccess what="your students" />
@@ -188,7 +195,9 @@ export function StudentsView() {
           </div>
         ) : null}
 
-        {phase === "ready" && students.length === 0 && !filtering ? <EmptyState /> : null}
+        {phase === "ready" && students.length === 0 && !filtering ? (
+          <EmptyState />
+        ) : null}
 
         {phase === "ready" && (students.length > 0 || filtering) ? (
           <>
@@ -227,7 +236,8 @@ export function StudentsView() {
                 aria-pressed={includeInactive}
                 className={cn(
                   FILTER_PILL,
-                  includeInactive && "border-nevo-navy bg-nevo-navy/[0.06] text-nevo-navy",
+                  includeInactive &&
+                    "border-nevo-navy bg-nevo-navy/[0.06] text-nevo-navy",
                 )}
               >
                 {includeInactive ? "Showing deactivated" : "Show deactivated"}
@@ -238,11 +248,12 @@ export function StudentsView() {
               {/* Four tracks, matching the rows. Consent sits BEFORE status
                   deliberately: it is the question D07 exists to answer, and the
                   two are easy to conflate when read side by side. */}
-              <div className="grid grid-cols-[1.5fr_1fr_112px_112px] gap-4 border-b border-nevo-near-black/8 bg-nevo-near-black/[0.03] px-6 py-[13px] text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50">
+              <div className="grid grid-cols-[1.5fr_1fr_112px_112px_136px] gap-4 border-b border-nevo-near-black/8 bg-nevo-near-black/[0.03] px-6 py-[13px] text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50">
                 <span>Student</span>
                 <span>Class</span>
                 <span>Consent</span>
                 <span>Status</span>
+                <span className="sr-only">Consent request</span>
               </div>
 
               {visible.length === 0 ? (
@@ -264,70 +275,112 @@ export function StudentsView() {
                 </div>
               ) : (
                 visible.map((s, i) => {
-                  const cls = classOf[s.id] ? classById.get(classOf[s.id]) : undefined;
+                  const cls = classOf[s.id]
+                    ? classById.get(classOf[s.id])
+                    : undefined;
                   // Three states, not two - an invited child is not a
                   // deactivated one. See ./status.
                   const st = studentStatus(s.status);
                   const deactivated = st === "deactivated";
                   return (
-                    <button
+                    /*
+                     * A CONTAINER, not one big button, so D07's "Send
+                     * request" can be a real sibling. Nesting it inside the
+                     * row button would be invalid HTML and its click would
+                     * open the student instead of sending anything.
+                     *
+                     * The button keeps the first four cells and takes its
+                     * tracks from the parent through `grid-cols-subgrid`, so
+                     * the columns still line up with the header and the row
+                     * click still opens the record from anywhere in them.
+                     */
+                    <div
                       key={s.id}
-                      type="button"
-                      onClick={() => router.push(`/admin/students/${s.id}`)}
                       className={cn(
-                        "grid w-full cursor-pointer grid-cols-[1.5fr_1fr_112px_112px] items-center gap-4 px-6 py-[15px] text-left transition-colors hover:bg-nevo-navy/[0.03]",
+                        "grid grid-cols-[1.5fr_1fr_112px_112px_136px] items-center gap-4 transition-colors hover:bg-nevo-navy/[0.03]",
                         i < visible.length - 1 && ROW_DIVIDER,
                       )}
                     >
-                      <span className="flex min-w-0 items-center gap-3">
-                        <Avatar name={s.name} size={34} />
-                        <span className="min-w-0">
-                          <span className="block truncate text-[15px] font-semibold text-nevo-near-black">
-                            {s.name}
-                          </span>
-                          {s.loginIdentifier ? (
-                            <span className="block truncate text-[13px] text-nevo-near-black/60">
-                              {s.loginIdentifier}
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/admin/students/${s.id}`)}
+                        className="col-span-4 grid cursor-pointer grid-cols-subgrid items-center gap-4 py-[15px] pl-6 text-left"
+                      >
+                        <span className="flex min-w-0 items-center gap-3">
+                          <Avatar name={s.name} size={34} />
+                          <span className="min-w-0">
+                            <span className="block truncate text-[15px] font-semibold text-nevo-near-black">
+                              {s.name}
                             </span>
-                          ) : null}
-                        </span>
-                      </span>
-                      <span className="min-w-0 truncate text-sm text-nevo-near-black/66">
-                        {cls ? (
-                          <>
-                            {cls.name}
-                            {yearGroupLabel(cls.yearGroup) ? (
-                              <span className="text-nevo-near-black/45">
-                                {" "}
-                                · {yearGroupLabel(cls.yearGroup)}
+                            {s.loginIdentifier ? (
+                              <span className="block truncate text-[13px] text-nevo-near-black/60">
+                                {s.loginIdentifier}
                               </span>
                             ) : null}
-                          </>
-                        ) : (
-                          <span
-                            aria-hidden="true"
-                            className="block h-3.5 w-20 rounded bg-nevo-near-black/[0.07]"
-                          />
-                        )}
-                      </span>
-                      <span className="flex">
-                        <ConsentPill consent={s.consent} />
-                      </span>
-                      <span className="flex">
-                        <span
-                          className={cn(
-                            "inline-flex flex-none items-center rounded-full px-3 py-1 text-[12.5px] font-semibold text-nevo-navy",
-                            deactivated
-                              ? "bg-nevo-near-black/[0.07] text-nevo-near-black/60"
-                              : st === "invited"
-                                ? "bg-nevo-violet/24"
-                                : "bg-nevo-navy/12",
-                          )}
-                        >
-                          {statusLabel(s.status)}
+                          </span>
                         </span>
+                        <span className="min-w-0 truncate text-sm text-nevo-near-black/66">
+                          {cls ? (
+                            <>
+                              {cls.name}
+                              {yearGroupLabel(cls.yearGroup) ? (
+                                <span className="text-nevo-near-black/45">
+                                  {" "}
+                                  · {yearGroupLabel(cls.yearGroup)}
+                                </span>
+                              ) : null}
+                            </>
+                          ) : (
+                            <span
+                              aria-hidden="true"
+                              className="block h-3.5 w-20 rounded bg-nevo-near-black/[0.07]"
+                            />
+                          )}
+                        </span>
+                        <span className="flex">
+                          <ConsentPill consent={s.consent} />
+                        </span>
+                        <span className="flex">
+                          <span
+                            className={cn(
+                              "inline-flex flex-none items-center rounded-full px-3 py-1 text-[12.5px] font-semibold text-nevo-navy",
+                              deactivated
+                                ? "bg-nevo-near-black/[0.07] text-nevo-near-black/60"
+                                : st === "invited"
+                                  ? "bg-nevo-violet/24"
+                                  : "bg-nevo-navy/12",
+                            )}
+                          >
+                            {statusLabel(s.status)}
+                          </span>
+                        </span>
+                      </button>
+                      <span className="flex justify-end pr-6">
+                        {s.consent && s.consent.status !== "confirmed" ? (
+                          <button
+                            type="button"
+                            onClick={() => sendConsent(s.id)}
+                            disabled={consentStateFor(s.id).kind === "sending"}
+                            className="cursor-pointer text-[13px] font-semibold text-nevo-navy transition-opacity hover:opacity-75 disabled:cursor-wait disabled:opacity-55"
+                          >
+                            {consentStateFor(s.id).kind === "sending"
+                              ? "Sending…"
+                              : consentStateFor(s.id).kind === "done"
+                                ? "Sent"
+                                : "Send request"}
+                          </button>
+                        ) : null}
                       </span>
-                    </button>
+                      {consentRequestLine(consentStateFor(s.id), s.name) &&
+                      consentStateFor(s.id).kind !== "sending" ? (
+                        <p
+                          role="status"
+                          className="col-span-5 m-0 px-6 pb-3 text-[13px] leading-[1.5] text-nevo-near-black/62"
+                        >
+                          {consentRequestLine(consentStateFor(s.id), s.name)}
+                        </p>
+                      ) : null}
+                    </div>
                   );
                 })
               )}
