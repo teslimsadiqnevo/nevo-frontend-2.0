@@ -950,6 +950,55 @@ An account being active is a different fact from a parent having agreed.
 
 ---
 
+## The contract gate now checks RESPONSE SHAPES — 10 Sep
+
+`npm run contract` compared paths and request bodies. It never compared what an
+endpoint ANSWERS with, which is the half that had already broken the console
+twice. **Check 3 closes it, and it found three live drifts on its first run.**
+
+Self-tested: reintroduce the flat `Subscription` and the gate names the exact
+fields and exits 1; restore it and it exits 0.
+
+**1. `RosterSyncHistory` was snake_case; the endpoint answers camelCase.**
+`{windowDays, successfulRuns, failedRuns, runs}`, all required. The client had
+`window_days`, `successful_runs`, `failed_runs` — so every one read `undefined`,
+and `SsoView`'s `(history?.failed_runs ?? 0) > 0` coalesced to 0 and fell into
+the **HEALTHY** branch.
+
+So **the defect PR #269 existed to fix was still live afterwards.** #269 fixed
+the failed-READ path; the field names were wrong on the successful path all
+along. The tests in #293 passed because the fixtures were copied from the client
+interface rather than the spec — a fixture copied from the type under test can
+only prove the code agrees with itself.
+
+**2. `POST /admin/sso/roster-sync` returns 202 `{runId, status, pollUrl}`.** The
+client typed it as a finished result with counts, so "Sync now" rendered
+**"Synced. undefined students and undefined staff imported."** The sync went
+asynchronous on the backend and the frontend never absorbed it — which is also
+why `GET /admin/sso/roster-sync/{run_id}` sat unconsumed: it is the poll target.
+The screen now says a sync has started and claims no numbers it does not have;
+`ssoApi.runDetail` is typed and waiting for the poll to be built.
+
+**3. `PUT /notification-preferences` answers `{preferences, savedCount,
+rejected}`,** not the rows back. Latent — nothing consumes the return — but a
+caller that started to would have read `undefined`.
+
+**What the check gates on, and what it deliberately does not.** It fails the
+build on ONE thing: a property the client DECLARES that the response does not
+have. That is drift with no innocent reading — the field is `undefined` at
+runtime and the code believes otherwise. The converse, a response field the
+interface omits, is NOT an error: a screen may read a subset, and check 2
+already lists fields nothing reads. Being strict there would produce the false
+positives this file's own header warns get a gate switched off.
+
+**Known limits, so nobody over-trusts it:** it compares TOP-LEVEL response types
+only — a wrong shape nested inside (`RosterSyncRun` inside `history.runs`) is
+invisible to it. It skips unions, intersections, inline object literals and
+generics rather than guessing. It reads any 2xx, not just 200/201, which is what
+caught the 202 above.
+
+---
+
 ## Admin console — dialog dismissal, 10 Sep
 
 **Every admin dialog could be dismissed while its own write was in flight**, and
