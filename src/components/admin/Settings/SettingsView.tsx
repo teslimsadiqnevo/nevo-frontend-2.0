@@ -34,9 +34,9 @@ import { SchoolSettings } from "./SchoolSettings";
  *     student between classes, which is a different operation entirely.
  *   - TWO-STEP SIGN-IN (D12c). No endpoint anywhere: no enrolment, no secret,
  *     no verify, no recovery codes.
- *   - PROFILE EDITING (D12c). `GET /api/v1/users/me` is the only route on the
- *     users resource. There is no write, so full name, role title and work
- *     email are shown as the record has them and cannot be changed here.
+ *   - EMAIL AND ROLE TITLE (D12c). `ProfilePatch` carries neither. The NAME is
+ *     editable - this said "there is no write" and `PATCH /api/v1/users/me` has
+ *     been live, typed and consumed by the teacher console since 1 Sep.
  *
  * All three are absent rather than mocked. A settings screen that appears to
  * save and does not is worse than one that admits the control is not built -
