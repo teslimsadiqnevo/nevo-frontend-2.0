@@ -50,7 +50,23 @@ function Medallion({ tone, children }: { tone: "violet" | "navy"; children: Reac
   );
 }
 
-export function TeacherPasswordReset() {
+export function TeacherPasswordReset({
+  /*
+   * BOTH ENDPOINTS BEHIND THIS SCREEN ARE ROLE-AGNOSTIC -
+   * `POST /auth/forgot-password` and `POST /auth/password-reset/complete` - so
+   * the only thing that was ever teacher-specific here is where the links
+   * point. They are props now, defaulting to the teacher paths so that route
+   * is unchanged, and the admin console renders the same screen rather than a
+   * second copy that would drift from it.
+   *
+   * The name is historical; this is the shared password-reset flow.
+   */
+  signInHref = "/auth/teacher",
+  resetHref = "/auth/teacher/reset",
+}: {
+  signInHref?: string;
+  resetHref?: string;
+} = {}) {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token");
@@ -94,13 +110,13 @@ export function TeacherPasswordReset() {
         </p>
         <button
           type="button"
-          onClick={() => router.push("/auth/teacher/reset")}
+          onClick={() => router.push(resetHref)}
           className="mt-7 h-[54px] w-full cursor-pointer rounded-[10px] bg-nevo-navy text-[16px] font-semibold text-nevo-cream transition-[filter,transform] duration-150 hover:brightness-93 active:scale-[0.99]"
         >
           Send a new link
         </button>
         <Link
-          href="/auth/teacher"
+          href={signInHref}
           className="mt-4 cursor-pointer text-[14.5px] font-medium text-nevo-navy"
         >
           {"← Back to sign in"}
@@ -154,7 +170,7 @@ export function TeacherPasswordReset() {
           {", a reset link is on its way. It expires in 30 minutes."}
         </p>
         <Link
-          href="/auth/teacher"
+          href={signInHref}
           className="mt-6 cursor-pointer text-[14.5px] font-medium text-nevo-navy"
         >
           {"← Back to sign in"}
@@ -244,7 +260,7 @@ export function TeacherPasswordReset() {
       </button>
 
       <Link
-        href="/auth/teacher"
+        href={signInHref}
         className="mt-4 cursor-pointer text-[14.5px] font-medium text-nevo-navy"
       >
         {"← Back to sign in"}

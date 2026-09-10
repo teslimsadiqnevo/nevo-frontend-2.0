@@ -1100,6 +1100,39 @@ caught the 202 above.
 
 ---
 
+## Admin password recovery, 10 Sep
+
+`AdminSignIn`'s own failure copy told a locked-out proprietor to "reset your
+password" and gave them **nothing to press**. `/auth/forgot-password` was a
+nine-line placeholder. A proprietor locked out of their own school had no way
+back in.
+
+**Its docblock said "No reset endpoint exists anywhere in the spec."** Two do —
+`POST /auth/forgot-password` and `POST /auth/password-reset/complete` — and the
+TEACHER console has consumed both since 1 Sep. One of the four stale docblocks
+the 10 Sep handoff flagged, and it had "a password reset endpoint" sitting in a
+TODO(api) list for something already live.
+
+**The screen is shared, not copied.** Both endpoints are role-agnostic, so the
+only thing teacher-specific about `TeacherPasswordReset` was where its links
+point; those are props now, defaulting to the teacher paths so that route is
+untouched. A second copy would drift, and the existing one already carries the
+reasoning that matters — the request shows the same confirmation whether or not
+the address is known, so the screen cannot be used to discover who has an
+account.
+
+Three routes now: `/auth/admin/reset` (linked from sign-in),
+`/auth/teacher/reset` (unchanged), and `/auth/forgot-password`, which is real
+rather than a placeholder because **the backend composes the emailed link** and
+this side cannot know which URL it points at. Its sign-in link goes to the
+landing page, which carries both console doors — nothing at that URL knows
+whether the person is a teacher or an admin, so picking one would be a guess.
+
+2 e2e tests in a real browser, one mutation-verified: remove the link from
+sign-in and the path test dies.
+
+---
+
 ## Admin team invite — the 8 Sep defect in its sibling, 10 Sep
 
 `AdminTeamView` rendered **"They'll get an email to set a password and join."**

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks";
@@ -20,14 +21,18 @@ import { cn } from "@/lib/utils";
  * - "Continue with Microsoft 365". The provider comes from the school's own
  *   config, and there is no admin SSO callback screen in the admin set - the
  *   teacher console has C02b, admin has no equivalent.
- * - "Forgot your password?". No reset endpoint exists anywhere in the spec and
- *   no admin reset screen is drawn.
+ * - "Forgot your password?" IS BACK. This said "No reset endpoint exists
+ *   anywhere in the spec and no admin reset screen is drawn". Two exist -
+ *   `POST /auth/forgot-password` and `POST /auth/password-reset/complete` -
+ *   and the teacher console has consumed both since 1 Sep. Meanwhile the error
+ *   at `SIGN_IN_FAILED` told a locked-out proprietor to "reset your password"
+ *   and gave them nothing to press.
  *
  * The success line loses the school name for the same reason: "Taking you to
  * your Overview" rather than the school's.
  *
- * TODO(api): school resolution pre-auth, an SSO start for admins, and a
- * password reset endpoint - then all three come back.
+ * TODO(api): school resolution pre-auth and an SSO start for admins. The reset
+ * endpoint was on this list and should not have been - it was already live.
  * TODO(screen): D17 IT Admin Home and D18 Finance Home. The frame routes each
  * persona to their own landing; until those exist everyone lands on Overview.
  */
@@ -271,6 +276,13 @@ export function AdminSignIn() {
           "Sign in"
         )}
       </button>
+
+      <Link
+        href="/auth/admin/reset"
+        className="mt-4 self-center text-[13.5px] font-semibold text-nevo-navy hover:underline"
+      >
+        Forgot your password?
+      </Link>
     </div>
   );
 }
