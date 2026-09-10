@@ -1100,6 +1100,41 @@ caught the 202 above.
 
 ---
 
+## Admin team invite — the 8 Sep defect in its sibling, 10 Sep
+
+`AdminTeamView` rendered **"They'll get an email to set a password and join."**
+Nothing supported it. The 201 carries `invitation_id`, `user_id`, `email`,
+`role`, `scopes`, `invitation_token` and `expires_at` — and **no delivery state
+of any kind**, unlike the student invites, which carry `deliveryStatus`
+precisely so a screen can tell. So the console could no more promise an email
+than deny one, and it now does neither.
+
+**Worse, the response was discarded.** `.then(() => ...)` threw away
+`invitation_token` — the only way to build an activation link — and then
+`setTimeout(onSent, 1400)` navigated away, so the single copy was gone before
+anybody could act on it. The same shape as the bulk import's dropped join
+tokens, in its sibling surface, three days later.
+
+The screen now holds the invitation on screen until the admin presses Done, and
+hands over the link.
+
+**The link had nowhere to land, which the handoff did not mention.**
+`SetPasswordForm` in activation mode has been live against
+`POST /admin/team/invitations/accept` — the ADMIN TEAM endpoint — all along, but
+the only route rendering it was `/auth/teacher/activate`. So the one flow that
+accepts an admin invitation was reachable only at an address reading "teacher".
+`/auth/admin/activate` now exists and shares the component rather than copying
+it. It is public by the same mechanism the teacher route relies on: the proxy
+matcher lists `/auth/admin` exactly, not `/auth/admin/:path*`.
+
+**Resend and revoke are absent, and said so.** There is no endpoint for either
+on an admin invitation — unlike student invites, which have both — so the panel
+states it plainly instead of offering a control that cannot work.
+
+4 tests, three mutation-verified guards.
+
+---
+
 ## Consent requests — the trigger nothing had, 10 Sep
 
 `consentsApi.requestParentConsent` was typed with **zero callers**, and the

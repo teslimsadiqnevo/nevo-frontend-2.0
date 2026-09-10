@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { teamApi, roleForScopes, type TeamMember } from "@/lib/api/team";
+import {
+  adminActivationLink,
+  teamApi,
+  roleForScopes,
+  type InvitedTeamMember,
+  type TeamMember,
+} from "@/lib/api/team";
 import type { PermissionScope } from "@/lib/constants/permissions";
 import { cn } from "@/lib/utils";
 import { readOnboarding, schoolApi } from "@/lib/api/school";
@@ -42,6 +48,17 @@ import {
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
 
 type Phase = "loading" | "ready" | "failed" | "denied";
+/** "1 October 2026", or nothing when the date is unreadable. */
+function longDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "soon";
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 type SendPhase = "idle" | "sending" | "sent";
 
 function ScopePill({ label }: { label: string }) {
@@ -359,6 +376,8 @@ function InvitePanel({
     () => new Set(SCOPE_CATALOGUE.filter((s) => s.defaultOn).map((s) => s.scope)),
   );
   const [phase, setPhase] = useState<SendPhase>("idle");
+  const [invited, setInvited] = useState<InvitedTeamMember | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
   const count = on.size;
@@ -371,9 +390,16 @@ function InvitePanel({
     const scopes = [...on];
     teamApi
       .invite({ email: email.trim(), role: roleForScopes(scopes), scopes })
-      .then(() => {
+      .then((created) => {
+        /*
+         * KEEP THE RESPONSE. This was `.then(() => ...)`, discarding a 201
+         * whose `invitation_token` is the ONLY way to build an activation
+         * link - and then navigating away 1.4 seconds later, so the one copy
+         * of it was gone before anybody could act on it. The same shape as the
+         * bulk import's dropped join tokens, in its sibling surface.
+         */
+        setInvited(created);
         setPhase("sent");
-        setTimeout(onSent, 1400);
       })
       .catch(() => {
         setPhase("idle");
@@ -390,7 +416,17 @@ function InvitePanel({
           Invite a new admin
         </h2>
         <p className="mt-1.5 text-[15.5px] leading-[1.55] text-nevo-near-black/60">
-          They&rsquo;ll get an email to set a password and join.
+          {/*
+            * WAS: "They'll get an email to set a password and join."
+            *
+            * Nothing supported that. The 201 carries `invitation_id`,
+            * `user_id`, `email`, `role`, `scopes`, `invitation_token` and
+            * `expires_at` - and NO delivery state of any kind, unlike the
+            * student invites, which have `deliveryStatus` precisely so a
+            * screen can tell. So the console can no more promise an email than
+            * deny one, and it does neither: it hands over the link.
+            */}
+          They&rsquo;ll set a password and join from a link you give them.
         </p>
 
         <label
@@ -482,7 +518,7 @@ function InvitePanel({
             {phase === "sending"
               ? "Sending…"
               : phase === "sent"
-                ? `Invitation sent to ${count} scope${count === 1 ? "" : "s"}`
+                ? "Invitation created"
                 : "Send invitation"}
           </button>
           {phase === "idle" && (
@@ -495,6 +531,52 @@ function InvitePanel({
             </button>
           )}
         </div>
+
+        {invited ? (
+          /*
+            * The handover. Held on screen until the admin says they are done -
+            * this used to navigate away on a 1.4s timer, taking the only copy
+            * of the token with it.
+            *
+            * No red, and no claim in either direction about email.
+            */
+          <div className="mt-6 rounded-[10px] bg-nevo-violet/[0.18] px-5 py-4 text-nevo-navy">
+            <p className="m-0 text-[14.5px] leading-[1.55]">
+              <strong>{invited.email}</strong> is invited. Send them this link
+              &ndash; it&rsquo;s how they set a password and join.
+            </p>
+            <div className="mt-3 flex items-center gap-3">
+              <span className="min-w-0 flex-1 truncate rounded-[8px] bg-nevo-cream px-3 py-2 font-mono text-[12.5px] text-nevo-near-black">
+                {adminActivationLink(invited)}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard
+                    ?.writeText(adminActivationLink(invited))
+                    .then(() => setCopied(true))
+                    // A clipboard the browser refuses is not a copy.
+                    .catch(() => setCopied(false));
+                }}
+                className="shrink-0 cursor-pointer text-[13px] font-semibold text-nevo-navy hover:underline"
+              >
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <p className="m-0 mt-2.5 text-[13px] leading-[1.5]">
+              It expires {longDate(invited.expires_at)}. There is no way to
+              resend or cancel an admin invitation yet, so keep this link until
+              they have used it.
+            </p>
+            <button
+              type="button"
+              onClick={onSent}
+              className="mt-3.5 cursor-pointer text-[13.5px] font-semibold text-nevo-navy hover:underline"
+            >
+              Done
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

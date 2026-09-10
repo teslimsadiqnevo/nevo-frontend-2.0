@@ -64,6 +64,24 @@ export function roleForScopes(scopes: PermissionScope[]): UserRole {
   return scopes.includes("senco") ? "senco_admin" : "other_admin";
 }
 
+/**
+ * Where an invited admin sets their password.
+ *
+ * `/auth/admin/activate` rather than the teacher's route: `SetPasswordForm`
+ * has been live against `POST /admin/team/invitations/accept` all along, but
+ * only reachable at a URL reading "teacher", which is not an address to send a
+ * proprietor's new deputy head.
+ *
+ * The email rides along because the accept response carries none, and the form
+ * treats the query as the only thing that knows who is activating.
+ */
+export function adminActivationLink(invited: InvitedTeamMember): string {
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  return `${origin}/auth/admin/activate?token=${encodeURIComponent(
+    invited.invitation_token,
+  )}&email=${encodeURIComponent(invited.email)}`;
+}
+
 export const teamApi = {
   /** GET /api/v1/admin/team - everyone who can administer the school. */
   list: () => api.get<TeamMember[]>("/api/v1/admin/team"),
