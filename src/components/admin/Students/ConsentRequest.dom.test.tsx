@@ -211,4 +211,25 @@ describe("sending a parent the consent request", () => {
     await waitFor(() => expect(list).toHaveBeenCalled());
     expect(screen.queryByRole("button", { name: "Send request" })).toBeNull();
   });
+  it("infers the channel from the contact when the record's is unusable", async () => {
+    /*
+     * `ParentLink.contact_method` is a bare `string` on our side while the
+     * endpoint takes the `email | sms` enum, so an unrecognised value would be
+     * passed straight through and 422'd. A phone number goes by SMS.
+     */
+    list.mockResolvedValue([student()]);
+    parentLinks.mockResolvedValue([
+      link({ contact_method: "whatsapp", parent_contact: "+2348012345678" }),
+    ]);
+    requestParentConsent.mockResolvedValue(receipt("sent"));
+
+    render(<StudentsView />);
+    await press();
+
+    await waitFor(() => expect(requestParentConsent).toHaveBeenCalled());
+    expect(requestParentConsent).toHaveBeenCalledWith(
+      "s1",
+      expect.objectContaining({ contact_method: "sms" }),
+    );
+  });
 });
