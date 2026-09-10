@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import type { AdminClass } from "@/lib/api/classes";
-import { invitesApi, type Invitation, type InviteRole } from "@/lib/api/invites";
+import {
+  invitesApi,
+  type Invitation,
+  type InviteRole,
+} from "@/lib/api/invites";
 import { cn } from "@/lib/utils";
 import { deliveryLine, parentConsentLine } from "./deliveryCopy";
 import {
@@ -38,7 +42,8 @@ import { splitName } from "./csv";
  * All three are raised with backend.
  */
 
-const LABEL = "mb-[7px] block text-[12.5px] font-semibold text-nevo-near-black/60";
+const LABEL =
+  "mb-[7px] block text-[12.5px] font-semibold text-nevo-near-black/60";
 
 const FIELD =
   "h-[50px] w-full rounded-[10px] border-[1.5px] border-nevo-near-black/16 bg-nevo-cream px-[15px] text-[15px] text-nevo-near-black outline-none transition-colors focus:border-nevo-navy";
@@ -120,7 +125,11 @@ export function NewInviteModal({
         }}
         footer={
           <>
-            <button type="button" onClick={reset} className={cn(GHOST_BTN, "flex-1")}>
+            <button
+              type="button"
+              onClick={reset}
+              className={cn(GHOST_BTN, "flex-1")}
+            >
               Send another
             </button>
             <button
@@ -227,6 +236,7 @@ export function NewInviteModal({
   // --------------------------------------------------------------- FORM ---
   return (
     <Modal
+      busy={phase === "sending"}
       title={isStudent ? "Invite a student" : "Invite a teacher"}
       subtitle="You'll get a link to join your school on Nevo, to send on or share"
       onClose={onClose}
@@ -238,7 +248,11 @@ export function NewInviteModal({
           </div>
         ) : (
           <>
-            <button type="button" onClick={onClose} className={cn(GHOST_BTN, "flex-1")}>
+            <button
+              type="button"
+              onClick={onClose}
+              className={cn(GHOST_BTN, "flex-1")}
+            >
               Cancel
             </button>
             <button
@@ -300,7 +314,9 @@ export function NewInviteModal({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder={isStudent ? "chisom.e@school.edu.ng" : "adeyemi.f@school.edu.ng"}
+            placeholder={
+              isStudent ? "chisom.e@school.edu.ng" : "adeyemi.f@school.edu.ng"
+            }
             autoComplete="off"
             className={FIELD}
           />
