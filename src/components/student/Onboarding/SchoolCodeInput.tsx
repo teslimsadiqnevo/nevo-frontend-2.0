@@ -7,75 +7,62 @@ import { cn } from "@/lib/utils";
 
 export type CodeStatus = "idle" | "pending" | "success" | "error";
 
-const CODE_LENGTH = 4;
+/** `SchoolCodeRequest` is minLength 2, maxLength 50. */
+export const CODE_MIN = 2;
+export const CODE_MAX = 50;
+
+/** Uppercase; letters, digits and the hyphen real codes use. */
+export function normaliseCode(raw: string): string {
+  return raw
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, "")
+    .slice(0, CODE_MAX);
+}
+
+export function codeIsEnterable(code: string): boolean {
+  return code.trim().length >= CODE_MIN;
+}
 
 /**
- * School-code entry (UI/UX spec B.2 Step 2). Renders the fixed `NEVO–` prefix
- * plus a 4-character code field: auto-advancing single-char boxes, uppercase
- * alphanumeric, backspace steps back. Border colour + trailing icon reflect the
- * validation status (idle / pending / success / warm-toned error).
+ * School-code entry (UI/UX spec B.2 Step 2).
+ *
+ * THIS USED TO BE FOUR BOXES BEHIND A FIXED `NEVO–` PREFIX, and it was the wall
+ * every child hit. Real codes are neither: our own E2E tenant's is `751A1136`
+ * (eight characters, no prefix) and `BGA-4827` is another shape again. The step
+ * posted `NEVO-${entered}`, `SchoolCodeRequest` is an exact 2-50 character
+ * lookup with no server-side normalisation to rescue it, and Continue was gated
+ * on a success that could never arrive. Every entrance funnels through here, so
+ * no child could reach the product at all.
+ *
+ * SO IT NO LONGER GUESSES A SHAPE. Swapping four boxes for eight would have
+ * been the same mistake with a different number - the contract says 2 to 50
+ * arbitrary characters, and a fixed-length field is a guess about a format that
+ * is not ours to decide. One field, uppercased, trimmed, hyphen kept, and the
+ * SERVER decides whether it names a school.
+ *
+ * A code is submitted deliberately - Return, or the step's own button - rather
+ * than fired the moment it looks full, because with no fixed length there is no
+ * such moment, and checking on every keystroke would tell a child their
+ * half-typed code was wrong.
  */
 export function SchoolCodeInput({
   value,
   onChange,
-  onComplete,
+  onSubmit,
   status,
 }: {
-  value: string[];
-  onChange: (next: string[]) => void;
-  onComplete: (code: string) => void;
+  value: string;
+  onChange: (next: string) => void;
+  /** Return, or an on-screen keyboard's return key. */
+  onSubmit: (code: string) => void;
   status: CodeStatus;
 }) {
-  const refs = useRef<Array<HTMLInputElement | null>>([]);
-  // A.12: the Nevo Keyboard opens while a code box is focused (touch). It stays
-  // open across the auto-advance between boxes; a hardware keyboard still types
-  // on desktop, where the on-screen one is hidden.
-  const [activeIndex, setActiveIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [kbOpen, setKbOpen] = useState(false);
 
-  const setChar = (i: number, raw: string) => {
-    const ch = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(-1);
-    const next = value.slice();
-    next[i] = ch;
-    onChange(next);
-    if (ch && i < CODE_LENGTH - 1) refs.current[i + 1]?.focus();
-    if (next.every((c) => c !== "")) onComplete(next.join(""));
-  };
-
-  const handleKeyDown = (
-    i: number,
-    e: React.KeyboardEvent<HTMLInputElement>,
-  ) => {
-    if (e.key === "Backspace" && !value[i] && i > 0) {
-      e.preventDefault();
-      const next = value.slice();
-      next[i - 1] = "";
-      onChange(next);
-      refs.current[i - 1]?.focus();
-    }
-  };
-
-  // On-screen backspace: clear the active box, or step back and clear the previous.
-  const kbBackspace = () => {
-    const next = value.slice();
-    if (value[activeIndex]) {
-      next[activeIndex] = "";
-      onChange(next);
-    } else if (activeIndex > 0) {
-      next[activeIndex - 1] = "";
-      onChange(next);
-      refs.current[activeIndex - 1]?.focus();
-    }
-  };
-
-  // Close only when focus leaves the field entirely (not on auto-advance).
-  // ~120ms debounce per the frontend handoff's keyboard-docking guidance.
-  const handleBlur = () => {
-    setTimeout(() => {
-      if (!refs.current.some((el) => el && el === document.activeElement)) {
-        setKbOpen(false);
-      }
-    }, 120);
+  const submit = () => {
+    const code = value.trim();
+    if (codeIsEnterable(code)) onSubmit(code);
   };
 
   const fieldBorder =
@@ -84,54 +71,43 @@ export function SchoolCodeInput({
       : status === "error"
         ? "border-nevo-violet"
         : "border-nevo-near-black/[0.16]";
-  const boxBorder =
-    status === "success"
-      ? "border-b-nevo-navy"
-      : status === "error"
-        ? "border-b-nevo-violet"
-        : "border-b-nevo-near-black/[0.32]";
 
   return (
     <div
       className={cn(
-        "relative flex h-15 w-full items-center justify-center rounded-[10px] border-[1.5px] bg-nevo-cream px-4 shadow-elevation-1 transition-colors sm:h-17",
+        "relative flex h-15 w-full items-center rounded-[10px] border-[1.5px] bg-nevo-cream px-4 shadow-elevation-1 transition-colors sm:h-17",
         fieldBorder,
       )}
     >
-      <span className="text-[22px] font-bold tracking-[0.04em] text-nevo-navy sm:text-[28px]">
-        NEVO
-      </span>
-      <span className="mx-[7px] text-[22px] font-bold text-nevo-near-black/30 sm:mx-2 sm:text-[28px]">
-        –
-      </span>
-
-      <div className="flex gap-2.5 sm:gap-3">
-        {value.map((c, i) => (
-          <input
-            key={i}
-            ref={(el) => {
-              refs.current[i] = el;
-            }}
-            value={c}
-            onChange={(e) => setChar(i, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(i, e)}
-            onFocus={() => {
-              setActiveIndex(i);
-              setKbOpen(true);
-            }}
-            onBlur={handleBlur}
-            maxLength={1}
-            inputMode="none"
-            autoComplete="off"
-            autoFocus={i === 0}
-            aria-label={`Code character ${i + 1}`}
-            className={cn(
-              "h-8 w-[38px] border-0 border-b-2 bg-transparent text-center text-[23px] font-bold uppercase tracking-[0.02em] text-nevo-near-black outline-none transition-colors sm:h-[38px] sm:w-11 sm:text-[28px]",
-              boxBorder,
-            )}
-          />
-        ))}
-      </div>
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => onChange(normaliseCode(e.target.value))}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            submit();
+          }
+        }}
+        onFocus={() => setKbOpen(true)}
+        // ~120ms debounce per the handoff's keyboard-docking guidance.
+        onBlur={() => {
+          setTimeout(() => {
+            if (document.activeElement !== inputRef.current) setKbOpen(false);
+          }, 120);
+        }}
+        maxLength={CODE_MAX}
+        // A.12: the Nevo Keyboard is the input on touch; a hardware keyboard
+        // still types on desktop, where the on-screen one is hidden.
+        inputMode="none"
+        autoComplete="off"
+        autoCapitalize="characters"
+        autoFocus
+        enterKeyHint="go"
+        aria-label="School code"
+        placeholder="Type your school code"
+        className="h-full min-w-0 flex-1 bg-transparent pr-8 text-[22px] font-bold tracking-[0.06em] text-nevo-near-black uppercase outline-none placeholder:text-[15px] placeholder:font-normal placeholder:tracking-normal placeholder:text-nevo-near-black/35 sm:text-[26px]"
+      />
 
       {(status === "pending" || status === "success") && (
         <div className="absolute top-1/2 right-4 flex size-7 -translate-y-1/2 items-center justify-center">
@@ -148,8 +124,9 @@ export function SchoolCodeInput({
       {kbOpen && (
         <NevoKeyboard
           layout="qwerty"
-          onKey={(ch) => setChar(activeIndex, ch)}
-          onBackspace={kbBackspace}
+          onKey={(ch) => onChange(normaliseCode(value + ch))}
+          onBackspace={() => onChange(value.slice(0, -1))}
+          onReturn={submit}
           className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
         />
       )}
