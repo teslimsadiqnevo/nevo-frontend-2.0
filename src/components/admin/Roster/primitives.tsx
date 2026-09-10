@@ -182,6 +182,44 @@ export function SectionHeading({ children }: { children: React.ReactNode }) {
  * Dismissal is Escape or a backdrop press, per G1. Focus moves into the sheet
  * on open so a keyboard reaches the fields without tabbing the page behind it.
  */
+/**
+ * DISMISSAL WHILE A WRITE IS IN FLIGHT.
+ *
+ * Both overlays dismiss three ways - Escape, a backdrop press, and the X - and
+ * none of them could see whether the dialog had started a POST. So an admin
+ * could reflex-press Escape at a spinner, the request would land (there is no
+ * AbortController anywhere in `lib/api`, so a dismissed request always
+ * completes), and the `.then` would set state on an unmounted tree, which
+ * React discards in silence. The dialog's own honest copy - "the class was
+ * created, but the teacher wasn't assigned", the erase confirmation, the
+ * half-applied count on a bulk revoke - was never shown to anybody.
+ *
+ * That is the INVERSE of the law this console has fixed fifteen times over: a
+ * write that DID happen, reading as one that did not. `WriteFailed`'s own
+ * header states the assumption every one of those fixes was built on - "the
+ * dialog stays open and the button stays pressable, because the admin's intent
+ * has not been served yet" - and the primitive was the one thing that could
+ * take the dialog away before the promise resolved.
+ *
+ * THE RULE: reflex dismissal is inert while `busy`; deliberate dismissal is not.
+ *
+ *   Escape   - inert. It carries no target and no confirmation, and it is the
+ *              gesture most likely to be fired BECAUSE a write is slow.
+ *   Backdrop - inert. It fires on mousedown, before a release could be
+ *              redirected, so it already catches a click meant to refocus the
+ *              window. Pressing empty space is not a statement about a POST.
+ *   The X    - STAYS LIVE. It is the only route that must be acquired and
+ *              clicked, the only one named in the accessibility tree, and the
+ *              only one a keyboard reaches by decision rather than by reflex.
+ *              Every dialog here already withdraws its own Cancel mid-write,
+ *              so deadening the X too would leave a browser reload as the only
+ *              exit - which loses strictly more than the dismissal does.
+ *
+ * Three overlays outside this file already worked this way by hand and are the
+ * precedent: `AdminSignOutModal` gates Escape on `!busy`, `BillingContactSheet`
+ * and `SsoView` gate their backdrops. None of the three has an X, which is why
+ * they are silent on it.
+ */
 export function Sheet({
   title,
   subtitle,
@@ -194,6 +232,7 @@ export function Sheet({
    * invite sheet" - it carries a scrolling list rather than two fields.
    */
   widthClass = "max-w-[420px]",
+  busy = false,
 }: {
   title: string;
   subtitle?: string | null;
@@ -201,12 +240,27 @@ export function Sheet({
   children: React.ReactNode;
   footer: React.ReactNode;
   widthClass?: string;
+  /** True while this dialog's own write is in flight. See the note above. */
+  busy?: boolean;
 }) {
   const panel = useRef<HTMLDivElement>(null);
 
+  /*
+   * `busy` is read through a ref, not closed over.
+   *
+   * The effect's deps are `[onClose]`, and most callers pass a stable handler,
+   * so a `busy` read inside the listener would be captured on the first run
+   * and stay `false` for the life of the dialog - the guard would look right
+   * in the source and do nothing at all. Adding `busy` to the deps instead
+   * would re-register the listener on every toggle, which is fine but noisier;
+   * a ref keeps one listener and always reads the current value.
+   */
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !busyRef.current) onClose();
     };
     document.addEventListener("keydown", onKey);
     panel.current?.focus();
@@ -217,6 +271,7 @@ export function Sheet({
     <div
       className="fixed inset-0 z-50 flex justify-end bg-nevo-near-black/28 backdrop-blur-[0.4px] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200"
       onMouseDown={(e) => {
+        if (busy) return;
         if (e.target === e.currentTarget) onClose();
       }}
     >
@@ -225,6 +280,7 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        aria-busy={busy}
         tabIndex={-1}
         className={cn(
           "flex h-full w-full flex-col bg-nevo-cream shadow-[-8px_0_32px_rgba(0,0,0,0.16)] outline-none motion-safe:animate-nevo-sheet-r",
@@ -273,6 +329,7 @@ export function Sheet({
  */
 export function Modal({
   title,
+  busy = false,
   subtitle,
   onClose,
   children,
@@ -286,12 +343,18 @@ export function Modal({
   children: React.ReactNode;
   footer: React.ReactNode;
   widthClass?: string;
+  /** True while this dialog's own write is in flight. See `Sheet`'s note. */
+  busy?: boolean;
 }) {
   const panel = useRef<HTMLDivElement>(null);
 
+  /** Through a ref for the same reason as `Sheet` - the deps are `[onClose]`. */
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !busyRef.current) onClose();
     };
     document.addEventListener("keydown", onKey);
     panel.current?.focus();
@@ -302,6 +365,7 @@ export function Modal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-nevo-near-black/28 p-6 backdrop-blur-[0.4px] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200"
       onMouseDown={(e) => {
+        if (busy) return;
         if (e.target === e.currentTarget) onClose();
       }}
     >
@@ -310,6 +374,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        aria-busy={busy}
         tabIndex={-1}
         className={cn(
           "flex max-h-full w-full flex-col overflow-y-auto rounded-2xl bg-nevo-cream p-7 shadow-[0_20px_56px_rgba(0,0,0,0.28)] outline-none motion-safe:animate-nevo-rise",

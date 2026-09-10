@@ -63,6 +63,7 @@ export function EraseRecordModal({
 
   return (
     <Modal
+      busy={phase === "erasing"}
       title={`Erase ${firstName}'s record`}
       subtitle={studentName}
       onClose={onClose}
@@ -130,7 +131,9 @@ export function EraseRecordModal({
           aria-invalid={mismatch}
           className={cn(
             "mt-2 h-[50px] w-full rounded-[10px] border-[1.5px] bg-nevo-cream px-[15px] text-[15px] text-nevo-near-black outline-none transition-colors",
-            mismatch ? "border-nevo-violet" : "border-nevo-near-black/16 focus:border-nevo-navy",
+            mismatch
+              ? "border-nevo-violet"
+              : "border-nevo-near-black/16 focus:border-nevo-navy",
           )}
         />
         {mismatch ? (

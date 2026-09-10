@@ -438,6 +438,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
 
       {confirmDeactivate ? (
         <Modal
+          busy={working}
           title={`Remove ${firstName} from the school`}
           subtitle={name}
           onClose={() => {

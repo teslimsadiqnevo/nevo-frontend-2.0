@@ -42,7 +42,8 @@ import {
  * prevent that.
  */
 
-const LABEL = "mb-[7px] block text-[12.5px] font-semibold text-nevo-near-black/60";
+const LABEL =
+  "mb-[7px] block text-[12.5px] font-semibold text-nevo-near-black/60";
 
 type Phase = "idle" | "assigning" | "assigned" | "failed";
 
@@ -156,8 +157,11 @@ export function AssignTeacherSheet({
 
   return (
     <Sheet
+      busy={phase === "assigning"}
       title="Assign a teacher"
-      subtitle={classSubtitle ? `to ${className} · ${classSubtitle}` : `to ${className}`}
+      subtitle={
+        classSubtitle ? `to ${className} · ${classSubtitle}` : `to ${className}`
+      }
       onClose={onClose}
       footer={
         phase === "assigning" ? (
@@ -219,13 +223,13 @@ export function AssignTeacherSheet({
           ))}
         </select>
         {/*
-          * THREE DIFFERENT THINGS, and all three used to say the same sentence.
-          *
-          * A school that has not invited any staff yet is the FIRST-RUN state -
-          * the Classes screen's own empty state tells them to "Create your
-          * first class, then assign a teacher", so they arrive here with an
-          * empty roster by design and were told everyone already teaches it.
-          */}
+         * THREE DIFFERENT THINGS, and all three used to say the same sentence.
+         *
+         * A school that has not invited any staff yet is the FIRST-RUN state -
+         * the Classes screen's own empty state tells them to "Create your
+         * first class, then assign a teacher", so they arrive here with an
+         * empty roster by design and were told everyone already teaches it.
+         */}
         {read === "loading" ? (
           /* Nothing is known yet, so nothing is said. */
           <p className="mt-2 text-[12.5px] leading-[1.5] text-nevo-near-black/45">

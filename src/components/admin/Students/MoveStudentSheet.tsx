@@ -48,7 +48,9 @@ export function MoveStudentSheet({
   const [phase, setPhase] = useState<Phase>("idle");
 
   const firstName = studentName.split(" ").filter(Boolean)[0] ?? studentName;
-  const options = classes.filter((c) => c.id !== currentClass?.id && !c.archivedAt);
+  const options = classes.filter(
+    (c) => c.id !== currentClass?.id && !c.archivedAt,
+  );
   const dest = options.find((c) => c.id === destination);
 
   const move = () => {
@@ -61,10 +63,13 @@ export function MoveStudentSheet({
   };
 
   const describe = (c: AdminClass | null | undefined) =>
-    c ? [c.name, yearGroupLabel(c.yearGroup)].filter(Boolean).join(" · ") : "No class";
+    c
+      ? [c.name, yearGroupLabel(c.yearGroup)].filter(Boolean).join(" · ")
+      : "No class";
 
   return (
     <Sheet
+      busy={phase === "moving"}
       title={`Move ${firstName} to another class`}
       subtitle="Nothing about their learning changes."
       onClose={onClose}
@@ -72,13 +77,15 @@ export function MoveStudentSheet({
         phase === "moving" ? (
           <div className="flex flex-1 items-center justify-center gap-2.5 py-3">
             <Spinner />
-            <span className="text-sm text-nevo-near-black/60">Moving {firstName}…</span>
+            <span className="text-sm text-nevo-near-black/60">
+              Moving {firstName}…
+            </span>
           </div>
         ) : phase === "failed" ? (
           <>
             <FailureLine>
-              That didn&rsquo;t go through, and nothing has changed.
-              We&rsquo;re on it.
+              That didn&rsquo;t go through, and nothing has changed. We&rsquo;re
+              on it.
             </FailureLine>
             <button type="button" onClick={move} className={PRIMARY_BTN}>
               Try again
@@ -142,7 +149,9 @@ export function MoveStudentSheet({
               {firstName} joins {dest.name} and their new teachers can see them.
             </li>
             <li>
-              {currentClass ? `Their ${currentClass.name} teachers no longer will.` : null}
+              {currentClass
+                ? `Their ${currentClass.name} teachers no longer will.`
+                : null}
             </li>
             <li className="font-semibold text-nevo-navy">
               Their progress, profile and history all move with them. Nothing

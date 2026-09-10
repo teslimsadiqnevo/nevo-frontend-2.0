@@ -515,6 +515,10 @@ function ArchiveConfirm({
   const working = pressed && !failed;
   return (
     <Modal
+      /* `working` is already a faithful in-flight flag: true from the press
+         until either the archive lands (and the parent unmounts this) or a
+         refusal arrives. No separate state needed. */
+      busy={working}
       title="Archive this class?"
       subtitle={className}
       onClose={onCancel}

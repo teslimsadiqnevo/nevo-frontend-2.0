@@ -111,6 +111,7 @@ export function RemoveAccessSheet({
   if (held.length === 0) {
     return (
       <Sheet
+      busy={phase === "working"}
         title="Remove access?"
         subtitle={teacher.name}
         onClose={onClose}
@@ -157,6 +158,7 @@ export function RemoveAccessSheet({
 
   return (
     <Sheet
+      busy={phase === "working"}
       title="Remove admin-side access"
       subtitle={teacher.name}
       onClose={onClose}
