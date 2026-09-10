@@ -51,24 +51,33 @@ export function AssignmentSchedule({
 }: {
   assignments: Assignment[];
 }) {
-  const { classes } = useTeacherClasses();
+  // `options`, NOT `classes`. `useTeacherClasses` fills `classes` only on the
+  // signed-OUT fixture path and returns `classes: []` for a real teacher, so
+  // reading it meant every row on this screen rendered "A class" for the only
+  // people who can reach it. `options` carries {id, name} on both paths - its
+  // own comment calls it "all any picker or selector actually needs".
+  const { options: classOptions } = useTeacherClasses();
   // Ids this component has itself cancelled. Kept locally rather than
   // refetching: we know exactly which writes the server accepted, so echoing
   // them is honest, and a refetch would need a refresh seam the route does not
   // have. Anything we did NOT successfully change stays as the server sent it.
   const [cancelled, setCancelled] = useState<Set<string>>(new Set());
+  // Ids this component has RESTORED. Needed as its own set because a group can
+  // arrive already cancelled from the server, in which case there is nothing in
+  // `cancelled` to remove - the restoration has to override the wire value.
+  const [restored, setRestored] = useState<Set<string>>(new Set());
   const [edited, setEdited] = useState<Record<string, { availableFrom: string | null; dueAt: string | null }>>({});
   const [busy, setBusy] = useState<Busy>(null);
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
 
-  const groups = groupByClass(assignments, cancelled, edited);
+  const groups = groupByClass(assignments, cancelled, edited, restored);
   if (groups.length === 0) return null;
 
   const nameFor = (classId: string | null) => {
     if (!classId) return "Individual students";
-    return classes.find((c) => c.id === classId)?.name ?? "A class";
+    return classOptions.find((c) => c.id === classId)?.name ?? "A class";
   };
 
   async function cancelGroup(g: Group) {
@@ -91,6 +100,31 @@ export function AssignmentSchedule({
         retry: failed,
       });
     }
+  }
+
+  async function restoreGroup(g: Group) {
+    setBusy({ key: g.key, kind: "cancel" });
+    setOutcome(null);
+    const { ok, failed } = await applyToAssignments(g.ids, { status: "assigned" });
+    setRestored((prev) => new Set([...prev, ...ok]));
+    setCancelled((prev) => {
+      const next = new Set(prev);
+      for (const id of ok) next.delete(id);
+      return next;
+    });
+    setBusy(null);
+    setOutcome(
+      failed.length === 0
+        ? { key: g.key, kind: "done", text: "Set again. Students can see this lesson." }
+        : ok.length === 0
+          ? { key: g.key, kind: "failed", text: "Nothing was set again. Please try again." }
+          : {
+              key: g.key,
+              kind: "partial",
+              text: `Set again for ${ok.length} of ${g.ids.length} students.`,
+              retry: failed,
+            },
+    );
   }
 
   async function saveDates(g: Group, availableFrom: string | null, dueAt: string | null) {
@@ -152,6 +186,20 @@ export function AssignmentSchedule({
                     {" · "}
                     {describeWindow(g.availableFrom, g.dueAt)}
                   </p>
+                  {/* PATCH was chosen over DELETE precisely because it is
+                      reversible. Without this the argument was theoretical, and
+                      a teacher who cancelled the wrong class was left in the
+                      same dead end the whole change set out to remove. */}
+                  {g.cancelled && (
+                    <button
+                      type="button"
+                      disabled={working}
+                      onClick={() => void restoreGroup(g)}
+                      className="mt-2 cursor-pointer text-[13.5px] font-semibold text-nevo-navy underline underline-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      {working ? "Setting again…" : "Set it again"}
+                    </button>
+                  )}
                 </div>
 
                 {!g.cancelled && (
@@ -333,6 +381,7 @@ export function groupByClass(
   assignments: Assignment[],
   cancelled: Set<string>,
   edited: Record<string, { availableFrom: string | null; dueAt: string | null }>,
+  restored: Set<string> = new Set(),
 ): Group[] {
   const by = new Map<string, Assignment[]>();
   for (const a of assignments) {
@@ -355,8 +404,12 @@ export function groupByClass(
       // Cancelled only when EVERY row in the group is - a group with one live
       // row is still set for that child, and saying otherwise would be a lie
       // about who can see the lesson.
+      // A restoration overrides both the local cancel and the wire value: it
+      // is the most recent thing we know actually happened on the server.
       cancelled: rows.every(
-        (r) => cancelled.has(r.id) || r.status === "cancelled",
+        (r) =>
+          !restored.has(r.id) &&
+          (cancelled.has(r.id) || r.status === "cancelled"),
       ),
     };
   });
