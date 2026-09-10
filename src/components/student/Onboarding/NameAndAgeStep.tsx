@@ -51,8 +51,23 @@ export function nextStepAfterName(draft: OnboardingDraft): string {
  */
 export function NameAndAgeStep() {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [ageText, setAgeText] = useState("");
+  /*
+   * SEEDED FROM THE DRAFT, because a child can arrive here having already
+   * answered this. The empty-roster dead end on the class step routes back to
+   * Teacher Join, which resumes at this screen - so a child who typed their
+   * name two screens ago was asked for it again, with the box blank, as though
+   * nothing they had done had counted.
+   *
+   * A lazy initialiser rather than an effect: `sessionStorage` is invisible to
+   * the server, and this is a client component reached only by navigation, so
+   * there is no server render to disagree with. An effect would blank the field
+   * for a frame and fight anything already typed.
+   */
+  const [name, setName] = useState(() => getOnboardingDraft().name ?? "");
+  const [ageText, setAgeText] = useState(() => {
+    const age = getOnboardingDraft().age;
+    return age == null ? "" : String(age);
+  });
   // A.12: the Nevo Keyboard opens while the name field is focused (touch); a
   // hardware keyboard still types on desktop, where the on-screen one is hidden.
   const kb = useNevoKeyboardDock();
