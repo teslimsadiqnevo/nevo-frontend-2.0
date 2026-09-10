@@ -27,6 +27,48 @@ test.describe("the landing page", () => {
   });
 });
 
+test.describe("the way in", () => {
+  /*
+   * The registration wizard had NO ENTRANCE. Its only two references in `src`
+   * were `proxy.ts`'s pre-auth allowlist and `AdminShell`'s bare-route list -
+   * both config, neither a link - so the only href on the whole landing
+   * surface was a mailto, and a school could reach sign-up only if somebody
+   * sent them the URL out of band.
+   *
+   * This lives in the browser rather than in a unit test because a link that
+   * exists in the JSX and is covered by a fixed nav, or points at a route that
+   * 404s, is still not an entrance.
+   */
+  test("offers a school a way to sign up and a way back in", async ({ page }) => {
+    await page.goto("/");
+
+    const signUp = page.locator('a[href="/admin/onboarding"]').first();
+    await expect(signUp).toBeVisible();
+
+    const signIn = page.locator('a[href="/auth/admin"]').first();
+    await expect(signIn).toBeVisible();
+  });
+
+  test("the sign-up link actually reaches the wizard", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('a[href="/admin/onboarding"]').first().click();
+    await page.waitForURL("**/admin/onboarding");
+    // `proxy.ts` lists this route as PRE-AUTH, so a stranger must land on it
+    // rather than be bounced to sign-in.
+    await expect(page).toHaveURL(/\/admin\/onboarding/);
+    await expect(page.locator("body")).toBeVisible();
+  });
+
+  test("the bare console address does not 404", async ({ page }) => {
+    // `/admin` had no page at all while being guarded as a real route, so a
+    // signed-in admin who typed it got the global not-found. Signed out, the
+    // proxy should send us to sign-in - never to a 404.
+    const response = await page.goto("/admin");
+    expect(response?.status()).toBeLessThan(400);
+    await expect(page).not.toHaveURL(/not-found/);
+  });
+});
+
 test.describe("the TOSSE interest page", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/tosse");

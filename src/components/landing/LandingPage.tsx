@@ -282,6 +282,45 @@ function Footer() {
                   color: "#9a9ccb",
                 }}
               >
+                Your school
+              </div>
+              <div
+                style={{
+                  marginTop: 18,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 13,
+                }}
+              >
+                {/*
+                  * THE REGISTRATION WIZARD HAD NO ENTRANCE. Its only two
+                  * references in the whole of `src` were `proxy.ts`'s pre-auth
+                  * allowlist and `AdminShell`'s bare-route list - both config,
+                  * neither a link - so a school could only reach it if someone
+                  * sent them the URL. `proxy.ts` listing it as PRE-AUTH is the
+                  * decision that it is a public door; it simply had no handle.
+                  *
+                  * Sign-in was missing too: before this, the only href on the
+                  * entire landing surface was a mailto.
+                  */}
+                <a href="/admin/onboarding" className="nv-dark" style={footLink}>
+                  Set up your school
+                </a>
+                <a href="/auth/admin" className="nv-dark" style={footLink}>
+                  Sign in
+                </a>
+              </div>
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "2px",
+                  textTransform: "uppercase",
+                  color: "#9a9ccb",
+                }}
+              >
                 Get in touch
               </div>
               <div
@@ -423,6 +462,11 @@ export function LandingPage() {
                 {l.label}
               </a>
             ))}
+            {/* The only way back into a school you already have. Quiet text
+                rather than a third button, so the two CTAs keep their weight. */}
+            <a href="/auth/admin" className="nv-dark" style={navLink}>
+              Sign in
+            </a>
             {/* Reference (20 Aug sync): BOTH nav CTAs, grouped - the outlined
                 "Watch demo" (-> adapt scrub) beside the navy "Start the
                 conversation" (-> form). The 10 Aug port dropped the navy one
