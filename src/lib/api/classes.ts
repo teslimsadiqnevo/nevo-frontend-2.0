@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { StudentConsent } from "./students";
 
 /** The deployed `ClassSource` enum. There is no "sso" member. */
 export type ClassSource = "manual" | "roster_sync";
@@ -89,6 +90,23 @@ export interface ClassStudent {
   observations?: LearnerObservation[];
   /** Which seat the student occupies against the school's allowance. */
   seatContext: string;
+  /**
+   * DROPPED ON THE FLOOR UNTIL 10 SEP.
+   *
+   * `ClassStudentResponse.consent` is REQUIRED in the contract - the same
+   * `StudentConsentSummaryResponse` the roster carries - and this interface
+   * simply did not declare it, so the field arrived on every class roster read
+   * and was discarded. Meanwhile `ClassDetailView`'s own marker called the
+   * absent consent column "the single biggest gap" on that screen.
+   *
+   * The response-shape check in `scripts/contract-check.mjs` cannot catch this
+   * direction: it gates on properties the CLIENT declares that the response
+   * lacks, deliberately, because a screen is entitled to read a subset. A
+   * required field the client ignores is check 2's advisory list, and only
+   * when NOTHING in the client names it - `consent` is named all over the
+   * students lane, so it never showed up.
+   */
+  consent?: StudentConsent | null;
 }
 
 /**

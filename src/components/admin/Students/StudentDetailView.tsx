@@ -47,7 +47,11 @@ import { WriteFailed } from "../WriteFailed";
  * deactivated, and is gated on the typed name. Nothing goes from live to
  * erased in a single pass.
  *
- * TODO(api): the CONSENT card is not built. `GET /api/v1/students/{id}`
+ * TODO(api): BUILT, and this marker outlived it. `StudentDetailResponse.consent` is a
+ * REQUIRED `{status, actorId, actorName, timestamp, channel}` - all four
+ * things it says are missing - and the card is rendered in this very file
+ * (the `Consent` section, with `ConsentPill` and `consentDetailLine`).
+ * Formerly: "the CONSENT card is not built." `GET /api/v1/students/{id}`
  * carries no consent state, no giver, no date and no channel, and
  * `parent-links` carries `account_created`, which answers a different
  * question. The card is a record a school may have to stand behind, so it is

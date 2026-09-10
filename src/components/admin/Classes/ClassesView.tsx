@@ -43,7 +43,11 @@ import { NoAccess, failureKind } from "../NoAccess";
  * classes, wrong at four hundred. Folding teachers into the list response
  * deletes this entire mechanism.
  *
- * TODO(api): no endpoint reports when the SSO roster last synced, so the
+ * TODO(api): WRONG - `GET /api/v1/admin/sso/status` carries
+ * `last_successful_sync_at` (required), it is declared in `lib/api/sso.ts`,
+ * and `SsoView` already renders it. What is missing is only that THIS
+ * screen does not make that call. Formerly: "no endpoint reports when the
+ * SSO roster last synced", so the
  * SSO-sourced source line names the provider without the spec's "Last synced
  * 20 minutes ago" clause.
  */

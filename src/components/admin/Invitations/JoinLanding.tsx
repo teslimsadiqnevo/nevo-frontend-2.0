@@ -30,11 +30,14 @@ import { PRIMARY_BTN, Spinner } from "../Roster/primitives";
  * Amara" cannot be personalised. The greeting is warm but general rather than
  * addressed to somebody we cannot name.
  *
- * TODO(screen): "Get Started" hands off to the role's existing activation
- * flow. Teachers have one - `/auth/teacher/activate` already reads a token off
- * the URL and redeems it. Students do not: they land on onboarding with the
- * token in the query and nothing yet reads it. Raised, and the student half of
- * this handoff is not finished until that route exists.
+ * DONE. This read: "Students do not: they land on onboarding with the token in
+ * the query and nothing yet reads it... the student half of this handoff is not
+ * finished until that route exists."
+ *
+ * Four files read it. `app/student/onboarding/page.tsx` passes `?token=`
+ * through as `joinToken`, `WelcomeScreen` persists it to the onboarding draft,
+ * `NameAndAgeStep` routes on it, and `ObservedInteractionSequence` redeems it
+ * with `invitesApi.acceptJoin`. Both halves of the handoff are finished.
  */
 
 type Phase = "loading" | "ready" | "failed";

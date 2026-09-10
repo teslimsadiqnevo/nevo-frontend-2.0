@@ -29,10 +29,15 @@ import {
  *
  * WHAT IS ABSENT, AND WHY:
  *
- *   - PROFILE EDITING. `GET /api/v1/users/me` is the only route on the users
- *     resource - there is no write anywhere. Name, role title and email are
- *     shown as the record holds them, and the screen says plainly that they
- *     are changed by asking, rather than offering inputs that cannot save.
+ *   - EMAIL AND ROLE TITLE. `ProfilePatch` is `{firstName, lastName, subjects}`,
+ *     so neither has a field. Email is an authentication identifier and needs a
+ *     verification flow rather than a silent change; the screen says so.
+ *
+ *     THIS ENTRY USED TO READ "`GET /api/v1/users/me` is the only route on the
+ *     users resource - there is no write anywhere", and it was wrong. `PATCH
+ *     /api/v1/users/me` is live, `usersApi.updateMe` has been typed since
+ *     1 Sep, and the teacher console consumes it. The NAME is editable here
+ *     now; it was withheld on the strength of this sentence.
  *   - TWO-STEP SIGN-IN. No enrolment, no secret, no verify, no recovery codes.
  *     The whole flow - QR, six boxes, ten codes, "I've saved these somewhere
  *     safe" - is drawn in D12c and backed by nothing.
@@ -68,6 +73,11 @@ function when(iso: string): string {
 export function AccountSettings() {
   const [load, setLoad] = useState<Load>("loading");
   const [me, setMe] = useState<CurrentUser | null>(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [nameSaved, setNameSaved] = useState(false);
+  const [nameFailed, setNameFailed] = useState(false);
   const [scopes, setScopes] = useState<PermissionScope[]>([]);
   const [sessions, setSessions] = useState<AuthSession[]>([]);
 
@@ -89,6 +99,8 @@ export function AccountSettings() {
     Promise.all([usersApi.me(), permissionsApi.me()])
       .then(([u, p]) => {
         setMe(u);
+        setFirstName(u.first_name ?? "");
+        setLastName(u.last_name ?? "");
         setScopes(p.scopes);
         setLoad("ready");
         loadSessions();
@@ -139,6 +151,29 @@ export function AccountSettings() {
 
   const others = sessions.filter((s) => !s.current);
 
+  const nameChanged =
+    firstName.trim() !== (me?.first_name ?? "") ||
+    lastName.trim() !== (me?.last_name ?? "");
+
+  const saveName = () => {
+    if (savingName || !nameChanged) return;
+    setSavingName(true);
+    setNameSaved(false);
+    setNameFailed(false);
+    usersApi
+      .updateMe({ firstName: firstName.trim(), lastName: lastName.trim() })
+      .then((updated) => {
+        // Read the record BACK rather than trusting what we sent - the
+        // response is the authority on what was stored.
+        setMe(updated);
+        setFirstName(updated.first_name ?? "");
+        setLastName(updated.last_name ?? "");
+        setNameSaved(true);
+      })
+      .catch(() => setNameFailed(true))
+      .finally(() => setSavingName(false));
+  };
+
   return (
     <>
       {/* ------------------------------------------------------------ PROFILE */}
@@ -155,11 +190,64 @@ export function AccountSettings() {
           </div>
         </div>
 
-        <div className="mt-5">
+        {/*
+          * THE NAME IS WRITABLE, AND THIS SAID IT WAS NOT.
+          *
+          * The note here read "there's no way for the app to save them at the
+          * moment", and the file's own header called `GET /users/me` "the only
+          * route on the users resource". `PATCH /api/v1/users/me` is live,
+          * takes `ProfilePatch {firstName, lastName, subjects}`, and
+          * `usersApi.updateMe` has been typed and consumed by the teacher
+          * console since 1 Sep.
+          *
+          * EMAIL genuinely is not writable, and that half stays: `ProfilePatch`
+          * has no email field, because it is an authentication identifier and
+          * needs a verification flow rather than a silent change.
+          */}
+        <div className="mt-5 flex flex-col gap-4">
+          <div className="flex gap-4">
+            <label className="flex-1">
+              <span className={S_LABEL}>First name</span>
+              <input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                disabled={savingName}
+                className={S_FIELD}
+              />
+            </label>
+            <label className="flex-1">
+              <span className={S_LABEL}>Last name</span>
+              <input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                disabled={savingName}
+                className={S_FIELD}
+              />
+            </label>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={saveName}
+              disabled={savingName || !nameChanged}
+              className="h-[42px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-[14px] font-semibold text-nevo-cream transition-[filter] hover:brightness-93 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              {savingName ? "Saving…" : "Save changes"}
+            </button>
+            {nameSaved ? (
+              <span role="status" className="text-[13px] text-nevo-near-black/62">
+                Saved just now
+              </span>
+            ) : null}
+            {nameFailed ? (
+              <span role="status" className="text-[13px] text-nevo-navy">
+                That didn&rsquo;t save, so nothing has changed.
+              </span>
+            ) : null}
+          </div>
           <NotBuiltNote>
-            Your name and email are changed by asking us, not here yet -
-            there&rsquo;s no way for the app to save them at the moment, so
-            we&rsquo;ve left the fields out rather than have them look editable.
+            Your email is changed by asking us. It&rsquo;s how you sign in, so
+            it needs verifying rather than editing here.
           </NotBuiltNote>
         </div>
       </SettingsSection>

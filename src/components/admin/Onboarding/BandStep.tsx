@@ -24,11 +24,29 @@ import { StepHeading, WIZARD_PRIMARY, WIZARD_SECONDARY } from "./OnboardingWizar
  * SCRUM-39 draws step 4 as this: four enrolment bands, explicitly "not a price
  * tier", setting the seat count later surfaces count against.
  *
- * The deployed billing API agrees with the SPEC: `GET /api/billing/subscription`
- * returns `subscriptionTier` and `studentCountBand`, and the band names below
- * are the enum's own.
+ * THE TIE-BREAK CITED HERE DOES NOT EXIST, and this is the sentence bands were
+ * shipped on. It read: "The deployed billing API agrees with the SPEC: `GET
+ * /api/billing/subscription` returns `subscriptionTier` and
+ * `studentCountBand`... Two of three say bands, and one of those two is the
+ * backend, so bands ship."
  *
- * Two of three say bands, and one of those two is the backend, so bands ship.
+ * `SubscriptionResponse` has nine required properties - `schoolId`,
+ * `schoolName`, `contractStart`, `contractEnd`, `renewalBannerVisible`,
+ * `renewalMessage`, `billingContact`, `paymentMethod`, `pricing` - and neither
+ * `subscriptionTier` nor `studentCountBand` is among them or anywhere else on
+ * the schema. Checked against the deployed document, 10 Sep.
+ *
+ * What the billing API actually says is the OPPOSITE: `PricingResponse` carries
+ * `pricingModel` as a const `"per_student"`, with `perStudentRate`,
+ * `studentCount` and computed totals - which is D11's flat per-student model,
+ * not a band. So the backend is not a second vote for bands; it is a vote
+ * against, and the "two of three" arithmetic collapses.
+ *
+ * BANDS ARE STILL WHAT SHIPS, because SCRUM-39 asks for them and they are
+ * built - but they now rest on one source rather than two, and the D11-vs-
+ * SCRUM-98 question this docblock claimed to have settled is still open. That
+ * is a product decision, and it should be made knowing the evidence for it was
+ * never there.
  * The per-student pricing screen is the same unresolved D11-vs-SCRUM-98
  * question that has blocked Billing since this campaign began - it needs a
  * product decision, not a build.
