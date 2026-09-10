@@ -46,11 +46,19 @@ const CLASS_OF_THREE = [
 
 beforeEach(() => {
   applyToAssignments.mockReset();
+  // THE SHAPE A SIGNED-IN TEACHER ACTUALLY GETS. `useTeacherClasses` returns
+  // `classes: []` on the live path and fills only `options`; `classes` is the
+  // signed-OUT fixture list. The first version of this mock supplied `classes`,
+  // which is a shape no real teacher ever sees - so it passed while the screen
+  // rendered "A class" for every row. A mock that cannot be wrong is worse than
+  // no mock.
   useTeacherClasses.mockReturnValue({
-    classes: [{ id: "c-1", name: "JSS 2A", code: "2A" }],
-    liveClasses: [],
+    classes: [],
+    liveClasses: [{ class_id: "c-1", class_name: "JSS 2A", class_code: "2A" }],
+    options: [{ id: "c-1", name: "JSS 2A", joinCode: "2A" }],
     live: true,
     sample: false,
+    loading: false,
   });
 });
 
@@ -59,6 +67,37 @@ function openConfirm() {
 }
 
 describe("what a teacher sees", () => {
+  it("names the class from the LIVE list, not the signed-out fixtures", () => {
+    // The regression this file missed once. `classes` is populated only when
+    // signed out; a real teacher gets it empty and everything from `options`.
+    // Reading the wrong one renders "A class" for every row on a screen only
+    // signed-in teachers can reach.
+    useTeacherClasses.mockReturnValue({
+      classes: [],
+      liveClasses: [{ class_id: "c-1", class_name: "JSS 2A", class_code: "2A" }],
+      options: [{ id: "c-1", name: "JSS 2A", joinCode: "2A" }],
+      live: true,
+      sample: false,
+      loading: false,
+    });
+    render(<AssignmentSchedule assignments={CLASS_OF_THREE} />);
+
+    expect(screen.getByText("JSS 2A")).toBeInTheDocument();
+    expect(screen.queryByText("A class")).not.toBeInTheDocument();
+  });
+
+  it("falls back honestly when the class list has not arrived", () => {
+    // "A class" is the right answer when we genuinely do not know - it must
+    // stay reachable, just not be the answer for everyone.
+    useTeacherClasses.mockReturnValue({
+      classes: [], liveClasses: [], options: [],
+      live: false, sample: false, loading: true,
+    });
+    render(<AssignmentSchedule assignments={CLASS_OF_THREE} />);
+
+    expect(screen.getByText("A class")).toBeInTheDocument();
+  });
+
   it("names the class and how many children it affects", () => {
     render(<AssignmentSchedule assignments={CLASS_OF_THREE} />);
 
@@ -152,6 +191,50 @@ describe("cancelling", () => {
     fireEvent.click(screen.getByRole("button", { name: /Yes, cancel it/i }));
 
     expect(await screen.findByText(/Nothing was cancelled/)).toBeInTheDocument();
+  });
+});
+
+describe("un-cancelling", () => {
+  // PATCH was chosen over DELETE because it is reversible. Until this existed
+  // that argument was theoretical: a teacher who cancelled the wrong class was
+  // in the same dead end the change set out to remove.
+
+  const CANCELLED = CLASS_OF_THREE.map((a) => ({ ...a, status: "cancelled" }));
+
+  it("offers to set a cancelled lesson again", () => {
+    render(<AssignmentSchedule assignments={CANCELLED} />);
+    expect(screen.getByRole("button", { name: /Set it again/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Cancel lesson/i })).not.toBeInTheDocument();
+  });
+
+  it("patches the group back to assigned", async () => {
+    applyToAssignments.mockResolvedValue({ ok: ["a-1", "a-2", "a-3"], failed: [] });
+    render(<AssignmentSchedule assignments={CANCELLED} />);
+    fireEvent.click(screen.getByRole("button", { name: /Set it again/i }));
+
+    expect(applyToAssignments).toHaveBeenCalledWith(["a-1", "a-2", "a-3"], {
+      status: "assigned",
+    });
+    expect(await screen.findByText(/Set again\. Students can see this lesson\./)).toBeInTheDocument();
+  });
+
+  it("overrides a cancellation that came from the server, not just a local one", async () => {
+    // The subtle case: these rows arrived cancelled, so there is nothing in the
+    // local cancelled set to remove. The restoration has to win over the wire.
+    applyToAssignments.mockResolvedValue({ ok: ["a-1", "a-2", "a-3"], failed: [] });
+    render(<AssignmentSchedule assignments={CANCELLED} />);
+    fireEvent.click(screen.getByRole("button", { name: /Set it again/i }));
+
+    expect(await screen.findByRole("button", { name: /Cancel lesson/i })).toBeInTheDocument();
+    expect(screen.queryByText("Cancelled")).not.toBeInTheDocument();
+  });
+
+  it("never reports a partial restore as a whole one", async () => {
+    applyToAssignments.mockResolvedValue({ ok: ["a-1"], failed: ["a-2", "a-3"] });
+    render(<AssignmentSchedule assignments={CANCELLED} />);
+    fireEvent.click(screen.getByRole("button", { name: /Set it again/i }));
+
+    expect(await screen.findByText(/Set again for 1 of 3 students/)).toBeInTheDocument();
   });
 });
 
