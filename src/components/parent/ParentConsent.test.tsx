@@ -3,11 +3,27 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { ApiError } from "@/lib/api/client";
 import type { ParentInvitation } from "@/lib/api/parent";
 
-const { completeConsent } = vi.hoisted(() => ({ completeConsent: vi.fn() }));
+const { completeConsent, createAccount, setSession } = vi.hoisted(() => ({
+  completeConsent: vi.fn(),
+  createAccount: vi.fn(),
+  setSession: vi.fn(),
+}));
 
 // Replaced wholesale - pulling the real module in alongside `client.ts` hangs
-// the jsdom worker for 60s. See ParentDataManagement.test.tsx.
-vi.mock("@/lib/api/parent", () => ({ parentApi: { completeConsent } }));
+// the jsdom worker for 60s. See ParentDataManagement.test.tsx. `apiErrorCode`
+// is re-implemented rather than imported for the same reason; it is six lines
+// and pinned by its own tests in the node project.
+vi.mock("@/lib/api/parent", () => ({
+  parentApi: { completeConsent, createAccount },
+  apiErrorCode: (detail: unknown) => {
+    if (!detail || typeof detail !== "object") return null;
+    const inner = (detail as { detail?: unknown }).detail;
+    if (!inner || typeof inner !== "object") return null;
+    const code = (inner as { code?: unknown }).code;
+    return typeof code === "string" && code ? code : null;
+  },
+}));
+vi.mock("@/lib/auth/session", () => ({ setSession }));
 
 import { ParentConsent } from "./ParentConsent";
 
@@ -43,6 +59,22 @@ const inv = (over: Partial<ParentInvitation> = {}): ParentInvitation => ({
 
 beforeEach(() => {
   completeConsent.mockReset();
+  createAccount.mockReset();
+  setSession.mockReset();
+  createAccount.mockResolvedValue({
+    userId: "p-1",
+    contact: "parent@example.com",
+    contactMethod: "email",
+    studentId: "s-1",
+    session: {
+      access_token: "parent-tok",
+      token_type: "bearer",
+      expires_at: "2026-12-01T00:00:00Z",
+      user_id: "p-1",
+      role: "parent_guardian",
+      replaced_session: false,
+    },
+  });
   completeConsent.mockResolvedValue({
     invitation_id: "inv-1",
     parent_link_id: "pl-1",
@@ -50,6 +82,7 @@ beforeEach(() => {
     student_id: "s-1",
     confirmed_types: ["data_processing"],
     completed_at: "2026-09-08T10:00:00Z",
+    receipt_sent_to: null,
   });
 });
 
@@ -142,29 +175,158 @@ describe("giving consent", () => {
   });
 });
 
-describe("what the success screen refuses to claim", () => {
-  it("does not offer a parent account, because nothing can create one", async () => {
-    // The frame draws "Set up my parent account". There is no endpoint to give
-    // a parent credentials and D15d is unbuilt, so the button would do nothing.
+describe("the receipt line", () => {
+  // This line was WITHHELD until 10 Sep, because nothing sent a copy and the
+  // frame's "a copy has been sent to your phone" would have been a lie. It is
+  // rendered now, but only from `receipt_sent_to` - never assumed.
+
+  async function consentWith(receipt: "email" | "sms" | null) {
+    completeConsent.mockResolvedValue({
+      invitation_id: "inv-1",
+      parent_link_id: "pl-1",
+      parent_id: "p-1",
+      student_id: "s-1",
+      confirmed_types: ["data_processing"],
+      completed_at: "2026-09-10T10:00:00Z",
+      receipt_sent_to: receipt,
+    });
+    render(<ParentConsent token={TOKEN} invitation={inv()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Yes, I give my consent/ }));
+    await screen.findByText(/that[’']s all we needed/i);
+  }
+
+  it("says phone when the copy went by SMS", async () => {
+    await consentWith("sms");
+    expect(screen.getByText(/copy of your consent has been sent to your phone/i)).toBeInTheDocument();
+  });
+
+  it("says email when the copy went by email", async () => {
+    await consentWith("email");
+    expect(screen.getByText(/copy of your consent has been sent to your email/i)).toBeInTheDocument();
+  });
+
+  it("says NOTHING when no copy was sent", async () => {
+    // The whole reason the field exists. Claiming a receipt a parent does not
+    // have is the small untruth this page cannot afford.
+    await consentWith(null);
+    expect(screen.queryByText(/copy of your consent/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("setting up a parent account", () => {
+  it("offers the account, now that an endpoint can create one", async () => {
     render(<ParentConsent token={TOKEN} invitation={inv()} />);
     fireEvent.click(screen.getByRole("button", { name: /Yes, I give my consent/ }));
     await screen.findByText(/that[’']s all we needed/i);
 
     expect(
-      screen.queryByRole("button", { name: /Set up my parent account/i }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText(/Maybe later/i)).not.toBeInTheDocument();
+      screen.getByRole("button", { name: /Set up my parent account/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Maybe later/i })).toBeInTheDocument();
   });
 
-  it("does not promise a copy was sent to their phone", async () => {
-    // Nothing in the contract says a copy is sent, and the completion response
-    // does not report one. Telling a parent they have a receipt they may not
-    // have is exactly the kind of small untruth this page cannot afford.
+  it("will not submit a password shorter than the server accepts", async () => {
+    // 8 characters is the server's rule. Checking here too means a parent is
+    // told before the round trip rather than after a 422.
     render(<ParentConsent token={TOKEN} invitation={inv()} />);
     fireEvent.click(screen.getByRole("button", { name: /Yes, I give my consent/ }));
     await screen.findByText(/that[’']s all we needed/i);
 
-    expect(screen.queryByText(/sent to your phone/i)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Choose a password/i), {
+      target: { value: "short" },
+    });
+    expect(
+      screen.getByRole("button", { name: /Set up my parent account/i }),
+    ).toBeDisabled();
+    expect(createAccount).not.toHaveBeenCalled();
+  });
+
+  it("sends the token and password, and stores the session it gets back", async () => {
+    render(<ParentConsent token={TOKEN} invitation={inv()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Yes, I give my consent/ }));
+    await screen.findByText(/that[’']s all we needed/i);
+
+    fireEvent.change(screen.getByLabelText(/Choose a password/i), {
+      target: { value: "a-good-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Set up my parent account/i }));
+
+    expect(createAccount).toHaveBeenCalledWith(TOKEN, "a-good-password");
+    // The response carries a session precisely so the parent is signed in
+    // rather than handed a password and a door to find.
+    await vi.waitFor(() =>
+      expect(setSession).toHaveBeenCalledWith({
+        token: "parent-tok",
+        expiresAt: "2026-12-01T00:00:00Z",
+        userId: "p-1",
+        role: "parent_guardian",
+      }),
+    );
+  });
+
+  it("tells an SMS-only parent plainly, without calling it an error", async () => {
+    // Password sign-in is email-only and Nigeria is SMS-first, so this is a
+    // real slice of parents. It is not their fault and must not read as a
+    // failure - their consent is recorded either way.
+    createAccount.mockRejectedValueOnce(
+      new ApiError(409, "conflict", { detail: { code: "parent_contact_not_email" } }),
+    );
+    render(<ParentConsent token={TOKEN} invitation={inv()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Yes, I give my consent/ }));
+    await screen.findByText(/that[’']s all we needed/i);
+
+    fireEvent.change(screen.getByLabelText(/Choose a password/i), {
+      target: { value: "a-good-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Set up my parent account/i }));
+
+    expect(await screen.findByText(/can’t set up an account with a phone number/i)).toBeInTheDocument();
+    expect(screen.getByText(/consent is recorded either way/i)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does not tell an existing-account parent to find a password they never set", async () => {
+    // Both cases are 409 and they mean opposite things. Collapsing them would
+    // send an SMS-only parent hunting for a password that does not exist.
+    createAccount.mockRejectedValueOnce(new ApiError(409, "conflict", {}));
+    render(<ParentConsent token={TOKEN} invitation={inv()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Yes, I give my consent/ }));
+    await screen.findByText(/that[’']s all we needed/i);
+
+    fireEvent.change(screen.getByLabelText(/Choose a password/i), {
+      target: { value: "a-good-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Set up my parent account/i }));
+
+    expect(await screen.findByText(/already set up an account/i)).toBeInTheDocument();
+    expect(screen.queryByText(/phone number/i)).not.toBeInTheDocument();
+  });
+
+  it("never stores a session when account creation fails", async () => {
+    createAccount.mockRejectedValueOnce(new ApiError(500, "boom", {}));
+    render(<ParentConsent token={TOKEN} invitation={inv()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Yes, I give my consent/ }));
+    await screen.findByText(/that[’']s all we needed/i);
+
+    fireEvent.change(screen.getByLabelText(/Choose a password/i), {
+      target: { value: "a-good-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Set up my parent account/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/couldn’t set that up/i);
+    expect(setSession).not.toHaveBeenCalled();
+  });
+
+  it("lets a parent decline without losing the consent they just gave", async () => {
+    render(<ParentConsent token={TOKEN} invitation={inv()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Yes, I give my consent/ }));
+    await screen.findByText(/that[’']s all we needed/i);
+
+    fireEvent.click(screen.getByRole("button", { name: /Maybe later/i }));
+
+    expect(screen.getByText(/All done/i)).toBeInTheDocument();
+    expect(screen.getByText(/set up an account later from the same link/i)).toBeInTheDocument();
+    expect(createAccount).not.toHaveBeenCalled();
   });
 });
 
