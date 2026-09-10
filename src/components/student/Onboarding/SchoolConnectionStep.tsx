@@ -10,10 +10,12 @@ import { mergeOnboardingDraft } from "@/lib/auth/onboarding";
 import { randomId } from "@/lib/utils";
 import { OnboardingShell } from "./OnboardingShell";
 import {
-  SchoolCodeInput,
+  CodeInput,
+  SCHOOL_CODE_MAX,
+  SCHOOL_CODE_MIN,
   codeIsEnterable,
   type CodeStatus,
-} from "./SchoolCodeInput";
+} from "./CodeInput";
 
 const NEXT_STEP = "/student/onboarding/class";
 
@@ -81,7 +83,8 @@ export function SchoolConnectionStep() {
   };
 
   const handleSubmit = (entered: string) => {
-    if (!codeIsEnterable(entered) || status === "pending") return;
+    if (!codeIsEnterable(entered, SCHOOL_CODE_MIN) || status === "pending")
+      return;
     setStatus("pending");
     setTrouble(false);
     // As typed. The code belongs to the school, not to our input field.
@@ -143,11 +146,15 @@ export function SchoolConnectionStep() {
       </h2>
 
       <div className="mt-7">
-        <SchoolCodeInput
+        <CodeInput
           value={code}
           onChange={handleChange}
           onSubmit={handleSubmit}
           status={status}
+          label="School code"
+          placeholder="Type your school code"
+          min={SCHOOL_CODE_MIN}
+          max={SCHOOL_CODE_MAX}
         />
       </div>
 
@@ -169,7 +176,7 @@ export function SchoolConnectionStep() {
         }
         disabled={
           status === "pending" ||
-          (status !== "success" && !codeIsEnterable(code))
+          (status !== "success" && !codeIsEnterable(code, SCHOOL_CODE_MIN))
         }
         className="mt-7 w-full sm:mt-8"
       >

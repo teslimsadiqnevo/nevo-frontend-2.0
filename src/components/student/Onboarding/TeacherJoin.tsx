@@ -1,32 +1,42 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, ChevronLeft } from "lucide-react";
-import { NevoKeyboard, useNevoKeyboardDock } from "@/components/shared";
+import { ChevronLeft } from "lucide-react";
+import { authApi } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
+import { mergeOnboardingDraft } from "@/lib/auth/onboarding";
 import { cn } from "@/lib/utils";
+import {
+  CLASS_CODE_MAX,
+  CLASS_CODE_MIN,
+  CodeInput,
+  codeIsEnterable,
+  normaliseCode,
+} from "./CodeInput";
 
-/** Demo class code - the walkthrough's, not a validator. `POST /api/v1/connections/class-code` exists (the code
- *  rides a `class_code` query param on a POST - flagged) but is Bearer-only,
- *  and this step runs before any session exists - so a real join cannot
- *  happen here. The picked class rides the onboarding draft instead; flagged
- *  to backend: either the endpoint accepts the pre-auth flow, or the join
- *  fires after first sign-in. TODO(api). */
-const VALID_CODE = "MAP4KZ";
-/** Mock validation beat. */
-const VALIDATE_MS = 700;
-/** Simulated scan phases until real QR capture lands. TODO(api). */
-const SCAN_CONNECTING_AT_MS = 2600;
-const SCAN_CONNECTED_AT_MS = 4100;
-const SCAN_DONE_AT_MS = 5300;
+/*
+ * THE CODE IS CHECKED FOR REAL NOW.
+ *
+ * This compared what a child typed against a literal `"MAP4KZ"` and never
+ * called anything. The comment defending that said
+ * `POST /api/v1/connections/class-code` was Bearer-only and so unreachable
+ * before a session exists. IT IS NOT: the deployed spec gives that operation
+ * `security: []`. It is public, it always was for this flow, and a real class
+ * code has been failing here against a hardcoded demo string ever since.
+ *
+ * The 201 carries `classId` AND `schoolCode`, which is exactly what the rest of
+ * onboarding needs - so a child who joins by class code can skip the school and
+ * class steps entirely rather than being asked for a school code they were
+ * never given.
+ */
 
 /** After a successful join the manual flow resumes at the name step. */
 const NEXT_STEP = "/student/onboarding/name";
 
 type Mode = "scan" | "code";
 type CodeStatus = "idle" | "pending" | "success" | "error";
-type ScanPhase = "scanning" | "connecting" | "connected";
 
 /**
  * Teacher Join (screen 03 / `Nevo Teacher Join Frame`) - reached from the
@@ -67,9 +77,13 @@ export function TeacherJoin() {
 
       <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 pt-4 pb-7 sm:justify-center sm:pt-0 sm:pb-11">
         {mode === "scan" ? (
-          <ScanMode onSwitch={() => setMode("code")} onJoined={() => router.push(NEXT_STEP)} />
+          <ScanMode onSwitch={() => setMode("code")} />
         ) : (
-          <CodeMode initial={scannedCode} onSwitch={() => setMode("scan")} onJoined={() => router.push(NEXT_STEP)} />
+          <CodeMode
+            initial={scannedCode}
+            onSwitch={() => setMode("scan")}
+            onJoined={() => router.push(NEXT_STEP)}
+          />
         )}
       </div>
     </div>
@@ -77,81 +91,75 @@ export function TeacherJoin() {
 }
 
 /** The QR viewfinder - simulated phases until real capture lands (TODO(api)). */
-function ScanMode({ onSwitch, onJoined }: { onSwitch: () => void; onJoined: () => void }) {
-  const [phase, setPhase] = useState<ScanPhase>("scanning");
-  const onJoinedRef = useRef(onJoined);
-  useEffect(() => {
-    onJoinedRef.current = onJoined;
-  }, [onJoined]);
-
-  useEffect(() => {
-    const t1 = setTimeout(() => setPhase("connecting"), SCAN_CONNECTING_AT_MS);
-    const t2 = setTimeout(() => setPhase("connected"), SCAN_CONNECTED_AT_MS);
-    const t3 = setTimeout(() => onJoinedRef.current(), SCAN_DONE_AT_MS);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, []);
-
-  const hint =
-    phase === "scanning"
-      ? "Looking for a code…"
-      : phase === "connecting"
-        ? "Found it - connecting you…"
-        : "You're in - opening your class…";
-
-  const bracket =
-    "absolute size-[34px] border-nevo-violet";
+/**
+ * The QR half - which is NOT a scanner, and no longer pretends to be one.
+ *
+ * IT USED TO FAKE A JOIN. Three timers walked "Looking for a code…" ->
+ * "Found it - connecting you…" -> "You're in - opening your class…", and then
+ * called `onJoined()` at 5.3 seconds having contacted nothing and written
+ * nothing to the draft. No camera was ever opened; there is no `getUserMedia`,
+ * no `BarcodeDetector` and no `<video>` anywhere in this app. A child was told
+ * in plain words that they were in a class they had not joined - and this is
+ * the PRIMARY button on the welcome sheet, so it was most children.
+ *
+ * The honest version is also the working one. The teacher's QR encodes a whole
+ * URL - `${SITE_URL}/student/onboarding/teacher-join?code=<code>`
+ * (`ClassQr.tsx:27`) - so the camera app every phone and tablet already has is
+ * the scanner, and following it lands the child right here with `?code=`
+ * filled in, which the code path below then checks for real. This screen's job
+ * is to say that, and to get out of the way.
+ */
+function ScanMode({ onSwitch }: { onSwitch: () => void }) {
+  const bracket = "absolute size-[34px] border-nevo-violet";
 
   return (
     <div className="flex w-full max-w-[440px] flex-col items-center text-center">
       <h1 className="text-[21px] leading-[1.25] font-semibold tracking-[-0.01em] sm:text-2xl">
         Point your camera at the QR code
       </h1>
-      <p className="mt-3 max-w-[320px] text-[15px] leading-[1.55] text-nevo-near-black/66 sm:text-base">
-        Ask your teacher to show it, then hold your device steady.
+      <p className="mt-3 max-w-[330px] text-[15px] leading-[1.55] text-nevo-near-black/66 sm:text-base">
+        Ask your teacher to show it, then open the camera on your device and
+        hold it steady. It will bring you straight back here.
       </p>
 
-      <div
-        className="relative mt-8 size-[258px] shrink-0 overflow-hidden rounded-[20px] bg-nevo-near-black shadow-[0_8px_32px_rgba(0,0,0,0.16)] sm:size-[300px]"
-        style={{ "--scan-travel": "214px" } as React.CSSProperties}
-      >
-        {phase === "scanning" && (
-          <div className="absolute inset-x-4 top-[22px] h-0.5 rounded-full bg-nevo-violet/85 shadow-[0_0_18px_2px_rgba(154,156,203,0.5)] motion-safe:animate-nevo-scanline" />
-        )}
-        <span className={cn(bracket, "top-4 left-4 rounded-tl-[10px] border-t-[3px] border-l-[3px]")} />
-        <span className={cn(bracket, "top-4 right-4 rounded-tr-[10px] border-t-[3px] border-r-[3px]")} />
-        <span className={cn(bracket, "bottom-4 left-4 rounded-bl-[10px] border-b-[3px] border-l-[3px]")} />
-        <span className={cn(bracket, "right-4 bottom-4 rounded-br-[10px] border-r-[3px] border-b-[3px]")} />
-        {phase !== "scanning" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-nevo-near-black/62">
-            {phase === "connecting" ? (
-              <span className="block size-9 rounded-full border-[3px] border-nevo-cream/25 border-t-nevo-cream motion-safe:animate-spin motion-safe:[animation-duration:720ms]" />
-            ) : (
-              <span className="flex size-14 items-center justify-center rounded-full bg-nevo-violet motion-safe:animate-nevo-pop">
-                <Check className="size-7 text-nevo-cream" strokeWidth={2.6} />
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-[22px] flex items-center gap-2.5">
+      {/* The frame's viewfinder, as an illustration of what to look for. It is
+          deliberately not animated any more: a scanline implies this screen is
+          looking, and it is not. */}
+      <div className="relative mt-8 size-[258px] shrink-0 overflow-hidden rounded-[20px] bg-nevo-near-black shadow-[0_8px_32px_rgba(0,0,0,0.16)] sm:size-[300px]">
         <span
           className={cn(
-            "size-2 rounded-full",
-            phase === "connected" ? "bg-nevo-navy" : "bg-nevo-violet",
+            bracket,
+            "top-4 left-4 rounded-tl-[10px] border-t-[3px] border-l-[3px]",
           )}
         />
-        <span className="text-sm text-nevo-near-black/66">{hint}</span>
+        <span
+          className={cn(
+            bracket,
+            "top-4 right-4 rounded-tr-[10px] border-t-[3px] border-r-[3px]",
+          )}
+        />
+        <span
+          className={cn(
+            bracket,
+            "bottom-4 left-4 rounded-bl-[10px] border-b-[3px] border-l-[3px]",
+          )}
+        />
+        <span
+          className={cn(
+            bracket,
+            "right-4 bottom-4 rounded-br-[10px] border-r-[3px] border-b-[3px]",
+          )}
+        />
       </div>
+
+      <p className="mt-[22px] max-w-[300px] text-sm leading-[1.5] text-nevo-near-black/60">
+        No camera? Your teacher can read the code out instead.
+      </p>
 
       <button
         type="button"
         onClick={onSwitch}
-        className="mt-7 h-11 cursor-pointer rounded-[10px] px-[18px] text-[15px] font-medium text-nevo-navy transition-colors hover:bg-nevo-near-black/5"
+        className="mt-4 h-11 cursor-pointer rounded-[10px] px-[18px] text-[15px] font-medium text-nevo-navy transition-colors hover:bg-nevo-near-black/5"
       >
         Enter a code instead
       </button>
@@ -159,7 +167,14 @@ function ScanMode({ onSwitch, onJoined }: { onSwitch: () => void; onJoined: () =
   );
 }
 
-/** Six underline boxes, auto-advancing, validating quietly once full. */
+/**
+ * Class-code entry: one field, checked against the roster for real.
+ *
+ * It was six fixed boxes compared against a hardcoded string - the same
+ * fixed-length guess that made the school screen a wall, and
+ * `ClassCodeConnectionRequest` accepts 4 to 20 characters. `CodeInput` is
+ * shared with the school step so neither can drift back into guessing.
+ */
 function CodeMode({
   initial = "",
   onSwitch,
@@ -170,90 +185,82 @@ function CodeMode({
   onSwitch: () => void;
   onJoined: () => void;
 }) {
-  const prefilled = initial.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
-  const scannedComplete = prefilled.length === 6;
-  const [code, setCode] = useState<string[]>(() =>
-    Array.from({ length: 6 }, (_, i) => prefilled[i] ?? ""),
+  const [code, setCode] = useState(() =>
+    normaliseCode(initial, CLASS_CODE_MAX),
   );
-  // Seeded here rather than set inside the effect, so the effect body stays
-  // free of synchronous setState.
-  const [status, setStatus] = useState<CodeStatus>(
-    scannedComplete ? "pending" : "idle",
+  // Seeded, not set from the effect below: a scanned code arrives already
+  // complete, so it is pending from the first render rather than after one.
+  const [status, setStatus] = useState<CodeStatus>(() =>
+    codeIsEnterable(normaliseCode(initial, CLASS_CODE_MAX), CLASS_CODE_MIN)
+      ? "pending"
+      : "idle",
   );
-  const boxRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const focusedIndex = useRef(0);
-  const validateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const kb = useNevoKeyboardDock();
+  /**
+   * A code that named no class, versus a check we could not run. A child must
+   * never be told their code is wrong because our request failed.
+   */
+  const [trouble, setTrouble] = useState(false);
+  const submitted = useRef(false);
 
-  useEffect(() => () => {
-    if (validateTimer.current) clearTimeout(validateTimer.current);
-  }, []);
+  /** The request itself. Sets state only from the response, never inline. */
+  const post = useCallback(
+    (entered: string) => {
+      void authApi.connectClassCode({ classCode: entered }).then(
+        (connection) => {
+          setStatus("success");
+          /*
+           * WHAT THE ROSTER TOLD US, so the rest of onboarding can stop asking.
+           * `classId` and `schoolCode` are exactly what `connectClassCode` is
+           * called with again at PIN time, and what `NameAndAgeStep` reads to
+           * know this child needs neither the school step nor the class step.
+           *
+           * The onboarding token is deliberately NOT kept: it lives 20 minutes,
+           * the profiling probes and consent gate sit between here and account
+           * creation, and the sequence mints a fresh one at the moment it is
+           * spent. A stale token in a child's hands is a failure at the last
+           * step of onboarding.
+           */
+          mergeOnboardingDraft({
+            classId: connection.classId,
+            // The code itself too: `schoolCode` is nullable on this response,
+            // and `{ classCode }` alone is a form the connect endpoint accepts.
+            classCode: entered,
+            ...(connection.schoolCode
+              ? { schoolCode: connection.schoolCode }
+              : {}),
+          });
+          onJoined();
+        },
+        (err: unknown) => {
+          // 4xx is the roster's answer about this code; anything else is ours.
+          const answered =
+            err instanceof ApiError && err.status >= 400 && err.status < 500;
+          setTrouble(!answered);
+          setStatus("error");
+        },
+      );
+    },
+    [onJoined],
+  );
 
-  const validate = (next: string[]) => {
+  /** What a child pressing the button or Return does. */
+  const join = (entered: string) => {
+    if (!codeIsEnterable(entered, CLASS_CODE_MIN)) return;
     setStatus("pending");
-    if (validateTimer.current) clearTimeout(validateTimer.current);
-    // TODO(api): roster lookup replaces the mock class code.
-    validateTimer.current = setTimeout(() => {
-      setStatus(next.join("") === VALID_CODE ? "success" : "error");
-    }, VALIDATE_MS);
+    setTrouble(false);
+    post(entered);
   };
 
-  // A scanned code arrives complete, so resolve it without making the student
-  // retype a character to wake the check up.
+  // A scanned QR arrives complete, so check it without making a child retype a
+  // character to wake it up. Once only - a re-render must not re-post. The
+  // pending state is seeded above, so this fires the request and sets nothing.
   useEffect(() => {
-    if (!scannedComplete) return;
-    // TODO(api): roster lookup replaces the mock class code.
-    const t = setTimeout(() => {
-      setStatus(prefilled === VALID_CODE ? "success" : "error");
-    }, VALIDATE_MS);
-    return () => clearTimeout(t);
-  }, [scannedComplete, prefilled]);
-
-  const setChar = (i: number, raw: string) => {
-    const ch = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(-1);
-    const next = code.slice();
-    next[i] = ch;
-    if (validateTimer.current) clearTimeout(validateTimer.current);
-    setCode(next);
-    setStatus("idle");
-    if (ch && i < 5) boxRefs.current[i + 1]?.focus();
-    if (next.every((c) => c !== "")) validate(next);
-  };
-
-  const backspace = () => {
-    const i = focusedIndex.current;
-    const next = code.slice();
-    if (next[i]) next[i] = "";
-    else if (i > 0) {
-      next[i - 1] = "";
-      boxRefs.current[i - 1]?.focus();
-    }
-    setCode(next);
-    setStatus("idle");
-  };
-
-  const continueTap = () => {
-    if (status === "success") {
-      onJoined();
-      return;
-    }
-    // Pressable, not disabled: an early tap helpfully points at the gap.
-    const firstEmpty = code.findIndex((c) => c === "");
-    boxRefs.current[firstEmpty === -1 ? 0 : firstEmpty]?.focus();
-  };
-
-  const borderTone =
-    status === "success"
-      ? "border-nevo-navy"
-      : status === "error"
-        ? "border-nevo-violet"
-        : "border-nevo-near-black/16";
-  const boxTone =
-    status === "success"
-      ? "border-b-nevo-navy"
-      : status === "error"
-        ? "border-b-nevo-violet"
-        : "border-b-nevo-near-black/32";
+    if (submitted.current) return;
+    const scanned = normaliseCode(initial, CLASS_CODE_MAX);
+    if (!codeIsEnterable(scanned, CLASS_CODE_MIN)) return;
+    submitted.current = true;
+    post(scanned);
+  }, [initial, post]);
 
   return (
     <div className="flex w-full max-w-[440px] flex-col items-center text-center">
@@ -264,56 +271,21 @@ function CodeMode({
         Your teacher will read this out to you.
       </p>
 
-      <div
-        className={cn(
-          "relative mt-8 flex h-16 w-full items-center justify-center rounded-[10px] border-[1.5px] bg-nevo-cream pr-4 pl-4 shadow-elevation-1 transition-colors sm:h-[72px]",
-          borderTone,
-          (status === "pending" || status === "success") && "pr-[46px]",
-        )}
-      >
-        <div className="flex gap-2 sm:gap-3">
-          {code.map((value, i) => (
-            <input
-              key={i}
-              ref={(el) => {
-                boxRefs.current[i] = el;
-              }}
-              value={value}
-              maxLength={1}
-              autoComplete="off"
-              // A.12: the Nevo Keyboard drives entry on touch.
-              inputMode="none"
-              aria-label={`Code character ${i + 1}`}
-              onChange={(e) => setChar(i, e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Backspace") {
-                  e.preventDefault();
-                  backspace();
-                }
-              }}
-              onFocus={() => {
-                focusedIndex.current = i;
-                kb.onFocus();
-              }}
-              onBlur={kb.onBlur}
-              className={cn(
-                "h-9 w-9 border-0 border-b-2 bg-transparent text-center text-[22px] font-bold tracking-[0.02em] text-nevo-near-black uppercase outline-none transition-colors sm:h-10 sm:w-11 sm:text-[26px]",
-                boxTone,
-              )}
-            />
-          ))}
-        </div>
-        {(status === "pending" || status === "success") && (
-          <span className="absolute top-1/2 right-3.5 flex size-7 -translate-y-1/2 items-center justify-center">
-            {status === "pending" ? (
-              <span className="block size-5 rounded-full border-[2.5px] border-nevo-navy/20 border-t-nevo-navy motion-safe:animate-spin motion-safe:[animation-duration:700ms]" />
-            ) : (
-              <span className="flex size-7 items-center justify-center rounded-full bg-nevo-navy motion-safe:animate-nevo-pop">
-                <Check className="size-4 text-nevo-cream" strokeWidth={2.6} />
-              </span>
-            )}
-          </span>
-        )}
+      <div className="mt-8 w-full">
+        <CodeInput
+          value={code}
+          onChange={(next) => {
+            setCode(next);
+            setStatus("idle");
+            setTrouble(false);
+          }}
+          onSubmit={join}
+          status={status}
+          label="Class code"
+          placeholder="Type your class code"
+          min={CLASS_CODE_MIN}
+          max={CLASS_CODE_MAX}
+        />
       </div>
 
       <div className="mt-3 min-h-[22px]">
@@ -323,28 +295,35 @@ function CodeMode({
           </p>
         )}
         {status === "error" && (
-          /* NOT "that code doesn't match a class" - we never checked a class.
-             The comparison is against a hardcoded demo code, because
-             `POST /api/v1/connections/class-code` is Bearer-only and this flow
-             runs before a child has a token. A real code fails here, and the
-             old copy told that child their code was wrong and sent them to
-             their teacher about it. Say what is actually true instead. */
+          /* Both stay quiet violet and both point back at the teacher, but they
+             are different sentences now. Until this screen actually checked
+             anything, the only honest copy was "we can't check class codes just
+             yet"; now that it does, a child whose code was refused deserves to
+             be told that, and a child whose check WE failed must not be. */
           <p className="text-sm text-nevo-violet">
-            We can&apos;t check class codes just yet. Your teacher can add you
-            to the class instead - carry on and they&apos;ll sort it.
+            {trouble
+              ? "We couldn't check that just now. Give it a moment and try again."
+              : "That code doesn't match a class. Check it with your teacher."}
           </p>
         )}
       </div>
 
       <button
         type="button"
-        onClick={continueTap}
+        onClick={() => (status === "success" ? onJoined() : join(code))}
+        disabled={
+          status === "pending" ||
+          (status !== "success" && !codeIsEnterable(code, CLASS_CODE_MIN))
+        }
         className={cn(
-          "mt-5 flex h-[52px] w-full cursor-pointer items-center justify-center rounded-[10px] bg-nevo-navy text-base font-medium text-nevo-cream transition-[opacity,filter] hover:brightness-106 active:scale-[0.99]",
-          status !== "success" && "opacity-40",
+          "mt-5 flex h-[52px] w-full items-center justify-center rounded-[10px] bg-nevo-navy text-base font-medium text-nevo-cream transition-[opacity,filter]",
+          status === "pending" ||
+            (status !== "success" && !codeIsEnterable(code, CLASS_CODE_MIN))
+            ? "cursor-not-allowed opacity-40"
+            : "cursor-pointer hover:brightness-106 active:scale-[0.99]",
         )}
       >
-        Continue
+        {status === "success" ? "Continue" : "Join my class"}
       </button>
 
       <button
@@ -354,16 +333,6 @@ function CodeMode({
       >
         Scan a QR code instead
       </button>
-
-      {kb.open && (
-        <NevoKeyboard
-          layout="qwerty"
-          onKey={(c) => setChar(focusedIndex.current, c)}
-          onBackspace={backspace}
-          onReturn={kb.close}
-          className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
-        />
-      )}
     </div>
   );
 }

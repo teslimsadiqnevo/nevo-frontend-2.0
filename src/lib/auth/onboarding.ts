@@ -22,6 +22,16 @@ export interface OnboardingDraft {
   classId?: string;
   className?: string;
   /**
+   * The class code a child joined with, when they came in through Teacher Join.
+   *
+   * Kept as well as `classId`, because `ConnectionResponse.schoolCode` is
+   * NULLABLE - so the `{ classId, schoolCode }` form the sequence uses at PIN
+   * time is not always available, while `{ classCode }` on its own always is.
+   * It is also what marks this child as one who needs neither the school step
+   * nor the class step.
+   */
+  classCode?: string;
+  /**
    * The join-link token, when the child arrived by one. Redeeming it at PIN
    * creation is what creates the account - and what returns the only login
    * identifier the server will actually recognise.
@@ -91,12 +101,23 @@ export function rememberOnboardedStudent(
   const draft = getOnboardingDraft();
   const name = draft.name?.trim();
   const identifier = loginIdentifier?.trim();
-  if (!name || !identifier) {
+  const schoolCode = draft.schoolCode?.trim();
+  /*
+   * THE SCHOOL CODE IS PART OF THE CREDENTIAL, not decoration.
+   * `POST /auth/login/pin` takes `school_code + login_identifier + pin`, and
+   * this used to store `draft.schoolCode ?? ""` - so a child whose class-code
+   * join came back with a null `schoolCode` (the field is nullable on
+   * `ConnectionResponse`) was remembered against an empty one, greeted by name
+   * the next morning, and then 401'd on a PIN they had typed correctly. That is
+   * exactly the failure the paragraph above exists to prevent, and it was left
+   * open for one of the three fields.
+   */
+  if (!name || !identifier || !schoolCode) {
     clearOnboardingDraft();
     return false;
   }
   rememberProfile({
-    schoolCode: draft.schoolCode ?? "",
+    schoolCode,
     loginIdentifier: identifier,
     displayName: name.split(/\s+/)[0],
     initials: initialsOf(name),
