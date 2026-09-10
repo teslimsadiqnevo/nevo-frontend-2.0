@@ -18,12 +18,24 @@
  * Sorting and comparison go through `yearGroupOrder`, which is the index in
  * `YEAR_GROUPS`. That is what keeps cross-school comparisons meaningful.
  *
- * TODO(api): SCRUM-40 calls for `GET year_group_labels`, a per-school display
- * map owned by SCRUM-99 Settings. No such endpoint exists - `GET /api/v1/school`
- * returns `academicConfig` as an untyped `object`, so there is nothing to read
- * a label map out of yet. `yearGroupLabel` is the single lookup every surface
- * calls, so when the map lands it changes here and nowhere else. Until then it
- * returns the default Nigerian label.
+ THE PER-SCHOOL LABEL MAP IS NOW WIRED. It lives in `academicConfig
+ * .yearGroupLabels` - a shape this codebase defines rather than one backend
+ * promised, because `academicConfig` is an untyped `object` - and D12b is
+ * where a school edits it.
+ *
+ * `yearGroupLabel` stayed a plain synchronous function on purpose: it is
+ * called from render in a dozen places, and making it async or hook-shaped
+ * would have rewritten every one of them. Instead the map is set once, at the
+ * top of the admin console, through `setYearGroupLabels`. That makes it
+ * module state, which is worth being explicit about:
+ *
+ *   - it is per-tab, not per-user, and resets on reload. Fine: it is a display
+ *     map, and it is re-set from the school record on every mount.
+ *   - it must never hold anything a wrong value would corrupt. It does not -
+ *     the ENUM is the identity, and this only decides what a human reads.
+ *
+ * If backend later ships a real `GET year_group_labels`, it replaces the
+ * source inside `setYearGroupLabels` and nothing else changes.
  *
  * SPEC DEFECT, raised not guessed: SCRUM-40 says "17 canonical Nigerian levels"
  * in two places, then enumerates sixteen (n1, n2, kg1, kg2, p1-p6, jss1-jss3,
@@ -80,6 +92,26 @@ function isYearGroup(value: string): value is YearGroup {
   return (YEAR_GROUPS as readonly string[]).includes(value);
 }
 
+/** Per-school overrides, set once when the console learns its school. */
+let overrides: Partial<Record<YearGroup, string>> = {};
+
+/**
+ * Install the school's own labels. Partial by design - a school that renamed
+ * only its senior years keeps the defaults everywhere else.
+ */
+export function setYearGroupLabels(map: Record<string, string> | undefined): void {
+  const next: Partial<Record<YearGroup, string>> = {};
+  for (const [k, v] of Object.entries(map ?? {})) {
+    if (isYearGroup(k) && typeof v === "string" && v.trim()) next[k] = v.trim();
+  }
+  overrides = next;
+}
+
+/** The default Nigerian label, ignoring any override. D12b needs both. */
+export function defaultYearGroupLabel(value: YearGroup): string {
+  return DEFAULT_LABELS[value];
+}
+
 /**
  * The one lookup every surface reads a year-group label through - this screen,
  * the create sheet, class detail, student detail, and the SCRUM-98/100 surfaces
@@ -92,7 +124,8 @@ function isYearGroup(value: string): value is YearGroup {
  */
 export function yearGroupLabel(value: string | null | undefined): string | null {
   if (!value) return null;
-  return isYearGroup(value) ? DEFAULT_LABELS[value] : value;
+  if (!isYearGroup(value)) return value;
+  return overrides[value] ?? DEFAULT_LABELS[value];
 }
 
 /** Sort key. Unknown values sort after every known level, in their own order. */
@@ -101,6 +134,16 @@ export function yearGroupOrder(value: string | null | undefined): number {
   return YEAR_GROUPS.indexOf(value);
 }
 
-/** The select's options, in the enum's own order. */
-export const YEAR_GROUP_OPTIONS: ReadonlyArray<{ value: YearGroup; label: string }> =
-  YEAR_GROUPS.map((value) => ({ value, label: DEFAULT_LABELS[value] }));
+/**
+ * The select's options, in the enum's own order.
+ *
+ * A getter rather than a constant, because the labels can change under it when
+ * a school edits its taxonomy - a frozen array would keep showing the old
+ * names until reload.
+ */
+export function yearGroupOptions(): ReadonlyArray<{ value: YearGroup; label: string }> {
+  return YEAR_GROUPS.map((value) => ({
+    value,
+    label: overrides[value] ?? DEFAULT_LABELS[value],
+  }));
+}

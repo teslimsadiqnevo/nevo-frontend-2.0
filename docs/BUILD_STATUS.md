@@ -950,6 +950,51 @@ An account being active is a different fact from a parent having agreed.
 
 ---
 
+## Admin console — Settings, 10 Sep
+
+**`/admin/settings` was a nine-line placeholder, and the rail linked every admin
+to it.** Twelve audit lenses never found it, because a screen with no logic in
+it gives a logic lens nothing to indict. It only surfaced when the design
+reference was checked against the routes rather than the routes against
+themselves.
+
+**The work already existed.** PR #210 built D12/D12b/D12c on 1 Sep and was
+closed on 8 Sep **as stale, not rejected** - "admin settings now belong to the
+admin session rather than this one... the branch is left in place, so the work
+is recoverable if the admin session wants to pick it up". It is picked up:
+cherry-picked onto main with two conflicts (`auth.ts`, `school.ts`, both
+additive on each side and both resolved by keeping both).
+
+**Two spec deviations fixed on the way in.** SCRUM-99 says "not tabs" twice -
+in rule 1 and again in D12.1 - and it shipped as a `role="tablist"`. It also
+rendered the school half for every admin, where D12.1 requires it "absent
+entirely, not greyed" for a non-oversight admin, with a done-when of "a
+billing-only admin sees a coherent page with no empty school section". Both are
+now two stacks under super-headings, scope-gated, with the section index.
+
+**What is genuinely absent, and stays absent rather than mocked:**
+
+| section | why |
+|---|---|
+| D12.4b Promotion | No endpoint. Needs a bulk year-group advance, a leavers pass and a 7-day undo; `PATCH /students/{id}/class` is a different operation. A control that appeared to move 287 children and silently did nothing would be dangerous. |
+| D12.8 Two-step sign-in | No endpoint anywhere - no enrolment, no secret, no verify, no recovery codes. |
+| D12.6 Profile editing | `GET /api/v1/users/me` is the only route on that resource. No write, so name, role title and email are shown as the record has them. |
+| D12.2 address / logo / band | `PATCH /school` takes `{name, profile, academicConfig, retentionPolicy}` only, and there is no logo upload endpoint. |
+
+**Three settings still live in an untyped blob.** `academicConfig` is
+`additionalProperties: true`, so the term dates and the year-group label map are
+a provisional contract - the third in this codebase after the onboarding block
+and the school contact. The labels are the load-bearing one: every screen reads
+them through `yearGroupLabel`, and nothing validates the shape. **This wants a
+typed home before launch.**
+
+Retention, by contrast, is a real enum and matches the spec exactly:
+`contract | contract_plus_3_years | contract_plus_7_years`, with no indefinite
+value - D12's "12 months" option is not offered because no enum value exists
+for it.
+
+---
+
 ## Admin console
 
 **That sentence used to read "every frontend-fixable launch blocker is shipped,
