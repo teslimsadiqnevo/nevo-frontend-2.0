@@ -1100,6 +1100,114 @@ caught the 202 above.
 
 ---
 
+## All 45 TODO(api) markers re-checked, 10 Sep
+
+Every marker in the admin console was written against an older spec and none had
+been re-checked. **45 markers, judged against one pinned copy of the deployed
+document** (2.0.0, 183 paths, 335 schemas) so every verdict is comparable:
+
+| | |
+|---|---|
+| **20 actively misleading** | assert something the spec contradicts |
+| 4 stale | true-ish, wrong details |
+| 21 accurate | leave them alone |
+
+**The pattern is not 45 independent drifts.** Roughly a third fall to ONE
+BACKEND DEPLOY, 7 Sep, when consent became a first-class field on
+`StudentSummaryResponse`, `StudentDetailResponse`, `ClassStudentResponse` and
+`InvitationResponse`, the school narrative landed, and DPA acceptance became a
+typed record. Renaming accounts for only three. So the markers did not rot
+individually — they were invalidated in batches, which is the argument for
+re-checking them in batches rather than one at a time when a marker is touched.
+
+**The worst one is not a `TODO(api)` at all.** `BandStep`'s docblock cited the
+deployed billing API as the tie-break for shipping enrolment bands: "`GET
+/api/billing/subscription` returns `subscriptionTier` and `studentCountBand`...
+Two of three say bands, and one of those two is the backend, so bands ship."
+Neither field exists on `SubscriptionResponse`, and `PricingResponse` carries
+`pricingModel` as a const `"per_student"` — so the backend is a vote AGAINST
+bands, not for them. **Bands still ship** (SCRUM-39 asks for them and they are
+built), but on one source rather than two, and the D11-vs-SCRUM-98 question that
+docblock claimed to settle is still open.
+
+**A real defect fell out of it.** `ClassStudentResponse.consent` is REQUIRED and
+the client's `ClassStudent` interface did not declare it — so every class roster
+read carried consent for every child and discarded it, while `ClassDetailView`'s
+own marker called the missing consent column "the single biggest gap" on that
+screen. Declared and rendered now, with the same `ConsentPill` the roster uses.
+
+Note the response-shape check **cannot** catch that direction: it gates on
+properties the CLIENT declares that the response lacks, deliberately, because a
+screen may read a subset. A required field the client ignores only reaches
+check 2's advisory list when NOTHING in the client names it — and `consent` is
+named all over the students lane.
+
+**Six corrected in place** so far (`AdminSidebar`, `JoinLanding`, `ClassesView`,
+`StudentDetailView`, `BandStep`, plus the two Settings docblocks). Each states
+what it used to say and what the document holds, rather than quietly changing
+its mind. **Fourteen misleading markers remain**, itemised below.
+
+### The vitest worker flake
+
+`Failed to start forks worker ... Timeout waiting for worker to respond` hit
+five separate runs today, reporting "no tests" or a short count with exit 1 —
+including a run that showed 398 of 466 passing and looked like a real
+regression. It is worker-spawn contention between the parallel sessions, not
+code. **`npx vitest run --no-file-parallelism <file>` is a reliable workaround**
+and settled it every time.
+
+### Every marker, with its verdict
+
+| marker | verdict | severity | asks for |
+|---|---|---|---|
+| `CostSheet.tsx:38` | still_true | accurate | Whether PricingResponse.vatRate is a percentage ("7.5") or a fraction ("0.075") - the cont |
+| `ClassDetailView.tsx:52` | partially_true | accurate |  |
+| `ClassesView.tsx:37` | still_true | accurate |  |
+| `InvitationsView.tsx:29` | still_true | accurate |  |
+| `InvitationsView.tsx:34` | still_true | accurate |  |
+| `JoinLanding.tsx:28` | still_true | accurate | A name (or first name) on the public join-link lookup, so D19's "Welcome, Amara" greeting  |
+| `inviteStatus.tsx:11` | still_true | accurate | An enum on the invitation `status` field, so the four lifecycle values the frame draws are |
+| `NotificationsView.tsx:32` | still_true | accurate |  |
+| `NotificationsView.tsx:50` | partially_true | accurate |  |
+| `DpaStep.tsx:36` | still_true | accurate | A GET endpoint that serves the DPA document TEXT (`{version, html}`) so the agreement word |
+| `SignUpStep.tsx:57` | still_true | accurate | A session (access token) returned by the school-registration call, so the wizard need not  |
+| `ReportsView.tsx:60` | still_true | accurate | A list of named school reports, each exportable as PDF or CSV, for the D09 Reports screen  |
+| `IepExporterView.tsx:56` | still_true | accurate | A read endpoint returning the share records for an IEP export, so share state survives a p |
+| `LearnerProfileView.tsx:41` | still_true | accurate | A PDF (or any document) route on a learner read, so D8b's "Export Profile as PDF" action c |
+| `MoveStudentSheet.tsx:23` | still_true | accurate | A way to schedule a class move for a future date (start of next term) rather than executin |
+| `StudentDetailView.tsx:57` | still_true | accurate | An enrolment date, a hand-enrolled-vs-roster-sync provenance line, and three per-guardian  |
+| `TeachersView.tsx:38` | still_true | accurate |  |
+| `TeachersView.tsx:43` | still_true | accurate |  |
+| `AdminTeamView.tsx:44` | still_true | accurate | Nothing from the API. It records that the scope-write endpoint exists and is typed, and th |
+| `AdminTeamView.tsx:303` | still_true | accurate | An endpoint the "Request another account" button could call to ask Nevo for an admin seat  |
+| `adminScopes.ts:100` | still_true | accurate |  |
+| `AdaptationLogView.tsx:33` | partially_true | misleading | Three things: (1) a before/after pair on each adaptation event, (2) an eventType filter, ( |
+| `AdminSignIn.tsx:34` | partially_true | misleading | Two API gaps: (a) nothing resolves a school before authentication, so the D02 school eyebr |
+| `AssignTeacherSheet.tsx:38` | partially_true | misleading | A backend guarantee that assigning a new primary demotes the incumbent in one transaction, |
+| `ClassDetailView.tsx:44` | now_false | misleading |  |
+| `ClassesView.tsx:46` | now_false | misleading |  |
+| `ndpaClaims.ts:53` | partially_true | misleading | Four school-level figures the screen says it cannot verify: a consent coverage count, eras |
+| `JoinLanding.tsx:33` | partially_true | misleading | A student-side route that reads the join token off the query string and redeems it, matchi |
+| `deliveryCopy.ts:30` | partially_true | misleading | Either a consent state carried on the invitation itself, or an endpoint that queues a pare |
+| `AuthMethodStep.tsx:26` | partially_true | misleading | A real field to write the D1.2 sign-in choice into, instead of parking it in the untyped ` |
+| `OverviewView.tsx:53` | partially_true | misleading | Three things: (1) a narrative/summary endpoint, (2) a roll-up of items needing an admin de |
+| `overviewGettingStarted.ts:28` | partially_true | misleading | A data signal for each of the three open checklist steps (teachers invited, sign-in config |
+| `overviewSample.ts:14` | partially_true | misleading | A single endpoint that rolls up the items at this school that need an admin's decision, to |
+| `ReportsView.tsx:52` | partially_true | misleading | Adaptation sequences keyed to a shared objective, so three anonymised learners' different  |
+| `LearnerProfileView.tsx:46` | partially_true | misleading | A dedicated source of titled per-learner observations for D8b's ENGAGEMENT PATTERNS, inste |
+| `SencoView.tsx:56` | partially_true | misleading | A bulk route that returns active support, lessons completed and adaptations-this-week for  |
+| `AdminSidebar.tsx:29` | partially_true | misleading | A profile endpoint that would supply the signed-in admin's real name and job title in plac |
+| `SsoView.tsx:50` | partially_true | misleading | A raw server-rendered sync log text blob to render verbatim in a <pre> behind "View techni |
+| `EraseRecordModal.tsx:27` | partially_true | misleading | A real retention deadline date to quote in the erase copy, in place of the frame's hardcod |
+| `StudentDetailView.tsx:50` | now_false | misleading | A consent card, on the grounds that the student read carries no consent state, giver, date |
+| `TeacherDetailView.tsx:42` | partially_true | misleading | A last-active timestamp for an arbitrary teacher, an assignment-history endpoint, and a se |
+| `NotificationRow.tsx:139` | partially_true | stale | A category field on each notification row, so the label can read as one of SCRUM-100's six |
+| `BandStep.tsx:42` | partially_true | stale | A first-class enrolment-band field on the school resource, so the band is not stored as an |
+| `IepExporterView.tsx:59` | partially_true | stale | A PDF rendering route for a finalised IEP export, so the screen can offer Download PDF. |
+| `SsoView.tsx:194` | still_true | stale | Nothing itself - it is a cross-reference pointing at the marker on the RosterSyncAccepted  |
+
+---
+
 ## Admin password recovery, 10 Sep
 
 `AdminSignIn`'s own failure copy told a locked-out proprietor to "reset your
