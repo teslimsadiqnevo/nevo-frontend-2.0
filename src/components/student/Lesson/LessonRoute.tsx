@@ -61,11 +61,11 @@ export function LessonRoute({
         adaptSegments={adaptSegments}
       />
     );
-    // `live` false means this is one of the two authored lessons - and a
-    // SIGNED-IN child can land here, because `useStudentLesson` answers a
-    // failed or 404'd live read with a mock of the same id rather than an
-    // error (`failed: failed && !mock`). That is the one place in this lane
-    // where a real child can be shown invented content and nothing says so.
+    // `live` false means this is one of the two authored lessons, which now
+    // only a SIGNED-OUT visitor can reach: `useStudentLesson` no longer answers
+    // a failed or 404'd read with a mock of the same id, so a signed-in child
+    // gets the honest failure below instead of invented content. The mark stays
+    // regardless - it is what an end-to-end run asserts the absence of.
     return live ? (
       player
     ) : (
@@ -124,7 +124,9 @@ function LessonMessage({
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-nevo-cream px-6 text-nevo-near-black">
       <div className="w-full max-w-[420px] rounded-[16px] bg-nevo-cream-elevated p-[26px] shadow-elevation-1">
-        <h1 className="text-[20px] font-semibold tracking-[-0.01em]">{title}</h1>
+        <h1 className="text-[20px] font-semibold tracking-[-0.01em]">
+          {title}
+        </h1>
         <p className="mt-2.5 text-[15.5px] leading-[1.55] text-nevo-near-black/70">
           {body}
         </p>
