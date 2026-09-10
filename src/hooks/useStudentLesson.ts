@@ -11,6 +11,7 @@ import { getMockAdaptation, getMockLesson } from "@/lib/mocks";
 import type { AdaptationPlan, Lesson } from "@/lib/types";
 import { useAdaptation } from "./useAdaptation";
 import { useHasSession } from "./useHasSession";
+import { useHydrated } from "./useHydrated";
 import { useStudentDashboard } from "./useStudentDashboard";
 
 /**
@@ -92,7 +93,28 @@ export interface StudentLessonState {
 
 export function useStudentLesson(lessonId: string): StudentLessonState {
   const signedIn = useHasSession();
-  const mock = getMockLesson(lessonId);
+  const hydrated = useHydrated();
+  /**
+   * THE AUTHORED LESSONS ARE THE SIGNED-OUT WALKTHROUGH, AND NOTHING ELSE.
+   *
+   * This used to be `getMockLesson(lessonId)` unconditionally, and the flags
+   * below read `failed && !mock`. So a SIGNED-IN child whose lesson 404'd or
+   * whose read failed was handed the authored photosynthesis lesson of the same
+   * id: a rich, multi-modal lesson that does not exist in their school's
+   * library, shown at precisely the moment the backend had failed them. The
+   * route wrapped it in `SampleRegion`, which is `display: contents` - readable
+   * by a test, invisible to the child, their teacher, and anyone watching a
+   * demo over their shoulder.
+   *
+   * A signed-in child gets their school's content or an honest failure. The
+   * route already draws both; those branches were simply unreachable while a
+   * fixture stood in front of them.
+   *
+   * Gated on `hydrated` too, because `useHasSession()` is the SERVER's answer
+   * (false) until the client runs - so without it a real child would be handed
+   * the fixture for one frame on every hard load.
+   */
+  const mock = hydrated && !signedIn ? getMockLesson(lessonId) : undefined;
   // Where they got to last time. Home already promises "About halfway in" off
   // this same row, so the player has to honour it - a Continue button that
   // restarts from the beginning is worse than no Continue button.
@@ -140,10 +162,16 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        // A 404 on a lesson we also hold a mock for is not "missing" - the
-        // mock answers it. Only a live-only id can genuinely be absent.
+        // A 404 IS MISSING, whatever the mock registry holds. This used to
+        // check `getMockLesson` and stay silent when one existed, on the
+        // reasoning that "the mock answers it" - but this effect only runs for
+        // a signed-in child (it returns early without a token), and a signed-in
+        // child is exactly who must not be answered with a fixture. Left as it
+        // was, the gating above turned the old silent substitution into a
+        // permanent loading skeleton, which is a quieter way of never telling
+        // them.
         if (err instanceof ApiError && err.status === 404) {
-          if (!getMockLesson(lessonId)) setResolved({ id: lessonId, missing: true });
+          setResolved({ id: lessonId, missing: true });
         } else {
           setResolved({ id: lessonId, failed: true });
         }
@@ -154,7 +182,9 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
     };
   }, [lessonId]);
 
-  const lesson = live ?? mock;
+  // `?? null` because `mock` is now undefined for a signed-in child, and the
+  // contract above promises `Lesson | null`.
+  const lesson = live ?? mock ?? null;
 
   // Only for a live lesson: a mock's ids mean nothing to the engine, and its
   // authored plan is richer than anything `lesson_load` returns.
@@ -181,7 +211,8 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
   // Back Up - so leaving this on `in_progress` alone produced a card reading
   // "About halfway in" that then opened the lesson at segment one. The same
   // half-fix twice: the display was corrected and the resume was not.
-  const resumable = saved?.status === "in_progress" || saved?.status === "exited";
+  const resumable =
+    saved?.status === "in_progress" || saved?.status === "exited";
   const resumeAt =
     live && saved && resumable
       ? Math.max(0, Math.min(saved.segmentPosition, live.segments.length - 1))
@@ -196,9 +227,17 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
     // A live lesson gets the engine's plan; a mock keeps its authored one.
     // Never crossed: a mock must not borrow a live plan, and a live lesson
     // must not borrow another lesson's authored one.
-    plan: live ? adaptation.plan : getMockAdaptation(lessonId),
+    // Never crossed, and never invented: an authored plan belongs to an
+    // authored lesson, which only a signed-out visitor now sees.
+    plan: live
+      ? adaptation.plan
+      : mock
+        ? (getMockAdaptation(lessonId) ?? null)
+        : null,
     loading: signedIn && !lesson && !missing && !failed && !empty,
-    // A mock covers the id, so nothing is missing even if the live read 404'd.
+    // `!mock` still stands, but it can now only be true for a signed-out
+    // visitor - who makes no read at all, so none of these are ever set for
+    // them anyway. For a signed-in child these are simply the truth.
     missing: missing && !mock,
     failed: failed && !mock,
     empty: empty && !mock,
