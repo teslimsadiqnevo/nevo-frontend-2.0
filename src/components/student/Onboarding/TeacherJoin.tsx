@@ -300,7 +300,9 @@ function CodeMode({
              anything, the only honest copy was "we can't check class codes just
              yet"; now that it does, a child whose code was refused deserves to
              be told that, and a child whose check WE failed must not be. */
-          <p className="text-sm text-nevo-violet">
+          // A child cannot act on a message they cannot read: violet is
+          // 2.34:1 on cream, and this is the sentence telling them what to do.
+          <p className="text-sm text-nevo-violet-text">
             {trouble
               ? "We couldn't check that just now. Give it a moment and try again."
               : "That code doesn't match a class. Check it with your teacher."}

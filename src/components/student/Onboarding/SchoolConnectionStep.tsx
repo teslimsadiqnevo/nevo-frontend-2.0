@@ -124,7 +124,8 @@ export function SchoolConnectionStep() {
             text: trouble
               ? "We couldn't check that just now. Give it a moment and try again."
               : "That code doesn't match a school. Check it with your teacher.",
-            className: "text-nevo-violet",
+            // A child cannot act on a message they cannot read.
+            className: "text-nevo-violet-text",
           }
         : null;
 

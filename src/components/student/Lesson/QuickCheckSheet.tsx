@@ -96,7 +96,10 @@ export function QuickCheckSheet({
             className={
               correct
                 ? "mt-4 text-[15px] leading-[1.5] font-medium text-nevo-navy"
-                : "mt-4 text-[15px] leading-[1.5] font-medium text-nevo-violet"
+                : // The note after a WRONG answer. Violet at 2.34:1 made the
+                  // one sentence a struggling child most needs the hardest to
+                  // read; the correct note beside it is navy at 8.8:1.
+                  "mt-4 text-[15px] leading-[1.5] font-medium text-nevo-violet-text"
             }
           >
             {correct ? check.correctNote : check.recoveryNote}
