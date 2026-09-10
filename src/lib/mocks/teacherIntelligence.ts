@@ -26,17 +26,17 @@ export const PULSE_SUBTITLE =
 export const HOME_PULSE: PulseMetric[] = [
   {
     head: "Engagement",
-    value: "Strong",
+    value: "Above 75%",
     desc: "25 of 28 students engaged consistently across sessions this week.",
   },
   {
     head: "Comprehension",
-    value: "Building",
+    value: "Below 50%",
     desc: "Most students are moving through the current sequence at their own pace. 4 may benefit from a review session.",
   },
   {
     head: "Focus",
-    value: "Steady",
+    value: "50 to 75%",
     desc: "Attention patterns are stable across the class. No signs of widespread fatigue or disengagement.",
   },
 ];

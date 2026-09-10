@@ -22,12 +22,38 @@ import { useLiveQuery } from "./useLiveQuery";
  * low score and must never read as one.
  */
 
-/** The frame's own three words, in the order they escalate. */
-const BANDS: { min: number; word: string }[] = [
-  { min: 0.75, word: "Strong" },
-  { min: 0.45, word: "Steady" },
-  { min: 0, word: "Building" },
-];
+/**
+ * The pulse bands, HIGH TO LOW.
+ *
+ * These used to read "Strong", "Steady" and "Building" - words this frontend
+ * invented and then showed to a teacher as a judgement about their class.
+ * Design ruled on 10 Sep that we must not do that: the cutoffs are ours, they
+ * have never been ratified, and dressing an unratified threshold in a word like
+ * "Strong" states an opinion as a fact.
+ *
+ * So the label is DERIVED FROM THE CUTOFF rather than written beside it. That
+ * is deliberate and it is the point of the change: a hand-written label can
+ * drift from the number it describes, and the first version of this change did
+ * exactly that - design's wording said "50 to 75%" while the code's middle
+ * cutoff was 0.45, so a class at 47% would have been labelled "50 to 75%". A
+ * label generated from `min` cannot say something the threshold does not.
+ *
+ * THE CUTOFFS THEMSELVES ARE STILL PROVISIONAL. Design is defining them from
+ * the engine spec. When those land, change the numbers here and the labels
+ * follow on their own.
+ */
+const BANDS: { min: number }[] = [{ min: 0.75 }, { min: 0.5 }, { min: 0 }];
+
+/** "Above 75%", "50 to 75%", "Below 50%" - read straight off the thresholds. */
+function bandLabel(index: number): string {
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
+  const min = BANDS[index].min;
+  const above = BANDS[index - 1];
+  if (!above) return `Above ${pct(min)}`;
+  if (min === 0) return `Below ${pct(above.min)}`;
+  // "50 to 75%", not "50% to 75%" - design's wording, one sign at the end.
+  return `${Math.round(min * 100)} to ${pct(above.min)}`;
+}
 
 export interface PulseTile {
   head: string;
@@ -53,10 +79,14 @@ export interface HomeActivity {
   href: string | null;
 }
 
+/** Exported for tests only - the band boundaries are the thing worth pinning. */
+export const __bandForTest = (v: number | null) => band(v);
+
 function band(v: number | null): string | null {
   if (v === null || Number.isNaN(v)) return null;
   const clamped = Math.max(0, Math.min(1, v));
-  return BANDS.find((b) => clamped >= b.min)?.word ?? "Building";
+  const i = BANDS.findIndex((b) => clamped >= b.min);
+  return bandLabel(i === -1 ? BANDS.length - 1 : i);
 }
 
 function toPulse(row: ClassPulseRow): ClassPulse {
