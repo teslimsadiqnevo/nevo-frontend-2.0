@@ -15,6 +15,13 @@ import type { LessonSummary } from "./lessons";
  * matching on `lesson.id`.
  */
 
+/**
+ * The deployed `AssignmentStatus` enum. Two values only - an assignment is
+ * either set or called off; there is no "completed" here, because completion
+ * is a fact about the CHILD's progress, not about the assignment.
+ */
+export type AssignmentStatus = "assigned" | "cancelled";
+
 export interface Assignment {
   id: string;
   lesson: LessonSummary;
@@ -26,6 +33,22 @@ export interface Assignment {
   /** When it is DUE - a different thing. */
   dueAt: string | null;
   assignedAt: string;
+}
+
+/**
+ * What PATCH actually gives back - NOT a whole `Assignment`.
+ *
+ * `AssignmentUpdatedResponse` carries only the four fields the write can have
+ * changed. Typing the call as `Assignment` claimed `lesson`, `studentId`,
+ * `classId` and `assignedAt` were on the wire when they are not, which is how a
+ * screen ends up rendering `undefined` for a child's name. Caught by
+ * `npm run contract`, which is the whole reason that gate exists.
+ */
+export interface AssignmentUpdated {
+  id: string;
+  status: AssignmentStatus;
+  dueAt: string | null;
+  availableFrom: string | null;
 }
 
 export interface CreateAssignmentsResult {
@@ -62,4 +85,57 @@ export const assignmentsApi = {
           ? { classId: filter.classId }
           : undefined,
     }),
+
+  /**
+   * Change one assignment's dates, or cancel it.
+   *
+   * PATCH rather than DELETE, deliberately. Both endpoints cancel - DELETE's
+   * operationId is literally `cancel_assignment` - but DELETE is irreversible
+   * and drops the row, taking with it the record that the lesson was ever set.
+   * A teacher who cancels the wrong class would then have no way back, which
+   * is the exact problem this whole change exists to fix. `status: "cancelled"`
+   * keeps the row, can be patched back to `assigned`, and leaves the child's
+   * history intact.
+   *
+   * Every field is optional: send only what changes.
+   */
+  update: (
+    assignmentId: string,
+    patch: {
+      dueAt?: string | null;
+      availableFrom?: string | null;
+      status?: AssignmentStatus;
+    },
+  ) =>
+    api.patch<AssignmentUpdated>(
+      `/api/v1/assignments/${encodeURIComponent(assignmentId)}`,
+      patch,
+    ),
 };
+
+/**
+ * Apply one change to many assignments, reporting HONESTLY what happened.
+ *
+ * An assignment is per-student even when a teacher created it for a class, so
+ * "cancel this lesson for JSS 2A" is thirty separate writes. Thirty writes can
+ * half-succeed, and this console's most expensive recurring defect is a failed
+ * write that looked exactly like a successful one - the dialog closes, the
+ * spinner stops, and the screen returns to rest whether or not anything landed.
+ *
+ * So this never throws on a partial failure and never reports success for one.
+ * It settles every request and returns the counts, leaving the caller to say
+ * something true. `Promise.all` would reject on the first failure and lose the
+ * information about the twenty-nine that worked.
+ */
+export async function applyToAssignments(
+  ids: string[],
+  patch: Parameters<typeof assignmentsApi.update>[1],
+): Promise<{ ok: string[]; failed: string[] }> {
+  const results = await Promise.allSettled(
+    ids.map((id) => assignmentsApi.update(id, patch)),
+  );
+  const ok: string[] = [];
+  const failed: string[] = [];
+  results.forEach((r, i) => (r.status === "fulfilled" ? ok : failed).push(ids[i]));
+  return { ok, failed };
+}

@@ -1,0 +1,396 @@
+"use client";
+
+import { useState } from "react";
+import { useTeacherClasses } from "@/hooks/useTeacherClasses";
+import {
+  applyToAssignments,
+  type Assignment,
+} from "@/lib/api/assignments";
+
+/**
+ * Who this lesson is set for, and the two ways to change it.
+ *
+ * WHY THIS EXISTS. `PATCH` and `DELETE /api/v1/assignments/{id}` have both been
+ * in the deployed spec for weeks with no caller: `assignmentsApi` had only
+ * `create` and `list`. So a teacher who assigned the wrong lesson, or assigned
+ * to JSS 2B instead of 2A, had no route back inside the product - in front of a
+ * school, with children already seeing it.
+ *
+ * GROUPED BY CLASS, NOT BY ROW. An assignment is per-student even when created
+ * for a whole class, so one "assign to JSS 2A" is thirty rows. A teacher does
+ * not think in rows; they think "I set this for 2A". Every action here fans out
+ * across the group and reports on the group.
+ *
+ * WHICH MEANS PARTIAL FAILURE IS REAL, and it is the thing this file is most
+ * careful about. Thirty writes can half-succeed. This console's most expensive
+ * recurring defect is a failed write that looked exactly like a successful one,
+ * so nothing here says "cancelled" unless every row came back, and a partial
+ * result says plainly how many landed and offers the retry.
+ */
+
+type Group = {
+  key: string;
+  classId: string | null;
+  ids: string[];
+  students: number;
+  availableFrom: string | null;
+  dueAt: string | null;
+  cancelled: boolean;
+};
+
+type Busy = { key: string; kind: "dates" | "cancel" } | null;
+
+type Outcome =
+  | { key: string; kind: "done"; text: string }
+  | { key: string; kind: "partial"; text: string; retry: string[] }
+  | { key: string; kind: "failed"; text: string }
+  | null;
+
+export function AssignmentSchedule({
+  assignments,
+}: {
+  assignments: Assignment[];
+}) {
+  const { classes } = useTeacherClasses();
+  // Ids this component has itself cancelled. Kept locally rather than
+  // refetching: we know exactly which writes the server accepted, so echoing
+  // them is honest, and a refetch would need a refresh seam the route does not
+  // have. Anything we did NOT successfully change stays as the server sent it.
+  const [cancelled, setCancelled] = useState<Set<string>>(new Set());
+  const [edited, setEdited] = useState<Record<string, { availableFrom: string | null; dueAt: string | null }>>({});
+  const [busy, setBusy] = useState<Busy>(null);
+  const [outcome, setOutcome] = useState<Outcome>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+
+  const groups = groupByClass(assignments, cancelled, edited);
+  if (groups.length === 0) return null;
+
+  const nameFor = (classId: string | null) => {
+    if (!classId) return "Individual students";
+    return classes.find((c) => c.id === classId)?.name ?? "A class";
+  };
+
+  async function cancelGroup(g: Group) {
+    setBusy({ key: g.key, kind: "cancel" });
+    setOutcome(null);
+    const { ok, failed } = await applyToAssignments(g.ids, { status: "cancelled" });
+    setCancelled((prev) => new Set([...prev, ...ok]));
+    setBusy(null);
+    setConfirming(null);
+    if (failed.length === 0) {
+      setOutcome({ key: g.key, kind: "done", text: "Cancelled. Students will no longer see this lesson." });
+    } else if (ok.length === 0) {
+      setOutcome({ key: g.key, kind: "failed", text: "Nothing was cancelled. Please try again." });
+    } else {
+      // The honest case, and the one worth writing out in full.
+      setOutcome({
+        key: g.key,
+        kind: "partial",
+        text: `Cancelled for ${ok.length} of ${g.ids.length} students. The rest still have it.`,
+        retry: failed,
+      });
+    }
+  }
+
+  async function saveDates(g: Group, availableFrom: string | null, dueAt: string | null) {
+    setBusy({ key: g.key, kind: "dates" });
+    setOutcome(null);
+    const { ok, failed } = await applyToAssignments(g.ids, { availableFrom, dueAt });
+    setBusy(null);
+    if (ok.length > 0) {
+      setEdited((prev) => {
+        const next = { ...prev };
+        for (const id of ok) next[id] = { availableFrom, dueAt };
+        return next;
+      });
+    }
+    if (failed.length === 0) {
+      setEditing(null);
+      setOutcome({ key: g.key, kind: "done", text: "Dates updated." });
+    } else if (ok.length === 0) {
+      setOutcome({ key: g.key, kind: "failed", text: "Nothing was changed. Please try again." });
+    } else {
+      setOutcome({
+        key: g.key,
+        kind: "partial",
+        text: `Updated for ${ok.length} of ${g.ids.length} students. The rest keep the old dates.`,
+        retry: failed,
+      });
+    }
+  }
+
+  return (
+    <section className="mt-9">
+      <h3 className="text-[11px] font-bold tracking-[0.14em] text-nevo-violet uppercase">
+        Who this is set for
+      </h3>
+
+      <div className="mt-3 flex flex-col gap-2.5">
+        {groups.map((g) => {
+          const working = busy?.key === g.key;
+          const said = outcome?.key === g.key ? outcome : null;
+          return (
+            <div
+              key={g.key}
+              className="rounded-[12px] bg-nevo-cream-elevated p-[18px] shadow-elevation-1"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[16px] font-semibold text-nevo-near-black">
+                      {nameFor(g.classId)}
+                    </span>
+                    {g.cancelled && (
+                      <span className="rounded-full bg-nevo-near-black/8 px-2.5 py-0.5 text-[11.5px] font-semibold text-nevo-near-black/60">
+                        Cancelled
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[13.5px] text-nevo-near-black/62">
+                    {g.students} {g.students === 1 ? "student" : "students"}
+                    {" · "}
+                    {describeWindow(g.availableFrom, g.dueAt)}
+                  </p>
+                </div>
+
+                {!g.cancelled && (
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      disabled={working}
+                      onClick={() => {
+                        setOutcome(null);
+                        setEditing(editing === g.key ? null : g.key);
+                      }}
+                      className="cursor-pointer rounded-[9px] border border-nevo-navy/22 px-3 py-1.5 text-[13.5px] font-semibold text-nevo-navy transition-colors hover:bg-nevo-navy/5 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      Change dates
+                    </button>
+                    <button
+                      type="button"
+                      disabled={working}
+                      onClick={() => {
+                        setOutcome(null);
+                        setEditing(null);
+                        setConfirming(confirming === g.key ? null : g.key);
+                      }}
+                      className="cursor-pointer rounded-[9px] px-3 py-1.5 text-[13.5px] font-semibold text-nevo-navy transition-colors hover:bg-nevo-navy/5 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      Cancel lesson
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {editing === g.key && !g.cancelled && (
+                <DateForm
+                  availableFrom={g.availableFrom}
+                  dueAt={g.dueAt}
+                  busy={working && busy?.kind === "dates"}
+                  onCancel={() => setEditing(null)}
+                  onSave={(a, d) => void saveDates(g, a, d)}
+                />
+              )}
+
+              {confirming === g.key && !g.cancelled && (
+                <div className="mt-3.5 rounded-[10px] bg-nevo-violet/14 p-3.5">
+                  {/* Named plainly. A teacher cancelling for a class is doing
+                      something to real children's screens, and the count is the
+                      fact that makes it clear which class they picked. */}
+                  <p className="text-[14px] leading-[1.5] text-nevo-near-black/80">
+                    Cancel this lesson for {g.students}{" "}
+                    {g.students === 1 ? "student" : "students"} in{" "}
+                    {nameFor(g.classId)}? They will no longer see it. You can set
+                    it again afterwards.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={working}
+                      onClick={() => void cancelGroup(g)}
+                      className="cursor-pointer rounded-[9px] bg-nevo-navy px-3.5 py-1.5 text-[13.5px] font-semibold text-nevo-cream disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      {working ? "Cancelling…" : "Yes, cancel it"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={working}
+                      onClick={() => setConfirming(null)}
+                      className="cursor-pointer rounded-[9px] px-3.5 py-1.5 text-[13.5px] font-semibold text-nevo-navy disabled:cursor-not-allowed"
+                    >
+                      Keep it
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {said && (
+                <p
+                  role="status"
+                  className="mt-3 text-[13.5px] leading-[1.5] text-nevo-near-black/70"
+                >
+                  {said.text}
+                  {said.kind === "partial" && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void cancelGroup({ ...g, ids: said.retry, students: said.retry.length })
+                      }
+                      className="ml-2 cursor-pointer font-semibold text-nevo-navy underline underline-offset-2"
+                    >
+                      Try the rest
+                    </button>
+                  )}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function DateForm({
+  availableFrom,
+  dueAt,
+  busy,
+  onSave,
+  onCancel,
+}: {
+  availableFrom: string | null;
+  dueAt: string | null;
+  busy: boolean;
+  onSave: (availableFrom: string | null, dueAt: string | null) => void;
+  onCancel: () => void;
+}) {
+  const [opens, setOpens] = useState(toDateInput(availableFrom));
+  const [due, setDue] = useState(toDateInput(dueAt));
+  // `availableFrom` is when it OPENS and `dueAt` is when it is DUE - separate
+  // fields that must not be mapped onto each other. A lesson that opens after
+  // it is due is not a schedule, it is a mistake, so it is refused here rather
+  // than sent.
+  const backwards = Boolean(opens && due && opens > due);
+
+  return (
+    <div className="mt-3.5 rounded-[10px] bg-nevo-cream p-3.5">
+      <div className="flex flex-wrap gap-3.5">
+        <label className="text-[13px] font-medium text-nevo-near-black/70">
+          Opens
+          <input
+            type="date"
+            value={opens}
+            onChange={(e) => setOpens(e.target.value)}
+            className="mt-1 block rounded-[8px] border border-nevo-navy/20 bg-nevo-cream-elevated px-2.5 py-1.5 text-[14px] text-nevo-near-black"
+          />
+        </label>
+        <label className="text-[13px] font-medium text-nevo-near-black/70">
+          Due
+          <input
+            type="date"
+            value={due}
+            onChange={(e) => setDue(e.target.value)}
+            className="mt-1 block rounded-[8px] border border-nevo-navy/20 bg-nevo-cream-elevated px-2.5 py-1.5 text-[14px] text-nevo-near-black"
+          />
+        </label>
+      </div>
+
+      {backwards && (
+        <p role="alert" className="mt-2.5 text-[13px] text-nevo-navy">
+          A lesson cannot be due before it opens.
+        </p>
+      )}
+
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          disabled={busy || backwards}
+          onClick={() => onSave(fromDateInput(opens), fromDateInput(due))}
+          className="cursor-pointer rounded-[9px] bg-nevo-navy px-3.5 py-1.5 text-[13.5px] font-semibold text-nevo-cream disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {busy ? "Saving…" : "Save dates"}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onCancel}
+          className="cursor-pointer rounded-[9px] px-3.5 py-1.5 text-[13.5px] font-semibold text-nevo-navy disabled:cursor-not-allowed"
+        >
+          Discard
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One row per class the lesson was set for. `classId` is null for anything
+ * assigned to individuals, and those collapse into a single group rather than
+ * one per child - a teacher who picked six names set one thing, not six.
+ */
+export function groupByClass(
+  assignments: Assignment[],
+  cancelled: Set<string>,
+  edited: Record<string, { availableFrom: string | null; dueAt: string | null }>,
+): Group[] {
+  const by = new Map<string, Assignment[]>();
+  for (const a of assignments) {
+    const key = a.classId ?? "__individual__";
+    const list = by.get(key);
+    if (list) list.push(a);
+    else by.set(key, [a]);
+  }
+
+  return [...by.entries()].map(([key, rows]) => {
+    const first = rows[0];
+    const override = edited[first.id];
+    return {
+      key,
+      classId: first.classId,
+      ids: rows.map((r) => r.id),
+      students: new Set(rows.map((r) => r.studentId)).size,
+      availableFrom: override ? override.availableFrom : first.availableFrom,
+      dueAt: override ? override.dueAt : first.dueAt,
+      // Cancelled only when EVERY row in the group is - a group with one live
+      // row is still set for that child, and saying otherwise would be a lie
+      // about who can see the lesson.
+      cancelled: rows.every(
+        (r) => cancelled.has(r.id) || r.status === "cancelled",
+      ),
+    };
+  });
+}
+
+/** "Opens 3 Oct · due 10 Oct", or the honest absence of either. */
+export function describeWindow(
+  availableFrom: string | null,
+  dueAt: string | null,
+): string {
+  const opens = shortDate(availableFrom);
+  const due = shortDate(dueAt);
+  if (opens && due) return `opens ${opens} · due ${due}`;
+  if (opens) return `opens ${opens}`;
+  if (due) return `due ${due}`;
+  return "no dates set";
+}
+
+function shortDate(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+/** ISO timestamp to the `yyyy-mm-dd` an `<input type="date">` wants. */
+function toDateInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+}
+
+/** Back again. An empty box means "no date", which is a real value here. */
+function fromDateInput(value: string): string | null {
+  return value ? new Date(`${value}T00:00:00.000Z`).toISOString() : null;
+}
