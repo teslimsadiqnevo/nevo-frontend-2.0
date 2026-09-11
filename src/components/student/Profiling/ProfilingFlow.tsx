@@ -1,9 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { baselineApi } from "@/lib/api";
+import { holdBaseline } from "@/lib/profiling/pendingBaseline";
 import { ONBOARDING_SIGNAL_TYPES } from "@/lib/constants";
-import { bandForAge, bandForYearLabel, gridSpanConfig } from "@/lib/profiling/bands";
+import {
+  bandForAge,
+  bandForYearLabel,
+  gridSpanConfig,
+} from "@/lib/profiling/bands";
 import { getOnboardingDraft } from "@/lib/auth/onboarding";
 import {
   BaselineCapture,
@@ -58,11 +62,22 @@ export function ProfilingFlow({
     const age = getOnboardingDraft().age;
     return age ? bandForAge(age) : bandForYearLabel(MOCK_STUDENT.subtitle);
   });
-  const [capture] = useState(() => new BaselineCapture(`baseline-${randomId()}`));
+  const [capture] = useState(
+    () => new BaselineCapture(`baseline-${randomId()}`),
+  );
   const submitted = useRef(false);
-  // null while the submit is still resolving; false means it never reached
-  // Nevo, and the completion screen says so rather than claiming "All set".
-  const [saved, setSaved] = useState<boolean | null>(null);
+  /*
+   * The completion screen's `saved` is left null - "still resolving" - because
+   * that is now literally what it is: the vector is parked and goes out when
+   * the account exists, a screen or two later. This run cannot know the answer
+   * any more, and should not pretend to.
+   *
+   * NOTE FOR DESIGN: the settled copy reads "Your learning space has been
+   * personalized", which now runs slightly ahead of the write rather than
+   * alongside it. It was already shown while a submit was in flight; the
+   * in-flight window is just longer. Worth a neutral phrasing if you would
+   * rather it did not claim a past-tense write at all.
+   */
 
   const finishRun = () => {
     if (!submitted.current) {
@@ -74,15 +89,25 @@ export function ProfilingFlow({
         reduceTrialModule(capture, "domain_probe"),
       ];
       const c = capture;
-      // The run never BLOCKS on the network, but it is no longer thrown away
-      // by it either: three attempts, and the raw stream is held until the
-      // answer is known rather than purged alongside a silent failure. Only
-      // the reduced vector is ever transmitted; the raw capture never leaves
-      // the device and is purged either way once we have an answer.
-      void baselineApi
-        .submitWithRetry(c.sessionId, features)
-        .then((ok) => setSaved(ok))
-        .finally(() => void c.purge());
+      /*
+       * PARKED, NOT SENT. `POST /api/baseline/submit` is Bearer, and this run
+       * is phase 0 of the sequence - the account is not created until phase 2.
+       * So this used to post with no token, take the 401 as final
+       * (`submitWithRetry` does not retry a 4xx), and purge the capture in a
+       * `.finally()` regardless: the whole measurement gone, in the run that
+       * happens once, for every child except those arriving by SSO.
+       *
+       * On a shared tablet it was worse than lost. `/student/onboarding` lets a
+       * signed-in child through, so a token the previous child left behind made
+       * this SUCCEED - writing one child's cognitive assessment to another
+       * child's account.
+       *
+       * `flushPendingBaseline` sends it once an account exists and can be shown
+       * to be this child's. The raw capture still never leaves the device and
+       * is still purged the moment it has been reduced.
+       */
+      holdBaseline(c.sessionId, features);
+      void c.purge();
       track?.(ONBOARDING_SIGNAL_TYPES.BASELINE_SUBMITTED, {
         modules: features.map((f) => f.module),
       });
@@ -204,5 +229,5 @@ export function ProfilingFlow({
     );
   }
 
-  return <ProfilingIntro mode="complete" saved={saved} onContinue={onDone} />;
+  return <ProfilingIntro mode="complete" onContinue={onDone} />;
 }

@@ -10,6 +10,7 @@ import {
   rememberOnboardedStudent,
 } from "@/lib/auth/onboarding";
 import { useNextLessonHref } from "@/hooks/useNextLessonHref";
+import { flushPendingBaseline } from "@/lib/profiling/pendingBaseline";
 import { randomId } from "@/lib/utils";
 import { ProfilingFlow } from "@/components/student/Profiling/ProfilingFlow";
 import { TransitionScreen } from "./TransitionScreen";
@@ -107,6 +108,12 @@ export function ObservedInteractionSequence() {
               lastName,
             });
             identifierRef.current = res.loginIdentifier;
+            // The baseline this child sat in phase 0 is parked, waiting for an
+            // account to belong to. It only goes out if the stored session is
+            // provably theirs - `acceptJoin` does not store one, so on this
+            // path it usually stays parked rather than being written to
+            // whoever's token happens to be on the device.
+            await flushPendingBaseline(res.userId);
             return;
           }
 
@@ -152,6 +159,13 @@ export function ObservedInteractionSequence() {
            * child is about to be routed into a lesson, and an unmount flush
            * races that navigation.
            */
+          // Their account exists now, so the parked baseline finally has an
+          // owner. Guarded on the id `completeAccount` just returned: a token
+          // left behind by the previous child on a shared tablet cannot satisfy
+          // it, which is what stops one child's assessment landing on another's
+          // record.
+          await flushPendingBaseline(res.userId);
+
           flush();
         }}
         onComplete={() => {
