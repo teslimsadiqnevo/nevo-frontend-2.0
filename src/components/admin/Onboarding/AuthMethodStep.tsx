@@ -28,11 +28,19 @@ import {
  * answer is written into `profile.onboarding.authMethod` - a provisional
  * contract, documented in `lib/api/school.ts`, that backend needs to ratify.
  *
- * The concept does exist server-side: `auth/school-code/verify` RETURNS an
- * `authMethod`. So this is a missing write against an existing model, not a
- * missing model - which should make it the cheaper half to close. Until it is
- * closed, this screen tells the truth about permanence while storing the
- * answer somewhere backend has not yet promised to read.
+ * THE CONCEPT ONLY HALF-EXISTS SERVER-SIDE, and this used to call it "a
+ * missing write against an existing model... the cheaper half to close".
+ * `POST /api/v1/auth/school-code/verify` does return
+ * `SchoolCodeResponse.authMethod`, but that enum is
+ * `email_password | pin | sso` and cannot hold this screen's answer: Microsoft
+ * and Google both collapse to `sso`, and that distinction lives in a separate
+ * enum, `SsoProvider` (`microsoft | google`), which `GET /admin/sso/status`
+ * reports back only once a school has already connected. `manual` maps to
+ * neither cleanly. So this is a missing write AND a vocabulary mismatch, and
+ * backend has a decision to make - a two-field write, or a new enum - before
+ * there is anything to write to. Until then this screen tells the truth about
+ * permanence while storing the answer somewhere backend has not promised to
+ * read.
  */
 
 const OPTIONS: {

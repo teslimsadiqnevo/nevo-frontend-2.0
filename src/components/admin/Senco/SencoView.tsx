@@ -53,11 +53,26 @@ import {
  * SENCo surface.
  * ============================================================================
  *
- * TODO(api): D8b's list cards carry three figures per learner - active
- * support, lessons completed, adaptations this week. Each needs its own
- * per-student request, and there is no bulk route, so at 247 profiles that is
- * ~741 calls to paint a list. They are shown on the individual profile, where
- * they cost three calls for one learner, and the list carries identity only.
+ * THE ARITHMETIC THAT JUSTIFIED THIS DEFERRAL WAS TWO-THIRDS WRONG. It read:
+ * "Each needs its own per-student request, and there is no bulk route, so at
+ * 247 profiles that is ~741 calls to paint a list." Of D8b's three list
+ * figures only ONE costs a call per learner:
+ *
+ *   - ACTIVE SUPPORT still does. `GET /api/intelligence/accommodations/{id}`
+ *     is the only accommodations route in the spec and takes no student list.
+ *   - ADAPTATIONS THIS WEEK is ONE windowed call:
+ *     `GET /api/admin/adaptation-log?dateFrom=...`, whose rows carry
+ *     `studentId`. `schoolIntelligenceApi.adaptationLog` already does exactly
+ *     this in AdaptationLogView.
+ *   - LESSONS COMPLETED arrives per learner on the class roster read as the
+ *     `completed_lessons` observation with its count - and this screen already
+ *     makes one request per class.
+ *
+ * TODO (mostly client): two of the three are buildable now at roughly no extra
+ * cost. Active support is the one that would need a bulk route, so the honest
+ * ask of backend is a list-scoped accommodations read - not all three. Until
+ * then the figures are shown on the individual profile and the list carries
+ * identity only.
  */
 
 type Phase = "loading" | "ready" | "failed" | "denied";

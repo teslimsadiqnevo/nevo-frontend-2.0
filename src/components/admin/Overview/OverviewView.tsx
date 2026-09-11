@@ -30,12 +30,20 @@ import { NoAccess, failureKind } from "../NoAccess";
  * whole NDPA claim is that Nevo holds no diagnostic label about any child, and
  * this is the number that proves it.
  *
- * WHAT IS NOT. The board-ready narrative has no endpoint behind it, and neither
- * does the "worth a glance" roll-up. Both render the frame's copy marked as a
- * sample rather than passing for this school's own position.
+ * WHAT IS NOT. The "worth a glance" roll-up has no endpoint behind it, and
+ * renders the frame's copy marked as a sample rather than passing for this
+ * school's own position.
  *
- * The frame's other two snapshot stats - classes active, teachers active - have
- * no source at all, so they are absent rather than invented.
+ * THE NARRATIVE USED TO BE NAMED HERE TOO, and stopped being true on 7 Sep
+ * without this sentence noticing. `GET /api/v1/school/narrative` exists and is
+ * consumed in `load()` below; the board summary is the school's own.
+ *
+ * The frame's other two snapshot stats said "classes active, teachers active -
+ * have no source at all". Half of that is wrong, and the counts are rendered
+ * 250 lines below: `GET /api/v1/school/overview` carries `SchoolRosterCounts`,
+ * so the HEADCOUNTS are real. What has no source is ACTIVITY - no per-class or
+ * per-teacher recency field exists anywhere in the contract - so the cards
+ * count classes and teachers rather than claiming either is active.
  *
  * The early state is chosen by a real signal: a school with nothing in the
  * adaptation log has not started teaching yet, and the frame's early copy is
@@ -50,8 +58,11 @@ import { NoAccess, failureKind } from "../NoAccess";
  * checklist. See `overviewGettingStarted.ts` for what a tick is allowed to
  * claim.
  *
- * TODO(api): a narrative/summary endpoint, a roll-up of things needing a
- * decision, and class/teacher activity counts.
+ * TODO(api): a roll-up of things needing a decision, and per-class or
+ * per-teacher ACTIVITY. (This asked for a narrative endpoint as well, which
+ * had already landed, and for "activity counts", which conflated headcounts
+ * that exist with recency that does not.) The roll-up is itself now
+ * two-thirds buildable client-side - see `overviewSample.ts`.
  * Both cards open their drill-down: the compliance card to D22, and the
  * adaptations figure to D21.
  */

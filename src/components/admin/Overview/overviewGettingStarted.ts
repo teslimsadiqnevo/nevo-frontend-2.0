@@ -25,11 +25,20 @@
  * those is a checklist affordance, not a verified "you have not done this" -
  * but it will read as one to some admins, and the only real fix is a signal.
  *
- * TODO(api): settle the remaining three from data rather than leaving them
- * open - teachers from the roster count, sign-in from the SSO status the IT
- * screen already reads, consent once any endpoint reports it for a school.
- * Each is one call; none is worth adding to this screen's failure surface
- * until they can be fetched together.
+ * TODO (client, not api): settle the remaining three from data rather than
+ * leaving them open. This used to end "consent once any endpoint reports it
+ * for a school" and "each is one call" - the first was retired by this file's
+ * own correction block below, and the second stopped being true when
+ * OverviewView put `counts` in state. What is actually left:
+ *
+ *   - TEACHERS ticks today from `counts.teachers > 0`, no new call at all.
+ *   - SIGN-IN needs `ssoApi.status()` added to the existing `Promise.all` with
+ *     a `.catch(() => null)` like its two neighbours, and settles only the
+ *     "connect a provider" half - "share your school code" stays unverifiable
+ *     and MUST stay open.
+ *   - CONSENT ticks from `studentsApi.list()` when no row is `not_sent`.
+ *
+ * Whichever lands, export its index beside STEP_WORKSPACE and STEP_STUDENTS.
  *
  * THAT WAS TRUE AND IS NOT ANY MORE. This used to read: "The consent row's
  * action is 'When ready' rather than a link... No endpoint reads consent for a

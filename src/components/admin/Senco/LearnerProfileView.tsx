@@ -43,11 +43,21 @@ import { NoAccess, failureKind } from "../NoAccess";
  * button that fails. The IEP exporter is the supported way to get something
  * shareable out of this data, and this screen links to it.
  *
- * TODO(api): D8b's ENGAGEMENT PATTERNS section has no dedicated source. The
- * nearest is `frontendSignals` on the accommodations read, which is a list of
- * signal names rather than the titled observations the frame draws. It is
- * rendered as what it is - what Nevo has noticed - rather than dressed up as
- * something richer.
+ * ENGAGEMENT PATTERNS HAS A SOURCE, AND THIS SAID IT HAD NONE. It read
+ * "D8b's ENGAGEMENT PATTERNS section has no dedicated source". There is no
+ * per-STUDENT route, which is what made that easy to believe, but
+ * `ClassStudentResponse.observations` on `GET /api/v1/classes/{id}/students`
+ * is `{pattern, count}` over a closed five-value enum (completed_lessons,
+ * revisited_content, steadier_pace, tried_another_format, no_recent_pattern).
+ * It is typed as `LearnerObservation` in `lib/api/classes.ts` and ClassDetail
+ * already reads it. This screen resolves the learner's class below, so the row
+ * is one `classesApi.classStudents(cls.id)` away.
+ *
+ * TODO (client, not api): build it from that call. What is left is WORDING,
+ * not contract - the phrasing for each of the five patterns is ours to write,
+ * and Zero-Tag governs it. Until then the section renders `frontendSignals`,
+ * which is a name list rather than the titled observations the frame draws,
+ * shown as what it is rather than dressed up as something richer.
  */
 
 type Phase = "loading" | "ready" | "failed" | "denied";

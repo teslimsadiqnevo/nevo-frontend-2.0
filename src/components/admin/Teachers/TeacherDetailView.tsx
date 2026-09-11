@@ -40,13 +40,26 @@ import { NoAccess, failureKind } from "../NoAccess";
  * adding a second number to that card, stop.
  *
  * TODO(api): `GET /api/v1/teachers/{id}` returns `{id,name,email,status,classIds}`
- * and nothing more. Three things the frame draws therefore cannot be built:
+ * and nothing more. Two things the frame draws therefore cannot be built:
  *   - the LAST ACTIVE stat card (no timestamp anywhere on the route), so the
  *     frame's three cards render as two rather than inventing a third
  *   - the header's "Active today" line, which is the same missing timestamp
- *   - ASSIGNMENT HISTORY, which has no endpoint at all
- * The Students headcount is summed client-side from the class list, because no
- * `student_headcount` field exists either.
+ * Both re-verified against the deployed spec on 11 Sep: the only `lastSeenAt`
+ * in the contract is on `GET /api/v1/auth/sessions`, which is the caller's own
+ * device list and takes no teacher id.
+ *
+ * A THIRD BULLET USED TO SIT HERE AND WAS FALSE. It read "ASSIGNMENT HISTORY,
+ * which has no endpoint at all". `GET /api/v1/teachers/{id}/classes` returns
+ * `AssignedClassResponse[]` carrying `role` and `assigned_at` per row - typed
+ * as `AssignedClass` in `lib/api/classes.ts` and already fetched into `held`
+ * below, where the dates are then thrown away. A DATED CURRENT-ASSIGNMENT LIST
+ * IS BUILDABLE TODAY. What is genuinely missing is ENDED assignments: the
+ * DELETE returns no body and no schema anywhere carries an `ended_at` or
+ * `revoked_at`, so history stops at what is still true.
+ *
+ * The Students headcount is summed client-side from each class's
+ * `studentCount`, because no teacher-level aggregate exists. (This said
+ * `student_headcount`, naming a field that was never the one in play.)
  */
 
 type Phase = "loading" | "ready" | "failed" | "denied";

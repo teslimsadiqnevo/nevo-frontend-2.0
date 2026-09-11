@@ -31,8 +31,20 @@ import { cn } from "@/lib/utils";
  * The success line loses the school name for the same reason: "Taking you to
  * your Overview" rather than the school's.
  *
- * TODO(api): school resolution pre-auth and an SSO start for admins. The reset
- * endpoint was on this list and should not have been - it was already live.
+ * TODO(api): a pre-auth lookup keyed on the school's URL SLUG that returns the
+ * school's name and its SSO PROVIDER. `POST /api/v1/auth/school-code/verify`
+ * already resolves a school before auth and is wrapped in `lib/api/auth.ts`,
+ * but it is keyed on a typed school code and its `authMethod` only ever says
+ * "sso" - never microsoft vs google - while `SsoStartRequest` requires both a
+ * slug and a provider. So the gap is narrower than "school resolution
+ * pre-auth" claimed.
+ *
+ * "AN SSO START FOR ADMINS" WAS ALSO ON THIS LIST AND IS NOT MISSING.
+ * `POST /api/v1/auth/sso/start` and
+ * `GET /api/v1/schools/{slug}/sso/{provider}/start` both exist, both are
+ * unauthenticated, and HandoverStep in this same console already calls the
+ * second. Two wrong entries on one line, one of them already corrected in
+ * place - which is the argument for correcting rather than deleting these.
  * TODO(screen): D17 IT Admin Home and D18 Finance Home. The frame routes each
  * persona to their own landing; until those exist everyone lands on Overview.
  */

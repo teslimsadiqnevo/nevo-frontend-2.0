@@ -50,9 +50,21 @@
  *   behind, which on this screen of all screens would be the worst thing to
  *   invent.
  *
- * TODO(api): consent coverage as a count, erasure requests in progress, a
- * subprocessor count, and a retention position - the four states this screen
- * cannot currently verify.
+ * TODO(api): erasure requests in progress, and a subprocessor count - the two
+ * states this screen genuinely cannot verify.
+ * `POST /api/v1/parent/{token}/rights` mints a request id but nothing reads one
+ * back, and its `ParentRightType` enum is
+ * `request_data | object | withdraw_consent` - with no erasure value at all.
+ * "Subprocessor" does not appear in the contract.
+ *
+ * TWO MORE WERE ON THIS LIST AND SHOULD NOT HAVE BEEN. Consent coverage is
+ * derivable from `studentsApi.list()` with `blockedByConsent` - the same pair
+ * StudentsView already renders - and a retention position is
+ * `retentionPolicy` + `retentionDays`, both REQUIRED on `GET /api/v1/school`
+ * and both already read by Settings. Those two claim rows should move off
+ * `unverified` and carry real figures; leaving them unverified now understates
+ * what this school can be told about itself, on the one screen where that
+ * matters most.
  * TODO(design): the non-zero rendering is drawn nowhere school-facing. Wording
  * below is built to the ops breach tone; design and counsel both to confirm.
  */

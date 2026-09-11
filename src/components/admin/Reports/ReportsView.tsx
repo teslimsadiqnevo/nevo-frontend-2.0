@@ -51,11 +51,27 @@ import { NoAccess, failureKind } from "../NoAccess";
  *
  * TODO(api): D20's headline section, "Same objective · different journeys" -
  * three anonymised learners on one objective showing genuinely different
- * content sequences - is not built. It needs adaptation sequences keyed to a
- * shared objective, and adaptations carry a lesson, not a concept, so three
- * learners cannot be shown to have taken different routes through the SAME
- * objective. The join does not exist. This is the ticket's stated headline, so
- * it is the second ask after the indices.
+ * content sequences - is not built. Two things about it are true and one
+ * sentence that used to sit here was not.
+ *
+ * "THE JOIN DOES NOT EXIST" WAS FALSE, and it read as the reason this was
+ * impossible rather than merely unbuilt. `ConceptResponse.lessonId` plus
+ * `GET /api/admin/adaptation-log?lessonId=` joins a concept to per-learner
+ * adaptation rows, and `GET /api/intelligence/scaffolds/history/{id}
+ * ?concept_id=` joins the other way. What survives:
+ *
+ *   1. There is no OBJECTIVE entity anywhere in the contract, so the panel
+ *      would key on a CONCEPT (`name` + `subject`), not an objective.
+ *   2. The real gap is granularity and anonymity. `AdaptationEventLogRow` has
+ *      no `segmentId` and no `modality`, so the frame's per-segment route
+ *      strip cannot be drawn from history; and `studentFirstName` is REQUIRED
+ *      on every row, so there is no anonymised feed to build three unnamed
+ *      journeys from. On this screen that second one is disqualifying by
+ *      itself - AGGREGATE ONLY is the boundary, not a preference.
+ *
+ * So an event-level version is buildable and an anonymised segment-level one
+ * is not. This is the ticket's stated headline, so it is the second ask after
+ * the indices.
  *
  * TODO(api): D9 Reports - the report list with PDF/CSV export - shares this
  * route and has no endpoint at all. Still blocked.

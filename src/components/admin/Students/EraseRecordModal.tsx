@@ -24,11 +24,21 @@ import {
  * small amount is retained for a statutory period, and that teachers' notes
  * survive with the name removed. Both are stated before the commit.
  *
- * TODO(api): the retention deadline is quoted by the frame as a real date
- * ("until 24 October 2026"). Nothing on `DELETE /api/v1/students/{id}` or the
- * school route returns a retention window, so the copy states the fact without
- * inventing a date. `GET /api/v1/school` does carry `retentionDays`, which is
- * the field this should read once someone confirms it means this.
+ * TODO(api): the frame quotes the retention deadline as a real date ("until
+ * 24 October 2026"). Nothing returns one. `DELETE /api/v1/students/{id}` is a
+ * 204 with no body, and no route carries a per-student erasure deadline.
+ *
+ * THE LAST SENTENCE HERE WAS AN INVITATION TO WIRE THE WRONG FIELD. It read:
+ * "`GET /api/v1/school` does carry `retentionDays`, which is the field this
+ * should read once someone confirms it means this." It carries `retentionDays`
+ * AND `retentionPolicy`, both required - but that is a DIFFERENT CLOCK.
+ * `retentionPolicy` is `contract | contract_plus_3_years |
+ * contract_plus_7_years`, anchored to the school's contract, and Settings
+ * already renders that pair as the deactivation-to-deletion window. This modal
+ * is about the statutory residue that survives an erasure of one child. Same
+ * word, different span. Reading the school's number here would put a confident
+ * date on a legal claim it does not describe, which on this screen is the
+ * expensive mistake - so the copy still states the fact and invents no date.
  */
 
 type Phase = "idle" | "erasing" | "failed";

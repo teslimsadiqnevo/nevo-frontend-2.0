@@ -11,8 +11,25 @@
  * all it takes once the last endpoint exists. It renders under an explicit
  * sample note and is never passed off as the school’s own position.
  *
- * TODO(api): a roll-up of what actually needs a decision. Until then this copy
- * is D04's, verbatim, and rendered under an explicit sample note.
+ * TODO(api): a roll-up of what actually needs a decision. No single endpoint
+ * returns one.
+ *
+ * TWO OF THESE THREE ROWS NO LONGER NEED IT, which this said nothing about:
+ *
+ *   - "waiting on parent consent" is `GET /api/v1/students` filtered on
+ *     `consent.status === "pending"`.
+ *   - "active support flags" is `GET /api/intelligence/flags` on
+ *     `!acknowledged`, deduped by `studentId` - a call SencoView already makes.
+ *   - "classes haven't run a lesson" is the only one with no source. The
+ *     nearest proxy is `GET /api/admin/adaptation-log?classId=`, one call per
+ *     class, which is not the same claim.
+ *
+ * So the fixture should shrink to the third row rather than wait for an
+ * endpoint. Two things must move WITH that change or the screen starts lying
+ * in a new way: the sample note on OverviewView ("These three are a sample")
+ * becomes false copy, and the `SampleRegion` wrapper must narrow to the one
+ * row that is still fixture - a marked region around live rows would train the
+ * e2e suite to accept a real roll-up as an invented one.
  */
 
 /** D04's `narrativePop`, verbatim - a worked example of the register. */
