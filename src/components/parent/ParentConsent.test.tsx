@@ -92,7 +92,7 @@ describe("the request", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /Amara[’']s school would like your okay to get her started on Nevo\./,
+        name: /Amara[’']s school would like your okay to get Amara started on Nevo\./,
       }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Corona Secondary School/).length).toBeGreaterThan(0);
@@ -126,6 +126,28 @@ describe("the request", () => {
     expect(
       screen.getByRole("button", { name: /I have a question first/ }),
     ).toBeInTheDocument();
+  });
+
+  it("uses no gendered pronoun anywhere, for any child", () => {
+    // This screen was written from the Amara frame and carried "she"/"her"
+    // seven times - on the first page a parent ever sees, about their own
+    // child. The payload carries a NAME and no pronoun, so the copy uses the
+    // name where it reads naturally and "they" everywhere else.
+    const { container } = render(<ParentConsent token={TOKEN} invitation={inv()} />);
+    // Word boundaries are load-bearing here. Without them this matches the
+    // "he" inside "the" and "they" and could never pass; written through a
+    // shell they were mangled into literal backspace characters, which made
+    // it match nothing and never FAIL. Verified by putting a "she" back.
+    expect(container.textContent ?? "").not.toMatch(/\b(she|her|hers|him|his)\b/i);
+  });
+
+  it("stays pronoun-free on the three promises when opened out", () => {
+    const { container } = render(<ParentConsent token={TOKEN} invitation={inv()} />);
+    // The three promises are the densest copy on the page and where the
+    // pronouns were thickest.
+    expect(container.textContent).toMatch(/at their own pace/);
+    expect(container.textContent).toMatch(/how they[’']re getting on/);
+    expect(container.textContent).toMatch(/Amara[’']s progress is always saved/);
   });
 
   it("capitalises a nameless student's stand-in at the head of the heading", () => {
