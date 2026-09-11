@@ -6,7 +6,8 @@ import { Check } from "lucide-react";
 import { NevoKeyboard } from "@/components/shared";
 import { authApi } from "@/lib/api";
 import { STUDENT_PIN_LENGTH } from "@/lib/constants";
-import { getToken } from "@/lib/auth/session";
+import { USER_ROLES } from "@/lib/constants/permissions";
+import { getSession } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 
 /**
@@ -35,7 +36,11 @@ function pinReducer(state: PinState, action: PinAction): PinState {
   // The server rejected the save: keep their first PIN, re-open the confirm
   // row, and let the alert line explain.
   if (action.type === "saveFailed") {
-    return { digits: state.digits.slice(0, STUDENT_PIN_LENGTH), error: false, done: false };
+    return {
+      digits: state.digits.slice(0, STUDENT_PIN_LENGTH),
+      error: false,
+      done: false,
+    };
   }
   if (action.type === "backspace") {
     if (state.done) return state;
@@ -52,7 +57,11 @@ function pinReducer(state: PinState, action: PinAction): PinState {
     return { digits: next, error: false, done: true };
   }
   // keep first PIN
-  return { digits: next.slice(0, STUDENT_PIN_LENGTH), error: true, done: false };
+  return {
+    digits: next.slice(0, STUDENT_PIN_LENGTH),
+    error: true,
+    done: false,
+  };
 }
 
 /**
@@ -127,35 +136,67 @@ export function PinCreationScreen({
   useEffect(() => {
     if (!done && !sso) return;
     let cancelled = false;
-    const t = setTimeout(() => {
-      if (sso) {
-        onCompleteRef.current?.();
-        return;
-      }
-      const pin = digits.slice(0, STUDENT_PIN_LENGTH);
-      const store = getToken()
-        ? () => authApi.setPin(pin).then(() => undefined)
-        : storePinRef.current
+    const t = setTimeout(
+      () => {
+        if (sso) {
+          onCompleteRef.current?.();
+          return;
+        }
+        const pin = digits.slice(0, STUDENT_PIN_LENGTH);
+        /*
+         * ONBOARDING WINS OVER WHOEVER IS SIGNED IN.
+         *
+         * This asked `getToken()` first, which is not the question. Both calls
+         * post to `/api/v1/auth/pin`, and the server tells them apart by the
+         * BODY: `completeAccount` carries an `onboardingToken` and creates the
+         * account it names; `setPin` carries only `{pin}` and sets it on
+         * whoever's Bearer token happens to be on the device.
+         *
+         * So any session at all diverted a child creating their first account
+         * into "change the signed-in user's PIN":
+         * - Signed in as a teacher or admin, the server refuses outright -
+         *   403 `{"detail":"PIN is for student accounts"}` - and the child is
+         *   told their PIN did not save, which is true but not why.
+         * - Signed in as ANOTHER CHILD on a shared classroom tablet, it
+         *   SUCCEEDS. The new child's PIN is written onto the previous child's
+         *   account, locking them out behind a PIN they have never seen, and
+         *   no account is created for the new child at all. Same shape as the
+         *   baseline-submit bug: a stale token on a shared device silently
+         *   attributing one child's data to another.
+         *
+         * The two arrivals were always distinguishable without asking about
+         * tokens. `storePin` is passed by `ObservedInteractionSequence` and
+         * only by it; it redeems a join link or spends an onboarding token and
+         * carries its own identity. `ChangePinScreen` passes none, and there
+         * the signed-in student IS the subject - the only case `setPin` is
+         * right for, so that is now what it asks.
+         */
+        const session = getSession();
+        const store = storePinRef.current
           ? () => storePinRef.current!(pin)
-          : null;
-      if (!store) {
-        // Nowhere to put it. The caller decides what that means for the
-        // device; this screen's job is only not to claim it was saved.
-        onCompleteRef.current?.();
-        return;
-      }
-      void store().then(
-        () => {
-          if (!cancelled) onCompleteRef.current?.();
-        },
-        () => {
-          if (!cancelled) {
-            setSaveFailed(true);
-            dispatch({ type: "saveFailed" });
-          }
-        },
-      );
-    }, sso ? 1600 : 1200);
+          : session?.role === USER_ROLES.STUDENT
+            ? () => authApi.setPin(pin).then(() => undefined)
+            : null;
+        if (!store) {
+          // Nowhere to put it. The caller decides what that means for the
+          // device; this screen's job is only not to claim it was saved.
+          onCompleteRef.current?.();
+          return;
+        }
+        void store().then(
+          () => {
+            if (!cancelled) onCompleteRef.current?.();
+          },
+          () => {
+            if (!cancelled) {
+              setSaveFailed(true);
+              dispatch({ type: "saveFailed" });
+            }
+          },
+        );
+      },
+      sso ? 1600 : 1200,
+    );
     return () => {
       cancelled = true;
       clearTimeout(t);
@@ -190,23 +231,29 @@ export function PinCreationScreen({
           {sso ? "You're signed in" : done ? "You're all set" : "Create a PIN"}
         </h2>
         <p className="mt-3 text-[15px] text-nevo-near-black/60">
-          {sso ? "We'll remember you next time" : "You'll use this to log in next time"}
+          {sso
+            ? "We'll remember you next time"
+            : "You'll use this to log in next time"}
         </p>
 
         {showEntry && (
           <>
-            <PinRow filled={digits.length} offset={0} caretAt={digits.length} error={false} />
-            <p className="mt-7 mb-3 text-sm font-medium">Type it again to confirm</p>
+            <PinRow
+              filled={digits.length}
+              offset={0}
+              caretAt={digits.length}
+              error={false}
+            />
+            <p className="mt-7 mb-3 text-sm font-medium">
+              Type it again to confirm
+            </p>
             <PinRow
               filled={digits.length}
               offset={STUDENT_PIN_LENGTH}
               caretAt={digits.length}
               error={error}
             />
-            <p
-              role="alert"
-              className="mt-4 min-h-5 text-sm text-nevo-violet"
-            >
+            <p role="alert" className="mt-4 min-h-5 text-sm text-nevo-violet">
               {error
                 ? "Those didn't match - let's try once more"
                 : saveFailed
@@ -259,11 +306,12 @@ function PinRow({
                   : "border-nevo-near-black/20",
             )}
           >
-            {isFilled && <span className="size-3 rounded-full bg-nevo-near-black" />}
+            {isFilled && (
+              <span className="size-3 rounded-full bg-nevo-near-black" />
+            )}
           </div>
         );
       })}
     </div>
   );
 }
-
