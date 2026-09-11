@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { ConsentStatus } from "./consents";
 
 /**
  * School invitations (D19 · SCRUM-79) - the single home for inviting teachers
@@ -48,6 +49,17 @@ export interface Invitation {
   status: string | null;
   expiresAt: string;
   deliveryStatus: InvitationDeliveryStatus | null;
+  /**
+   * Where the parent's consent request has got to, when there is one.
+   *
+   * This was never declared, so it arrived on every invite read and was
+   * discarded - while `deliveryCopy` carried a marker saying no screen could
+   * honestly report contact state. `not_sent | pending | confirmed |
+   * withdrawn`, nullable, and the null case is a real one: it means the
+   * invitation has no consent record at all, which is NOT the same as
+   * `not_sent`. Both fall back to a no-claim sentence for that reason.
+   */
+  consentStatus: ConsentStatus | null;
 }
 
 /**

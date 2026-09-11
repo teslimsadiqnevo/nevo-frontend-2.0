@@ -68,7 +68,28 @@ export interface RosterSyncRun {
   triggeredManually: boolean;
   startedAt: string;
   completedAt: string | null;
-  issues: unknown[];
+  issues: RosterSyncIssue[];
+}
+
+/**
+ * One row the sync could not reconcile.
+ *
+ * This was `issues: unknown[]` and the data has been arriving on every run all
+ * along. `RosterSyncIssueResponse` is REQUIRED on `RosterSyncRunResponse` and
+ * all four of its fields are required - `resolutionHint` is nullable, not
+ * absent. Declaring it `unknown[]` meant the one part of a failed sync an
+ * admin can actually act on was fetched and thrown away, while the screen
+ * asked backend for a "raw sync log" it was never going to get.
+ *
+ * `externalReference` is the PROVIDER's id for the record - a Microsoft or
+ * Google object id, not a Nevo one - which is the point: it is the string an
+ * IT admin pastes into their own directory to find the row that failed.
+ */
+export interface RosterSyncIssue {
+  id: string;
+  externalReference: string;
+  description: string;
+  resolutionHint: string | null;
 }
 
 /**
