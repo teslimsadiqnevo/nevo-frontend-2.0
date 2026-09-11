@@ -86,7 +86,16 @@ export function SectionReview({
   onBack: () => void;
   onDone: () => void;
 }) {
-  // The canonical fixture throughout: no endpoint delivers parsed segments.
+  /*
+   * The canonical fixture throughout - but NOT because nothing could deliver
+   * the real thing, which is what this comment used to say.
+   *
+   * `GET /api/v1/uploads/{upload_id}` returns `segments` (and `structure`),
+   * wrapped at `lib/api/uploads.ts:155` and typed at `:100`; the block path
+   * beside this one already consumes them (`UploadWizard.tsx:575-581`). What
+   * is actually missing is smaller and local: this component takes no
+   * `uploadId` prop, so it has no upload to ask about.
+   */
   const allSegments: Segment[] = SEGMENTS;
   const seg = (id: number) => allSegments.find((x) => x.id === id)!;
   const totalMin = allSegments.reduce(

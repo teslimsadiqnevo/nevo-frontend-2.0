@@ -7,8 +7,15 @@ import type { SectionType } from "./teacherLibrary";
  * orientation. Copy is frame-verbatim where our fixtures match the drawing;
  * numbers are adapted to the real JSS 2A roster (28, not the frame's 27).
  *
- * TODO(api): all of this comes from the intelligence endpoints once they
- * exist; the shapes below are the seam.
+ * THE ENDPOINTS EXIST NOW (verified 11 Sep 2026) - "once they exist" was
+ * true when this was written and is not any more. Flags, the pulse, class
+ * insights and adaptation all read live: `useTeacherFlags`, `LiveClassPulse`,
+ * `useClassInsights` (`LiveClassInsights:40`), `useAdaptation`.
+ *
+ * TODO(api): the residue is Variant Review, and only that. Variants are typed
+ * (`lib/api/variants.ts`) and carried on `segments[]` of the lesson reads, but
+ * `VariantReviewRoute` consumes neither - it still renders "Variants aren't
+ * available yet" (`VariantReviewRoute.tsx:52`) to every signed-in teacher.
  */
 
 /* ---- C16a Class Learning Pulse (Home, above the lesson list) ---- */

@@ -12,8 +12,10 @@ import { getStudentProfile } from "./teacherStudents";
  * apart from the curly quotes inside the connect answer, so these straight
  * quotes are deliberate - do not "upgrade" them.
  *
- * TODO(api): the live assistant answers first; these canned turns are the
- * fallback so the drawer never goes silent.
+ * NOT A TODO: this describes the shipped behaviour, not a gap. The live
+ * assistant answers first - `askNevoApi.ask` in `Shell/AskNevo.tsx` - and
+ * these canned turns are the fallback so the drawer never goes silent. A
+ * fallback answer is marked as one on screen.
  */
 
 export type AskNevoContext =

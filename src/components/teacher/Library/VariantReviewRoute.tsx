@@ -10,20 +10,25 @@ import type {
 import { VariantReview } from "./VariantReview";
 
 /**
- * C16d has NO LIVE SOURCE, and that is a contract fact rather than an
- * omission: the five modality variants (`textVariant`, `visualVariant`,
- * `audioVariant`, `interactiveVariant`, `calculationVariant`) are free-form
- * objects with no declared shape, and they appear ONLY on
- * `ParsedLessonSegmentResponse` - the reply to a parse or an upload. No
- * lesson READ carries them at all, so there is nothing to render for a lesson
- * a teacher already has.
+ * C16d HAD no live source. It has one now, and the paragraph that used to
+ * sit here was a contract fact that stopped being true (re-checked against the
+ * deployed spec, 11 Sep 2026). Both of its claims have since failed:
  *
- * So a signed-in teacher gets the honest state rather than the fixture's
- * invented worked examples and scaffolds, which is what this route served to
- * anyone who loaded it. The designed screen stays reachable signed-out.
+ *  - "free-form objects with no declared shape" - each variant is a declared
+ *    schema now: `textVariant` is `anyOf [TextVariant, null]`, and the other
+ *    four likewise.
+ *  - "they appear ONLY on `ParsedLessonSegmentResponse` ... no lesson READ
+ *    carries them at all" - all five sit on `LessonSegmentResponse`, reached
+ *    by `GET /api/v1/lessons/{lesson_id}` and `GET /api/content/lessons/
+ *    {lesson_id}`, and are typed locally at `lib/api/variants.ts`.
  *
- * TODO(api): a shape for the variant objects, and a lesson read that carries
- * them. Logged with backend.
+ * So the honest state below is now OVER-honest: it tells a signed-in teacher
+ * variants are unavailable when the lesson read they came from carries them.
+ * Nothing consumes `variantsApi` yet, which is why this still renders - but
+ * that is unbuilt work, no longer a blocker.
+ *
+ * TODO(api): nothing. TODO(fe): consume the variants off the lesson read and
+ * render C16d for a signed-in teacher.
  */
 export function VariantReviewRoute({
   fixture,
