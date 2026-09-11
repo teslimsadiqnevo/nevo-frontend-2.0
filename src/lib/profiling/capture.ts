@@ -100,11 +100,16 @@ export class BaselineCapture {
  * `trial_pick` events carrying `{module, act, rtMs, correct?}`.
  *
  * Accuracy was absent entirely: the vector carried how FAST a child answered
- * and never whether they were right. For the speed-and-attention modules that
- * is arguably the measure; for a prior-knowledge probe it is not, and the
- * probe is the one place the answer key does not exist to record. `accuracy`
- * is null rather than 0 where nothing was scored, so "not measured" and "got
- * none right" stay distinguishable.
+ * and never whether they were right. `accuracy` is null rather than 0 where
+ * nothing was scored, so "not measured" and "got none right" stay
+ * distinguishable - the domain probe is deliberately the former, being a
+ * prior-knowledge sweep with no key.
+ *
+ * `scored` travels with it because the reading and probe activities offer "Not
+ * sure", which is an honest non-answer and is deliberately NOT marked wrong.
+ * Excluding it silently would let a child who answered one of three and
+ * shrugged at the rest arrive as 100%. The engine needs the denominator to
+ * tell that from three out of three, so it is sent rather than inferred.
  */
 export function reduceTrialModule(capture: BaselineCapture, module: string) {
   const picks = capture
@@ -112,7 +117,15 @@ export function reduceTrialModule(capture: BaselineCapture, module: string) {
     .filter((e) => e.payload?.module === module);
   const byAct: Record<
     string,
-    { trials: number; meanRtMs: number | null; accuracy: number | null }
+    {
+      trials: number;
+      /** Trials that carried an answer key - the accuracy denominator. */
+      scored: number;
+      /** Declined rather than answered; never counted wrong. */
+      notSure: number;
+      meanRtMs: number | null;
+      accuracy: number | null;
+    }
   > = {};
   for (const act of new Set(picks.map((p) => String(p.payload?.act)))) {
     const rts = picks
@@ -123,6 +136,8 @@ export function reduceTrialModule(capture: BaselineCapture, module: string) {
     const scored = inAct.filter((p) => typeof p.payload?.correct === "boolean");
     byAct[act] = {
       trials: inAct.length,
+      scored: scored.length,
+      notSure: inAct.filter((p) => p.payload?.notSure === true).length,
       meanRtMs: rts.length
         ? Math.round(rts.reduce((a, b) => a + b, 0) / rts.length)
         : null,
