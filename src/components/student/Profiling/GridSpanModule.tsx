@@ -22,8 +22,29 @@ const SETTLE_MS = 1700;
 /** Three misses at a length ends the module seamlessly - never a failure wall. */
 const MAX_RETRIES = 3;
 
-/** SS dual-task checks - answered between watch and recall, never marked. */
-const DUAL_CHECKS = ["7 + 5 = 13", "9 - 4 = 5", "6 + 6 = 12", "8 - 3 = 4"];
+/**
+ * SS dual-task checks, answered between watch and recall.
+ *
+ * The note here said "never marked", and the code agreed: `answerCheck`
+ * recorded which button was pressed and nothing about whether it was right,
+ * and `reduceGridSpan` never read the event at all. So the SS band's one
+ * distinguishing feature reached the vector in no form whatsoever.
+ *
+ * That matters more than a missing field. A dual task works by imposing load
+ * WHILE the sequence is held - and a child who taps True at every check
+ * without reading it is not dual-tasking, they are pressing a button. Unmarked,
+ * that child is indistinguishable from one who did both. Scoring the check is
+ * how you tell whether the load was actually carried.
+ *
+ * Never SHOWN to the child, which is what the frames mean by no marking: no
+ * tick, no red, no feedback of any kind.
+ */
+const DUAL_CHECKS: { text: string; isTrue: boolean }[] = [
+  { text: "7 + 5 = 13", isTrue: false },
+  { text: "9 - 4 = 5", isTrue: true },
+  { text: "6 + 6 = 12", isTrue: true },
+  { text: "8 - 3 = 4", isTrue: false },
+];
 
 type Step = "watching" | "check" | "input" | "wrong" | "between" | "settling";
 
@@ -66,7 +87,7 @@ export function GridSpanModule({
   const [tapped, setTapped] = useState<ReadonlySet<number>>(() => new Set());
   const [wrongCell, setWrongCell] = useState(-1);
   const [firstRound, setFirstRound] = useState(true);
-  const [checkText, setCheckText] = useState(DUAL_CHECKS[0]);
+  const [check, setCheck] = useState(DUAL_CHECKS[0]);
 
   const struggle = useRef(0);
   const retries = useRef(0);
@@ -117,7 +138,11 @@ export function GridSpanModule({
       setInputPos(0);
       setTapped(new Set());
       setWrongCell(-1);
-      capture?.record("playback_start", { length: seq.length, litMs: lit, gapMs: gap });
+      capture?.record("playback_start", {
+        length: seq.length,
+        litMs: lit,
+        gapMs: gap,
+      });
       let t = PLAYBACK_LEAD_MS;
       seq.forEach((cell) => {
         after(t, () => setLitIndex(cell));
@@ -127,11 +152,11 @@ export function GridSpanModule({
       after(t + 150, () => {
         setLitIndex(-1);
         if (dual) {
-          const check = DUAL_CHECKS[checkIdx.current % DUAL_CHECKS.length];
+          const next = DUAL_CHECKS[checkIdx.current % DUAL_CHECKS.length];
           checkIdx.current += 1;
-          setCheckText(check);
+          setCheck(next);
           setStep("check");
-          capture?.record("check_shown", { check });
+          capture?.record("check_shown", { check: next.text });
         } else {
           setStep("input");
           capture?.record("input_start", { length: seq.length });
@@ -152,7 +177,11 @@ export function GridSpanModule({
 
   const answerCheck = (answer: boolean) => {
     if (step !== "check") return;
-    capture?.record("check_answer", { check: checkText, answer });
+    capture?.record("check_answer", {
+      check: check.text,
+      answer,
+      correct: answer === check.isTrue,
+    });
     setStep("input");
     capture?.record("input_start", { length: sequence.length });
   };
@@ -248,7 +277,10 @@ export function GridSpanModule({
                       done && "bg-nevo-navy",
                       wrong &&
                         "border-2 border-nevo-violet bg-nevo-cream shadow-[0_0_0_3px_rgba(154,156,203,0.35)]",
-                      !lit && !done && !wrong && "border-2 border-nevo-navy bg-nevo-cream",
+                      !lit &&
+                        !done &&
+                        !wrong &&
+                        "border-2 border-nevo-navy bg-nevo-cream",
                       interactive ? "cursor-pointer" : "pointer-events-none",
                       dimmed && "opacity-40",
                     )}
@@ -279,7 +311,7 @@ export function GridSpanModule({
             {step === "check" && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="rounded-[12px] bg-nevo-cream px-[22px] py-3.5 text-xl font-medium tracking-[0.01em] text-nevo-navy shadow-[0_8px_24px_rgba(0,0,0,0.12)] sm:text-2xl">
-                  {checkText}
+                  {check.text}
                 </span>
               </div>
             )}
@@ -297,7 +329,13 @@ export function GridSpanModule({
   );
 }
 
-function CheckButton({ label, onClick }: { label: string; onClick: () => void }) {
+function CheckButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"

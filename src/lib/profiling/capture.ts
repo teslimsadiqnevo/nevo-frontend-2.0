@@ -154,14 +154,44 @@ export function reduceTrialModule(capture: BaselineCapture, module: string) {
 export function reduceGridSpan(capture: BaselineCapture) {
   const taps = capture.ofKind("tap");
   const correct = taps.filter((t) => t.payload?.correct === true);
+
+  /*
+   * ONLY GAPS WITHIN ONE RECALL.
+   *
+   * This paired every correct tap with the one before it, across round
+   * boundaries included - so the "gap" between the last tap of one round and
+   * the first of the next swallowed the between-round beat, the playback lead
+   * and the whole next sequence lighting up. Several seconds, against a real
+   * within-round gap of a few hundred milliseconds, and the 30s ceiling waved
+   * it through. Over a typical four-round run that is three such gaps inflating
+   * a mean of eighteen.
+   *
+   * `posInSeq` counts up within a recall and resets to 0 on the next, so a pair
+   * is genuine exactly when it advanced by one.
+   */
   const gaps: number[] = [];
   for (let i = 1; i < correct.length; i++) {
+    const pos = Number(correct[i].payload?.posInSeq);
+    const prev = Number(correct[i - 1].payload?.posInSeq);
+    if (pos !== prev + 1) continue;
     const gap = correct[i].t - correct[i - 1].t;
     if (gap > 0 && gap < 30_000) gaps.push(gap);
   }
+
   const spans = capture
     .ofKind("round_complete")
     .map((e) => Number(e.payload?.length ?? 0));
+
+  /*
+   * The SS band's dual task, which reached the vector in no form at all - this
+   * function did not read `check_answer`, and the event carried no `correct` to
+   * read. A child who taps True at every check is not carrying the load the
+   * dual task exists to impose, and was indistinguishable from one who was.
+   * Null for every other band, which runs no checks.
+   */
+  const checks = capture.ofKind("check_answer");
+  const checksRight = checks.filter((e) => e.payload?.correct === true).length;
+
   return {
     module: "grid_span",
     maxSpan: spans.length ? Math.max(...spans) : 0,
@@ -170,5 +200,7 @@ export function reduceGridSpan(capture: BaselineCapture) {
     meanRecallGapMs: gaps.length
       ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length)
       : null,
+    dualChecks: checks.length,
+    dualAccuracy: checks.length ? checksRight / checks.length : null,
   };
 }
