@@ -67,8 +67,15 @@ export function ClassesList() {
           My Classes
         </h2>
         {/* The real school from `users/me`; the fixture line, term and all,
-            belongs only to the designed screens. Absent beats invented. */}
-        {(identity?.school ?? (!live && SCHOOL_LINE)) && (
+            belongs only to the designed screens. Absent beats invented.
+            `!loading` is load-bearing, not defensive: `live` is false while the
+            read is in flight as well as after it fails, so without it a real
+            teacher watched "Corona Secondary School · Second term" sit under
+            their own heading for the whole window - 1.0-5.6s on this backend -
+            before their school replaced it. That is the exact flash
+            `useTeacherClasses.loading` was added for, and this was the one
+            consumer still reading `live` alone. */}
+        {(identity?.school ?? (!live && !loading && SCHOOL_LINE)) && (
           <p className="mt-[7px] text-sm text-nevo-near-black/60 xl:mt-2 xl:text-[15px]">
             {identity?.school ?? SCHOOL_LINE}
           </p>

@@ -26,7 +26,7 @@ export function ClassRoute({
   fixture: TeacherClass | null;
   classId: string;
 }) {
-  const { liveClasses, live, sample } = useTeacherClasses();
+  const { liveClasses, live, sample, loading } = useTeacherClasses();
   const hydrated = useHydrated();
 
   // See LessonRoute: on the server this route rendered "This page doesn't
@@ -45,8 +45,14 @@ export function ClassRoute({
   const assigned = liveClasses.find((c) => c.class_id === classId);
   if (assigned) return <LiveClassDetail klass={assigned} />;
 
-  // Fixtures back the designed screens only while there is no live data.
-  if (!live && fixture)
+  // Fixtures back the designed screens only while there is no live data -
+  // and "no live data" must not include "not back yet". `live` is false for
+  // the whole in-flight window too, so without `!loading` a signed-in teacher
+  // whose class id collides with a fixture's saw that fixture's invented
+  // roster for a second or two before their own class replaced it. Signed
+  // out, `useLiveQuery` reports `loading: false` immediately, so the designed
+  // walkthrough is untouched by this guard.
+  if (!live && !loading && fixture)
     return (
       <SampleRegion kind="teacher:class-detail">
         <ClassDetail klass={fixture} />
