@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { classesApi, type AdminClass } from "@/lib/api/classes";
+import {
+  classesApi,
+  type AdminClass,
+  type LearnerObservation,
+} from "@/lib/api/classes";
 import { intelligenceApi, type AttentionFlag } from "@/lib/api/intelligence";
 import { studentsApi, type AdminStudentRow } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
@@ -68,15 +72,39 @@ import {
  *     `completed_lessons` observation with its count - and this screen already
  *     makes one request per class.
  *
- * TODO (mostly client): two of the three are buildable now at roughly no extra
- * cost. Active support is the one that would need a bulk route, so the honest
- * ask of backend is a list-scoped accommodations read - not all three. Until
- * then the figures are shown on the individual profile and the list carries
- * identity only.
+ * LESSONS COMPLETED IS BUILT, at no extra cost: the per-class fan-out was
+ * switched from `studentsApi.list({classId})` to `classesApi.classStudents`,
+ * which carries the same membership plus `observations`. Same number of calls.
+ *
+ * ADAPTATIONS THIS WEEK IS NOT BUILT, and the "one windowed call" above
+ * overstates it. `GET /api/admin/adaptation-log` caps `limit` at 100, and
+ * `AdaptationEventLogResponse.total` carries NO DESCRIPTION in the deployed
+ * spec - so it is not known to be window-scoped or uncapped, and a per-learner
+ * tally gated on it could under-report silently. Doing it honestly needs a
+ * paging loop terminating on a short page (`events.length < limit`), which is
+ * a real piece of work rather than a free one.
+ *
+ * TODO(api): a list-scoped accommodations read, for ACTIVE SUPPORT. That is
+ * the one of the three that genuinely costs a call per learner.
  */
 
 type Phase = "loading" | "ready" | "failed" | "denied";
 type View = "attention" | "profiles";
+
+/**
+ * Lessons finished, off the roster observations, or null when we were not told.
+ *
+ * `observations` is OPTIONAL on `ClassStudentResponse` and `count` is optional
+ * and nullable on each entry, so three separate things mean "no figure": no
+ * observations array, no `completed_lessons` entry, and an entry whose count is
+ * null. All three return null and none of them is a zero.
+ */
+function completedLessons(
+  observations: LearnerObservation[] | undefined,
+): number | null {
+  const hit = observations?.find((o) => o.pattern === "completed_lessons");
+  return typeof hit?.count === "number" ? hit.count : null;
+}
 
 const SEARCH_BAR =
   "flex h-[42px] w-full max-w-[320px] flex-1 items-center gap-[9px] rounded-[10px] border-[1.5px] border-nevo-near-black/10 bg-nevo-cream-elevated px-[15px] text-[14.5px] text-nevo-near-black outline-none transition-colors placeholder:text-nevo-near-black/50 focus-within:border-nevo-navy";
@@ -117,6 +145,17 @@ export function SencoView() {
   const [classRead, setClassRead] = useState<
     Record<string, "pending" | "ok" | "failed">
   >({});
+  /*
+   * Lessons finished, per learner, from the SAME per-class read that builds
+   * `classOf`. It is keyed by student rather than by class so a row can ask for
+   * its own figure without knowing which request carried it.
+   *
+   * A learner ABSENT from this map has no figure - and the row renders nothing
+   * rather than a dash or a zero. "0 lessons" and "we have not read your class
+   * yet" are different statements, and on a SENCo screen the second must never
+   * be printed as the first.
+   */
+  const [lessonsDone, setLessonsDone] = useState<Record<string, number>>({});
 
   const load = useCallback(() => {
     Promise.all([
@@ -141,14 +180,30 @@ export function SencoView() {
         setClassRead(
           Object.fromEntries(c.map((k) => [k.id, "pending" as const])),
         );
+        /*
+         * READS THE CLASS ROSTER, NOT THE STUDENT LIST. This used to call
+         * `studentsApi.list({ classId })`, whose `StudentSummaryResponse`
+         * carries no `observations` - so D8b's "lessons completed" figure was
+         * deferred as needing a request per learner when the request the screen
+         * ALREADY MAKES could carry it. `GET /api/v1/classes/{id}/students`
+         * returns the same membership plus `observations`, at the same cost.
+         */
         c.forEach((klass) => {
-          studentsApi
-            .list({ classId: klass.id })
+          classesApi
+            .classStudents(klass.id)
             .then((inClass) => {
               setClassOf((prev) => {
                 const next = { ...prev };
                 inClass.forEach((st) => {
-                  next[st.id] = klass.id;
+                  next[st.studentId] = klass.id;
+                });
+                return next;
+              });
+              setLessonsDone((prev) => {
+                const next = { ...prev };
+                inClass.forEach((st) => {
+                  const done = completedLessons(st.observations);
+                  if (done !== null) next[st.studentId] = done;
                 });
                 return next;
               });
@@ -495,6 +550,15 @@ export function SencoView() {
                         </div>
                       ) : null}
                     </div>
+                    {/* ABSENT, NOT ZERO. A learner whose class roster has not
+                        answered - or failed - is simply not in `lessonsDone`,
+                        and gets no figure at all. Rendering "0" or a dash here
+                        would attribute the silence to the child. */}
+                    {typeof lessonsDone[s.id] === "number" ? (
+                      <span className="flex-none text-[13px] text-nevo-near-black/55">
+                        {`${lessonsDone[s.id]} ${lessonsDone[s.id] === 1 ? "lesson" : "lessons"} finished`}
+                      </span>
+                    ) : null}
                     <span className="flex-none text-[13px] font-semibold text-nevo-navy">
                       View profile
                     </span>
