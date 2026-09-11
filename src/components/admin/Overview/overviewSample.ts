@@ -44,7 +44,9 @@ export interface GlanceRow {
 export const WORTH_A_GLANCE: GlanceRow[] = [
   {
     title: "6 students are waiting on parent consent",
-    sub: "They can look around, but can't begin live lessons until it's confirmed.",
+    // Was "They can look around, but can't begin live lessons until it's
+    // confirmed" - a gate SCRUM-80 says Nevo does not operate.
+    sub: "They're learning as normal; your school's consent record is what's outstanding.",
     action: "Review in Students",
     href: "/admin/students",
   },

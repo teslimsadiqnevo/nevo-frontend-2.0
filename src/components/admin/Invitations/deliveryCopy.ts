@@ -83,11 +83,17 @@ export function needsManualDelivery(
 /**
  * What is true about the parent after a student invite, with no claim about
  * whether anyone has been contacted.
+ *
+ * THE SECOND SENTENCE USED TO BLOCK THE CHILD: "{who} can't begin lessons
+ * until consent is confirmed". SCRUM-80 says otherwise - the school warrants
+ * consent through the DSA and the child proceeds; only a withdrawal stops
+ * anything. So this states the school's obligation, which is real, rather than
+ * a consequence for the learner, which is not.
  */
 export function parentConsentLine(
   parentContact: string,
   studentName: string | null,
 ): string {
-  const who = studentName ?? "They";
-  return `${parentContact} is recorded as the parent contact. ${who} can't begin lessons until consent is confirmed, and confirming creates the parent account.`;
+  const who = studentName ?? "this student";
+  return `${parentContact} is recorded as the parent contact. Your school still needs to record consent for ${who}, and confirming creates the parent account.`;
 }

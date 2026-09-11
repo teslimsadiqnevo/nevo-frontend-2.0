@@ -95,7 +95,9 @@ export function gettingStartedSteps(school: string): StartStep[] {
     },
     {
       title: "Send parent consent requests",
-      sub: "Students can begin lessons once a parent confirms.",
+      // Not "Students can begin lessons once a parent confirms" - they can
+      // begin either way, per SCRUM-80. This is the school's record.
+      sub: "Your school records each parent's confirmation here.",
       cta: "Send requests",
       href: "/admin/students",
     },

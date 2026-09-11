@@ -348,7 +348,8 @@ export function NewInviteModal({
                   tell an admin a parent has been contacted. This says who the
                   contact is FOR, which is true today. */}
               Who Nevo contacts about this child&rsquo;s data, and who confirms
-              consent before they can begin lessons. Required for all students.
+              consent for your school&rsquo;s own records. Required for all
+              students.
             </p>
           </div>
         ) : null}

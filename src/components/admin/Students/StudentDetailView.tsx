@@ -263,10 +263,17 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
       <div className={cn(CARD, "mt-2.5 px-6 py-[22px]")}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">
+            {/* NAMING A CHILD AS BLOCKED IS THE WORST PLACE TO GET THIS
+                WRONG, and this said "{name} can't begin lessons yet" for every
+                state but `confirmed`. Per SCRUM-80 only a withdrawal stops a
+                child; the rest describe the school's record, not the learner.
+                See `withoutRecordedConsent`. */}
             <p className="m-0 text-[15px] font-semibold text-nevo-near-black">
               {student.consent?.status === "confirmed"
-                ? `${firstName} can begin lessons`
-                : `${firstName} can’t begin lessons yet`}
+                ? `Consent is recorded for ${firstName}`
+                : student.consent?.status === "withdrawn"
+                  ? `A parent has withdrawn consent for ${firstName}`
+                  : `No consent is recorded for ${firstName} yet`}
             </p>
             {student.consent ? (
               (() => {
@@ -277,7 +284,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                   </p>
                 ) : (
                   <p className="m-0 mt-1.5 text-[13.5px] leading-[1.55] text-nevo-near-black/62">
-                    A parent has to confirm before lessons can start.
+                    Nevo does not hold a confirmation from a parent yet.
                   </p>
                 );
               })()
