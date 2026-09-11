@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { classesApi, type AdminClass } from "@/lib/api/classes";
 import {
   schoolIntelligenceApi,
   type AdaptationEventRow,
@@ -30,23 +31,47 @@ import { NoAccess, failureKind } from "../NoAccess";
  *   parameter, and there is no enum for it, so there is nothing to populate a
  *   filter from. The date range is real - `dateFrom` - and is offered.
  *
- * THE CLASS FILTER WAS LISTED HERE AS IMPOSSIBLE AND IS NOT. This read "no
- * endpoint lists classes, so neither filter has a source". `GET /api/v1/classes`
- * lists them, `classesApi.list()` is called on half the screens in this
- * console, and `classId` is already a declared query parameter on the log
- * endpoint, typed in `lib/api/schoolIntelligence.ts`. That is a filter this
- * screen already has the wire for and simply does not draw - the exact kind of
- * stale marker that costs the next person a feature they already own.
+ * THE CLASS FILTER IS BUILT, AND WAS LISTED HERE AS IMPOSSIBLE. The marker read
+ * "no endpoint lists classes, so neither filter has a source". `GET
+ * /api/v1/classes` lists them and `classId` was already a declared query
+ * parameter on the log endpoint - the wire had been there the whole time.
+ *
+ * `classId` takes a UUID, so the query param is OMITTED rather than sent empty
+ * when no class is chosen; `classId: ""` is a 422 that would take the log down.
+ *
+ * The class list loads in its OWN effect and its failure never touches `phase`.
+ * A directory read that dies must not cost an admin the log they came for - the
+ * compliance-audit footer already works this way and is the precedent.
+ *
+ * ONE THING TO KNOW ABOUT THE LETTERS. Filtering to a small class narrows
+ * "Learner A" toward a real child, because an admin who can read the roster can
+ * shrink the candidate set to the class size. That was already true of lesson
+ * titles and timestamps and it renders no label about anyone, so it is not a
+ * blocker - but the letters are anonymisation of the DISPLAY, not a privacy
+ * guarantee, and nobody should later treat them as pseudonyms that earn one.
+ * Do not "improve" this by adding `studentFirstName` or a per-row class name.
  *
  * TODO(api): a before/after pair on the event, and an eventType filter (or at
  * least an enum for the field) so the frame's type filter can exist.
- *
- * TODO (client, not api): the class filter - `classesApi.list()` for the
- * options, `classId` onto the existing query.
  */
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
 const PAGE = 5;
+
+/*
+ * Lifted out of the range buttons unchanged so the class control can match them
+ * exactly. This screen's filters are pills; the taller `FILTER_PILL` used by
+ * Students and Classes belongs to those screens, and mixing the two here would
+ * make the two filters on ONE row disagree with each other.
+ */
+const CHIP =
+  "cursor-pointer rounded-full px-[13px] py-1.5 text-[12.5px] font-medium transition-[filter]";
+const CHIP_OFF =
+  "border border-nevo-near-black/8 bg-nevo-cream-elevated text-nevo-near-black/70 hover:brightness-[0.985]";
+const CHIP_ON = "bg-nevo-navy text-nevo-cream";
+/** Same footprint, nothing to press - "Loading classes...", "No classes yet". */
+const CHIP_MUTED =
+  "rounded-full border border-nevo-near-black/8 px-[13px] py-1.5 text-[12.5px] font-medium text-nevo-near-black/45";
 
 type Phase = "loading" | "ready" | "failed" | "denied";
 
@@ -88,6 +113,11 @@ export function AdaptationLogView() {
   const [rangeIdx, setRangeIdx] = useState(0);
   const [shown, setShown] = useState(PAGE);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [classId, setClassId] = useState("");
+  const [classes, setClasses] = useState<AdminClass[]>([]);
+  const [classPhase, setClassPhase] = useState<"loading" | "ready" | "failed">(
+    "loading",
+  );
   /*
    * The footer used to end "· 0 diagnostic labels in this or any log" - a
    * hardcoded zero, on a screen that never asked. Design's build rules are
@@ -104,13 +134,37 @@ export function AdaptationLogView() {
       .catch(() => setLabels(null));
   }, []);
 
+  /*
+   * Its own effect, and its own failure. `setClassPhase("failed")` never
+   * touches `phase`, and the catch does not clear `classes` - a retry that
+   * fails after a success should leave the options the admin was using.
+   */
+  const loadClasses = useCallback(() => {
+    classesApi
+      .list()
+      .then((c) => {
+        setClasses(c);
+        setClassPhase("ready");
+      })
+      .catch(() => setClassPhase("failed"));
+  }, []);
+
+  useEffect(() => {
+    loadClasses();
+  }, [loadClasses]);
+
   const range = RANGES[rangeIdx];
 
   const load = useCallback(
-    (days: number, limit: number) => {
+    (days: number, limit: number, cls: string) => {
       const from = new Date(Date.now() - days * 864e5).toISOString();
+      // OMITTED, not empty: `classId` is a uuid on the contract and "" is a 422.
       schoolIntelligenceApi
-        .adaptationLog({ dateFrom: from, limit })
+        .adaptationLog({
+          dateFrom: from,
+          limit,
+          ...(cls ? { classId: cls } : {}),
+        })
         .then((log) => {
           setRows(log.events);
           setTotal(log.total);
@@ -122,12 +176,27 @@ export function AdaptationLogView() {
   );
 
   useEffect(() => {
-    load(range.days, shown);
-  }, [load, range.days, shown]);
+    load(range.days, shown, classId);
+  }, [load, range.days, shown, classId]);
 
   // Order of first appearance decides the letters, so they read A, B, C down
   // the page rather than jumping about.
   const learnerOrder = [...new Set(rows.map((r) => r.studentId))];
+
+  /*
+   * The filtered-scope clause. A chosen class whose NAME we no longer hold -
+   * the list failed on a retry - still narrows the figures, so it says "in this
+   * class" rather than dropping the clause and quietly presenting a filtered
+   * count as the school's.
+   */
+  const activeClass = classId ? classes.find((c) => c.id === classId) : null;
+  const scope = classId ? ` in ${activeClass ? activeClass.name : "this class"}` : "";
+
+  const pickClass = (next: string) => {
+    setClassId(next);
+    setShown(PAGE);
+    setExpanded(null);
+  };
 
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
@@ -145,8 +214,8 @@ export function AdaptationLogView() {
         {phase === "ready" && (
           <p className="mt-1.5 text-[15px] text-nevo-near-black/60">
             {total === 0
-              ? `No adaptations in the last ${range.days} days`
-              : `${total.toLocaleString("en-GB")} adaptation${total === 1 ? "" : "s"} in the last ${range.days} days`}
+              ? `No adaptations${scope} in the last ${range.days} days`
+              : `${total.toLocaleString("en-GB")} adaptation${total === 1 ? "" : "s"}${scope} in the last ${range.days} days`}
           </p>
         )}
 
@@ -161,16 +230,65 @@ export function AdaptationLogView() {
                 setExpanded(null);
               }}
               aria-pressed={i === rangeIdx}
-              className={cn(
-                "cursor-pointer rounded-full px-[13px] py-1.5 text-[12.5px] font-medium transition-[filter]",
-                i === rangeIdx
-                  ? "bg-nevo-navy text-nevo-cream"
-                  : "border border-nevo-near-black/8 bg-nevo-cream-elevated text-nevo-near-black/70 hover:brightness-[0.985]",
-              )}
+              className={cn(CHIP, i === rangeIdx ? CHIP_ON : CHIP_OFF)}
             >
               {r.label}
             </button>
           ))}
+
+          <span
+            aria-hidden="true"
+            className="mx-1 h-4 w-px bg-nevo-near-black/12"
+          />
+
+          {classPhase === "loading" && (
+            <span className={CHIP_MUTED}>Loading classes&hellip;</span>
+          )}
+          {classPhase === "failed" && (
+            <button
+              type="button"
+              onClick={() => {
+                setClassPhase("loading");
+                loadClasses();
+              }}
+              className={cn(CHIP, CHIP_OFF)}
+            >
+              Class list didn&rsquo;t load &middot; try again
+            </button>
+          )}
+          {classPhase === "ready" && classes.length === 0 && (
+            <span className={CHIP_MUTED}>No classes yet</span>
+          )}
+          {classPhase === "ready" && classes.length > 0 && (
+            <label className="relative inline-flex">
+              <span className="sr-only">Filter by class</span>
+              <select
+                value={classId}
+                onChange={(e) => pickClass(e.target.value)}
+                className={cn(
+                  CHIP,
+                  classId ? CHIP_ON : CHIP_OFF,
+                  "appearance-none pr-[26px]",
+                )}
+              >
+                <option value="">All classes</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none absolute top-1/2 right-[10px] -translate-y-1/2 text-[9px]",
+                  classId ? "text-nevo-cream" : "text-nevo-near-black/45",
+                )}
+              >
+                &#9660;
+              </span>
+            </label>
+          )}
         </div>
 
         {phase === "loading" && (
@@ -190,7 +308,7 @@ export function AdaptationLogView() {
               type="button"
               onClick={() => {
                 setPhase("loading");
-                load(range.days, shown);
+                load(range.days, shown, classId);
               }}
               className="mt-5 h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
             >
@@ -202,12 +320,24 @@ export function AdaptationLogView() {
         {phase === "ready" && rows.length === 0 && (
           <div className={cn(CARD, "mt-5 px-[26px] py-8 text-center")}>
             <h3 className="text-[17px] font-semibold text-nevo-near-black">
-              Nothing to show for this range
+              {classId
+                ? "Nothing to show for this class and range"
+                : "Nothing to show for this range"}
             </h3>
             <p className="mx-auto mt-2 max-w-[46ch] text-sm leading-[1.55] text-nevo-near-black/62">
-              No adaptations were made in the last {range.days} days. Try a
-              wider range, or check back once lessons are running.
+              {classId
+                ? `No adaptations were made${scope} in the last ${range.days} days. Try a wider range, or show all classes.`
+                : `No adaptations were made in the last ${range.days} days. Try a wider range, or check back once lessons are running.`}
             </p>
+            {classId && (
+              <button
+                type="button"
+                onClick={() => pickClass("")}
+                className="mt-5 h-[42px] cursor-pointer rounded-[10px] border-[1.5px] border-nevo-navy/30 px-4 text-[13.5px] font-semibold text-nevo-navy transition-colors hover:bg-nevo-navy/6"
+              >
+                Show all classes
+              </button>
+            )}
           </div>
         )}
 

@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/classes";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
+import { longDate } from "@/lib/dates";
 import { ConsentPill } from "../Students/ConsentPill";
 import {
   Avatar,
@@ -54,18 +55,19 @@ import { WriteFailed } from "../WriteFailed";
  * object reads as "Unknown", never as "Not sent", and `status` is never dressed
  * up as consent. Getting that wrong misstates a legal fact about a child.
  *
- * ASSIGNMENT HISTORY. SCRUM-40 asks for a collapsed section here and on teacher
- * detail - date, teacher, class, role, who changed it. This said "No endpoint
- * returns it", and three of those five arrive on a call this screen ALREADY
- * MAKES: `GET /api/v1/classes/{id}/teachers` returns `AssignedTeacherResponse`
- * with `role` and `assigned_at` required on every row, sitting in `teachers`
- * below. (The same is true of `/teachers/{id}/classes` on the other screen.)
+ * ASSIGNMENT DATES ARE ON THE ROWS, and there is no history section. SCRUM-40
+ * asks for a collapsed one here and on teacher detail - date, teacher, class,
+ * role, who changed it - and a marker here said "No endpoint returns it" while
+ * three of those five sat in `teachers` on a call this screen already makes.
+ *
+ * The section is still not built, on purpose. It would be a second list of the
+ * same rows differing only by a date, and the only heading that would justify
+ * one is "Assignment history" - which this cannot honestly be, because half a
+ * history reads as the whole of one.
  *
  * TODO(api): the two fields that really are missing - WHO CHANGED IT (no actor
  * on any assignment schema) and ENDED assignments (the DELETE returns no body
- * and nothing carries an `ended_at`). So a current-assignments list with dates
- * is buildable today and a history is not; the section stays unbuilt because
- * half a history under that heading would read as the whole of one.
+ * and nothing carries an `ended_at`). Those are what would make it a history.
  */
 
 type Phase = "loading" | "ready" | "failed" | "denied";
@@ -302,6 +304,11 @@ export function ClassDetailView({ classId }: { classId: string }) {
                         {t.email}
                       </div>
                     ) : null}
+                    {longDate(t.assigned_at) ? (
+                      <div className="truncate text-[12.5px] text-nevo-near-black/45">
+                        {`Assigned ${longDate(t.assigned_at)}`}
+                      </div>
+                    ) : null}
                   </div>
                   <RolePill role={t.role} />
                   {!archived && !ssoSourced ? (
@@ -374,6 +381,12 @@ export function ClassDetailView({ classId }: { classId: string }) {
           })
         )}
       </div>
+      {/* Worded identically to the same note on teacher detail: SCRUM-40's
+          mirror rule says the second door is a mirror, not a variant. */}
+      <p className="mt-2.5 text-[13px] leading-[1.5] text-nevo-near-black/50">
+        Dates show when each assignment started. We can&rsquo;t show who made
+        the change, or assignments that have ended.
+      </p>
 
       {/* STUDENTS - read-only here, and never any learning data. */}
       <div className="mt-[30px] flex items-center justify-between gap-4">

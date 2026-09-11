@@ -6,11 +6,15 @@ import { cn } from "@/lib/utils";
 /**
  * D07's consent state, in the four values SCRUM-40 asks for.
  *
- * This is the screen's whole reason for existing - "which students cannot yet
- * begin lessons" - and until the backend carried consent (7 Sep) it could not
- * be shown at all. It was deliberately never derived from `status`: an active
- * account is not a granted consent, and a school reading this is reading a
- * legal position.
+ * This is the screen's whole reason for existing - which students the school
+ * has a recorded consent for - and until the backend carried consent (7 Sep)
+ * it could not be shown at all. It was deliberately never derived from
+ * `status`: an active account is not a granted consent, and a school reading
+ * this is reading a legal position.
+ *
+ * IT IS NOT A GATE, AND THIS FILE USED TO CALL IT ONE. The reason for existing
+ * above read "which students cannot yet begin lessons". Per SCRUM-80 that is
+ * false of three of these four states - see `withoutRecordedConsent`.
  *
  * DESIGN LAW: no red. `withdrawn` is the state that most wants an alarm colour
  * and gets violet instead; `not_sent` is quiet rather than accusing, because a
@@ -67,13 +71,45 @@ export function ConsentPill({
   );
 }
 
-/** Students who cannot begin lessons - the count D07's header line quotes. */
-export function blockedByConsent(
+/**
+ * Students whose consent this school has not RECORDED yet.
+ *
+ * THIS WAS `blockedByConsent` AND IT COUNTED THE WRONG THING - or rather, it
+ * counted the right thing under a name and a header sentence that made a claim
+ * nobody is entitled to make. SCRUM-80 (7 Sep) ruled that Nevo is not the
+ * consent gate: the school warrants consent through the DSA, so `not_sent` and
+ * `pending` are administrative states and the child proceeds. Only `withdrawn`
+ * stops processing. `lib/api/consents.ts` holds the ruling and the deployed
+ * `ConsentGateResponse` agrees with it, carrying `granted` and `blocked` as two
+ * separate required booleans.
+ *
+ * So the COUNT is unchanged and still useful - a school does need to know how
+ * many records are outstanding - but it is no longer described as a set of
+ * children who cannot begin lessons, because they can.
+ *
+ * `withdrawnCount` below is the one that really does stop a child, and it is
+ * deliberately a second function rather than a flag: conflating the two is the
+ * exact mistake this pair exists to prevent.
+ */
+export function withoutRecordedConsent(
   rows: { consent?: StudentConsent | null }[],
 ): number {
   return rows.filter(
     (r) => r.consent && r.consent.status !== "confirmed",
   ).length;
+}
+
+/**
+ * Students a parent has actively withdrawn.
+ *
+ * The only consent state that stops processing, per SCRUM-80 and
+ * `processingWithdrawn`. An absent consent object is never counted here: not
+ * knowing is not a withdrawal.
+ */
+export function withdrawnCount(
+  rows: { consent?: StudentConsent | null }[],
+): number {
+  return rows.filter((r) => r.consent?.status === "withdrawn").length;
 }
 
 /**

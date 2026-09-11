@@ -10,8 +10,10 @@ import { cn } from "@/lib/utils";
 import { labelHero } from "../Compliance/ndpaClaims";
 import {
   STEP_STUDENTS,
+  STEP_TEACHERS,
   STEP_WORKSPACE,
   gettingStartedSteps,
+  teachersOnRoster,
 } from "./overviewGettingStarted";
 import { schoolApi, type SchoolNarrative, type SchoolRosterCounts } from "@/lib/api/school";
 import { SampleRegion } from "@/components/shared/SampleRegion";
@@ -357,7 +359,8 @@ export function OverviewView() {
                   // done something we cannot see.
                   const done =
                     i === STEP_WORKSPACE ||
-                    (i === STEP_STUDENTS && audit.studentsProfiled > 0);
+                    (i === STEP_STUDENTS && audit.studentsProfiled > 0) ||
+                    (i === STEP_TEACHERS && teachersOnRoster(counts));
                   const row = (
                     <>
                       <span

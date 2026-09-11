@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/sso";
 import { schoolApi, type School } from "@/lib/api/school";
 import { cn } from "@/lib/utils";
+import { hasTechnicalDetail, latestRun, runIssues } from "@/lib/rosterSync";
 import { NoAccess, failureKind } from "../NoAccess";
 import { WriteFailed } from "../WriteFailed";
 
@@ -55,10 +56,28 @@ import { WriteFailed } from "../WriteFailed";
  * "technical details" is actually looking for, and the runs already arrive on
  * `syncHistory()`.
  *
- * TODO (client, not api): widen `issues: unknown[]` in `lib/api/sso.ts` to
- * `RosterSyncIssueResponse[]` and render the list behind "View technical
- * details" alongside `failureReason`. There is no raw log text in the API and
- * D10's verbatim <pre> is not coming; the structured list replaces it.
+ * BUILT NOW, as a structured list rather than D10's <pre>. There is no raw log
+ * text in the API and there is not going to be; the per-row issues are what an
+ * admin opening "technical details" is actually after.
+ *
+ * THE ISSUE TEXT CAN NAME A CHILD and nothing in the contract stops it.
+ * `description` and `externalReference` are bare strings with no format - for a
+ * Microsoft or Google roster the matching key is very often an email, which
+ * names a learner directly. That is NOT a Zero-Tag breach: Zero-Tag prohibits
+ * diagnostic labels and engine parameters, and "this record could not be
+ * matched" is an administrative fact about a RECORD. D10b already draws this
+ * exact reader an account-matching panel with real names, year groups and
+ * school emails.
+ *
+ * The real exposure is SCOPE, and it is worth stating plainly: `it_sso` and
+ * `roster` are separate permission scopes and `it_sso` is off by default, so a
+ * contractor holding it_sso alone cannot open Students but can read whatever
+ * the provider wrote about individual children here. The server owns that
+ * boundary - this screen renders what the endpoint hands an authorised caller -
+ * but if that is wrong it is wrong here first.
+ *
+ * The strings are rendered VERBATIM and never parsed. A client that split an
+ * email to redact it would be inventing structure the contract never promised.
  */
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
@@ -116,6 +135,7 @@ export function SsoView() {
   const [history, setHistory] = useState<RosterSyncHistory | null>(null);
   // Distinct from `history === null`, which is also the not-yet-loaded state.
   const [historyFailed, setHistoryFailed] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
   const [busy, setBusy] = useState<Busy>("");
   const [confirming, setConfirming] = useState(false);
   /** Shown INSIDE the dialog - the page behind it is not visible. */
@@ -473,6 +493,74 @@ export function SsoView() {
                       {busy === "syncing" ? "Syncing…" : "Sync now"}
                     </button>
                   </div>
+
+                  {(() => {
+                    const run = latestRun(history);
+                    if (!hasTechnicalDetail(run) || !run) return null;
+                    const issues = runIssues(run);
+                    return (
+                      <div className="mt-5 border-t border-nevo-near-black/8 pt-4">
+                        <button
+                          type="button"
+                          onClick={() => setShowDetail((v) => !v)}
+                          aria-expanded={showDetail}
+                          className="cursor-pointer text-[13.5px] font-semibold text-nevo-navy hover:underline"
+                        >
+                          {showDetail
+                            ? "Hide technical details \u2039"
+                            : "View technical details \u203a"}
+                        </button>
+                        {showDetail && (
+                          <div className="mt-3">
+                            <p className="text-[13px] text-nevo-near-black/62">
+                              {`The most recent run, started ${timeAgo(run.startedAt)}.`}
+                            </p>
+                            {run.failureReason && (
+                              <div className="mt-3">
+                                <span className="text-[12px] font-semibold tracking-[0.05em] text-nevo-near-black/50 uppercase">
+                                  Reason given
+                                </span>
+                                <p className="mt-1 text-[13.5px] leading-[1.55] text-nevo-near-black/75">
+                                  {run.failureReason}
+                                </p>
+                              </div>
+                            )}
+                            {issues.length > 0 && (
+                              <div className="mt-4">
+                                <span className="text-[12px] font-semibold tracking-[0.05em] text-nevo-near-black/50 uppercase">
+                                  {`Records with an issue (${issues.length})`}
+                                </span>
+                                <div className="mt-2 flex flex-col gap-3">
+                                  {issues.map((iss) => (
+                                    <div
+                                      key={iss.id}
+                                      className="rounded-[10px] bg-nevo-navy/[0.04] px-[14px] py-3"
+                                    >
+                                      <span className="block font-mono text-[12.5px] break-all text-nevo-near-black/70">
+                                        {iss.externalReference}
+                                      </span>
+                                      <span className="mt-1 block text-[13.5px] leading-[1.5] text-nevo-near-black/78">
+                                        {iss.description}
+                                      </span>
+                                      {iss.resolutionHint && (
+                                        <span className="mt-1.5 block text-[13px] leading-[1.5] text-nevo-near-black/58">
+                                          {iss.resolutionHint}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <p className="mt-4 text-[12.5px] text-nevo-near-black/50">
+                              This is everything the sync reports back to this
+                              console.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {status.data_flow.length > 0 && (

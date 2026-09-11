@@ -175,11 +175,19 @@ export interface DashboardProgressRow {
  * The admin roster's view of a student (D7 / D7b). Enrolment fact only - this
  * shape must never grow a score, a mastery figure or an adaptation.
  *
- * CONSENT IS NOW CARRIED (backend, 7 Sep). D7 exists to answer "which students
- * cannot yet begin lessons", and until this landed the route returned no
- * consent field of any kind - so the column, the count clause and the row
+ * CONSENT IS NOW CARRIED (backend, 7 Sep). Until it landed the route returned
+ * no consent field of any kind - so the column, the count clause and the row
  * action were all absent rather than guessed at. `status` was never a stand-in:
  * an active account is a different fact from a parent having agreed.
+ *
+ * THIS USED TO SAY D7 EXISTS TO ANSWER "WHICH STUDENTS CANNOT YET BEGIN
+ * LESSONS". It does not, and that framing seeded eight false sentences across
+ * the admin console before it was caught. SCRUM-80 (7 Sep) ruled that the
+ * school warrants consent through the DSA, so `not_sent` and `pending` are the
+ * school's administrative task and the learner proceeds; only `withdrawn`
+ * stops processing. D7 answers which students the school has a RECORDED
+ * CONSENT for - see `withoutRecordedConsent`, and `processingWithdrawn` in
+ * `lib/api/consents.ts` for the one question this client may act on.
  */
 
 /** The four states SCRUM-40 needs. `withdrawn` is now readable, not just causable. */

@@ -206,7 +206,7 @@ export function BulkImportModal({
             {skipped} {skipped === 1 ? "row was" : "rows were"} skipped due to
             errors.
             {isStudent && result.created.length > 0
-              ? " Each student's parent contact was recorded; none can begin lessons until consent is confirmed."
+              ? " Each student's parent contact was recorded; your school still needs to record consent for them."
               : ""}
           </p>
         ) : isStudent && result.created.length > 0 ? (

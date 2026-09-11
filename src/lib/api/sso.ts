@@ -25,7 +25,22 @@ import { api } from "./client";
 
 export type SsoProvider = "microsoft" | "google";
 export type SsoConnectionStatus = "connected" | "needs_attention" | "disconnected";
-export type RosterSyncStatus = "completed" | "partial_manual_review" | "failed";
+/**
+ * THE ENUM HAS FOUR MEMBERS AND THIS TYPE CARRIED THREE.
+ *
+ * `running` was missing, and it is the one a client meets first:
+ * `POST /admin/sso/roster-sync` answers 202 carrying this same enum, so a run
+ * queued by "Sync now" comes back `running` - and the most recent run in the
+ * history is exactly the one that can still be in flight while the screen is
+ * open. A union that cannot express it forces every reader into the "finished"
+ * branch, which is the console's oldest mistake: telling IN FLIGHT from
+ * ANSWERED.
+ */
+export type RosterSyncStatus =
+  | "running"
+  | "completed"
+  | "partial_manual_review"
+  | "failed";
 
 /** One row of the D10b data-flow disclosure, server-supplied. */
 export interface SsoDataFlowCategory {
@@ -68,7 +83,28 @@ export interface RosterSyncRun {
   triggeredManually: boolean;
   startedAt: string;
   completedAt: string | null;
-  issues: unknown[];
+  issues: RosterSyncIssue[];
+}
+
+/**
+ * One row the sync could not reconcile.
+ *
+ * This was `issues: unknown[]` and the data has been arriving on every run all
+ * along. `RosterSyncIssueResponse` is REQUIRED on `RosterSyncRunResponse` and
+ * all four of its fields are required - `resolutionHint` is nullable, not
+ * absent. Declaring it `unknown[]` meant the one part of a failed sync an
+ * admin can actually act on was fetched and thrown away, while the screen
+ * asked backend for a "raw sync log" it was never going to get.
+ *
+ * `externalReference` is the PROVIDER's id for the record - a Microsoft or
+ * Google object id, not a Nevo one - which is the point: it is the string an
+ * IT admin pastes into their own directory to find the row that failed.
+ */
+export interface RosterSyncIssue {
+  id: string;
+  externalReference: string;
+  description: string;
+  resolutionHint: string | null;
 }
 
 /**

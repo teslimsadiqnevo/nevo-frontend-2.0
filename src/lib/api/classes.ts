@@ -61,8 +61,13 @@ export type ObservationPattern =
 
 export interface LearnerObservation {
   pattern: ObservationPattern;
-  /** How many times, over the window the pattern was derived from. */
-  count: number;
+  /**
+   * How many times. OPTIONAL AND NULLABLE, which the previous `count: number`
+   * denied: `LearnerObservationResponse` requires `pattern` alone and types
+   * count as `integer | null`. A card interpolating it unconditionally would
+   * print "null times".
+   */
+  count?: number | null;
 }
 
 export interface ClassStudent {
@@ -85,7 +90,12 @@ export interface ClassStudent {
    * exactly what the Zero-Tag rulings say must not reach a teacher sight
    * unseen. It is now a closed enum plus a count, so the WORDING is ours to
    * compose and the guarantee lives in the schema rather than in an
-   * assurance. At most three, over a 30-day window.
+   * assurance.
+   *
+   * NEITHER A CAP NOR A WINDOW IS IN THE CONTRACT. This used to end "At most
+   * three, over a 30-day window". `observations` carries no `maxItems`, and no
+   * field on this route declares a window. Render what you are sent, and never
+   * date the section in copy.
    */
   observations?: LearnerObservation[];
   /** Which seat the student occupies against the school's allowance. */

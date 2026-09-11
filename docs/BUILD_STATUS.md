@@ -1265,26 +1265,133 @@ on AdaptationLogView (`classId` is already a declared query param). A marker
 tagged `TODO(api)` is invisible as client work; it reads as blocked. These are
 retagged `TODO (client, not api)` so the distinction survives a grep.
 
-### What the corrections revealed is buildable today
+## The buildable-today list, worked through — 11 Sep
 
-Not built — the markers now say so honestly, which is what this pass was for.
-Roughly in ascending cost:
+Nine items, each planned against the pinned spec and then handed to a second
+agent told to REFUTE it. **Six survived and are built. Three were refuted**, and
+two of those refutations found things that mattered more than the item.
+
+### Built
 
 | | |
 |---|---|
-| getting-started TEACHERS tick | `counts.teachers > 0`, already in state — no new call |
-| ClassDetail / TeacherDetail | dated current-assignment list from `assigned_at` |
-| AdaptationLogView class filter | `classesApi.list()` + the existing `classId` param |
-| SsoView technical details | widen `issues: unknown[]`, render the list |
-| deliveryCopy consent line | thread `consentStatus` onto `Invitation` |
-| ndpaClaims two claim rows | consent coverage, retention position — both readable |
-| Overview roll-up | 2 of 3 rows live; shrink the fixture, narrow `SampleRegion` |
-| LearnerProfile engagement patterns | `observations` off the class roster read |
-| SENCo list figures | 2 of 3 cheap; only active support needs a bulk route |
+| Adaptation log class filter | `classId` was a declared query param all along. Omitted rather than blanked (it is a uuid; `""` is a 422), resets the growing-limit pagination, names the class in the count, and the class list owns its own failure. |
+| Getting-started TEACHERS tick | From `counts.teachers`, already in state. `SchoolRosterCounts` has NO `required` array, so `teachersOnRoster` tests `typeof === "number"` rather than `?? 0` — an absent count is unknown and leaves the row open. |
+| SSO "View technical details" | `RosterSyncRunResponse.issues[]` was typed `unknown[]` and discarded. Now `RosterSyncIssue[]`, rendered per row. `RosterSyncStatus` also gained `running`, which the union had been missing. |
+| Two NDPA rows | Consent coverage and the retention position now carry real figures under a new `school` verification. Any row that came back without a consent record sends the whole claim back to `unverified`. |
+| Learner engagement patterns | The five `observations` patterns phrased once, in `lib/constants/observations.ts`, with the Zero-Tag reasoning per pattern and a test that fails on trait vocabulary. |
+| Assignment dates | On the ROWS, with no history section — see below. |
 
-The Overview one carries a trap worth naming: if those rows go live, the
-`SampleRegion` wrapper and the "These three are a sample" note must narrow with
-them, or the e2e suite is trained to accept a real roll-up as an invented one.
+### Refuted, and why that was worth more than the item
+
+**The invite consent line.** The refuter found the planned `not_sent` copy would
+promise an action the product cannot perform — nothing creates a `ParentLink`
+from an invite's `parentContact`, so "you can send one from their record" is a
+promise D07 then denies. Chasing that turned up something much larger, below.
+
+**The Overview roll-up.** `GET /api/intelligence/flags` returns a BARE ARRAY
+capped at `limit` (default 50, max 200) with the real total in `X-Total-Count` —
+a header the client's `buildUrl`/`api.get` path never exposes. Worse, that
+header counts FLAGS while the row's copy claims STUDENTS, and they differ
+whenever one child has two. Not built.
+
+**The SENCo list figures.** My own marker correction called "adaptations this
+week" *one windowed call*. It is not: `limit` maxes at 100, and
+`AdaptationEventLogResponse.total` carries **no description in the spec**, so it
+is not known to be window-scoped or uncapped. A completeness gate resting on it
+could silently under-report every per-learner tally — the exact failure the item
+named as the thing to get right. The only exhaustion signal the contract
+actually supports is `events.length < limit`. Not built.
+
+### The defect that came out of it, which is bigger than the list
+
+**NEVO IS NOT THE CONSENT GATE, AND THE ADMIN CONSOLE SAID IT WAS.**
+
+SCRUM-80 (7 Sep) ruled that the school warrants consent through the DSA, so
+`not_sent` and `pending` are the school's administrative task and the child
+proceeds; only a WITHDRAWAL stops processing. `lib/api/consents.ts` has encoded
+that ruling since, naming `processingWithdrawn` "the only consent question the
+frontend is entitled to act on". The deployed contract agrees — `ConsentGateResponse`
+carries `granted` and `blocked` as two separate required booleans.
+
+The admin console answered the wrong one in **eight places**, including
+`blockedByConsent()`, whose count fed D07's header and whose name encoded the
+error. A school that had asked every parent and heard back from none was told
+its entire roster could not begin lessons. `StudentDetailView` said it about a
+named child.
+
+Fixed across all eight. The count survives — "who have we not recorded consent
+for" is a real question a school must answer for its own DSA — but it is now
+`withoutRecordedConsent`, paired with a separate `withdrawnCount`, and every
+sentence describes the SCHOOL'S RECORD rather than a consequence for the learner.
+
+**This is the fourth instance of the same shape** and the most consequential:
+the console asserting something the API never said. The previous three were
+markers; this one was shipping copy about a legal position, on children.
+
+### The cross-lane consent sweep — 11 Sep
+
+After fixing the admin console's eight sites, I swept every lane, because a fix
+applied in one place and not its neighbour is how this pattern keeps recurring.
+
+| lane | verdict |
+|---|---|
+| **Student** | Already correct. `LearningNotice` was explicitly de-gated for SCRUM-80 by that session — "WAS `ConsentGate`, AND IS NO LONGER A GATE" — and the `consent-gate` call was removed. |
+| **Parent** | Withdrawal copy in `ParentDataManagement` is CORRECT and was left alone: withdrawal is the one state that genuinely stops processing. |
+| **Teacher** | No consent-gating copy at all. |
+| **Shared lib** | `lib/api/students.ts` carried the seed framing — 'D7 exists to answer "which students cannot yet begin lessons"'. Corrected; that sentence is where the eight admin sites came from. |
+| **Admin** | The offender. Eight sites, fixed. |
+
+**Two things found that are NOT mine to fix, both flagged in place:**
+
+**1. DPA clause 5 contradicts SCRUM-80, and the school formally accepts it.**
+`lib/mocks/dpa.ts` warrants that Nevo "will not activate a learner whose consent
+has not been confirmed". SCRUM-80 says the learner proceeds. This is not copy
+drift: `POST /school/dpa-acceptance` records the version, the accepting
+administrator and the timestamp, and D22 then cites that acceptance as evidence
+— so it is a contractual term that may not describe the product. Unlike clauses
+6 and 7 it carries no `[Placeholder]` marker, so it reads as settled. **The text
+is deliberately unchanged** — silently rewording a term a school has already
+accepted would be the worse error. Either the clause changes or the product
+gates, and that is counsel's call. A conflict block sits above it in the file.
+
+**2. Nothing enforces withdrawal client-side.** `processingWithdrawn` and
+`myConsentGate` have no production callers anywhere — only tests. Meanwhile the
+parent is told withdrawal "will immediately suspend {child}'s access". That
+promise currently rests entirely on backend enforcement we have not verified;
+`ConsentGateResponse.blocked` suggests the backend does gate, but nothing on our
+side checks. Worth confirming with backend before a parent relies on it.
+
+**Also worth a second look:** `ParentConsent.tsx` tells a parent "your consent is
+all we need before she begins", which overstates their role as the gate. It is
+the parent lane's copy and a defensible framing of a genuine request, so it is
+left to that session rather than changed from here.
+
+### Assignment history: deliberately still not built
+
+SCRUM-40's own words are "date, teacher, class, role, and who made the change",
+its data note asks for `GET assignments/history?class_id=`, and its "done when"
+requires the log to be **append-only and to show who made each change**. None of
+that exists: no schema carries an actor, the DELETE returns no body, and nothing
+has an `ended_at`. A collapsed second list of the same rows differing only by a
+date would be a duplicate under the one heading it cannot honestly carry. So the
+date sits on the row and a plain sentence states the limit. The section stays
+unbuilt on purpose, not for want of an endpoint.
+
+### Still buildable, not built
+
+| | |
+|---|---|
+| Invitation consent line | `consentStatus` is declared on `Invitation` now and still unread. The copy must be written AFTER the SCRUM-80 correction above, not against the old "can't begin lessons" wording, and the `not_sent` branch must promise no action — nothing creates a `ParentLink` from an invite's `parentContact`. |
+| Overview roll-up rows 1-2 | Row 1 (pending consent) is exact from the unpaginated `GET /api/v1/students`. Row 2 needs paging `/api/intelligence/flags` at `limit=200` and deduping by `studentId`; the `X-Total-Count` header counts flags, not students, and the api client does not expose headers. |
+| SENCo per-learner figures | Lessons-completed is cheap (the roster read this screen already makes, per class). Adaptations-this-week needs a paging loop terminating on `events.length < limit` — NOT on `total`, whose semantics the spec does not document. |
+| Adaptation log TYPE filter | Genuinely blocked. `eventType` is a response field with no query param and no enum. |
+| Assignment history proper | Blocked on an actor field and on ended assignments. See above — the dates shipped, the history did not. |
+
+If the Overview roll-up rows go live, the `SampleRegion` wrapper must narrow to
+the one surviving fixture row and the "These three are a sample" note must
+change with it, or the e2e suite is trained to accept a real roll-up as an
+invented one.
 
 ### The vitest worker flake
 

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
-import { ConsentPill, blockedByConsent, consentDetailLine } from "./ConsentPill";
+import {
+  ConsentPill,
+  consentDetailLine,
+  withdrawnCount,
+  withoutRecordedConsent,
+} from "./ConsentPill";
 import type { StudentConsent } from "@/lib/api/students";
 
 /**
@@ -43,19 +48,43 @@ describe("ConsentPill", () => {
   });
 });
 
-describe("blockedByConsent", () => {
-  it("counts everyone who is not confirmed, and ignores unknowns", () => {
-    expect(
-      blockedByConsent([
-        { consent: at("confirmed") },
-        { consent: at("pending") },
-        { consent: at("withdrawn") },
-        { consent: at("not_sent") },
-        // No consent on the read is not a student we can call blocked.
-        { consent: null },
-        {},
-      ]),
-    ).toBe(3);
+/**
+ * These two count different things and the difference is the whole ruling.
+ *
+ * This used to be one function called `blockedByConsent`, feeding a header that
+ * read "N can't begin lessons yet". SCRUM-80 says Nevo is not the consent gate:
+ * `not_sent` and `pending` are the school's paperwork and the child proceeds.
+ * Only a withdrawal stops processing.
+ */
+const ROWS = [
+  { consent: at("confirmed") },
+  { consent: at("pending") },
+  { consent: at("withdrawn") },
+  { consent: at("not_sent") },
+  // No consent on the read is not a fact about the student either way.
+  { consent: null },
+  {},
+];
+
+describe("withoutRecordedConsent", () => {
+  it("counts everyone not confirmed, and ignores unknowns", () => {
+    expect(withoutRecordedConsent(ROWS)).toBe(3);
+  });
+});
+
+describe("withdrawnCount", () => {
+  it("counts only an actual withdrawal", () => {
+    expect(withdrawnCount(ROWS)).toBe(1);
+  });
+
+  it("never treats an absent record as a withdrawal", () => {
+    expect(withdrawnCount([{ consent: null }, {}])).toBe(0);
+  });
+
+  it("is not the same number as the paperwork count", () => {
+    // If these ever agree on this fixture, one of them has been rewritten
+    // into the other and the SCRUM-80 distinction is gone.
+    expect(withdrawnCount(ROWS)).not.toBe(withoutRecordedConsent(ROWS));
   });
 });
 

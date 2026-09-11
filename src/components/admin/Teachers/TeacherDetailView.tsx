@@ -11,6 +11,7 @@ import {
 import { teachersApi, type TeacherDetail } from "@/lib/api/teachers";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
+import { longDate } from "@/lib/dates";
 import {
   Avatar,
   CARD,
@@ -48,14 +49,14 @@ import { NoAccess, failureKind } from "../NoAccess";
  * in the contract is on `GET /api/v1/auth/sessions`, which is the caller's own
  * device list and takes no teacher id.
  *
- * A THIRD BULLET USED TO SIT HERE AND WAS FALSE. It read "ASSIGNMENT HISTORY,
- * which has no endpoint at all". `GET /api/v1/teachers/{id}/classes` returns
- * `AssignedClassResponse[]` carrying `role` and `assigned_at` per row - typed
- * as `AssignedClass` in `lib/api/classes.ts` and already fetched into `held`
- * below, where the dates are then thrown away. A DATED CURRENT-ASSIGNMENT LIST
- * IS BUILDABLE TODAY. What is genuinely missing is ENDED assignments: the
- * DELETE returns no body and no schema anywhere carries an `ended_at` or
- * `revoked_at`, so history stops at what is still true.
+ * THE DATES ARE ON THE ROWS NOW. A third bullet here used to read "ASSIGNMENT
+ * HISTORY, which has no endpoint at all", and `GET /api/v1/teachers/{id}
+ * /classes` had been returning `assigned_at` and `role` per row into `held`
+ * all along, where they were discarded.
+ *
+ * There is deliberately NO history SECTION - see the note under the class card
+ * for the reasoning. What is genuinely missing is the actor and every ENDED
+ * assignment, so the dates describe what is still true and claim nothing more.
  *
  * The Students headcount is summed client-side from each class's
  * `studentCount`, because no teacher-level aggregate exists. (This said
@@ -252,10 +253,12 @@ export function TeacherDetailView({ teacherId }: { teacherId: string }) {
             // The card counts ACTIVE classes; without this the list below it
             // shows more rows than the card admits to, and nothing says which
             // of them the card left out.
+            const started = longDate(h.assigned_at);
             const meta = [
               info?.archivedAt ? "Archived" : null,
               yearGroupLabel(info?.yearGroup),
               info ? `${info.studentCount} ${info.studentCount === 1 ? "student" : "students"}` : null,
+              started ? `assigned ${started}` : null,
             ]
               .filter(Boolean)
               .join(" · ");
@@ -280,6 +283,19 @@ export function TeacherDetailView({ teacherId }: { teacherId: string }) {
           })
         )}
       </div>
+      {/* NOT A HISTORY, AND IT SAYS SO. SCRUM-40 asks for a collapsed
+          ASSIGNMENT HISTORY on both detail screens - date, teacher, class,
+          role, and who made the change - and its "done when" requires the log
+          to be append-only. Two of those five have no contract: no schema
+          carries an actor, and an ended assignment leaves no record at all
+          (the DELETE returns no body, and nothing has an `ended_at`). A
+          collapsed second list of the SAME rows differing only by a date would
+          be a duplicate under the one heading we cannot honestly use, so the
+          date sits on the row and this states the limit instead. */}
+      <p className="mt-2.5 text-[13px] leading-[1.5] text-nevo-near-black/50">
+        Dates show when each assignment started. We can&rsquo;t show who made
+        the change, or assignments that have ended.
+      </p>
 
       {/* Removing access is quiet, below a rule, and never a red button. */}
       <div className="mt-[26px] border-t border-nevo-near-black/10 pt-5">

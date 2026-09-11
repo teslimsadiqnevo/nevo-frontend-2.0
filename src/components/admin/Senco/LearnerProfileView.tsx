@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { classesApi, type AdminClass } from "@/lib/api/classes";
+import {
+  classesApi,
+  type AdminClass,
+  type LearnerObservation,
+} from "@/lib/api/classes";
+import {
+  OBSERVATION_COPY,
+  observationCount,
+} from "@/lib/constants/observations";
 import {
   studentsApi,
   type Accommodations,
@@ -53,11 +61,15 @@ import { NoAccess, failureKind } from "../NoAccess";
  * already reads it. This screen resolves the learner's class below, so the row
  * is one `classesApi.classStudents(cls.id)` away.
  *
- * TODO (client, not api): build it from that call. What is left is WORDING,
- * not contract - the phrasing for each of the five patterns is ours to write,
- * and Zero-Tag governs it. Until then the section renders `frontendSignals`,
- * which is a name list rather than the titled observations the frame draws,
- * shown as what it is rather than dressed up as something richer.
+ * BUILT NOW, from that call. The five patterns are phrased once, in
+ * `lib/constants/observations.ts`, where the Zero-Tag reasoning for each
+ * sits beside it - these say what HAPPENED and must never harden into a trait.
+ *
+ * `frontendSignals` stays as the fallback, because it is a different thing: a
+ * list of signal NAMES off the accommodations read, which is all this section
+ * had before. It shows when the roster read gives us nothing, and it is
+ * labelled as the weaker source rather than mixed in with the observations as
+ * though they were the same kind of statement.
  */
 
 type Phase = "loading" | "ready" | "failed" | "denied";
@@ -113,6 +125,17 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
   const [mastery, setMastery] = useState<ConceptMasteryRow[]>([]);
   const [adaptations, setAdaptations] = useState<StudentAdaptation[]>([]);
   /*
+   * IN FLIGHT IS NOT THE SAME AS ANSWERED. The roster read starts only once
+   * the learner's class is known, so this is its own three-state rather than
+   * an array that is empty for both "not asked yet" and "nothing to report".
+   */
+  const [observations, setObservations] = useState<LearnerObservation[] | null>(
+    null,
+  );
+  const [observationsPhase, setObservationsPhase] = useState<
+    "idle" | "ready" | "failed"
+  >("idle");
+  /*
    * A read that FAILED is not a child with nothing on their record.
    *
    * These three used to end `.catch(() => undefined)`, leaving state at its
@@ -160,6 +183,38 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  /*
+   * The observations live on the CLASS roster, not on any per-student route,
+   * so this cannot join the fan-out above: it has to wait until the learner
+   * and the class list have both arrived and the class is known.
+   *
+   * A learner with no class is not a failure and not an empty result - it is a
+   * question we cannot ask. `observationsPhase` stays "idle" and the section
+   * falls back rather than reporting that Nevo has noticed nothing.
+   */
+  const rosterClassId = student
+    ? (classes.find((c) => student.classIds.includes(c.id))?.id ?? null)
+    : null;
+
+  useEffect(() => {
+    if (!rosterClassId) return;
+    let live = true;
+    classesApi
+      .classStudents(rosterClassId)
+      .then((rows) => {
+        if (!live) return;
+        const mine = rows.find((r) => r.studentId === studentId);
+        setObservations(mine?.observations ?? []);
+        setObservationsPhase("ready");
+      })
+      .catch(() => {
+        if (live) setObservationsPhase("failed");
+      });
+    return () => {
+      live = false;
+    };
+  }, [rosterClassId, studentId]);
 
   if (phase === "loading") {
     return (
@@ -214,6 +269,12 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
     "This learner";
   const firstName = student.firstName ?? name.split(" ")[0];
   const cls = classes.find((c) => student.classIds.includes(c.id));
+  /*
+   * Derived, not stored: setting a "loading" phase inside the effect that
+   * starts the fetch is a synchronous setState in an effect. A learner in a
+   * class whose roster read has not answered yet is exactly `idle`.
+   */
+  const observationsLoading = Boolean(rosterClassId) && observationsPhase === "idle";
   const active = accommodations?.activeAccommodations ?? [];
   const signals = accommodations?.frontendSignals ?? [];
 
@@ -266,25 +327,67 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
 
       <SectionLabel>What Nevo has noticed</SectionLabel>
       <div className={cn(CARD, "mt-2.5 px-6 py-[22px]")}>
-        {failed.accommodations ? (
-          <ReadFailed firstName={firstName} what="signals" onRetry={load} />
-        ) : signals.length === 0 ? (
-          <p className="m-0 text-sm text-nevo-near-black/62">
-            Nothing consistent enough to describe yet. This fills in as{" "}
-            {firstName} works through more lessons.
-          </p>
-        ) : (
-          <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
-            {signals.map((s) => (
-              <li key={s} className="flex items-start gap-2.5 text-sm leading-[1.55] text-nevo-near-black/78">
-                <span
-                  aria-hidden="true"
-                  className="mt-[7px] size-[6px] flex-none rounded-full bg-nevo-violet"
-                />
-                {humanise(s)}
-              </li>
-            ))}
+        {observationsLoading ? (
+          <div className="h-[72px] animate-pulse rounded-[10px] bg-nevo-navy/[0.05]" />
+        ) : observationsPhase === "ready" && observations && observations.length > 0 ? (
+          <ul className="m-0 flex list-none flex-col gap-4 p-0">
+            {observations.map((o) => {
+              const copy = OBSERVATION_COPY[o.pattern];
+              // A pattern the enum gained since this shipped is skipped rather
+              // than rendered as its raw key - `revisited_content` on a SENCo
+              // screen reads as a judgement nobody wrote.
+              if (!copy) return null;
+              const times = observationCount(o.count);
+              return (
+                <li key={o.pattern} className="flex items-start gap-2.5">
+                  <span
+                    aria-hidden="true"
+                    className="mt-[7px] size-[6px] flex-none rounded-full bg-nevo-violet"
+                  />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="text-[12.5px] font-semibold tracking-[0.05em] text-nevo-near-black/55 uppercase">
+                      {copy.title}
+                    </span>
+                    <span className="mt-1 text-sm leading-[1.55] text-nevo-near-black/78">
+                      {copy.body(firstName)}
+                    </span>
+                    {times && (
+                      <span className="mt-1 text-[13px] text-nevo-near-black/50">
+                        {times}
+                      </span>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
+        ) : failed.accommodations && observationsPhase !== "ready" ? (
+          <ReadFailed firstName={firstName} what="signals" onRetry={load} />
+        ) : signals.length > 0 ? (
+          <>
+            {/* The weaker source, and labelled as one. These are signal NAMES
+                off the accommodations read, not the roster's observations. */}
+            <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+              {signals.map((s) => (
+                <li key={s} className="flex items-start gap-2.5 text-sm leading-[1.55] text-nevo-near-black/78">
+                  <span
+                    aria-hidden="true"
+                    className="mt-[7px] size-[6px] flex-none rounded-full bg-nevo-violet"
+                  />
+                  {humanise(s)}
+                </li>
+              ))}
+            </ul>
+            <p className="m-0 mt-3 text-[13px] text-nevo-near-black/50">
+              These are the signals on {firstName}&rsquo;s accommodation record.
+            </p>
+          </>
+        ) : (
+          <p className="m-0 text-sm text-nevo-near-black/62">
+            {observationsPhase === "failed"
+              ? `We couldn't read ${firstName}'s class roster just now, so what Nevo has noticed isn't here. Nothing about their record has changed.`
+              : `Nothing consistent enough to describe yet. This fills in as ${firstName} works through more lessons.`}
+          </p>
         )}
       </div>
 

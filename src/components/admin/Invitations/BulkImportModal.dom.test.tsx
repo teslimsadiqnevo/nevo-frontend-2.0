@@ -38,6 +38,7 @@ const created = (
   name: `Teacher ${i}`,
   status: "pending",
   expiresAt: "2026-10-01T00:00:00Z",
+  consentStatus: null,
   deliveryStatus,
 });
 

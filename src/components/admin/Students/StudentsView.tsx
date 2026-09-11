@@ -8,7 +8,7 @@ import { classesApi, type AdminClass } from "@/lib/api/classes";
 import { studentsApi, type AdminStudentRow } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
-import { ConsentPill, blockedByConsent } from "./ConsentPill";
+import { ConsentPill, withoutRecordedConsent } from "./ConsentPill";
 import { consentRequestLine, useConsentRequests } from "./useConsentRequests";
 import { statusLabel, studentStatus } from "./status";
 import { NoAccess, failureKind } from "../NoAccess";
@@ -147,12 +147,16 @@ export function StudentsView() {
             {phase === "ready" ? (
               <p className="mt-1.5 text-[14.5px] text-nevo-near-black/60">
                 {students.length} enrolled
-                {blockedByConsent(students) > 0 ? (
+                {/* Was "N can't begin lessons yet", which is not true of
+                    `not_sent` or `pending` - see `withoutRecordedConsent`.
+                    This says what the school's own records show, which is the
+                    thing an admin can actually act on. */}
+                {withoutRecordedConsent(students) > 0 ? (
                   <>
                     {" · "}
                     <span className="text-nevo-navy">
-                      {blockedByConsent(students)}
-                      {" can’t begin lessons yet"}
+                      {withoutRecordedConsent(students)}
+                      {" without recorded consent"}
                     </span>
                   </>
                 ) : null}

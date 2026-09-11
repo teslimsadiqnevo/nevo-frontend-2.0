@@ -10,6 +10,7 @@ const invite = (over: Partial<Invitation> = {}): Invitation => ({
   name: "Folake Adeyemi",
   status: "pending",
   expiresAt: "2026-10-01T00:00:00Z",
+  consentStatus: null,
   deliveryStatus: "email_not_configured",
   ...over,
 });
