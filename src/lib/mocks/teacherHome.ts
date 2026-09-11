@@ -1,7 +1,12 @@
 /**
  * Teacher Home mock data (C03 Home Dashboard / `Nevo Teacher Home` frame) -
  * the morning's picture, verbatim from the frame's storyboard content.
- * TODO(api): the intelligence layer serves flags/classes/activity per teacher.
+ * NOT A TODO ANY MORE (verified 11 Sep 2026). All three reads are live and
+ * consumed: flags via `intelligenceApi.getFlags()` (`useTeacherFlags:77`),
+ * the morning picture via `teacherHomeApi.read()` (`useTeacherHome:142`), and
+ * the class list via `classesApi.myClasses()` (`useTeacherClasses`). What is
+ * below backs the SIGNED-OUT walkthrough only - see `TeacherHome.tsx:28-45`
+ * for which surfaces are live and which still are not.
  */
 
 /** One evidence mini-bar: height % + emphasis. */

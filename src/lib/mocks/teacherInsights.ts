@@ -12,7 +12,14 @@ import { studentSlug } from "./teacherStudents";
  *  - quiet week (C14 A2, nothing flagged) - JSS 2B
  *  - sparse     (C09 "new class")        - SSS 1 Sciences
  *
- * TODO(api): replaced by the class-insights endpoint when it exists.
+ * NO SUCH ENDPOINT WAS EVER ADDED, and none is needed: `InsightsView:46-47`
+ * routes a live class to `LiveClassInsights`, which assembles the page from
+ * the pieces that do exist - misconceptions, mastery and flags, via
+ * `useClassInsights`. These fixtures back the designed screens only.
+ *
+ * TODO(api): C09's written class summary and its per-student recommendations
+ * have no source among those pieces - see `LiveClassInsights.tsx:11-16`. That
+ * is the real gap, and it is narrower than "the class-insights endpoint".
  */
 
 /** A run of narrative; `strong` marks the frame's inline emphasis. */

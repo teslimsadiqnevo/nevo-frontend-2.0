@@ -5,9 +5,15 @@
  * the class list is the real TEACHER_CLASSES fixture, exactly as the frame's
  * own mock data has it.
  *
- * TODO(api): the invite endpoints landed on 30 Aug - `/api/v1/invites` (admin
- * only; a teacher gets 403) and `GET /api/v1/join/{token}` plus its accept -
- * so the simulated verify round-trip below can be replaced. It has not been.
+ * IT HAS BEEN REPLACED (verified 11 Sep 2026). `SetPasswordForm.tsx:224`
+ * calls `invitesApi.acceptJoin(token, { password })`, so the simulated verify
+ * round-trip this comment used to describe is gone, and the two timing
+ * constants that drove it went with it - nothing in `src/` referenced them.
+ *
+ * What survives is `TEACHER_INVITE.school`, used as a display string while an
+ * SSO hand-back resolves (`TeacherSsoCallback.tsx:133`). Note the activate
+ * page deliberately does NOT use the email or name here - see the comment at
+ * `app/auth/teacher/activate/page.tsx:13`.
  */
 export const TEACHER_INVITE = {
   school: "Corona Secondary School",
@@ -17,10 +23,6 @@ export const TEACHER_INVITE = {
   subjects: ["Mathematics", "English"],
 };
 
-/** Simulated email-verification round trip ("Waiting for verification…"). */
-export const VERIFY_MS = 2800;
-/** "Complete" holds briefly, then the dashboard (frame: "brief hold"). */
-export const COMPLETE_HOLD_MS = 1400;
 
 const COUNT_WORDS = [
   "No",

@@ -11,9 +11,19 @@ import { TEACHER_CLASSES, type TeacherClass } from "./teacherClasses";
  * there is no clinical language anywhere - the page has to hold up if a
  * parent or the SENCo reads it.
  *
- * TODO(api): `/api/v1/students/{id}/profile` and `/api/intelligence/profile/{id}`
- * are deployed and typed but unwired; the per-student observations these
- * fixtures carry have no endpoint at all.
+ * BOTH HALVES OF THIS ARE NOW FALSE (verified against the deployed spec,
+ * 11 Sep 2026), and the second was never quite right:
+ *
+ *  - `/api/v1/students/{id}/profile` and `/api/intelligence/profile/{id}` are
+ *    wired. `useStudentProfile` calls `studentsApi`, and `StudentRoute:32`
+ *    consumes it.
+ *  - Per-student observations DO have a source. They are not their own path,
+ *    which is why searching the spec for one finds nothing: they arrive nested
+ *    as `observations` on `ClassStudentResponse`, from
+ *    `GET /api/v1/classes/{class_id}/students`, and are already typed at
+ *    `lib/api/classes.ts:100`. A schema with no path of its own is reached
+ *    through another response - a spec search that only reads path names will
+ *    keep declaring these orphaned.
  */
 
 export type ConfidenceLevel = 1 | 2 | 3;
