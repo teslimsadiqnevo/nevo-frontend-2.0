@@ -12,9 +12,9 @@ import { VariantReview } from "./VariantReview";
 import { LiveVariantReview } from "./LiveVariantReview";
 
 /**
- * C16d HAD no live source. It has one now, and the paragraph that used to
- * sit here was a contract fact that stopped being true (re-checked against the
- * deployed spec, 11 Sep 2026). Both of its claims have since failed:
+ * C16d was never actually blocked, and the paragraph that used to sit here
+ * said it was. Both of its claims are false, and were false when written
+ * (confirmed by backend, 11 Sep 2026):
  *
  *  - "free-form objects with no declared shape" - each variant is a declared
  *    schema now: `textVariant` is `anyOf [TextVariant, null]`, and the other
@@ -92,11 +92,11 @@ export function VariantReviewRoute({
    * The honest states, and note what is NOT here any more.
    *
    * This route used to answer every signed-in teacher with "Variants aren't
-   * available yet ... they're not part of what a lesson gives us back". That
-   * was true when it was written and stopped being true: all five variants are
-   * declared schemas on `LessonSegmentResponse`, which the lesson read above
-   * returns. The screen was telling teachers a feature was impossible while the
-   * data sat in a response the console had already fetched.
+   * available yet ... they're not part of what a lesson gives us back". The
+   * variants were on `LessonSegmentResponse` the whole time; they were null on
+   * every lesson because the parse was falling back, and we mistook empty data
+   * for an absent contract. The screen told teachers a feature was impossible
+   * while the field sat, declared, in a response the console had fetched.
    *
    * What remains is a genuine miss - the lesson would not load, or it holds no
    * section with that number - and each says which.

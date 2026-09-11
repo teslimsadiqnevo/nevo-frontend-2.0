@@ -32,11 +32,13 @@ import { VariantReviewRoute } from "./VariantReviewRoute";
  *
  * WHAT WAS WRONG. This route answered every signed-in teacher with "Variants
  * aren't available yet ... they're not part of what a lesson gives us back."
- * That was true when it was written and quietly stopped being true: all five
- * variants are declared schemas on `LessonSegmentResponse`, returned by the
- * very lesson read the console already makes for the lesson page. A whole drawn
- * screen sat behind a sentence asserting the feature was impossible, and
- * `docs/BUILD_STATUS.md` filed it under NEEDS BACKEND on the strength of it.
+ * That was never true. All five variants are declared on
+ * `LessonSegmentResponse` and always have been - returned by the very lesson
+ * read the console already makes. They were NULL on every lesson, because the
+ * parse was silently falling back to deterministic text, and this console read
+ * "always null" as "absent from the contract". A whole drawn screen sat behind
+ * a sentence asserting the feature was impossible, and `docs/BUILD_STATUS.md`
+ * filed it under NEEDS BACKEND on the strength of it.
  *
  * So the assertion that matters is the negative one: that sentence must not
  * appear for a teacher whose lesson actually carries variants. Asserting only

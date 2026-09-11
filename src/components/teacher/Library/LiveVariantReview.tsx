@@ -11,14 +11,24 @@ import { cn } from "@/lib/utils";
 /**
  * Variant review, on the teacher's OWN lesson (C16d).
  *
- * The designed screen next door (`VariantReview.tsx`) has always rendered
- * hand-written preview paragraphs, because when it was built the variants
- * genuinely had no live source. That stopped being true: all five variants are
- * declared schemas on `LessonSegmentResponse`, which both
- * `GET /api/v1/lessons/{id}` and `GET /api/content/lessons/{id}` return, and
- * `useLessonDetail` already fetches one of them for the lesson page. So this
- * screen asks for nothing new - it reads what the console had already loaded
- * and thrown away.
+ * The designed screen next door (`VariantReview.tsx`) renders hand-written
+ * preview paragraphs, and this one reads the real thing.
+ *
+ * THE FIELDS WERE NEVER MISSING, which is not what this console believed.
+ * Backend, 11 Sep: both `GET /api/content/lessons/{id}` and
+ * `GET /api/v1/lessons/{id}` have carried `textVariant`, `visualVariant`,
+ * `audioVariant`, `interactiveVariant`, `calculationVariant` and
+ * `comprehensionCheckpoints` on every segment THROUGHOUT. What was missing was
+ * CONTENT: the parse was silently falling back to deterministic text on every
+ * lesson for weeks, so the fields were present and always null - and we read
+ * "always null" as "not in the contract" and wrote that down as a contract
+ * fact. `docs/BUILD_STATUS.md` then carried it as a backend blocker.
+ *
+ * The lesson worth keeping: a field that is always null is not evidence of a
+ * missing field. Check the schema, not the payload.
+ *
+ * So this screen asks for nothing new - it reads what `useLessonDetail` had
+ * already loaded for the lesson page and thrown away.
  *
  * FOUR TABS, NOT FIVE, and that is deliberate. `calculationVariant` is the
  * fifth variant on the contract and C16d draws no tab for it, so adding one
