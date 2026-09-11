@@ -1,6 +1,6 @@
 # Nevo frontend — what is left
 
-Last updated **10 September 2026**. Written from a survey of the source and the
+Last updated **11 September 2026**. Written from a survey of the source and the
 deployed OpenAPI document, not from tickets.
 
 **Start with the section directly below.** It is the only measured, whole-product
@@ -30,13 +30,13 @@ because every console is missing its front door. This is not a "last 20%"
 problem — it is a small number of missing entrances in front of a great deal of
 finished work.
 
-| console | screens | usable | demoable | hours |
-|---|---|---|---|---|
-| Student | 51 / 63 | **no** | **no** | 135 |
-| Teacher | 22 / 29 | partly | with care | 115 |
-| Admin | 41 / 51 | partly | with care | 80 |
-| Parent | 3 / 3 | **no** (unreachable) | with care | 31 |
-| **total** | **117 / 146 (80%)** | | | **361** |
+| console   | screens             | usable               | demoable  | hours   |
+| --------- | ------------------- | -------------------- | --------- | ------- |
+| Student   | 51 / 63             | **no**               | **no**    | 135     |
+| Teacher   | 22 / 29             | partly               | with care | 115     |
+| Admin     | 41 / 51             | partly               | with care | 80      |
+| Parent    | 3 / 3               | **no** (unreachable) | with care | 31      |
+| **total** | **117 / 146 (80%)** |                      |           | **361** |
 
 Screen counting is judgement-heavy: two independent passes over admin gave 50/63
 and 41/51. The RATIO held at ~80% both times. Treat denominators as ±15%.
@@ -116,6 +116,69 @@ found 17 of 97 markers repo-wide were already stale; assume the same rate here.
 
 ---
 
+## Student lane — measurement sweep, 11 Sep
+
+Seven merged today (#344, #346, #348, #350, #352, #353 and the useStudentLesson
+fixture fix). What follows is the part other lanes need: **two corrections to the
+audit, two questions for design, and one shape to grep your own lane for.**
+
+### The shape: a comment that rationalises a gap
+
+The strongest one today. `DomainProbeModule`'s note said a prior-knowledge probe
+"has no correct option", and `reduceTrialModule` reported `accuracy: null` on that
+authority. It was a statement about the DATA STRUCTURE, not about the questions —
+"The capital of Nigeria is:" has an answer, and a knowledge probe is precisely the
+thing that needs it. The comment is why nobody looked.
+
+Same week: `useSessionRefresh`'s docblock said "retrying a refusal in a loop would
+just spend a dying token faster" while looping; `SentenceDotModule`'s
+`TODO(audio): real narration asset; the play affordance is the shell` described a
+button with no `onClick`, under "Listen, then tap the matching picture", asked of
+six-year-olds. **Grep your lane for comments that explain why something is
+absent, and check the code agrees.**
+
+### Correction — `/summary` and `/review` are NOT reachable dead ends
+
+An earlier note implied a child finishing a real lesson hits a 404. They do not.
+`LessonPlayer:713` gates "See summary" on `lesson.summary`, and the assessment
+phase on `lesson.assessment` (`:520`) — real lessons carry neither, so neither
+route is ever pushed. This is the known backend blocker (no recap, no assessment
+on `LessonDetailResponse`), not a separate frontend defect. Nine built screens
+wait on backend; nothing is broken in front of them.
+
+### Correction — session expiry was silent, and is not any more
+
+`getSession()` self-clears at `expiresAt`, after which `report()` returns at its
+`!getToken()` guard and no request is made to 401 — so the 401-driven
+session-expired redirect never fired and the route guard, which only runs on
+navigation, never saw them. `useSessionLapse` (#348) arms a timer for the expiry
+instant and re-checks on `visibilitychange`. **Teacher and admin shells do not
+mount it.** It is role-aware (`sessionExpiredDoor(role)`) and takes no arguments —
+`useSessionLapse()` in your shell is the whole change, if you want it.
+
+### For design — two questions, neither blocking
+
+1. **A synthetic voice reads to P1-3.** Module 3's audio activity had no sentence
+   and no asset, so it now uses `speechSynthesis` — the system voice, not a
+   produced narration. It is a large improvement on silence and it is not what
+   anyone designed. Where speech is unavailable the activity is skipped rather
+   than mimed. Worth a view on whether a system voice is acceptable for a
+   calibration activity, and on the two sentences themselves.
+2. **There is no way past the rotate prompt.** Working as ruled ("portrait only,
+   v1"), but a device mounted landscape on a wheelchair tray or a stand, or one
+   with rotation locked, has no route into Nevo at all. SEND-relevant rather than
+   hypothetical.
+
+### Still open in the student lane
+
+- `PinCreationScreen.tsx` is held by another session — untouched here.
+- The daily warm-up's `WarmUpRun.tsx` (528 lines) is not swept yet. It shares
+  `BaselineCapture` and the same `trial_pick` contract, so expect the same
+  accuracy-key question there. Being taken next by this session.
+- Nothing in the lane has been checked against the design frames since 8 Sep.
+
+---
+
 ## ACTION NEEDED — student and admin sessions
 
 **Wrap your fixture fallbacks in `<SampleRegion>`.** Ten minutes each, and the
@@ -167,9 +230,9 @@ its screens are numbered as admin follow-ups (D01b, D01c, D15d).
 tokenised: a parent never signs in, because putting a login in front of a statutory
 data right defeats the point of having it.
 
-**This is a launch blocker, not a feature.** SCRUM-80: *"Section 31 of the NDPA 2023
+**This is a launch blocker, not a feature.** SCRUM-80: _"Section 31 of the NDPA 2023
 requires verifiable parental consent... Our legal review confirms this must be in
-place before launch."*
+place before launch."_
 
 ### Two backend gaps found while building
 
@@ -207,12 +270,12 @@ stop being processed.
 **The API already distinguishes the two.** `ConsentStatus` has FOUR values on the
 deployed spec, not the two this doc used to claim:
 
-| status | `granted` | means | child |
-|---|---|---|---|
-| `not_sent` | false | school has not asked yet | proceeds |
-| `pending` | false | asked, parent has not replied | proceeds |
-| `confirmed` | true | parent granted | proceeds |
-| `withdrawn` | false | parent actively withdrew | **stops** |
+| status      | `granted` | means                         | child     |
+| ----------- | --------- | ----------------------------- | --------- |
+| `not_sent`  | false     | school has not asked yet      | proceeds  |
+| `pending`   | false     | asked, parent has not replied | proceeds  |
+| `confirmed` | true      | parent granted                | proceeds  |
+| `withdrawn` | false     | parent actively withdrew      | **stops** |
 
 **Three of the four are `granted: false`.** So reading `granted` cannot implement the
 ruling — it blocks children whose school merely has not filed paperwork, which is the
@@ -246,12 +309,12 @@ Every marker in the tree was written against an OLDER spec, and the spec moves d
 Re-checked all 97 against the deployed document, with each "now unblocked" claim
 adversarially verified twice before being called that.
 
-| verdict | n | meaning |
-|---|---|---|
-| unblocked | 4 | build it today |
-| **partially** unblocked | 26 | the READ landed, the WRITE (or 1 of 3 needs) did not |
-| still blocked | 50 | genuinely absent |
-| **stale** | 17 | **delete the comment — the need is already met or was never an API gap** |
+| verdict                 | n   | meaning                                                                  |
+| ----------------------- | --- | ------------------------------------------------------------------------ |
+| unblocked               | 4   | build it today                                                           |
+| **partially** unblocked | 26  | the READ landed, the WRITE (or 1 of 3 needs) did not                     |
+| still blocked           | 50  | genuinely absent                                                         |
+| **stale**               | 17  | **delete the comment — the need is already met or was never an API gap** |
 
 The 26 are the interesting pile: in nearly every case a screen can now render its data
 and still cannot perform its action. Do not read "partially" as "blocked".
@@ -314,15 +377,15 @@ outward into whoever's screens it touched instead of stopping at the boundary.
 
 Merged in PR #285 and PR #283.
 
-| file | what changed |
-|---|---|
-| `components/admin/Teachers/status.tsx` | rewritten — see the breaking change below |
-| `components/admin/Teachers/status.test.tsx` | NEW, 7 tests |
-| `components/admin/Classes/ClassesView.tsx` | `c.source === "sso"` → `"roster_sync"` |
-| `components/admin/Classes/ClassDetailView.tsx` | same fix, same line number |
-| `lib/api/teachers.ts` | added `UserStatus`; `status` narrowed from `string` |
-| `lib/api/classes.ts` | added `ClassSource`; `source` narrowed from `string \| null` |
-| `lib/api/students.ts` | your `ConsentState` now ALIASES `ConsentStatus` — one definition, same four values, no behaviour change |
+| file                                           | what changed                                                                                            |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `components/admin/Teachers/status.tsx`         | rewritten — see the breaking change below                                                               |
+| `components/admin/Teachers/status.test.tsx`    | NEW, 7 tests                                                                                            |
+| `components/admin/Classes/ClassesView.tsx`     | `c.source === "sso"` → `"roster_sync"`                                                                  |
+| `components/admin/Classes/ClassDetailView.tsx` | same fix, same line number                                                                              |
+| `lib/api/teachers.ts`                          | added `UserStatus`; `status` narrowed from `string`                                                     |
+| `lib/api/classes.ts`                           | added `ClassSource`; `source` narrowed from `string \| null`                                            |
+| `lib/api/students.ts`                          | your `ConsentState` now ALIASES `ConsentStatus` — one definition, same four values, no behaviour change |
 
 **Breaking signature 1.** `isInvited`, `isActive` and `StatusPill` now take `UserStatus`,
 not `string`. Passing a bare string no longer typechecks.
@@ -380,11 +443,11 @@ learner, the session dies on the next request, and they cannot log back in.
 **It still cannot be built, and the reason is measured, not inferred.** I made a real
 student on the E2E tenant, deactivated it, and compared responses:
 
-| case | response |
-|---|---|
-| active account, **wrong** PIN | `401 {"code":"authentication_failed"}` |
+| case                                | response                               |
+| ----------------------------------- | -------------------------------------- |
+| active account, **wrong** PIN       | `401 {"code":"authentication_failed"}` |
 | **paused** account, **correct** PIN | `401 {"code":"authentication_failed"}` |
-| identifier that never existed | `401 {"code":"authentication_failed"}` |
+| identifier that never existed       | `401 {"code":"authentication_failed"}` |
 
 Byte-identical, message included. Mid-flight a revoked token gets `401 invalid_session`,
 which is also what an ordinary expiry returns. `user_unavailable` never reaches the
@@ -491,12 +554,12 @@ other way and is admin-scoped. Every progress read (`/api/students/{id}/progress
 
 D15d is four plain-language statements about how one child is growing this term:
 
-| the frame's four | |
-|---|---|
+| the frame's four           |                                                          |
+| -------------------------- | -------------------------------------------------------- |
 | Staying with hard problems | "working through tricky questions on her own for longer" |
-| Knowing what she knows | "a clearer sense of what she has understood" |
-| Connecting ideas | "carrying what she learns in one subject into another" |
-| Learning new things faster | "new ideas are landing more quickly than last term" |
+| Knowing what she knows     | "a clearer sense of what she has understood"             |
+| Connecting ideas           | "carrying what she learns in one subject into another"   |
+| Learning new things faster | "new ideas are landing more quickly than last term"      |
 
 **Prose, and the frame is emphatic about it: no scores, no percentages, no labels, no
 clinical terms.** So this cannot be derived client-side from numbers — deriving it would
@@ -508,7 +571,7 @@ What exists is close in shape and wrong in scope:
   counts (`lessonsTransformed`, `adaptationsPerSession`, …). That is D15a-c, and it is
   precisely what D15d must not show a parent.
 - `GET /api/v1/school/narrative` → `SchoolNarrativeResponse` `{headline, summary,
-  highlights, generatedAt, source}` is the RIGHT shape — generated prose with a
+highlights, generatedAt, source}` is the RIGHT shape — generated prose with a
   provenance field — at the wrong scope. **It is the model to copy for a per-child
   version.**
 - `LearnerObservationResponse` `{pattern, count}` and `LearnerProfileSummaryResponse`
@@ -652,7 +715,10 @@ If a console bounces you to a door you did not expect, read the cookie before
 debugging the guard:
 
 ```js
-document.cookie.split(';').map(s => s.trim()).find(c => c.startsWith('nevo.role='))
+document.cookie
+  .split(";")
+  .map((s) => s.trim())
+  .find((c) => c.startsWith("nevo.role="));
 ```
 
 Two browsers, or one profile per console, avoids it entirely. Worth knowing that
@@ -743,11 +809,11 @@ before they are ready.
 
 ### Whose files are whose
 
-| area | owner |
-|---|---|
-| `src/components/student/**`, `src/app/student/**` | student session |
-| `src/components/admin/**`, `src/app/admin/**` | admin session |
-| `src/components/teacher/**`, `src/app/teacher/**` | teacher session |
+| area                                                               | owner                       |
+| ------------------------------------------------------------------ | --------------------------- |
+| `src/components/student/**`, `src/app/student/**`                  | student session             |
+| `src/components/admin/**`, `src/app/admin/**`                      | admin session               |
+| `src/components/teacher/**`, `src/app/teacher/**`                  | teacher session             |
 | `src/lib/api/**`, `src/hooks/**`, `src/proxy.ts`, `scripts/**`, CI | **shared — collision zone** |
 
 In the shared zone, run `git log -1 -- <file>` before editing to see who last moved
@@ -757,7 +823,7 @@ sweeps up whatever another session has in flight.
 ### Handoffs currently waiting
 
 **For the student session — ALL FIVE ARE DONE, 7 Sep.** Left here as a record of
-what closed, because two of them were wrong about *why* they mattered:
+what closed, because two of them were wrong about _why_ they mattered:
 
 - ~~`fromContent.ts` chokepoint~~ — **#253**. The seam was one file up from where
   this said: the variants were typed on 3 Sep but only on `content.ts`'s PARSE
@@ -807,7 +873,7 @@ blockers are dead; these are the ones most likely to be repeated:
 - **`GET /api/v1/permissions/me` returns a `navigation` array**, typed in this repo and
   then discarded by `PermissionContext`.
 - **The child's own consent gate is live and wired.** The broad claim "nothing carries
-  per-student consent" is wrong — what is missing is reading consent for *another*
+  per-student consent" is wrong — what is missing is reading consent for _another_
   student, which is a narrower and different ask.
 - **`docs/blocked-items-handoff.md` has been DELETED** (7 Sep). It was six weeks stale,
   every backend contract in it had since shipped, and it was the single most likely
@@ -827,11 +893,11 @@ receive anything we send**, and that sits upstream of every invite and consent f
 
 ## The three piles
 
-| pile | meaning |
-|---|---|
-| **BUILDABLE** | The contract and the design both exist. Ours to do. |
+| pile              | meaning                                                      |
+| ----------------- | ------------------------------------------------------------ |
+| **BUILDABLE**     | The contract and the design both exist. Ours to do.          |
 | **NEEDS BACKEND** | No endpoint, or an endpoint that cannot answer the question. |
-| **NEEDS DESIGN** | No frame, or a frame that contradicts another. |
+| **NEEDS DESIGN**  | No frame, or a frame that contradicts another.               |
 
 ---
 
@@ -875,7 +941,7 @@ the scroll position, which nothing had ever done (#337).
 - The **baseline profiling submit is Bearer**, and the run is phase 0 while the
   account is created at phase 2. Every non-SSO child's cognitive profile 401'd
   and was purged — and on a shared tablet where the last child had not signed
-  out, it SUCCEEDED against *their* account. It is now parked and sent only once
+  out, it SUCCEEDED against _their_ account. It is now parked and sent only once
   the session provably belongs to the child who sat it.
 - **Offline progress was dropped by the button under "Your progress is saved".**
   The unsent buffer was a ref and the `online` listener lived in the same hook,
@@ -934,7 +1000,7 @@ student app.**
 
 **A live trap in that last line.** The segments CLAIM `visual` in
 `availableModalities` while `visualVariant` is null. Anything that switches a
-modality on from `availableModalities` alone draws an empty visual frame *today*.
+modality on from `availableModalities` alone draws an empty visual frame _today_.
 `fromContent` and `lib/lessons/adaptation.ts` both gate on payload presence
 instead — keep it that way.
 
@@ -942,13 +1008,13 @@ instead — keep it that way.
 
 Shipped 4–5 Sep as API-layer work. All have logic and no UI consumer:
 
-| thing | where | what it needs |
-|---|---|---|
-| `markCheckpoint` / `toQuickCheck` | `lib/api/checkpoints.ts` | `fromContent` to carry checkpoints; the player already draws `QuickCheckSheet` |
-| `markInteractive` / `mediaUrlExpired` | `lib/api/variants.ts` | `fromContent` to read the five variants |
-| `contentApi.mediaUrl` | `lib/api/content.ts` | a caller — `mediaUrlExpired` decides when |
-| `useDueReviews().playable` | `hooks/useDueReviews.ts` | `SubjectDetail` pills to become links into `/review-session` |
-| ~~`reflection` / `highlights`~~ | `lib/api/students.ts` | **DONE #247.** `reflection` renders on both Progress screens, read per-subject from the narrowed route — the two routes' `reflection` mean different things, so the tab's would be a claim about all of a child's learning under one subject's heading. `highlights` is carried and NOT placed: it is a student-level list and the only nearby slot is the per-subject card note, so mapping it by index would be fabrication. **Needs a designed slot.** |
+| thing                                 | where                    | what it needs                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `markCheckpoint` / `toQuickCheck`     | `lib/api/checkpoints.ts` | `fromContent` to carry checkpoints; the player already draws `QuickCheckSheet`                                                                                                                                                                                                                                                                                                                                                                            |
+| `markInteractive` / `mediaUrlExpired` | `lib/api/variants.ts`    | `fromContent` to read the five variants                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `contentApi.mediaUrl`                 | `lib/api/content.ts`     | a caller — `mediaUrlExpired` decides when                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `useDueReviews().playable`            | `hooks/useDueReviews.ts` | `SubjectDetail` pills to become links into `/review-session`                                                                                                                                                                                                                                                                                                                                                                                              |
+| ~~`reflection` / `highlights`~~       | `lib/api/students.ts`    | **DONE #247.** `reflection` renders on both Progress screens, read per-subject from the narrowed route — the two routes' `reflection` mean different things, so the tab's would be a claim about all of a child's learning under one subject's heading. `highlights` is carried and NOT placed: it is a student-level list and the only nearby slot is the per-subject card note, so mapping it by index would be fabrication. **Needs a designed slot.** |
 
 Neither `checkpoints.ts` nor `variants.ts` is exported from `lib/api/index.ts`.
 
@@ -985,6 +1051,7 @@ student-facing endpoint, and `useStudentThreads.ts` no longer says "READ ONLY".
 
   `/student/onboarding/*` stays open: it is the flow that CREATES the session
   (`completeAccount` → `setSession` → first lesson). Do not guard it.
+
 - **`/student/lessons/[lessonId]/review-session` is an orphan** — nothing links
   to it. `playable` is its entry point.
 
@@ -997,20 +1064,20 @@ student-facing endpoint, and `useStudentThreads.ts` no longer says "READ ONLY".
 
 ### Blocked — NEEDS BACKEND
 
-| thing | why |
-|---|---|
-| ~~Student → teacher messaging~~ | **DONE #250.** `POST /api/messages` still has no `teacher` recipient — but `POST /messages/threads/{id}/reply` (3 Sep) is the door, and deliberately a different shape: access IS the thread, so a child may write only where they can already read and still cannot start a conversation. |
-| Thread unread state | No endpoint reports it; the dot stays off. |
-| Student SSO sign-in | Entirely mock (`resolveMockSso`). `authApi.ssoCallback` exists and the teacher side calls it. |
-| Teacher-join class code | Pre-auth join still compares a hard-coded `VALID_CODE`. **Re-check:** `connections/class-code` went public on 3 Sep, so this may now be closable. |
-| Per-concept assessment result | Questions carry no concept id, so the after-lesson result can only tell *all* from *none*. |
-| ~~Adaptation plan~~ | **DONE #260. The "no student-facing endpoint" claim was wrong.** `POST /api/intelligence/adapt` is Bearer with no role restriction and returns 200 to a student's own token. Per-segment `scaffolding` now drives the indicator, which previously drew 2-of-4 support dots from a hardcoded `?? "light"` on every live lesson. |
-| ~~Backend-triggered breaks~~ | **DONE #262.** `in_lesson` mode at segment boundaries. `useBreakMonitor`'s TODO is answered; the client timer stays as the priming fallback. Only OBSERVED facts are sent — see the Zero-Tag note below. |
-| Boredom escalation | The tap spends the offer and asks nothing. |
-| Downloads / offline | Endpoints exist; the device half is a Service Worker project. Hidden from signed-in children, honestly. |
-| Baseline Module 4 items | No IRT service; items are authored mocks. |
-| Ask Nevo scoping | The console holds no student or lesson UUID to send. |
-| Narration audio | 4 × `TODO(audio)` — the assets do not exist. Playback is a simulated progress bar with no `<audio>` element. |
+| thing                           | why                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ~~Student → teacher messaging~~ | **DONE #250.** `POST /api/messages` still has no `teacher` recipient — but `POST /messages/threads/{id}/reply` (3 Sep) is the door, and deliberately a different shape: access IS the thread, so a child may write only where they can already read and still cannot start a conversation.                                     |
+| Thread unread state             | No endpoint reports it; the dot stays off.                                                                                                                                                                                                                                                                                     |
+| Student SSO sign-in             | Entirely mock (`resolveMockSso`). `authApi.ssoCallback` exists and the teacher side calls it.                                                                                                                                                                                                                                  |
+| Teacher-join class code         | Pre-auth join still compares a hard-coded `VALID_CODE`. **Re-check:** `connections/class-code` went public on 3 Sep, so this may now be closable.                                                                                                                                                                              |
+| Per-concept assessment result   | Questions carry no concept id, so the after-lesson result can only tell _all_ from _none_.                                                                                                                                                                                                                                     |
+| ~~Adaptation plan~~             | **DONE #260. The "no student-facing endpoint" claim was wrong.** `POST /api/intelligence/adapt` is Bearer with no role restriction and returns 200 to a student's own token. Per-segment `scaffolding` now drives the indicator, which previously drew 2-of-4 support dots from a hardcoded `?? "light"` on every live lesson. |
+| ~~Backend-triggered breaks~~    | **DONE #262.** `in_lesson` mode at segment boundaries. `useBreakMonitor`'s TODO is answered; the client timer stays as the priming fallback. Only OBSERVED facts are sent — see the Zero-Tag note below.                                                                                                                       |
+| Boredom escalation              | The tap spends the offer and asks nothing.                                                                                                                                                                                                                                                                                     |
+| Downloads / offline             | Endpoints exist; the device half is a Service Worker project. Hidden from signed-in children, honestly.                                                                                                                                                                                                                        |
+| Baseline Module 4 items         | No IRT service; items are authored mocks.                                                                                                                                                                                                                                                                                      |
+| Ask Nevo scoping                | The console holds no student or lesson UUID to send.                                                                                                                                                                                                                                                                           |
+| Narration audio                 | 4 × `TODO(audio)` — the assets do not exist. Playback is a simulated progress bar with no `<audio>` element.                                                                                                                                                                                                                   |
 
 ### Traps in the adaptation engine — do not relearn these
 
@@ -1080,12 +1147,12 @@ triggers it?**
 consent for any student but the child themselves". That is no longer true. `consent` is
 a **required** field on three responses plus the invite list:
 
-| endpoint | field |
-|---|---|
-| `GET /api/v1/students` | `StudentSummaryResponse.consent` |
-| `GET /api/v1/students/{student_id}` | `StudentDetailResponse.consent` |
-| `GET /api/v1/classes/{class_id}/students` | `ClassStudentResponse.consent` |
-| `GET /api/v1/invites` | `InvitationResponse.consentStatus` |
+| endpoint                                  | field                              |
+| ----------------------------------------- | ---------------------------------- |
+| `GET /api/v1/students`                    | `StudentSummaryResponse.consent`   |
+| `GET /api/v1/students/{student_id}`       | `StudentDetailResponse.consent`    |
+| `GET /api/v1/classes/{class_id}/students` | `ClassStudentResponse.consent`     |
+| `GET /api/v1/invites`                     | `InvitationResponse.consentStatus` |
 
 `StudentConsentSummary` carries `status` (the four values above), `actorName`,
 `timestamp` and `channel` — who recorded it, when, and how. D07b's card was drawn for
@@ -1102,15 +1169,15 @@ An account being active is a different fact from a parent having agreed.
 
 ### NEEDS BACKEND
 
-| screen | why |
-|---|---|
+| screen                  | why                                                                                                                                                                                       |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | C08c Recommend a lesson | Recommendations are **read-only** — `GET /api/intelligence/recommendations/{id}` only, returning prose (`recommendationText`), not selectable lesson options. No POST exists to send one. |
-| C08d Session detail | Needs a section-by-section breakdown nothing serves. |
-| C16d Variant Review | No lesson read carries the variant objects. |
-| Escalate to SENCo | No transport for a teacher-to-SENCo note. The button is disabled rather than lying. |
-| Teacher SSO connect | **Not the slug problem.** Nothing in the API enrols a school; all ten SSO operations presuppose a connection that exists. The two `start` endpoints are pre-login user handovers. |
-| Profile photo upload | The frame draws the affordance only. |
-| Drive / OneDrive import | Blocked on per-school credentials. |
+| C08d Session detail     | Needs a section-by-section breakdown nothing serves.                                                                                                                                      |
+| C16d Variant Review     | No lesson read carries the variant objects.                                                                                                                                               |
+| Escalate to SENCo       | No transport for a teacher-to-SENCo note. The button is disabled rather than lying.                                                                                                       |
+| Teacher SSO connect     | **Not the slug problem.** Nothing in the API enrols a school; all ten SSO operations presuppose a connection that exists. The two `start` endpoints are pre-login user handovers.         |
+| Profile photo upload    | The frame draws the affordance only.                                                                                                                                                      |
+| Drive / OneDrive import | Blocked on per-school credentials.                                                                                                                                                        |
 
 ### NEEDS DESIGN
 
@@ -1177,11 +1244,11 @@ Every marker in the admin console was written against an older spec and none had
 been re-checked. **45 markers, judged against one pinned copy of the deployed
 document** (2.0.0, 183 paths, 335 schemas) so every verdict is comparable:
 
-| | |
-|---|---|
+|                            |                                       |
+| -------------------------- | ------------------------------------- |
 | **20 actively misleading** | assert something the spec contradicts |
-| 4 stale | true-ish, wrong details |
-| 21 accurate | leave them alone |
+| 4 stale                    | true-ish, wrong details               |
+| 21 accurate                | leave them alone                      |
 
 **The pattern is not 45 independent drifts.** Roughly a third fall to ONE
 BACKEND DEPLOY, 7 Sep, when consent became a first-class field on
@@ -1218,9 +1285,9 @@ document holds rather than quietly changing its mind. Four landed with the audit
 (`AdminSidebar`, `JoinLanding`, `ClassesView`, `StudentDetailView`) alongside
 `BandStep` and the two Settings docblocks; the remaining sixteen landed 11 Sep.
 
-*(The PR that closed the first four said "fourteen remain". The real number was
+_(The PR that closed the first four said "fourteen remain". The real number was
 sixteen — that count was taken before `BandStep` was reclassified. Corrected
-here rather than left to be rediscovered.)*
+here rather than left to be rediscovered.)_
 
 ## The three things the audit itself got wrong, 11 Sep
 
@@ -1273,14 +1340,14 @@ two of those refutations found things that mattered more than the item.
 
 ### Built
 
-| | |
-|---|---|
-| Adaptation log class filter | `classId` was a declared query param all along. Omitted rather than blanked (it is a uuid; `""` is a 422), resets the growing-limit pagination, names the class in the count, and the class list owns its own failure. |
-| Getting-started TEACHERS tick | From `counts.teachers`, already in state. `SchoolRosterCounts` has NO `required` array, so `teachersOnRoster` tests `typeof === "number"` rather than `?? 0` — an absent count is unknown and leaves the row open. |
-| SSO "View technical details" | `RosterSyncRunResponse.issues[]` was typed `unknown[]` and discarded. Now `RosterSyncIssue[]`, rendered per row. `RosterSyncStatus` also gained `running`, which the union had been missing. |
-| Two NDPA rows | Consent coverage and the retention position now carry real figures under a new `school` verification. Any row that came back without a consent record sends the whole claim back to `unverified`. |
-| Learner engagement patterns | The five `observations` patterns phrased once, in `lib/constants/observations.ts`, with the Zero-Tag reasoning per pattern and a test that fails on trait vocabulary. |
-| Assignment dates | On the ROWS, with no history section — see below. |
+|                               |                                                                                                                                                                                                                        |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Adaptation log class filter   | `classId` was a declared query param all along. Omitted rather than blanked (it is a uuid; `""` is a 422), resets the growing-limit pagination, names the class in the count, and the class list owns its own failure. |
+| Getting-started TEACHERS tick | From `counts.teachers`, already in state. `SchoolRosterCounts` has NO `required` array, so `teachersOnRoster` tests `typeof === "number"` rather than `?? 0` — an absent count is unknown and leaves the row open.     |
+| SSO "View technical details"  | `RosterSyncRunResponse.issues[]` was typed `unknown[]` and discarded. Now `RosterSyncIssue[]`, rendered per row. `RosterSyncStatus` also gained `running`, which the union had been missing.                           |
+| Two NDPA rows                 | Consent coverage and the retention position now carry real figures under a new `school` verification. Any row that came back without a consent record sends the whole claim back to `unverified`.                      |
+| Learner engagement patterns   | The five `observations` patterns phrased once, in `lib/constants/observations.ts`, with the Zero-Tag reasoning per pattern and a test that fails on trait vocabulary.                                                  |
+| Assignment dates              | On the ROWS, with no history section — see below.                                                                                                                                                                      |
 
 ### Refuted, and why that was worth more than the item
 
@@ -1296,7 +1363,7 @@ header counts FLAGS while the row's copy claims STUDENTS, and they differ
 whenever one child has two. Not built.
 
 **The SENCo list figures.** My own marker correction called "adaptations this
-week" *one windowed call*. It is not: `limit` maxes at 100, and
+week" _one windowed call_. It is not: `limit` maxes at 100, and
 `AdaptationEventLogResponse.total` carries **no description in the spec**, so it
 is not known to be window-scoped or uncapped. A completeness gate resting on it
 could silently under-report every per-learner tally — the exact failure the item
@@ -1334,13 +1401,13 @@ markers; this one was shipping copy about a legal position, on children.
 After fixing the admin console's eight sites, I swept every lane, because a fix
 applied in one place and not its neighbour is how this pattern keeps recurring.
 
-| lane | verdict |
-|---|---|
-| **Student** | Already correct. `LearningNotice` was explicitly de-gated for SCRUM-80 by that session — "WAS `ConsentGate`, AND IS NO LONGER A GATE" — and the `consent-gate` call was removed. |
-| **Parent** | Withdrawal copy in `ParentDataManagement` is CORRECT and was left alone: withdrawal is the one state that genuinely stops processing. |
-| **Teacher** | No consent-gating copy at all. |
+| lane           | verdict                                                                                                                                                                              |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Student**    | Already correct. `LearningNotice` was explicitly de-gated for SCRUM-80 by that session — "WAS `ConsentGate`, AND IS NO LONGER A GATE" — and the `consent-gate` call was removed.     |
+| **Parent**     | Withdrawal copy in `ParentDataManagement` is CORRECT and was left alone: withdrawal is the one state that genuinely stops processing.                                                |
+| **Teacher**    | No consent-gating copy at all.                                                                                                                                                       |
 | **Shared lib** | `lib/api/students.ts` carried the seed framing — 'D7 exists to answer "which students cannot yet begin lessons"'. Corrected; that sentence is where the eight admin sites came from. |
-| **Admin** | The offender. Eight sites, fixed. |
+| **Admin**      | The offender. Eight sites, fixed.                                                                                                                                                    |
 
 **Two things found that are NOT mine to fix, both flagged in place:**
 
@@ -1380,13 +1447,13 @@ unbuilt on purpose, not for want of an endpoint.
 
 ### Still buildable, not built
 
-| | |
-|---|---|
-| Invitation consent line | `consentStatus` is declared on `Invitation` now and still unread. The copy must be written AFTER the SCRUM-80 correction above, not against the old "can't begin lessons" wording, and the `not_sent` branch must promise no action — nothing creates a `ParentLink` from an invite's `parentContact`. |
-| Overview roll-up rows 1-2 | Row 1 (pending consent) is exact from the unpaginated `GET /api/v1/students`. Row 2 needs paging `/api/intelligence/flags` at `limit=200` and deduping by `studentId`; the `X-Total-Count` header counts flags, not students, and the api client does not expose headers. |
-| SENCo per-learner figures | Lessons-completed is cheap (the roster read this screen already makes, per class). Adaptations-this-week needs a paging loop terminating on `events.length < limit` — NOT on `total`, whose semantics the spec does not document. |
-| Adaptation log TYPE filter | Genuinely blocked. `eventType` is a response field with no query param and no enum. |
-| Assignment history proper | Blocked on an actor field and on ended assignments. See above — the dates shipped, the history did not. |
+|                            |                                                                                                                                                                                                                                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Invitation consent line    | `consentStatus` is declared on `Invitation` now and still unread. The copy must be written AFTER the SCRUM-80 correction above, not against the old "can't begin lessons" wording, and the `not_sent` branch must promise no action — nothing creates a `ParentLink` from an invite's `parentContact`. |
+| Overview roll-up rows 1-2  | Row 1 (pending consent) is exact from the unpaginated `GET /api/v1/students`. Row 2 needs paging `/api/intelligence/flags` at `limit=200` and deduping by `studentId`; the `X-Total-Count` header counts flags, not students, and the api client does not expose headers.                              |
+| SENCo per-learner figures  | Lessons-completed is cheap (the roster read this screen already makes, per class). Adaptations-this-week needs a paging loop terminating on `events.length < limit` — NOT on `total`, whose semantics the spec does not document.                                                                      |
+| Adaptation log TYPE filter | Genuinely blocked. `eventType` is a response field with no query param and no enum.                                                                                                                                                                                                                    |
+| Assignment history proper  | Blocked on an actor field and on ended assignments. See above — the dates shipped, the history did not.                                                                                                                                                                                                |
 
 If the Overview roll-up rows go live, the `SampleRegion` wrapper must narrow to
 the one surviving fixture row and the "These three are a sample" note must
@@ -1404,53 +1471,53 @@ and settled it every time.
 
 ### Every marker, with its verdict
 
-| marker | verdict | severity | asks for |
-|---|---|---|---|
-| `CostSheet.tsx:38` | still_true | accurate | Whether PricingResponse.vatRate is a percentage ("7.5") or a fraction ("0.075") - the cont |
-| `ClassDetailView.tsx:52` | partially_true | accurate |  |
-| `ClassesView.tsx:37` | still_true | accurate |  |
-| `InvitationsView.tsx:29` | still_true | accurate |  |
-| `InvitationsView.tsx:34` | still_true | accurate |  |
-| `JoinLanding.tsx:28` | still_true | accurate | A name (or first name) on the public join-link lookup, so D19's "Welcome, Amara" greeting  |
-| `inviteStatus.tsx:11` | still_true | accurate | An enum on the invitation `status` field, so the four lifecycle values the frame draws are |
-| `NotificationsView.tsx:32` | still_true | accurate |  |
-| `NotificationsView.tsx:50` | partially_true | accurate |  |
-| `DpaStep.tsx:36` | still_true | accurate | A GET endpoint that serves the DPA document TEXT (`{version, html}`) so the agreement word |
-| `SignUpStep.tsx:57` | still_true | accurate | A session (access token) returned by the school-registration call, so the wizard need not  |
-| `ReportsView.tsx:60` | still_true | accurate | A list of named school reports, each exportable as PDF or CSV, for the D09 Reports screen  |
-| `IepExporterView.tsx:56` | still_true | accurate | A read endpoint returning the share records for an IEP export, so share state survives a p |
-| `LearnerProfileView.tsx:41` | still_true | accurate | A PDF (or any document) route on a learner read, so D8b's "Export Profile as PDF" action c |
-| `MoveStudentSheet.tsx:23` | still_true | accurate | A way to schedule a class move for a future date (start of next term) rather than executin |
-| `StudentDetailView.tsx:57` | still_true | accurate | An enrolment date, a hand-enrolled-vs-roster-sync provenance line, and three per-guardian  |
-| `TeachersView.tsx:38` | still_true | accurate |  |
-| `TeachersView.tsx:43` | still_true | accurate |  |
-| `AdminTeamView.tsx:44` | still_true | accurate | Nothing from the API. It records that the scope-write endpoint exists and is typed, and th |
-| `AdminTeamView.tsx:303` | still_true | accurate | An endpoint the "Request another account" button could call to ask Nevo for an admin seat  |
-| `adminScopes.ts:100` | still_true | accurate |  |
-| `AdaptationLogView.tsx:33` | partially_true | misleading | Three things: (1) a before/after pair on each adaptation event, (2) an eventType filter, ( |
-| `AdminSignIn.tsx:34` | partially_true | misleading | Two API gaps: (a) nothing resolves a school before authentication, so the D02 school eyebr |
-| `AssignTeacherSheet.tsx:38` | partially_true | misleading | A backend guarantee that assigning a new primary demotes the incumbent in one transaction, |
-| `ClassDetailView.tsx:44` | now_false | misleading |  |
-| `ClassesView.tsx:46` | now_false | misleading |  |
-| `ndpaClaims.ts:53` | partially_true | misleading | Four school-level figures the screen says it cannot verify: a consent coverage count, eras |
-| `JoinLanding.tsx:33` | partially_true | misleading | A student-side route that reads the join token off the query string and redeems it, matchi |
-| `deliveryCopy.ts:30` | partially_true | misleading | Either a consent state carried on the invitation itself, or an endpoint that queues a pare |
-| `AuthMethodStep.tsx:26` | partially_true | misleading | A real field to write the D1.2 sign-in choice into, instead of parking it in the untyped ` |
-| `OverviewView.tsx:53` | partially_true | misleading | Three things: (1) a narrative/summary endpoint, (2) a roll-up of items needing an admin de |
+| marker                         | verdict        | severity   | asks for                                                                                   |
+| ------------------------------ | -------------- | ---------- | ------------------------------------------------------------------------------------------ |
+| `CostSheet.tsx:38`             | still_true     | accurate   | Whether PricingResponse.vatRate is a percentage ("7.5") or a fraction ("0.075") - the cont |
+| `ClassDetailView.tsx:52`       | partially_true | accurate   |                                                                                            |
+| `ClassesView.tsx:37`           | still_true     | accurate   |                                                                                            |
+| `InvitationsView.tsx:29`       | still_true     | accurate   |                                                                                            |
+| `InvitationsView.tsx:34`       | still_true     | accurate   |                                                                                            |
+| `JoinLanding.tsx:28`           | still_true     | accurate   | A name (or first name) on the public join-link lookup, so D19's "Welcome, Amara" greeting  |
+| `inviteStatus.tsx:11`          | still_true     | accurate   | An enum on the invitation `status` field, so the four lifecycle values the frame draws are |
+| `NotificationsView.tsx:32`     | still_true     | accurate   |                                                                                            |
+| `NotificationsView.tsx:50`     | partially_true | accurate   |                                                                                            |
+| `DpaStep.tsx:36`               | still_true     | accurate   | A GET endpoint that serves the DPA document TEXT (`{version, html}`) so the agreement word |
+| `SignUpStep.tsx:57`            | still_true     | accurate   | A session (access token) returned by the school-registration call, so the wizard need not  |
+| `ReportsView.tsx:60`           | still_true     | accurate   | A list of named school reports, each exportable as PDF or CSV, for the D09 Reports screen  |
+| `IepExporterView.tsx:56`       | still_true     | accurate   | A read endpoint returning the share records for an IEP export, so share state survives a p |
+| `LearnerProfileView.tsx:41`    | still_true     | accurate   | A PDF (or any document) route on a learner read, so D8b's "Export Profile as PDF" action c |
+| `MoveStudentSheet.tsx:23`      | still_true     | accurate   | A way to schedule a class move for a future date (start of next term) rather than executin |
+| `StudentDetailView.tsx:57`     | still_true     | accurate   | An enrolment date, a hand-enrolled-vs-roster-sync provenance line, and three per-guardian  |
+| `TeachersView.tsx:38`          | still_true     | accurate   |                                                                                            |
+| `TeachersView.tsx:43`          | still_true     | accurate   |                                                                                            |
+| `AdminTeamView.tsx:44`         | still_true     | accurate   | Nothing from the API. It records that the scope-write endpoint exists and is typed, and th |
+| `AdminTeamView.tsx:303`        | still_true     | accurate   | An endpoint the "Request another account" button could call to ask Nevo for an admin seat  |
+| `adminScopes.ts:100`           | still_true     | accurate   |                                                                                            |
+| `AdaptationLogView.tsx:33`     | partially_true | misleading | Three things: (1) a before/after pair on each adaptation event, (2) an eventType filter, ( |
+| `AdminSignIn.tsx:34`           | partially_true | misleading | Two API gaps: (a) nothing resolves a school before authentication, so the D02 school eyebr |
+| `AssignTeacherSheet.tsx:38`    | partially_true | misleading | A backend guarantee that assigning a new primary demotes the incumbent in one transaction, |
+| `ClassDetailView.tsx:44`       | now_false      | misleading |                                                                                            |
+| `ClassesView.tsx:46`           | now_false      | misleading |                                                                                            |
+| `ndpaClaims.ts:53`             | partially_true | misleading | Four school-level figures the screen says it cannot verify: a consent coverage count, eras |
+| `JoinLanding.tsx:33`           | partially_true | misleading | A student-side route that reads the join token off the query string and redeems it, matchi |
+| `deliveryCopy.ts:30`           | partially_true | misleading | Either a consent state carried on the invitation itself, or an endpoint that queues a pare |
+| `AuthMethodStep.tsx:26`        | partially_true | misleading | A real field to write the D1.2 sign-in choice into, instead of parking it in the untyped ` |
+| `OverviewView.tsx:53`          | partially_true | misleading | Three things: (1) a narrative/summary endpoint, (2) a roll-up of items needing an admin de |
 | `overviewGettingStarted.ts:28` | partially_true | misleading | A data signal for each of the three open checklist steps (teachers invited, sign-in config |
-| `overviewSample.ts:14` | partially_true | misleading | A single endpoint that rolls up the items at this school that need an admin's decision, to |
-| `ReportsView.tsx:52` | partially_true | misleading | Adaptation sequences keyed to a shared objective, so three anonymised learners' different  |
-| `LearnerProfileView.tsx:46` | partially_true | misleading | A dedicated source of titled per-learner observations for D8b's ENGAGEMENT PATTERNS, inste |
-| `SencoView.tsx:56` | partially_true | misleading | A bulk route that returns active support, lessons completed and adaptations-this-week for  |
-| `AdminSidebar.tsx:29` | partially_true | misleading | A profile endpoint that would supply the signed-in admin's real name and job title in plac |
-| `SsoView.tsx:50` | partially_true | misleading | A raw server-rendered sync log text blob to render verbatim in a <pre> behind "View techni |
-| `EraseRecordModal.tsx:27` | partially_true | misleading | A real retention deadline date to quote in the erase copy, in place of the frame's hardcod |
-| `StudentDetailView.tsx:50` | now_false | misleading | A consent card, on the grounds that the student read carries no consent state, giver, date |
-| `TeacherDetailView.tsx:42` | partially_true | misleading | A last-active timestamp for an arbitrary teacher, an assignment-history endpoint, and a se |
-| `NotificationRow.tsx:139` | partially_true | stale | A category field on each notification row, so the label can read as one of SCRUM-100's six |
-| `BandStep.tsx:42` | partially_true | stale | A first-class enrolment-band field on the school resource, so the band is not stored as an |
-| `IepExporterView.tsx:59` | partially_true | stale | A PDF rendering route for a finalised IEP export, so the screen can offer Download PDF. |
-| `SsoView.tsx:194` | still_true | stale | Nothing itself - it is a cross-reference pointing at the marker on the RosterSyncAccepted  |
+| `overviewSample.ts:14`         | partially_true | misleading | A single endpoint that rolls up the items at this school that need an admin's decision, to |
+| `ReportsView.tsx:52`           | partially_true | misleading | Adaptation sequences keyed to a shared objective, so three anonymised learners' different  |
+| `LearnerProfileView.tsx:46`    | partially_true | misleading | A dedicated source of titled per-learner observations for D8b's ENGAGEMENT PATTERNS, inste |
+| `SencoView.tsx:56`             | partially_true | misleading | A bulk route that returns active support, lessons completed and adaptations-this-week for  |
+| `AdminSidebar.tsx:29`          | partially_true | misleading | A profile endpoint that would supply the signed-in admin's real name and job title in plac |
+| `SsoView.tsx:50`               | partially_true | misleading | A raw server-rendered sync log text blob to render verbatim in a <pre> behind "View techni |
+| `EraseRecordModal.tsx:27`      | partially_true | misleading | A real retention deadline date to quote in the erase copy, in place of the frame's hardcod |
+| `StudentDetailView.tsx:50`     | now_false      | misleading | A consent card, on the grounds that the student read carries no consent state, giver, date |
+| `TeacherDetailView.tsx:42`     | partially_true | misleading | A last-active timestamp for an arbitrary teacher, an assignment-history endpoint, and a se |
+| `NotificationRow.tsx:139`      | partially_true | stale      | A category field on each notification row, so the label can read as one of SCRUM-100's six |
+| `BandStep.tsx:42`              | partially_true | stale      | A first-class enrolment-band field on the school resource, so the band is not stored as an |
+| `IepExporterView.tsx:59`       | partially_true | stale      | A PDF rendering route for a finalised IEP export, so the screen can offer Download PDF.    |
+| `SsoView.tsx:194`              | still_true     | stale      | Nothing itself - it is a cross-reference pointing at the marker on the RosterSyncAccepted  |
 
 ---
 
@@ -1649,12 +1716,12 @@ now two stacks under super-headings, scope-gated, with the section index.
 
 **What is genuinely absent, and stays absent rather than mocked:**
 
-| section | why |
-|---|---|
-| D12.4b Promotion | No endpoint. Needs a bulk year-group advance, a leavers pass and a 7-day undo; `PATCH /students/{id}/class` is a different operation. A control that appeared to move 287 children and silently did nothing would be dangerous. |
-| D12.8 Two-step sign-in | No endpoint anywhere - no enrolment, no secret, no verify, no recovery codes. |
-| D12.6 Profile editing | `GET /api/v1/users/me` is the only route on that resource. No write, so name, role title and email are shown as the record has them. |
-| D12.2 address / logo / band | `PATCH /school` takes `{name, profile, academicConfig, retentionPolicy}` only, and there is no logo upload endpoint. |
+| section                     | why                                                                                                                                                                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D12.4b Promotion            | No endpoint. Needs a bulk year-group advance, a leavers pass and a 7-day undo; `PATCH /students/{id}/class` is a different operation. A control that appeared to move 287 children and silently did nothing would be dangerous. |
+| D12.8 Two-step sign-in      | No endpoint anywhere - no enrolment, no secret, no verify, no recovery codes.                                                                                                                                                   |
+| D12.6 Profile editing       | `GET /api/v1/users/me` is the only route on that resource. No write, so name, role title and email are shown as the record has them.                                                                                            |
+| D12.2 address / logo / band | `PATCH /school` takes `{name, profile, academicConfig, retentionPolicy}` only, and there is no logo upload endpoint.                                                                                                            |
 
 **Three settings still live in an untyped blob.** `academicConfig` is
 `additionalProperties: true`, so the term dates and the year-group label map are
@@ -1703,13 +1770,13 @@ faces, which is why they were invisible one screen at a time:
 and put the message where they are looking" — `WriteFailed` is the shared
 primitive, the mirror of `ReadFailed`:
 
-| screen | what a refusal used to do |
-|---|---|
-| Notifications | cleared every unread dot anyway; "Unread only" then said "You're up to date." |
-| Class detail — archive | closed the dialog; the class stayed live on every list |
-| Class detail — restore | nothing at all, and the button stayed double-clickable |
-| SSO disconnect | painted its only message *behind* the modal still covering the screen |
-| Student deactivate | swallowed entirely, under the words "their seat frees up" |
+| screen                 | what a refusal used to do                                                     |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| Notifications          | cleared every unread dot anyway; "Unread only" then said "You're up to date." |
+| Class detail — archive | closed the dialog; the class stayed live on every list                        |
+| Class detail — restore | nothing at all, and the button stayed double-clickable                        |
+| SSO disconnect         | painted its only message _behind_ the modal still covering the screen         |
+| Student deactivate     | swallowed entirely, under the words "their seat frees up"                     |
 
 All five are pinned by tests and mutation-verified: each guard was collapsed
 back to its pre-fix catch and the right test failed.
@@ -1752,6 +1819,7 @@ that never resolved. The pending-window tests now hold a request open with
 `new Promise(() => {})`, which is the only way that state is reachable.
 
 **Two regressions the fixes introduced, both now closed:**
+
 - `ClassesView` — narrowing `ssoSourced` to active classes while the Create gate
   still read the raw list made it fail OPEN: an SSO school whose last live class
   was archived got "Create a class" back, which SCRUM-97 says must be absent.
@@ -1773,14 +1841,15 @@ second round and ranking never ran. 85 candidates were raised and only a
 fraction reached a verdict. Fifteen confirmed and fixed is a floor, not a
 ceiling.
 
-~~*The invitation delivery family*~~ — **SHIPPED.** Both halves: the wording
+~~_The invitation delivery family_~~ — **SHIPPED.** Both halves: the wording
 now reads `deliveryStatus`, and the join links are handed over instead of
 discarded. `needsManualDelivery` finally has callers. Details under
 **The invitation family** below.
 
-~~*The failed-read family*~~ — **SHIPPED.** All four, details below.
+~~_The failed-read family_~~ — **SHIPPED.** All four, details below.
 
-*Smaller:*
+_Smaller:_
+
 - ~~**`SignUpStep`**~~ — **SHIPPED.** See below.
 - ~~**`SencoView` "Mark as seen"**~~ — **SHIPPED.** See below.
 - ~~**`ClassesView`**~~ — **SHIPPED.** See below.
@@ -1869,7 +1938,7 @@ reported as one that never did.
 Onboarding does two round trips — `POST /schools/register`, then a sign-in,
 because the register response carries no session — and they sat in one promise
 chain under one `.catch`. Register succeeds, the login times out, and the
-proprietor reads *"That didn't go through, and nothing has been created yet"*
+proprietor reads _"That didn't go through, and nothing has been created yet"_
 while their school and their own admin account both exist. Continue is still
 armed, so they press it, register a SECOND time, and get "this email is already
 set up with a school" — which reads as their mistake, on a school they
@@ -1958,8 +2027,8 @@ endpoint nothing consumed. Five faults, all shipped, all live:
    NESTED its pricing under `pricing` — `studentCount`, `perStudentRate`,
    `currency` — and the client still read `activeStudentCount`,
    `perStudentAnnualRate` and `currency` off the top level. All `undefined`, so
-   `computeCost` returned null and the screen said *"Your per-student rate isn't
-   set yet"* to schools whose rate the backend was serving on that very response.
+   `computeCost` returned null and the screen said _"Your per-student rate isn't
+   set yet"_ to schools whose rate the backend was serving on that very response.
 2. **Every figure was stamped with a naira sign.** `InvoiceResponse.currency` is
    REQUIRED and the client's `Invoice` never declared it. A GBP school read its
    own invoice history, its next charge, and its transfer instruction in naira.
@@ -2047,19 +2116,19 @@ nothing. **A "contract green" claim made before 8 Sep covered writes only.**
 
 ### NEEDS BACKEND — all four closed on 7 Sep
 
-| thing | outcome |
-|---|---|
-| Admin notification events | **Delivered.** Six admin types now arrive. The inbox needed NO frontend change to show them - it was built to render whatever comes - so it is no longer empty on day one. Typed in PR #288. |
-| School narrative | **Delivered.** `GET /api/v1/school/narrative`, with `source` a const `"live_school_data"`. The Overview shows the school's own summary and the sample note is deleted, not reworded (PR #287). |
-| DPA acceptance | **Delivered.** A typed record carrying version, accepting admin and timestamp. The client sends only the version; the rest is stamped server-side so it cannot drift (PR #288). |
-| Scope enforcement | **ANSWERED: scopes ARE enforced.** An admin token without `oversight` gets 403 from `GET /api/v1/admin/team`. That also confirms the 401/403 split shipped in PR #267 - 401 ends the session, 403 does not - was the right call. |
+| thing                     | outcome                                                                                                                                                                                                                          |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Admin notification events | **Delivered.** Six admin types now arrive. The inbox needed NO frontend change to show them - it was built to render whatever comes - so it is no longer empty on day one. Typed in PR #288.                                     |
+| School narrative          | **Delivered.** `GET /api/v1/school/narrative`, with `source` a const `"live_school_data"`. The Overview shows the school's own summary and the sample note is deleted, not reworded (PR #287).                                   |
+| DPA acceptance            | **Delivered.** A typed record carrying version, accepting admin and timestamp. The client sends only the version; the rest is stamped server-side so it cannot drift (PR #288).                                                  |
+| Scope enforcement         | **ANSWERED: scopes ARE enforced.** An admin token without `oversight` gets 403 from `GET /api/v1/admin/team`. That also confirms the 401/403 split shipped in PR #267 - 401 ends the session, 403 does not - was the right call. |
 
 Still open, and NOT frontend work:
 
-| thing | why |
-|---|---|
-| A `category` on the notification ROW | `NotificationCategory` exists for preferences, but `NotificationResponse` carries only `type`. So the category filter, the per-category label and "mark these as read" have no source. Deriving one from `type` would be an invented mapping, and three of SCRUM-100's six admin categories (roster, SSO, teacher) have no enum value to map onto - this needs design and backend together. |
-| Receiving bank account | **DELIVERED and wired, 8 Sep.** `GET /api/billing/bank-transfer-details` serves `{bankName, accountNumber, accountName, currency}`, all required — its own description reads "so the panel stops hardcoding it". The seam had been asking for `/api/billing/receiving-account`, which never existed, so every school was told the details were unavailable. Nothing is hard-coded now or then. |
+| thing                                | why                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A `category` on the notification ROW | `NotificationCategory` exists for preferences, but `NotificationResponse` carries only `type`. So the category filter, the per-category label and "mark these as read" have no source. Deriving one from `type` would be an invented mapping, and three of SCRUM-100's six admin categories (roster, SSO, teacher) have no enum value to map onto - this needs design and backend together.    |
+| Receiving bank account               | **DELIVERED and wired, 8 Sep.** `GET /api/billing/bank-transfer-details` serves `{bankName, accountNumber, accountName, currency}`, all required — its own description reads "so the panel stops hardcoding it". The seam had been asking for `/api/billing/receiving-account`, which never existed, so every school was told the details were unavailable. Nothing is hard-coded now or then. |
 
 ### NEEDS DESIGN — ruled on 7 Sep
 
@@ -2102,12 +2171,12 @@ showing sample children to a real teacher.
 
 Scored against the four real defects:
 
-| defect | caught by | not caught by |
-|---|---|---|
-| Child congratulated for every answer wrong | one component test (sad path) | contract checks, MSW, snapshots, happy-path E2E |
-| snake_case posted to a camelCase endpoint | the contract gate, in seconds | unit/component/coverage - **MSW would have hidden it** |
-| Signals dropped on 401 | one hook test on `flush()` | E2E cannot - the screen is pixel-identical |
-| Login identifier invented client-side | the gate's unread-field check | everything else |
+| defect                                     | caught by                     | not caught by                                          |
+| ------------------------------------------ | ----------------------------- | ------------------------------------------------------ |
+| Child congratulated for every answer wrong | one component test (sad path) | contract checks, MSW, snapshots, happy-path E2E        |
+| snake_case posted to a camelCase endpoint  | the contract gate, in seconds | unit/component/coverage - **MSW would have hidden it** |
+| Signals dropped on 401                     | one hook test on `flush()`    | E2E cannot - the screen is pixel-identical             |
+| Login identifier invented client-side      | the gate's unread-field check | everything else                                        |
 
 0 of 4 caught by E2E-against-mocks; 1 of 4 by E2E-against-a-real-backend.
 
@@ -2153,12 +2222,12 @@ the session store is `localStorage` and `document.cookie`, so it is not pure.
 
 Covered so far:
 
-| primitive | why it is first |
-|---|---|
-| `useLiveQuery` | exists because FOUR hooks independently grew the same race — treating a slow answer as a failed one, stranding a teacher on sample data while their real class list had already arrived |
-| `useSignals` | where the silent 401 data-loss lived |
-| session store | expiry is the only thing between a stale localStorage token and a rendered roster |
-| `client.ts` auth latch | concurrent 401s once cleared the session, lost the role, and sent a TEACHER to the child's sign-in screen |
+| primitive              | why it is first                                                                                                                                                                         |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useLiveQuery`         | exists because FOUR hooks independently grew the same race — treating a slow answer as a failed one, stranding a teacher on sample data while their real class list had already arrived |
+| `useSignals`           | where the silent 401 data-loss lived                                                                                                                                                    |
+| session store          | expiry is the only thing between a stale localStorage token and a rendered roster                                                                                                       |
+| `client.ts` auth latch | concurrent 401s once cleared the session, lost the role, and sent a TEACHER to the child's sign-in screen                                                                               |
 
 **The suite is mutation-tested, not just green.** Removing the pre-auth guard from
 `useSignals` fails exactly the test written for it; restoring it passes. A test that
@@ -2188,15 +2257,15 @@ that test.
 
 Step 3 added:
 
-| what | why |
-|---|---|
-| `checkpoints.ts` — 18 tests | the marking rules decide what a child is TOLD about their own work. `answerKey: null` must mean "cannot mark", never "wrong" |
-| `variants.ts` — 10 tests | `interactiveVariant.answerKey` has the same nullable union, so the same way of going wrong; also the media-URL expiry margin |
-| `FlagCard` — 7 tests | first component test. "Worth your attention" is a judgement about a child shown to their teacher |
-| `MasteryDualTrack` — 11 tests | "Reading support needed" is a label a teacher may act on for months |
-| `LiveFlagCard` — 12 tests | the live card, where the tap IS the acknowledgement |
-| `HomeClasses` — 8 tests | showed other teachers' classes during every load |
-| `LiveClassInsights` — 7 tests | "still gathering" over a failure is a false claim about real children |
+| what                          | why                                                                                                                          |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `checkpoints.ts` — 18 tests   | the marking rules decide what a child is TOLD about their own work. `answerKey: null` must mean "cannot mark", never "wrong" |
+| `variants.ts` — 10 tests      | `interactiveVariant.answerKey` has the same nullable union, so the same way of going wrong; also the media-URL expiry margin |
+| `FlagCard` — 7 tests          | first component test. "Worth your attention" is a judgement about a child shown to their teacher                             |
+| `MasteryDualTrack` — 11 tests | "Reading support needed" is a label a teacher may act on for months                                                          |
+| `LiveFlagCard` — 12 tests     | the live card, where the tap IS the acknowledgement                                                                          |
+| `HomeClasses` — 8 tests       | showed other teachers' classes during every load                                                                             |
+| `LiveClassInsights` — 7 tests | "still gathering" over a failure is a false claim about real children                                                        |
 
 `FlagCard` tests what a teacher can READ and ACT ON — the name, the note explaining
 the flag, the evidence behind it, where each action goes. **Not styling**: the design
@@ -2300,7 +2369,6 @@ Two caveats before writing against it:
   Seeding one teacher, one class and two students is the next step if a test needs
   something to look at — and those writes are now safe to make.
 
-
 ### Signed-out E2E — DONE 7 Sep. 15 tests in 3 files, `npm run e2e`.
 
 Playwright, chromium only, on port 3100 so it cannot collide with a dev server
@@ -2346,7 +2414,7 @@ then seed localStorage before first paint.
 1. ~~Olayinka creates the E2E tenant~~ DONE — it exists, see above.
 2. Playwright lands with the first spec — the no-samples assertion.
 3. Then a small number of flow tests as deployment canaries, not defect detectors.
-3. Then full E2E - which needs a fallback-disabled build mode and a seeded tenant
+4. Then full E2E - which needs a fallback-disabled build mode and a seeded tenant
    first, because `shape-probe.mjs` records that the demo account holds real school
    staff and children.
 
@@ -2444,13 +2512,13 @@ on the merits; the measured delta sits inside noise.
 **Chased and abandoned — do not repeat.** The scroll driver is an always-on
 `requestAnimationFrame` loop and looks like an obvious 2.5s win. It is not:
 
-* The "2.5s" came from a **corrupt build**. Rebuilding while the old `next start`
+- The "2.5s" came from a **corrupt build**. Rebuilding while the old `next start`
   still held `.next` left a manifest pointing at chunks that no longer existed, so
   Lighthouse scored an **error page** 75.
-* Rewritten event-driven (scroll + resize + ResizeObserver on the pinned sections +
+- Rewritten event-driven (scroll + resize + ResizeObserver on the pinned sections +
   fonts + visibilitychange) and measured over 3 runs, it is **slightly worse**:
   median 72 vs 73, TBT 578ms vs 432ms, Style & Layout 2491ms vs 1585ms.
-* The premise was wrong. `window.scrollY` does **not** force layout in a modern
+- The premise was wrong. `window.scrollY` does **not** force layout in a modern
   browser — it is cached — and the loop's `y !== _ls` guard means its body barely
   runs when idle. The loop is close to free.
 
@@ -2469,11 +2537,11 @@ renders `{children}`. Children passed into a client component from a server comp
 stay server-rendered, so the sections became HTML. The hook needed nothing: it takes
 no arguments and reaches the DOM through `document`.
 
-| | before | after |
-|---|---|---|
+|                 | before           | after                |
+| --------------- | ---------------- | -------------------- |
 | JS bytes on `/` | 808,881 (789 KB) | **774,524 (756 KB)** |
-| chunks | 16 | **15** |
-| HTML | 62 KB | 119 KB |
+| chunks          | 16               | **15**               |
+| HTML            | 62 KB            | 119 KB               |
 
 **33 KB less JavaScript**, markup moved into HTML where it belongs. Verified with the
 pinned-section tests plus a screenshot from a browser that actually paints.
@@ -2495,25 +2563,25 @@ since it is the conversion form.
 
 ### Two testing traps found the hard way
 
-* **A hidden browser tab pauses `requestAnimationFrame` and stops painting.** Every
+- **A hidden browser tab pauses `requestAnimationFrame` and stops painting.** Every
   screenshot returns blank and CDP reports "renderer may be frozen". I mistook that
   for a production bug across three surfaces before checking. **Check
   `document.visibilityState` before believing a blank screenshot.** Playwright is
   immune — headless browsers paint.
-* `playwright.config.ts` used `??` for `E2E_BASE_URL`, so an empty string became the
+- `playwright.config.ts` used `??` for `E2E_BASE_URL`, so an empty string became the
   base URL instead of falling back. Now `||`.
 
 ---
 
 ## Cross-cutting
 
-| item | state |
-|---|---|
-| **Tests** | 216 unit + 20 E2E, green as of 8 Sep. `npm test`, enforced by CI alongside types, lint and contract. Four shared primitives, the marking logic, the judgement screens, and the five admin failed-read guards. See **Testing**. |
-| **Landing performance** | **41** deployed / **73** on a local production build (3-run median). Investigated 7 Sep — see below before repeating it. |
-| **Lint** | Green as of 5 Sep (0 errors, 1 warning). Now enforced by CI. |
-| **Contract** | Green as of 6 Sep. `npm run contract`, enforced by CI. |
-| **TOSSE** | Working end to end and deployed. One test lead — `27ac8e8a-a46b-45e0-befe-50787d3b9eb9`, "DO NOT CONTACT" — still needs deleting from the booth list. |
+| item                    | state                                                                                                                                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Tests**               | 216 unit + 20 E2E, green as of 8 Sep. `npm test`, enforced by CI alongside types, lint and contract. Four shared primitives, the marking logic, the judgement screens, and the five admin failed-read guards. See **Testing**. |
+| **Landing performance** | **41** deployed / **73** on a local production build (3-run median). Investigated 7 Sep — see below before repeating it.                                                                                                       |
+| **Lint**                | Green as of 5 Sep (0 errors, 1 warning). Now enforced by CI.                                                                                                                                                                   |
+| **Contract**            | Green as of 6 Sep. `npm run contract`, enforced by CI.                                                                                                                                                                         |
+| **TOSSE**               | Working end to end and deployed. One test lead — `27ac8e8a-a46b-45e0-befe-50787d3b9eb9`, "DO NOT CONTACT" — still needs deleting from the booth list.                                                                          |
 
 ---
 
@@ -2528,7 +2596,7 @@ answers matter more than the questions did.
 student detail and the class roster. Parent consent is queued automatically when
 an invited student with parent contact joins. Built in PR #281.
 
-*The second half of that gap is closed too:* nothing used to request consent at
+_The second half of that gap is closed too:_ nothing used to request consent at
 all - `requestParentConsent` was typed with no caller, and could not be wired
 from the invite flow because consent needs a STUDENT id that does not exist until
 an invite is accepted. The backend now queues it on join.
