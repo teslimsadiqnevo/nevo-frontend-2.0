@@ -11,6 +11,7 @@ import { NotificationBell } from "./NotificationBell";
 import { OfflineTakeover, useOnline } from "./OfflineTakeover";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useHydrated } from "@/hooks/useHydrated";
+import { useSessionLapse } from "@/hooks/useSessionLapse";
 import { useSessionRefresh } from "@/hooks/useSessionRefresh";
 import { flushPendingProgress } from "@/lib/lessons/pendingProgress";
 import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
@@ -46,6 +47,12 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   // so it covers the full-screen routes below too - a child mid-lesson is the
   // case that matters, and the one the old behaviour handled worst.
   useSessionRefresh();
+  // And when that fails - offline, refused, a bad hour at the backend - say so.
+  // Expiry clears the session in place, after which `report()` drops every
+  // position the child reaches and no request is made to 401, so nothing else
+  // in the app would ever mention it. The route guard only runs on navigation,
+  // and a child reading one segment does not navigate.
+  useSessionLapse();
   /*
    * Deliver anything a lesson could not save before it was closed.
    *
