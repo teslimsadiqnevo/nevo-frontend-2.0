@@ -1434,6 +1434,21 @@ all we need before she begins", which overstates their role as the gate. It is
 the parent lane's copy and a defensible framing of a genuine request, so it is
 left to that session rather than changed from here.
 
+### Two questions drafted, waiting on an answer — `docs/open-questions-consent.md`
+
+Both fall out of the consent-gate correction and neither can be settled in the
+frontend:
+
+1. **Counsel: DPA clause 5.** It warrants that Nevo "will not activate a learner
+   whose consent has not been confirmed", which SCRUM-80 says the product does
+   not do. The school formally accepts that document and D22 cites the
+   acceptance as evidence. Either the clause is redrafted or the product gates.
+2. **Backend: is withdrawal actually enforced?** `processingWithdrawn` and
+   `myConsentGate` have no production callers, while the parent is told
+   withdrawal "will immediately suspend" their child's access. We infer from
+   `ConsentGateResponse.blocked` that the server enforces it — inferred from a
+   field name, not confirmed.
+
 ### Assignment history: deliberately still not built
 
 SCRUM-40's own words are "date, teacher, class, role, and who made the change",
@@ -1720,7 +1735,7 @@ now two stacks under super-headings, scope-gated, with the section index.
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | D12.4b Promotion            | No endpoint. Needs a bulk year-group advance, a leavers pass and a 7-day undo; `PATCH /students/{id}/class` is a different operation. A control that appeared to move 287 children and silently did nothing would be dangerous. |
 | D12.8 Two-step sign-in      | No endpoint anywhere - no enrolment, no secret, no verify, no recovery codes.                                                                                                                                                   |
-| D12.6 Profile editing       | `GET /api/v1/users/me` is the only route on that resource. No write, so name, role title and email are shown as the record has them.                                                                                            |
+| D12.6 Profile editing       | PARTLY BUILT, and this row said otherwise until 11 Sep. `PATCH /api/v1/users/me` is live and `AccountSettings` writes the name through it. `ProfilePatch` is `{firstName, lastName, subjects}` only, so EMAIL and ROLE TITLE stay read-only - email is an auth identifier and needs a verification flow, not a silent change. |
 | D12.2 address / logo / band | `PATCH /school` takes `{name, profile, academicConfig, retentionPolicy}` only, and there is no logo upload endpoint.                                                                                                            |
 
 **Three settings still live in an untyped blob.** `academicConfig` is
