@@ -1,0 +1,170 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { WarmUpRun } from "./WarmUpRun";
+
+/**
+ * The daily warm-up captured everything and submitted almost none of it.
+ *
+ * `finish()` sent `{ module, dimension, durationMs }` - the day's task name and
+ * how long it took - and then purged the capture. Every trial, every response
+ * time, every right and wrong answer went to IndexedDB and was deleted without
+ * ever being reduced. The run exists to recalibrate the engine on one dimension
+ * a day; what reached it was "a child spent 45 seconds".
+ *
+ * Under that, five of the six tasks recorded no `correct` at all, so even a
+ * reduce would have had nothing to score - and the working-memory task recorded
+ * neither `posInSeq` nor `round_complete`, the two things its reducer reads.
+ *
+ * These tests assert on what `baselineApi.submit` was handed, because that is
+ * the only part that leaves the device.
+ */
+
+const { submit } = vi.hoisted(() => ({ submit: vi.fn() }));
+vi.mock("@/lib/api", () => ({ baselineApi: { submit } }));
+vi.mock("@/hooks/useWarmUpDimension", () => ({
+  useWarmUpDimension: (fallback: string) => fallback,
+}));
+vi.mock("@/hooks/useNextLessonHref", () => ({
+  useNextLessonHref: () => "/student/lessons/x",
+}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+}));
+
+/** What the one submitted feature object looked like. */
+const submitted = () => submit.mock.calls[0][1][0];
+
+/**
+ * Watch the tiles light, then sweep the whole grid in order, repeatedly.
+ *
+ * The module accepts only the next tile in the reversed sequence and ignores
+ * everything else, so sweeping finds it without the test knowing what it is.
+ * The 50ms between taps is deliberate: under fake timers `performance.now()`
+ * does not move on its own, and a recall gap of zero is filtered out as
+ * impossible - which is exactly how a measurement that was never taken looks.
+ */
+const tapThroughTheGrid = async () => {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(4000);
+  });
+  const tiles = screen.getAllByRole("button");
+  for (let pass = 0; pass < 3; pass++) {
+    for (const tile of tiles) {
+      fireEvent.click(tile);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(50);
+      });
+    }
+  }
+};
+
+/** Let the pressed beat and the submit settle. */
+const settle = async () => {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1000);
+  });
+};
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  submit.mockReset();
+  submit.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("WarmUpRun — what actually reaches Nevo", () => {
+  it("sends whether the child was right, not just how long they took", async () => {
+    render(<WarmUpRun dimension="attention" />);
+
+    // Only the centre arrow points right; the four flankers are mirrored.
+    fireEvent.click(screen.getByText("Right"));
+    await settle();
+
+    expect(submitted().acts.attention).toMatchObject({
+      trials: 1,
+      scored: 1,
+      accuracy: 1,
+    });
+  });
+
+  it("sends a wrong answer as wrong", async () => {
+    render(<WarmUpRun dimension="attention" />);
+
+    fireEvent.click(screen.getByText("Left"));
+    await settle();
+
+    expect(submitted().acts.attention.accuracy).toBe(0);
+  });
+
+  it("still says which dimension ran, and for how long", async () => {
+    // The two fields it used to send are the two it should keep.
+    render(<WarmUpRun dimension="reading" />);
+
+    fireEvent.click(screen.getByText("True"));
+    await settle();
+
+    expect(submitted()).toMatchObject({
+      module: "warmup",
+      dimension: "reading",
+    });
+    expect(submitted().durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("never marks 'Not sure' wrong", async () => {
+    render(<WarmUpRun dimension="reading" />);
+
+    fireEvent.click(screen.getByText("Not sure"));
+    await settle();
+
+    expect(submitted().acts.reading).toMatchObject({
+      trials: 1,
+      scored: 0,
+      notSure: 1,
+      accuracy: null,
+    });
+  });
+
+  it("reports a completed working-memory round as completed", async () => {
+    // It recorded neither `posInSeq` nor `round_complete`, so a child who did
+    // it perfectly reduced to maxSpan 0 - indistinguishable from never
+    // finishing.
+    render(<WarmUpRun dimension="wmc" />);
+    await tapThroughTheGrid();
+    await settle();
+
+    expect(submitted()).toMatchObject({ maxSpan: 3, roundsCompleted: 1 });
+  });
+
+  it("can measure how fast the recall was", async () => {
+    // `reduceGridSpan` pairs consecutive taps by `posInSeq`, which this never
+    // recorded - so every warm-up reported a null recall gap whatever the child
+    // did.
+    render(<WarmUpRun dimension="wmc" />);
+    await tapThroughTheGrid();
+    await settle();
+
+    expect(submitted().meanRecallGapMs).toEqual(expect.any(Number));
+  });
+});
+
+describe("WarmUpRun — the dot arrays are not always side by side", () => {
+  it("calls them top and bottom when they are stacked", () => {
+    // They sit side by side from `sm` up and STACK below it, and the buttons
+    // said "Left" and "Right" regardless - so on a phone a child was asked
+    // which SIDE had more when one array was above the other.
+    render(<WarmUpRun dimension="ans" />);
+
+    expect(screen.getByText("Top")).toBeInTheDocument();
+    expect(screen.getByText("Bottom")).toBeInTheDocument();
+  });
+
+  it("still calls them left and right for the wider layout", () => {
+    render(<WarmUpRun dimension="ans" />);
+
+    expect(screen.getByText("Left")).toBeInTheDocument();
+    expect(screen.getByText("Right")).toBeInTheDocument();
+  });
+});

@@ -11,7 +11,11 @@ import {
   BASELINE_DIMENSIONS,
   type BaselineDimension,
 } from "@/lib/profiling/bands";
-import { BaselineCapture } from "@/lib/profiling/capture";
+import {
+  BaselineCapture,
+  reduceGridSpan,
+  reduceTrialModule,
+} from "@/lib/profiling/capture";
 
 /** One round only; the whole run should feel like ~45 seconds, never a test. */
 const GRID_SEQ_LEN = 3;
@@ -32,10 +36,12 @@ export function dimensionForToday(): BaselineDimension {
  * one-shot done state. Never reads as an assessment; nothing is marked
  * right or wrong.
  *
- * The done state only claims the run was saved if the write actually
- * landed. `POST /api/baseline/submit` is deployed now but this screen is not
- * wired to it, so the claim stays unmade - telling a child their progress was
- * saved when nothing was written would be false every single time.
+ * The done state only claims the run was saved if the write actually landed -
+ * telling a child their progress was saved when nothing was written would be
+ * false every single time. (This note used to say the screen "is not wired to"
+ * `POST /api/baseline/submit`. It has been wired for some time; the note went
+ * stale and was the reason nobody checked WHAT it was submitting, which for
+ * longer still was the task name and a duration, and none of the measurement.)
  * The day's dimension comes from `GET /api/baseline/recalibrate-prompt/{id}`
  * - the engine knows what it wants recalibrated next, which a day-of-week
  * rotation only approximates. The rotation stays as the fallback for the
@@ -73,9 +79,28 @@ export function WarmUpRun({
     if (!submitted.current) {
       submitted.current = true;
       const durationMs = Math.round(performance.now() - startedAt.current);
+      /*
+       * SUBMIT WHAT THE CHILD ACTUALLY DID.
+       *
+       * This sent `{ module, dimension, durationMs }` - the day's task name and
+       * how long it took - and then purged the capture. Every trial, every
+       * response time, every right and wrong answer was recorded to
+       * IndexedDB and deleted without ever being reduced. The warm-up exists to
+       * recalibrate the engine on one dimension each day; what reached it was
+       * "a child spent 45 seconds".
+       *
+       * The working-memory task records taps rather than picks, so it reduces
+       * through the grid reducer; the other five go through the trial one. Both
+       * are tagged `warmup` so the engine can tell a daily run from the
+       * onboarding baseline, which uses the same two functions.
+       */
+      const measured =
+        dimension === "wmc"
+          ? reduceGridSpan(capture)
+          : reduceTrialModule(capture, "warmup");
       baselineApi
         .submit(capture.sessionId, [
-          { module: "warmup", dimension, durationMs },
+          { ...measured, module: "warmup", dimension, durationMs },
         ])
         .then(() => setSaved(true))
         .catch(() => setSaved(false))
@@ -169,12 +194,24 @@ function WarmUpTask({
   useEffect(() => {
     shownAt.current = performance.now();
   }, []);
-  const pick = (choice: number | string) => {
+  /*
+   * `detail` carries whether they were right, which the task knows and nothing
+   * downstream can work out. Without it the vector said only how FAST a child
+   * answered - and a wrong quick tap outscored a right considered one on every
+   * dimension but working memory, which records its own taps.
+   *
+   * Every task below has exactly one fixed stimulus, so the answer is the same
+   * every day that dimension comes round. That limits what accuracy can tell
+   * you here and is worth an item bank; it is not a reason to keep discarding
+   * it. See the note in docs/BUILD_STATUS.md.
+   */
+  const pick = (choice: number | string, detail: Record<string, unknown>) => {
     capture.record("trial_pick", {
       module: "warmup",
       act: dimension,
       choice,
       rtMs: Math.round(performance.now() - shownAt.current),
+      ...detail,
     });
   };
 
@@ -188,6 +225,8 @@ function WarmUpTask({
           onDone={onDone}
           onPick={pick}
           options={["Same", "Different"]}
+          // A circle and a rounded square - never the same shape.
+          answer="Different"
           stimulus={
             <div className="flex gap-5 sm:gap-7">
               {[0, 1].map((i) => (
@@ -215,6 +254,7 @@ function WarmUpTask({
           onPick={pick}
           stacked
           options={["True", "False", "Not sure"]}
+          answer="True"
           softLast
           stimulus={
             <div className="w-full rounded-[12px] border-2 border-nevo-navy/50 bg-nevo-cream p-[18px] text-center text-[17px] leading-[1.5] text-nevo-near-black">
@@ -232,6 +272,8 @@ function WarmUpTask({
           onDone={onDone}
           onPick={pick}
           options={["Left", "Right"]}
+          // The four flankers are mirrored; only the centre points right.
+          answer="Right"
           stimulus={
             <div className="flex items-center gap-1.5">
               {[0, 1, 2, 3, 4].map((i) => (
@@ -257,6 +299,7 @@ function WarmUpTask({
           onPick={pick}
           stacked
           options={["Two-thirds", "Three-fifths", "They're equal"]}
+          answer="Two-thirds"
           stimulus={
             <div className="w-full rounded-[12px] bg-nevo-cream-elevated px-5 py-[18px]">
               <p className="text-[17px] leading-[1.5] font-medium text-nevo-near-black">
@@ -274,6 +317,7 @@ function SingleChoice({
   prompt,
   stimulus,
   options,
+  answer,
   stacked = false,
   softLast = false,
   onPick,
@@ -282,9 +326,11 @@ function SingleChoice({
   prompt: string;
   stimulus: React.ReactNode;
   options: string[];
+  /** The option that is correct. `softLast` marks the last one unscorable. */
+  answer: string;
   stacked?: boolean;
   softLast?: boolean;
-  onPick: (choice: string) => void;
+  onPick: (choice: string, detail: Record<string, unknown>) => void;
   onDone: () => void;
 }) {
   const [picked, setPicked] = useState(-1);
@@ -302,7 +348,13 @@ function SingleChoice({
 
   const choose = (i: number) => {
     if (picked !== -1) return;
-    onPick(options[i]);
+    // "Not sure" is an honest non-answer and is never marked wrong; it is
+    // counted separately so it cannot silently inflate an accuracy either.
+    const soft = softLast && i === options.length - 1;
+    onPick(
+      options[i],
+      soft ? { notSure: true } : { correct: options[i] === answer },
+    );
     setPicked(i);
     timer.current = setTimeout(() => onDoneRef.current(), PICK_BEAT_MS);
   };
@@ -389,7 +441,18 @@ function WarmUpGrid({
     if (!inputOn) return;
     const expected = [...seq].reverse();
     const correct = cell === expected[pos.current];
-    capture.record("tap", { module: "warmup", act: "wmc", cell, correct });
+    capture.record("tap", {
+      module: "warmup",
+      act: "wmc",
+      cell,
+      correct,
+      // `reduceGridSpan` pairs consecutive taps by `posInSeq` to measure recall
+      // speed, and counts completed rounds from `round_complete`. Neither was
+      // recorded here, so a warm-up reduced to maxSpan 0 and no recall gap at
+      // all - a child who did it perfectly looked like one who never finished.
+      posInSeq: pos.current,
+      length: seq.length,
+    });
     if (!correct) {
       setWrongCell(cell);
       timers.current.push(setTimeout(() => setWrongCell(-1), 900));
@@ -398,8 +461,10 @@ function WarmUpGrid({
     const next = new Set(tapped).add(cell);
     setTapped(next);
     pos.current += 1;
-    if (pos.current >= seq.length)
+    if (pos.current >= seq.length) {
+      capture.record("round_complete", { length: seq.length });
       timers.current.push(setTimeout(() => onDoneRef.current(), PICK_BEAT_MS));
+    }
   };
 
   return (
@@ -445,7 +510,7 @@ function WarmUpDots({
   onPick,
   onDone,
 }: {
-  onPick: (choice: string) => void;
+  onPick: (choice: string, detail: Record<string, unknown>) => void;
   onDone: () => void;
 }) {
   const [masked, setMasked] = useState(false);
@@ -475,7 +540,8 @@ function WarmUpDots({
 
   const choose = (i: number, label: string) => {
     if (!masked || picked !== -1) return;
-    onPick(label);
+    // The first array holds 9 dots and the second 6.
+    onPick(label, { correct: i === 0 });
     setPicked(i);
     timers.current.push(setTimeout(() => onDoneRef.current(), PICK_BEAT_MS));
   };
@@ -505,11 +571,11 @@ function WarmUpDots({
         ))}
       </div>
       <div className="flex w-full justify-center gap-3.5">
-        {["Left", "Right"].map((label, i) => (
+        {SIDES.map(({ side, stacked }, i) => (
           <button
-            key={label}
+            key={side}
             type="button"
-            onClick={() => choose(i, label)}
+            onClick={() => choose(i, side)}
             className={cn(
               "h-12 min-w-[140px] rounded-[10px] border-2 text-base font-semibold transition-[background-color,border-color]",
               picked === i
@@ -519,10 +585,21 @@ function WarmUpDots({
                   : "cursor-default border-nevo-navy/30 bg-nevo-cream text-nevo-navy/40",
             )}
           >
-            {label}
+            {/* The arrays are side by side from `sm` up and STACKED below it,
+                so on a phone "Left" and "Right" named nothing on screen - the
+                child was asked which side had more when one was above the
+                other. Same treatment as Module 3's `DotButton`. */}
+            <span className="sm:hidden">{stacked}</span>
+            <span className="hidden sm:inline">{side}</span>
           </button>
         ))}
       </div>
     </>
   );
 }
+
+/** What each dot array is called, depending on how the two are laid out. */
+const SIDES = [
+  { side: "Left", stacked: "Top" },
+  { side: "Right", stacked: "Bottom" },
+] as const;
