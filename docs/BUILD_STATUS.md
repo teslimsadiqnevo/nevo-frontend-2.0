@@ -1497,12 +1497,37 @@ unbuilt on purpose, not for want of an endpoint.
 | Overview roll-up rows 1-2 | Both live. Pending-consent is exact from the unpaginated `GET /api/v1/students`; open flags page `/api/intelligence/flags` at `limit=200` and terminate on a SHORT PAGE, never on a total. A partial read reports NOTHING — a count off the pages we happened to get is a floor. Counts distinct CHILDREN, not flags. |
 | The sample marker | `SampleRegion` now wraps the ONE fixture row, and the note names it ("The classes row is a sample") rather than counting, so it cannot go stale the same way. Live rows sit OUTSIDE the marker: wrapping a real roll-up in it would train the e2e suite to walk past a genuine one. |
 | SENCo lessons finished | Free. The per-class fan-out moved from `studentsApi.list({classId})` to `classesApi.classStudents`, which carries `observations` at the same call count. A learner whose roster read failed, or has not answered, gets NO figure — never a zero. |
+| Invitation consent state | `consentStatus` is read now, on the invite row and in the create confirmation. Four branches, and NONE offers to send a request: nothing can, so an offer here is a promise D07 then refuses. A null state falls back to a no-claim sentence — older invitations predate the field, and "we weren't told" must not render as "nobody has been asked". Both guards mutation-verified. |
+
+### A vacuous assertion, and how it got there — 11 Sep
+
+One test in this batch **passed for the wrong reason** and it is worth recording
+how, because the mechanism is invisible.
+
+A `` written into a regex through a shell heredoc reached the file as a
+literal **backspace byte (0x08)**. The assertion became "does this text contain
+a backspace character", which is never true, so `.not.toMatch` passed
+vacuously — and the line LOOKS correct in any editor that renders control
+characters as nothing.
+
+Two things caught it: the surrounding test failed first for a real reason
+("consent" contains "sent", so the substring match was wrong anyway), and
+`cat -A` showed `^H` where the escape should have been.
+
+**The rule:** write test files with the editor tool, not through shell heredocs.
+Every other test file in this batch was written that way and none is affected —
+`grep -rl $'' src/` found exactly the one line. And prefer an assertion
+that cannot be corrupted silently: this one now splits the sentence into words
+and checks membership, which has no escapes in it at all.
+
+Both guards on the new copy were then mutation-verified: reinstating the promise
+the audit killed fails "never offers to send one", and making the fallback
+assert contact fails two more.
 
 ### Still buildable, not built
 
 | | |
 |---|---|
-| Invitation consent line | `consentStatus` is declared on `Invitation` and still unread. The copy must be written AFTER the SCRUM-80 correction above, and the `not_sent` branch must promise no action — nothing creates a `ParentLink` from an invite's `parentContact`. |
 | SENCo adaptations-this-week | The last of D8b's three. Needs a paging loop terminating on `events.length < limit` — NOT on `total`, whose semantics the spec does not document. Active support stays blocked on a list-scoped accommodations read. |
 | Adaptation log TYPE filter | Genuinely blocked. `eventType` is a response field with no query param and no enum. |
 | Assignment history proper | Blocked on an actor field and on ended assignments. The dates shipped; the history did not. |
