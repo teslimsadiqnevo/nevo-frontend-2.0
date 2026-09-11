@@ -96,7 +96,17 @@ export {
   type SsoProvider,
   type RosterSyncHistory,
 } from "./sso";
-export { askNevoApi, asUuid } from "./askNevo";
+export {
+  askNevoApi,
+  asUuid,
+  recentThreads,
+  HISTORY_LIMIT,
+  HISTORY_DAYS,
+  type ThreadSummary,
+  type ThreadTranscript,
+  type ThreadMessage,
+  type ThreadAuthor,
+} from "./askNevo";
 export { schedulerApi, type ConceptSchedule } from "./scheduler";
 export { consentsApi, type ConsentGateStatus } from "./consents";
 export { notificationsApi } from "./notifications";
