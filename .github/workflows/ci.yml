@@ -44,7 +44,7 @@ jobs:
       - run: npm test
 
   e2e:
-    name: end-to-end (signed out)
+    name: end-to-end
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,11 +53,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Chromium only. The suite is signed-out and read-only, so it needs no
-      # credentials and touches no real data - see playwright.config.ts for
-      # why it stops there for now.
+      # Chromium only, as the config explains.
       - run: npx playwright install --with-deps chromium
+      # The signed-in specs SKIP when these are unset, so a fork without access
+      # to the secrets still gets a green, meaningful run of everything else
+      # rather than a red one for a sign-in it was never going to reach.
+      #
+      # The account is a teacher on the dedicated E2E school - an isolated
+      # tenant holding no real children. See docs/BUILD_STATUS.md.
       - run: npm run e2e
+        env:
+          E2E_TEACHER_EMAIL: ${{ secrets.E2E_TEACHER_EMAIL }}
+          E2E_TEACHER_PASSWORD: ${{ secrets.E2E_TEACHER_PASSWORD }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
