@@ -1,6 +1,6 @@
 import { lessonsApi } from "@/lib/api/lessons";
 import { ApiError } from "@/lib/api/client";
-import { getToken } from "@/lib/auth/session";
+import { getSession } from "@/lib/auth/session";
 import type { LessonStatus } from "@/lib/api/lessons";
 
 /**
@@ -32,6 +32,17 @@ const KEY = "nevo.lesson.pendingProgress";
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface PendingWrite {
+  /**
+   * The child this position belongs to.
+   *
+   * Not optional thinking: these devices are shared. Without it, `flush` gated
+   * on "is anyone signed in", which on a school tablet means child A's held
+   * position is written to child B's record the moment B signs in and any
+   * student screen mounts. The sibling store for baselines was built with this
+   * guard because a shared tablet was the whole point of it; this one was
+   * written an hour later and did not carry the lesson across.
+   */
+  userId: string;
   sessionId: string;
   status: LessonStatus;
   segment?: number;
@@ -62,10 +73,14 @@ function write(store: Store): void {
 /** Remember a write that did not land, replacing any older one for this lesson. */
 export function holdProgress(
   lessonId: string,
-  entry: Omit<PendingWrite, "heldAt">,
+  entry: Omit<PendingWrite, "heldAt" | "userId">,
 ): void {
+  const userId = getSession()?.userId;
+  // No signed-in child means nothing to attribute it to, and an unattributed
+  // position is exactly what must never be sent later.
+  if (!userId) return;
   const store = read();
-  store[lessonId] = { ...entry, heldAt: Date.now() };
+  store[lessonId] = { ...entry, userId, heldAt: Date.now() };
   write(store);
 }
 
@@ -87,13 +102,17 @@ export function pendingProgressFor(lessonId: string): PendingWrite | null {
  * never open that lesson again, and their position should still reach Home's
  * "Pick back up" card. Mounting any student screen is enough.
  *
+ * Only ever the signed-in child's own held positions. Anything belonging to
+ * another child on this device is skipped, not sent and not deleted.
+ *
  * A 4xx DROPS the entry - the server has answered about this write, and a
  * stale session id it will never accept would otherwise be retried for ever.
  * Anything else keeps it, because a transport failure is exactly what this is
  * for.
  */
 export async function flushPendingProgress(): Promise<void> {
-  if (!getToken()) return;
+  const session = getSession();
+  if (!session?.token) return;
   const store = read();
   const lessonIds = Object.keys(store);
   if (lessonIds.length === 0) return;
@@ -105,6 +124,9 @@ export async function flushPendingProgress(): Promise<void> {
         clearProgress(lessonId);
         return;
       }
+      // Someone else's place. Left alone rather than sent or deleted: it is
+      // still theirs, and it will go out when they next sign in on this device.
+      if (held.userId !== session.userId) return;
       try {
         await lessonsApi.saveProgress(lessonId, {
           sessionId: held.sessionId,

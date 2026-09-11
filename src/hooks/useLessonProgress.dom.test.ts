@@ -86,6 +86,10 @@ describe("useLessonProgress", () => {
       "nevo.lesson.pendingProgress",
       JSON.stringify({
         [LESSON]: {
+          // The owner matters now: an entry with no child attached is skipped
+          // rather than sent, which is what stops one child's position landing
+          // on the next child to use the tablet.
+          userId: "student-1",
           sessionId: "sess-old",
           status: "exited",
           segment: 5,

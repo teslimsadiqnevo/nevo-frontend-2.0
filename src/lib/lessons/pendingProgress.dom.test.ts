@@ -28,11 +28,11 @@ import { clearSession, setSession } from "@/lib/auth/session";
  * something the server has already refused.
  */
 
-const signIn = () =>
+const signInAs = (userId = "student-1") =>
   setSession({
-    token: "tok-test",
+    token: `tok-${userId}`,
     expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-    userId: "student-1",
+    userId,
     role: "student",
   });
 
@@ -49,9 +49,15 @@ afterEach(() => {
 
 const held = { sessionId: "sess-1", status: "exited" as never, segment: 3 };
 
+/** `holdProgress` attributes to whoever is signed in, so sign in to hold. */
+const holdAs = (userId: string, lessonId: string, entry = held) => {
+  signInAs(userId);
+  holdProgress(lessonId, entry);
+};
+
 describe("progress that could not be saved", () => {
   it("outlives the player that captured it", () => {
-    holdProgress("lesson-1", held);
+    holdAs("student-1", "lesson-1");
 
     // A ref would be gone by now; this is the whole point.
     expect(pendingProgressFor("lesson-1")?.segment).toBe(3);
@@ -61,8 +67,8 @@ describe("progress that could not be saved", () => {
     const save = vi
       .spyOn(lessonsApi, "saveProgress")
       .mockResolvedValue({} as never);
-    signIn();
-    holdProgress("lesson-1", held);
+    holdAs("student-1", "lesson-1");
+    signInAs("student-1");
 
     await flushPendingProgress();
 
@@ -80,9 +86,13 @@ describe("progress that could not be saved", () => {
     const save = vi
       .spyOn(lessonsApi, "saveProgress")
       .mockResolvedValue({} as never);
-    signIn();
-    holdProgress("lesson-a", held);
-    holdProgress("lesson-b", { ...held, sessionId: "sess-2", segment: 7 });
+    holdAs("student-1", "lesson-a");
+    holdAs("student-1", "lesson-b", {
+      ...held,
+      sessionId: "sess-2",
+      segment: 7,
+    });
+    signInAs("student-1");
 
     await flushPendingProgress();
 
@@ -95,8 +105,8 @@ describe("progress that could not be saved", () => {
     vi.spyOn(lessonsApi, "saveProgress").mockRejectedValue(
       new ApiError(0, "offline"),
     );
-    signIn();
-    holdProgress("lesson-1", held);
+    holdAs("student-1", "lesson-1");
+    signInAs("student-1");
 
     await flushPendingProgress();
 
@@ -109,8 +119,8 @@ describe("progress that could not be saved", () => {
     vi.spyOn(lessonsApi, "saveProgress").mockRejectedValue(
       new ApiError(404, "gone"),
     );
-    signIn();
-    holdProgress("lesson-1", held);
+    holdAs("student-1", "lesson-1");
+    signInAs("student-1");
 
     await flushPendingProgress();
 
@@ -121,7 +131,8 @@ describe("progress that could not be saved", () => {
     const save = vi
       .spyOn(lessonsApi, "saveProgress")
       .mockResolvedValue({} as never);
-    holdProgress("lesson-1", held);
+    holdAs("student-1", "lesson-1");
+    clearSession();
 
     await flushPendingProgress();
 
@@ -130,14 +141,14 @@ describe("progress that could not be saved", () => {
   });
 
   it("keeps only the newest position for a lesson", () => {
-    holdProgress("lesson-1", held);
-    holdProgress("lesson-1", { ...held, segment: 9 });
+    holdAs("student-1", "lesson-1");
+    holdAs("student-1", "lesson-1", { ...held, segment: 9 });
 
     expect(pendingProgressFor("lesson-1")?.segment).toBe(9);
   });
 
   it("forgets a position from another week", async () => {
-    signIn();
+    signInAs();
     const save = vi
       .spyOn(lessonsApi, "saveProgress")
       .mockResolvedValue({} as never);
@@ -157,8 +168,45 @@ describe("progress that could not be saved", () => {
     expect(pendingProgressFor("lesson-1")).toBeNull();
   });
 
-  it("clears cleanly", () => {
+  it("is NOT written to the next child who picks up the tablet", async () => {
+    // Child A works offline and leaves the lesson. Child B signs in on the same
+    // school tablet, any student screen mounts, and the flush runs.
+    const save = vi
+      .spyOn(lessonsApi, "saveProgress")
+      .mockResolvedValue({} as never);
+    holdAs("child-a", "lesson-1");
+
+    signInAs("child-b");
+    await flushPendingProgress();
+
+    expect(save).not.toHaveBeenCalled();
+    // Still child A's, and still waiting for them.
+    expect(pendingProgressFor("lesson-1")?.segment).toBe(3);
+  });
+
+  it("sends it when the child it belongs to comes back", async () => {
+    const save = vi
+      .spyOn(lessonsApi, "saveProgress")
+      .mockResolvedValue({} as never);
+    holdAs("child-a", "lesson-1");
+
+    signInAs("child-b");
+    await flushPendingProgress();
+    signInAs("child-a");
+    await flushPendingProgress();
+
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(pendingProgressFor("lesson-1")).toBeNull();
+  });
+
+  it("holds nothing when nobody is signed in to attribute it to", () => {
+    clearSession();
     holdProgress("lesson-1", held);
+    expect(pendingProgressFor("lesson-1")).toBeNull();
+  });
+
+  it("clears cleanly", () => {
+    holdAs("student-1", "lesson-1");
     clearProgress("lesson-1");
     expect(pendingProgressFor("lesson-1")).toBeNull();
   });
