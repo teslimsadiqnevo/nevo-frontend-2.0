@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { BaselineCapture, reduceTrialModule } from "./capture";
+import { describe, expect, it, vi } from "vitest";
+import { BaselineCapture, reduceGridSpan, reduceTrialModule } from "./capture";
 
 /**
  * The feature vector is the only thing that leaves the device, so it is the
@@ -88,5 +88,72 @@ describe("reduceTrialModule", () => {
     const acts = reduceTrialModule(c, "sentence_dot").acts;
     expect(acts.reading.accuracy).toBe(1);
     expect(acts.dots.accuracy).toBe(0);
+  });
+});
+
+/**
+ * Grid Span's two quiet errors.
+ *
+ * `meanRecallGapMs` paired every correct tap with the one before it, across
+ * round boundaries included - so the pause between rounds, the playback lead
+ * and the whole next sequence lighting up all counted as a child's recall
+ * speed. And the SS dual task reached the vector in no form at all: this
+ * function never read `check_answer`, and the event carried no `correct` to
+ * read.
+ */
+
+/** A correct tap at `posInSeq`, `gap` ms after the previous event. */
+function tapAt(capture: BaselineCapture, posInSeq: number) {
+  capture.record("tap", { cell: posInSeq, correct: true, posInSeq, length: 3 });
+}
+
+/** Move the clock on without waiting for it. */
+function advance(ms: number) {
+  const base = performance.now();
+  vi.spyOn(performance, "now").mockReturnValue(base + ms);
+}
+
+describe("reduceGridSpan", () => {
+  it("does not time the pause between rounds as recall speed", () => {
+    // Two taps 300ms apart inside one recall, then a four-second wait while the
+    // next sequence plays, then two more 300ms apart. The old pairing counted
+    // that four seconds and reported a mean around 1.2 seconds.
+    const c = new BaselineCapture("g1");
+    tapAt(c, 0);
+    advance(300);
+    tapAt(c, 1);
+    advance(4000);
+    tapAt(c, 0); // a new round - posInSeq restarts
+    advance(300);
+    tapAt(c, 1);
+
+    expect(reduceGridSpan(c).meanRecallGapMs).toBe(300);
+  });
+
+  it("reports how the SS dual task actually went", () => {
+    const c = new BaselineCapture("g2");
+    c.record("check_answer", {
+      check: "7 + 5 = 13",
+      answer: true,
+      correct: false,
+    });
+    c.record("check_answer", {
+      check: "9 - 4 = 5",
+      answer: true,
+      correct: true,
+    });
+
+    expect(reduceGridSpan(c)).toMatchObject({
+      dualChecks: 2,
+      dualAccuracy: 0.5,
+    });
+  });
+
+  it("says nothing about a dual task that never ran", () => {
+    // Every band but SS. Null, not zero - they were not asked and did not fail.
+    const c = new BaselineCapture("g3");
+    tapAt(c, 0);
+
+    expect(reduceGridSpan(c).dualAccuracy).toBeNull();
   });
 });
