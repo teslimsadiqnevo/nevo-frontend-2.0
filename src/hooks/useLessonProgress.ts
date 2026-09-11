@@ -7,6 +7,11 @@ import {
   type LessonStatus,
 } from "@/lib/api/lessons";
 import { getToken } from "@/lib/auth/session";
+import {
+  clearProgress,
+  flushPendingProgress,
+  holdProgress,
+} from "@/lib/lessons/pendingProgress";
 
 /**
  * Writes down where a child has got to in a lesson.
@@ -98,10 +103,7 @@ export function useLessonProgress(
   const [completionSaved, setCompletionSaved] = useState(false);
 
   const write = useCallback(
-    (
-      status: LessonStatus,
-      position: { segment?: number; module?: number },
-    ) => {
+    (status: LessonStatus, position: { segment?: number; module?: number }) => {
       const id = sessionId.current;
       if (!id) return;
       const ticket = ++seq.current;
@@ -123,6 +125,8 @@ export function useLessonProgress(
           if (ticket < landed.current) return;
           landed.current = ticket;
           unsent.current = null;
+          // It landed, so nothing is owed for this lesson any more.
+          clearProgress(lessonId);
           if (completing) {
             setCompletionSaved(true);
             setCompletionFailed(false);
@@ -134,6 +138,16 @@ export function useLessonProgress(
           // the lesson counts.
           if (!unsent.current || completing) {
             unsent.current = { status, ...position };
+          }
+          /*
+           * AND OUTSIDE THIS HOOK. `unsent` is a ref and the `online` listener
+           * below lives in the same effect, so both die when the player
+           * unmounts - which is precisely what "Leave for now" does, one line
+           * after firing a write that is already failing. Held in storage as
+           * well, the position survives the exit the dialog promised it would.
+           */
+          if (id) {
+            holdProgress(lessonId, { sessionId: id, status, ...position });
           }
           // Only completion is worth telling a child about - see the docblock.
           if (completing) setCompletionFailed(true);
@@ -181,6 +195,13 @@ export function useLessonProgress(
     window.addEventListener("online", flush);
     return () => window.removeEventListener("online", flush);
   }, [enabled, write]);
+
+  // Anything held from a previous visit - including one that ended with the
+  // player unmounting mid-failure - goes out as soon as a lesson is open again.
+  useEffect(() => {
+    if (!enabled) return;
+    void flushPendingProgress();
+  }, [enabled]);
 
   const report = useCallback<LessonProgressState["report"]>(
     (status, position) => {
