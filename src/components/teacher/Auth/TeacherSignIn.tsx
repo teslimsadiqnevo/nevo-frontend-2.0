@@ -21,17 +21,22 @@ import { cn } from "@/lib/utils";
  */
 
 const SUCCESS_HOLD_MS = 1400;
-const SSO_HOP_MS = 1400;
 const LIVE_TIMEOUT_MS = 20000;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const MISMATCH_MSG =
   "That email and password didn't match. Try again, or reset your password.";
+/**
+ * Never a dead end: it says what to do instead, and names the admin rather
+ * than leaving a teacher to guess who could turn it on.
+ */
+const SSO_UNAVAILABLE_MSG =
+  "School sign-in isn't set up for Nevo yet. Use your email and password for now - your school admin can tell you when that changes.";
 const UNREACHABLE_MSG =
   "We couldn't reach your school's sign-in right now. Nothing on your end - try again in a moment.";
 
-type Phase = "idle" | "signing" | "sso" | "error" | "success";
+type Phase = "idle" | "signing" | "error" | "success";
 
 const EYE_OPEN = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -129,12 +134,29 @@ export function TeacherSignIn() {
       });
   };
 
+  /**
+   * SCHOOL SSO CANNOT WORK YET, AND THIS NO LONGER PRETENDS IT CAN.
+   *
+   * It used to hold a spinner reading "Taking you to Microsoft..." for 1.4s and
+   * then push to `/auth/teacher/sso-callback` with no provider, code or state -
+   * which is exactly the shape that callback renders its ERROR phase for. So
+   * the most prominent secondary control on the first screen a school sees
+   * mimed a handoff to a named provider and then failed, every time.
+   *
+   * It cannot be wired from here either. `POST /auth/sso/start` is public but
+   * needs `{schoolSlug, provider}`, and nothing available before sign-in yields
+   * a slug - `SchoolCodeResponse` carries `authMethod` but no slug. More to the
+   * point, NOTHING IN THE API CREATES AN SSO CONNECTION: all ten sso operations
+   * presuppose one. So a correctly-wired start would fail for every school.
+   *
+   * The affordance stays, because design drew it and a school that expects SSO
+   * should get an answer rather than a missing button. It just tells the truth
+   * now, and points at the route that does work.
+   */
   const sso = () => {
-    if (phase === "sso" || phase === "signing" || phase === "success") return;
-    setPhase("sso");
-    timers.current.push(
-      setTimeout(() => router.push("/auth/teacher/sso-callback"), SSO_HOP_MS),
-    );
+    if (phase === "signing" || phase === "success") return;
+    setErrMsg(SSO_UNAVAILABLE_MSG);
+    setPhase("error");
   };
 
   // The design moved reset onto its own screen - navigate, don't swap views.
@@ -295,12 +317,7 @@ export function TeacherSignIn() {
               onClick={sso}
               className="mt-6 flex h-[54px] w-full cursor-pointer items-center justify-center gap-[11px] rounded-[10px] border-[1.5px] border-nevo-navy/28 bg-nevo-cream-elevated text-[15.5px] font-semibold text-nevo-navy transition-[filter] duration-150 hover:brightness-[0.97]"
             >
-              {phase === "sso" ? (
-                <span className="flex items-center gap-2.5">
-                  <Spinner size={16} />
-                  {"Taking you to Microsoft…"}
-                </span>
-              ) : (
+              {(
                 <>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <rect x="3" y="4" width="18" height="16" rx="2" />
