@@ -782,62 +782,78 @@ receive anything we send**, and that sits upstream of every invite and consent f
 
 ## Student app
 
-### Four defects fixed 8 Sep, and what an audit found is still open
+### The entrance is open, and the lesson plays real content — 10/11 Sep
 
-Landed: **#294** (session refresh retried a failure in a tight loop for the whole
-2-minute margin — mounted in `StudentShell`, so it ran on a child's metered data
-mid-lesson), **#295** (`ScaffoldIndicator` announced `"Support level: full"` to
-screen readers while the visual is deliberately wordless — Zero-Tag leaking
-through the accessible name), **#299** (Home marked a signed-in child's OWN
-dashboard as sample data; Ask Nevo's canned reply carried no mark at all; the
-shell called a real child "Ada" for one hydration frame), **#304** (a verified
-school with an empty roster was shown fourteen invented class names, then
-`classId: undefined` broke account creation three screens later with nothing said
-to the child), **#305** (a real SSO handshake was signed into a fabricated
-account — `resolveMockSso` ignored `code`/`state`, invented an id, and stored no
-token, so `AuthContext` said authenticated while every screen rendered fixtures).
+**A child can now get in.** That was not true two days ago, and it was the whole
+problem: `SchoolCodeInput` drew four boxes behind a hardcoded `NEVO–` prefix
+when real codes are `751A1136` and `BGA-4827`, so no code a school actually has
+could be typed — and every entrance funnels through that screen.
 
-**Still open in the student lane, verified against the code on 8 Sep:**
+Landed since: real school codes (#325, free-length, bounded from the contract),
+a real class-code join (#330 — Teacher Join compared against a literal
+`"MAP4KZ"` and called no API; the endpoint is `security: []`, public, and the
+comment claiming otherwise was wrong), routing so a code- or invite-joined child
+skips steps they have no answers for (#330), and the name prefilled when they
+come back to it (#332).
 
-- **Ask Nevo is absent from the lesson player.** `StudentShell` returns at :54-61
-  for full-screen routes, before `<AskNevo />` at :128 — so the drawer is on every
-  tab and missing from the one screen where "I'm stuck" happens. NEEDS A DESIGN
-  DECISION, not just code: frame 26 says Ask Nevo is "always reachable, never
-  interruptive", but frame 17 does not draw it in the player, and the mobile pill
-  is positioned (`bottom-[82px]`) to clear a bottom nav the player does not have.
-  Someone should rule on placement before this is built.
-- **Two hand-offs send a signed-in child to the mock photosynthesis lesson.**
-  `WarmUpRun.tsx:62-68` and `ObservedInteractionSequence.tsx:173-178` both read
-  `assigned ? real : dashboard ? "/student/lessons" : FIRST_LESSON_ID`, and
-  `useStudentDashboard` returns `data: null` while LOADING as well as when signed
-  out — so a real child who taps "Start today's lesson" before the read lands goes
-  to the fixture.
-- **`SubjectDetail.tsx:81`** falls back to the FIXTURE's subject name
-  (`liveSubject?.name ?? subject?.name ?? "Progress"`).
-- **The spaced-retrieval loop has no entrance.** `/student/lessons/[id]/review-session`
-  renders, but nothing links to it, and `useDueReviews`' concepts are plain
-  non-clickable spans in `SubjectDetail`.
-- ~~`useProfile` is an orphan~~ — removed 9 Sep. Zero callers, an untyped
-  `unknown` payload, and a hand-rolled fetch-on-mount carrying an
-  `eslint-disable` for `set-state-in-effect` — the exact pattern `useLiveQuery`
-  was written to replace. `intelligenceApi.getProfile` stays in
-  `lib/api/intelligence.ts`, so the endpoint is one import away for whoever
-  builds the learner-profile surface.
+**The player renders generated content.** Visual (#320) and audio (#321) are on;
+`AudioSegment` used to animate a waveform over silence on a hardcoded 40-second
+timer, so real playback had to come first. Checkpoints draw. The parse pipeline
+is async now (#317: 202 + poll `finished`, never `status`).
 
-  **AND A CORRECTION WORTH MORE THAN THE DELETION.** This was recorded here as
-  "a dead hook keeps a dead endpoint looking live in the audit". That is false.
-  `scripts/api-audit.mjs` walks `src/lib/api/**` ONLY (line 54), so its `[USED]`
-  means *a client method exists for this path* — never *a screen calls it*.
-  Removing the hook changed the audit not at all. **Do not read that report as a
-  map of what the UI actually uses**; for that, grep the consumers.
-- **Content-blocked, not code-blocked:** the after-lesson chain (`fromContent`
-  builds no `assessment` and no `summary`, so a child finishes and gets a bare
-  "Done"), and four of five modalities (`RENDERABLE = [MODALITY.TEXT]`). Both wait
-  on the library being more than one 2-segment lesson.
+**Honesty fixes, all invisible in review:** a signed-in child is never handed the
+demo lesson when their own read fails (#327); Home no longer marks a real child's
+dashboard as sample data (#299); SSO completes a real handshake instead of
+inventing an account (#305); ScanMode no longer claims "You're in" having
+contacted nothing (#330).
 
-**Note for whoever owns E2E:** since #265 guards `/student/*`, the signed-out
-walkthrough is unreachable in a browser, so every student fixture except Ask
-Nevo's canned reply is now dead weight. Worth deciding whether they stay.
+**Accessibility:** violet text measured 2.34:1 and carried the sentence a child
+reads after getting an answer WRONG, while the correct note beside it was navy
+at 8.8:1 — fixed with a text-only token, and High Contrast now covers violet at
+all (#336). Segment advance destroyed focus, so keyboard and switch-access
+children restarted from the top of the document every time; fixing it also reset
+the scroll position, which nothing had ever done (#337).
+
+**An adversarial sweep on 11 Sep found three things a diff cannot show** (#341,
+#344, #345):
+
+- The **baseline profiling submit is Bearer**, and the run is phase 0 while the
+  account is created at phase 2. Every non-SSO child's cognitive profile 401'd
+  and was purged — and on a shared tablet where the last child had not signed
+  out, it SUCCEEDED against *their* account. It is now parked and sent only once
+  the session provably belongs to the child who sat it.
+- **Offline progress was dropped by the button under "Your progress is saved".**
+  The unsent buffer was a ref and the `online` listener lived in the same hook,
+  so "Leave for now" unmounted both. Held outside the player now.
+- **Every SSO child's band came from `MOCK_STUDENT`'s "Year 4"**, so a
+  sixteen-year-old sat the P4-6 baseline and a seven-year-old was asked "What is
+  15% of 200?". Nothing a signed-in child can read carries an age or year group,
+  so the flow asks.
+
+### Still open in the student lane
+
+Nothing here is code we can write alone.
+
+- **A returning child cannot get back in.** No remembered profile means a
+  redirect into onboarding — a second account, new identifier, no history.
+  `00 Student Login` designs only the remembered-device case. DESIGN.
+- **A finished lesson ends in a bare "Done".** No assessment, summary or recap
+  exists on any of the 183 paths. Nine built screens unreachable. BACKEND.
+- **Interactive** is a question on the wire and tickable steps in the player —
+  no honest mapping. **Calculation** needs `problem.answer`, and a ruling on
+  whether `scaffoldImage` replaces the drawn bar model. DESIGN + BACKEND.
+- **A paused child is told "That PIN didn't match."** `login/pin` declares only
+  200/422 and no schema carries an account status. BACKEND.
+- **`PinCreationScreen` prefers `authApi.setPin` when a token exists**, so a
+  device with a stale token saves the PIN and silently never joins the class.
+  Left alone only because another session has been mid-edit in that file.
+- **`acceptJoin` stores no session**, so an invite-link child finishes onboarding
+  with no token. Worth tracing what else that costs them.
+- **`/student/onboarding` admits an already-signed-in child with no bounce** —
+  the door the baseline misattribution came through. Closed for the baseline
+  specifically; the door is still open.
+- **Nothing shipped since 8 Sep has been seen in a browser.** All of the above is
+  verified by tests and measurement, not by watching a child's screen.
 
 ### THE CHOKEPOINT IS OPEN. The gap is now CONTENT. — 7 Sep
 
