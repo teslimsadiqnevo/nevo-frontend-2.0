@@ -80,6 +80,26 @@ export interface LessonSummary {
  * `nevo__api__response_models__LessonSegmentResponse`), so this extends
  * `SegmentVariants` rather than restating it.
  */
+/**
+ * Why the parser flagged a segment for a human look.
+ *
+ * A CLOSED enum, and the contract says why it is one: "Enumerated so the
+ * console can render its own copy per reason instead of printing the raw token
+ * with underscores swapped for spaces." So the copy lives in the console - see
+ * `REVIEW_REASON_COPY` in the variant review screen - and this type is what
+ * keeps a new backend reason from being rendered as `audio_generation_failed`.
+ *
+ * Was `string[]`, which typechecked against anything and would have let exactly
+ * that happen.
+ */
+export type SegmentReviewReason =
+  | "deterministic_parse_used"
+  | "fewer_than_two_modalities"
+  | "audio_generation_failed"
+  | "calculation_audio_generation_failed"
+  | "visual_generation_failed"
+  | "visual_variant_image_generation_failed";
+
 export interface LessonSegment extends SegmentVariants {
   id: string;
   /** Shipped 1 Sep. 0 or absent means no estimate - see `LessonSummary`. */
@@ -97,7 +117,7 @@ export interface LessonSegment extends SegmentVariants {
    */
   comprehensionCheckpoints: ComprehensionCheckpoint[];
   needsReview: boolean;
-  reviewReasons: string[];
+  reviewReasons: SegmentReviewReason[];
 }
 
 export interface LessonDetailResponse extends LessonSummary {
