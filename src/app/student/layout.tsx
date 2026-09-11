@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import { RotatePrompt } from "@/components/student/Shell/RotatePrompt";
+import { RotateLock } from "@/components/student/Shell/RotateLock";
 import { StudentShell } from "@/components/student/Shell/StudentShell";
 
 // Signed-in product surface - never indexed.
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
-
 
 /**
  * Student App context layout (Product Arch A.1 — tablet-first, calm, low
@@ -22,10 +21,10 @@ export default function StudentLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <>
+    // Portrait-only v1 - covers every student surface, incl. bare flows, and
+    // holds the one underneath still while it does.
+    <RotateLock>
       <StudentShell>{children}</StudentShell>
-      {/* Portrait-only v1 - covers every student surface, incl. bare flows. */}
-      <RotatePrompt />
-    </>
+    </RotateLock>
   );
 }
