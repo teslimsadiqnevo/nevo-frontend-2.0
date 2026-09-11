@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { askNevoApi, asUuid } from "@/lib/api";
+import {
+  askNevoApi,
+  asUuid,
+  recentThreads,
+  type ThreadSummary,
+  type ThreadTranscript,
+} from "@/lib/api";
 import { getToken } from "@/lib/auth/session";
 import {
   ASK_NEVO_CONTEXTS,
@@ -12,7 +18,6 @@ import {
   OUT_OF_SCOPE,
   stripForPath,
 } from "@/lib/mocks/teacherAskNevo";
-import { randomId } from "@/lib/utils";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { MOCK_TEACHER } from "./teacherNav";
@@ -32,6 +37,36 @@ import { MOCK_TEACHER } from "./teacherNav";
  */
 
 const THINKING_MS = 850;
+
+/**
+ * CONVERSATION HISTORY (C15 §"Conversation history"). The frame's own words:
+ * "A quiet clock icon in the drawer's top bar opens a flat, most-recent-first
+ * list of past conversations inside the same panel: no new screen, no modal.
+ * Tapping an entry opens it read-only, with the prompt field still there to
+ * start something new. Nothing older than 90 days, up to 50 entries,
+ * scrollable. No search, folders, or filters."
+ *
+ * Three modes in one panel, which is why this is a mode and not a route.
+ */
+type Mode = "chat" | "history" | "historyItem";
+
+/** "4 Sep 2026", matching the frame's sample rows. */
+function historyDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+const HISTORY_ICON = (
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3.2 1.8" />
+  </svg>
+);
 
 const SHEET = "w-[460px] xl:w-[468px]";
 
@@ -58,8 +93,25 @@ const SPARKLE = (size: number) => (
 
 export function AskNevo() {
   const pathname = usePathname() ?? "";
-  const threadId = useRef(randomId());
+  /**
+   * THE SERVER'S thread id, not one we made up.
+   *
+   * This was `useRef(randomId())`, which minted a v4 UUID the backend had never
+   * issued and sent it as `contextIds.threadId` on every turn. `asUuid` let it
+   * through because it IS a valid UUID, so nothing ever failed loudly - but the
+   * thread the server stored had its own id, and the history list below could
+   * never have matched a conversation back to the drawer that created it.
+   *
+   * Null until the first answer comes back carrying one. A first turn has no
+   * thread to continue, which is exactly what null says.
+   */
+  const threadId = useRef<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>("chat");
+  const [threads, setThreads] = useState<ThreadSummary[] | null>(null);
+  const [threadsFailed, setThreadsFailed] = useState(false);
+  const [item, setItem] = useState<ThreadTranscript | null>(null);
+  const [itemFailed, setItemFailed] = useState(false);
   const signedIn = useHasSession();
   const identity = useCurrentUser();
   const [draft, setDraft] = useState("");
@@ -82,12 +134,75 @@ export function AskNevo() {
   const data = ASK_NEVO_CONTEXTS[context];
   const strip = stripForPath(context, pathname);
 
-  // Closing resets the transcript, per the frame.
+  // Closing resets the transcript, per the frame - and with it the thread, or
+  // the next question would silently continue a conversation the teacher
+  // believes they have closed.
   const close = () => {
     setOpen(false);
     setTurns([]);
     setDraft("");
     setThinking(false);
+    setMode("chat");
+    setItem(null);
+    threadId.current = null;
+  };
+
+  /**
+   * Past conversations. Re-read on every open rather than cached, because the
+   * turn the teacher just finished should be in the list they open next.
+   *
+   * There is nothing to fall back TO here, and that is the point: a fixture
+   * roster is a lie a teacher can spot, but a fixture CONVERSATION is one they
+   * cannot - it would look exactly like something they had said. So a failed
+   * read says it failed, and an empty list says it is empty.
+   */
+  const openHistory = () => {
+    setMode("history");
+    setThreads(null);
+    setThreadsFailed(false);
+    if (!getToken()) {
+      // Signed out there is no history, which the empty state states plainly.
+      setThreads([]);
+      return;
+    }
+    void askNevoApi
+      .threads()
+      .then((list) => {
+        if (!alive.current) return;
+        setThreads(recentThreads(list ?? [], Date.now()));
+      })
+      .catch(() => {
+        if (!alive.current) return;
+        setThreadsFailed(true);
+      });
+  };
+
+  const openItem = (summary: ThreadSummary) => {
+    setMode("historyItem");
+    setItem(null);
+    setItemFailed(false);
+    void askNevoApi
+      .thread(summary.threadId)
+      .then((full) => {
+        if (!alive.current) return;
+        setItem(full);
+      })
+      .catch(() => {
+        if (!alive.current) return;
+        setItemFailed(true);
+      });
+  };
+
+  // One back button, two destinations: an open conversation returns to the
+  // list, the list returns to the chat the teacher left.
+  const back = () => {
+    if (mode === "historyItem") {
+      setMode("history");
+      setItem(null);
+      setItemFailed(false);
+      return;
+    }
+    setMode("chat");
   };
 
   const cannedFor = (question: string): Turn => {
@@ -99,6 +214,10 @@ export function AskNevo() {
     const question = raw.trim();
     if (!question || thinking) return;
     setDraft("");
+    // "with the prompt field still there to start something new" - asking from
+    // a past conversation starts a NEW one rather than appending to the
+    // read-only transcript on screen.
+    setMode("chat");
     setTurns((ts) => [...ts, { kind: "question", text: question }]);
     setThinking(true);
     requestAnimationFrame(() => endRef.current?.scrollIntoView({ block: "end" }));
@@ -130,6 +249,10 @@ export function AskNevo() {
 
     void Promise.all([live, beat]).then(([res]) => {
       if (!alive.current) return;
+      // Adopt the server's thread so the NEXT turn continues this conversation
+      // and the history list can find it. Only ever widened from null: a
+      // response without one must not wipe a thread we already hold.
+      if (res?.threadId) threadId.current = res.threadId;
       setTurns((ts) => [
         ...ts,
         res
@@ -219,6 +342,18 @@ export function AskNevo() {
                   )}
                 </div>
               </div>
+              <div className="flex shrink-0 items-center gap-0.5">
+              {mode === "chat" && (
+                <button
+                  type="button"
+                  aria-label="Past conversations"
+                  title="Past conversations"
+                  onClick={openHistory}
+                  className="flex size-[34px] cursor-pointer items-center justify-center rounded-lg text-nevo-navy transition-transform duration-[120ms] active:scale-[0.98]"
+                >
+                  {HISTORY_ICON}
+                </button>
+              )}
               <button
                 type="button"
                 aria-label="Close"
@@ -229,9 +364,32 @@ export function AskNevo() {
                   <path d="M6 6l12 12M18 6L6 18" stroke="#2b2b2f" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </button>
+              </div>
             </div>
 
+            {/* Past conversations bar - replaces the context strip, per the
+                frame: in history the teacher is not looking at a screen, so
+                naming one would be wrong. */}
+            {mode !== "chat" && (
+              <div className="flex shrink-0 items-center gap-2.5 border-b border-nevo-violet/18 bg-nevo-violet/10 px-4 py-[9px]">
+                <button
+                  type="button"
+                  aria-label="Back"
+                  onClick={back}
+                  className="flex size-[34px] shrink-0 cursor-pointer items-center justify-center rounded-lg transition-transform duration-[120ms] active:scale-[0.98]"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2b2b2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
+                </button>
+                <span className="text-[15px] font-semibold tracking-[-0.01em] text-nevo-near-black">
+                  Past conversations
+                </span>
+              </div>
+            )}
+
             {/* Context strip - what the teacher is looking at */}
+            {mode === "chat" && (
             <div className="flex shrink-0 items-center gap-[9px] border-b border-nevo-violet/18 bg-nevo-violet/10 px-[22px] py-[11px]">
               <span className="shrink-0 text-nevo-navy">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -243,10 +401,20 @@ export function AskNevo() {
                 {strip}
               </span>
             </div>
+            )}
 
             {/* Body */}
             <div className="min-h-0 flex-1 overflow-y-auto p-[22px]">
-              {showEntry ? (
+              {mode === "history" ? (
+                <HistoryList
+                  threads={threads}
+                  failed={threadsFailed}
+                  onOpen={openItem}
+                  onRetry={openHistory}
+                />
+              ) : mode === "historyItem" ? (
+                <HistoryItem transcript={item} failed={itemFailed} />
+              ) : showEntry ? (
                 <>
                   <p className="mb-1.5 text-[15px] font-semibold text-nevo-near-black">
                     {data.lead}
@@ -422,5 +590,169 @@ export function AskNevo() {
         </>
       )}
     </>
+  );
+}
+
+/**
+ * The list of past conversations (C15 state 2, and state 4 when it is empty).
+ *
+ * `threads === null` is LOADING, not empty - the distinction is the whole
+ * reason this takes a nullable rather than defaulting to `[]`. Rendering "Your
+ * past conversations will appear here" at the moment a teacher taps the clock,
+ * only to have four of them appear a beat later, tells them something false
+ * about their own record.
+ *
+ * NO FALLBACK DATA, ever. Everywhere else in this console a failed read can
+ * show the designed screen behind a `data-nevo-sample` mark, because a fixture
+ * class is recognisably not yours. A fixture CONVERSATION is not: it is words
+ * attributed to the teacher and to Nevo, and there is no mark that makes
+ * inventing those acceptable. So this fails honestly or shows nothing.
+ */
+function HistoryList({
+  threads,
+  failed,
+  onOpen,
+  onRetry,
+}: {
+  threads: ThreadSummary[] | null;
+  failed: boolean;
+  onOpen: (t: ThreadSummary) => void;
+  onRetry: () => void;
+}) {
+  if (failed) {
+    // The frame draws no error state for history (raised with design). This
+    // borrows the drawer's own voice rather than inventing a new one.
+    return (
+      <div className="flex min-h-[320px] flex-col items-center justify-center px-7 text-center">
+        <p className="max-w-[280px] text-[14.5px] leading-[1.6] text-nevo-near-black/60 text-pretty">
+          We couldn&rsquo;t load your past conversations just now. They
+          haven&rsquo;t gone anywhere.
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-5 h-[42px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-[13.5px] font-semibold text-nevo-cream transition-[filter] duration-[120ms] hover:brightness-93 active:scale-[0.98]"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  if (threads === null) {
+    return (
+      <div className="flex flex-col gap-2.5" role="status" aria-label="Loading past conversations">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="h-[62px] animate-pulse rounded-xl bg-nevo-cream-elevated"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (threads.length === 0) {
+    return (
+      <div className="flex min-h-[320px] items-center justify-center px-7 text-center">
+        <p className="max-w-[280px] text-[14.5px] leading-[1.6] text-nevo-near-black/60 text-pretty">
+          Your past conversations with Ask Nevo will appear here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="flex flex-col gap-2.5">
+      {threads.map((t) => (
+        <li key={t.threadId}>
+          <button
+            type="button"
+            onClick={() => onOpen(t)}
+            className="block w-full cursor-pointer rounded-xl bg-nevo-cream-elevated px-4 py-3.5 text-left transition-transform duration-[120ms] active:scale-[0.99]"
+          >
+            {/* One line, ellipsised - the frame's rows never wrap. */}
+            <span className="block truncate text-[14px] leading-[1.4] text-nevo-near-black">
+              {t.title}
+            </span>
+            <span className="mt-[5px] block text-[12.5px] text-nevo-near-black/55">
+              {historyDate(t.lastMessageAt)}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * One past conversation, READ-ONLY (C15 state 3).
+ *
+ * The frame's sample shows a single question and answer, but the contract
+ * returns `messages: ThreadMessageResponse[]` - a whole thread. So this renders
+ * every message in `sequence` order using the two bubble styles the frame
+ * draws, which is the faithful reading: the frame specifies a bubble per
+ * author, and its sample simply happens to be one exchange.
+ *
+ * No vote controls here. A vote posts against an `interaction_id`, which the
+ * transcript does not carry, so offering thumbs would be offering a control
+ * that could not record anything.
+ */
+function HistoryItem({
+  transcript,
+  failed,
+}: {
+  transcript: ThreadTranscript | null;
+  failed: boolean;
+}) {
+  if (failed) {
+    return (
+      <div className="flex min-h-[320px] items-center justify-center px-7 text-center">
+        <p className="max-w-[280px] text-[14.5px] leading-[1.6] text-nevo-near-black/60 text-pretty">
+          We couldn&rsquo;t open this conversation just now.
+        </p>
+      </div>
+    );
+  }
+
+  if (!transcript) {
+    return (
+      <div className="flex flex-col gap-3.5" role="status" aria-label="Loading this conversation">
+        <div className="ml-auto h-[46px] w-[62%] animate-pulse rounded-[14px_14px_4px_14px] bg-nevo-cream-elevated" />
+        <div className="h-[92px] w-[82%] animate-pulse rounded-[14px_14px_14px_4px] bg-nevo-cream-elevated" />
+      </div>
+    );
+  }
+
+  const ordered = [...transcript.messages].sort((a, b) => a.sequence - b.sequence);
+
+  return (
+    <div className="flex flex-col">
+      {ordered.map((m, i) =>
+        m.author === "asker" ? (
+          <div
+            key={m.messageId}
+            className={i > 0 ? "mt-3.5 flex justify-end" : "flex justify-end"}
+          >
+            <div className="max-w-[82%] rounded-[14px_14px_4px_14px] bg-nevo-navy px-[15px] py-[11px]">
+              <p className="text-[14.5px] leading-[1.45] text-nevo-cream">
+                {m.text}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div
+            key={m.messageId}
+            className={i > 0 ? "mt-3.5 flex justify-start" : "flex justify-start"}
+          >
+            <div className="max-w-[88%] rounded-[14px_14px_14px_4px] border border-nevo-violet/35 bg-nevo-violet/15 px-4 py-3.5">
+              <p className="text-[14.5px] leading-[1.6] text-nevo-near-black">
+                {m.text}
+              </p>
+            </div>
+          </div>
+        ),
+      )}
+    </div>
   );
 }
