@@ -1490,20 +1490,22 @@ date would be a duplicate under the one heading it cannot honestly carry. So the
 date sits on the row and a plain sentence states the limit. The section stays
 unbuilt on purpose, not for want of an endpoint.
 
+### Built since — 11 Sep
+
+| | |
+|---|---|
+| Overview roll-up rows 1-2 | Both live. Pending-consent is exact from the unpaginated `GET /api/v1/students`; open flags page `/api/intelligence/flags` at `limit=200` and terminate on a SHORT PAGE, never on a total. A partial read reports NOTHING — a count off the pages we happened to get is a floor. Counts distinct CHILDREN, not flags. |
+| The sample marker | `SampleRegion` now wraps the ONE fixture row, and the note names it ("The classes row is a sample") rather than counting, so it cannot go stale the same way. Live rows sit OUTSIDE the marker: wrapping a real roll-up in it would train the e2e suite to walk past a genuine one. |
+| SENCo lessons finished | Free. The per-class fan-out moved from `studentsApi.list({classId})` to `classesApi.classStudents`, which carries `observations` at the same call count. A learner whose roster read failed, or has not answered, gets NO figure — never a zero. |
+
 ### Still buildable, not built
 
-|                            |                                                                                                                                                                                                                                                                                                        |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Invitation consent line    | `consentStatus` is declared on `Invitation` now and still unread. The copy must be written AFTER the SCRUM-80 correction above, not against the old "can't begin lessons" wording, and the `not_sent` branch must promise no action — nothing creates a `ParentLink` from an invite's `parentContact`. |
-| Overview roll-up rows 1-2  | Row 1 (pending consent) is exact from the unpaginated `GET /api/v1/students`. Row 2 needs paging `/api/intelligence/flags` at `limit=200` and deduping by `studentId`; the `X-Total-Count` header counts flags, not students, and the api client does not expose headers.                              |
-| SENCo per-learner figures  | Lessons-completed is cheap (the roster read this screen already makes, per class). Adaptations-this-week needs a paging loop terminating on `events.length < limit` — NOT on `total`, whose semantics the spec does not document.                                                                      |
-| Adaptation log TYPE filter | Genuinely blocked. `eventType` is a response field with no query param and no enum.                                                                                                                                                                                                                    |
-| Assignment history proper  | Blocked on an actor field and on ended assignments. See above — the dates shipped, the history did not.                                                                                                                                                                                                |
-
-If the Overview roll-up rows go live, the `SampleRegion` wrapper must narrow to
-the one surviving fixture row and the "These three are a sample" note must
-change with it, or the e2e suite is trained to accept a real roll-up as an
-invented one.
+| | |
+|---|---|
+| Invitation consent line | `consentStatus` is declared on `Invitation` and still unread. The copy must be written AFTER the SCRUM-80 correction above, and the `not_sent` branch must promise no action — nothing creates a `ParentLink` from an invite's `parentContact`. |
+| SENCo adaptations-this-week | The last of D8b's three. Needs a paging loop terminating on `events.length < limit` — NOT on `total`, whose semantics the spec does not document. Active support stays blocked on a list-scoped accommodations read. |
+| Adaptation log TYPE filter | Genuinely blocked. `eventType` is a response field with no query param and no enum. |
+| Assignment history proper | Blocked on an actor field and on ended assignments. The dates shipped; the history did not. |
 
 ### The vitest worker flake
 
