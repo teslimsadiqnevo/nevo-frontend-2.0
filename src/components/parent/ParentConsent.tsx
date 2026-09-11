@@ -24,6 +24,13 @@ import {
  * only ever requests `data_processing` today, so the tap grants exactly what
  * `invitation.consentTypes` carries - currently one thing.
  *
+ * NO PRONOUNS FOR A CHILD WE HAVE NOT BEEN TOLD ABOUT. This screen was written
+ * from the Amara frame and carried "she" and "her" seven times - on the first
+ * page a parent ever sees, about their own child, on a page whose entire job is
+ * to be trustworthy. The payload carries a NAME and no pronoun. So the name is
+ * used where it reads naturally and "they" everywhere else, which is correct for
+ * every child rather than half of them.
+ *
  * NO DARK PATTERNS is a literal requirement, not a tone note. "I have a question
  * first" is given equal footing rather than buried, nothing is pre-ticked, and
  * the screen never implies that declining is unavailable - it simply is not an
@@ -48,7 +55,7 @@ const POINTS = [
   {
     key: "does",
     title: (c: string) => `What ${c} does`,
-    body: () => "Lessons her teachers set, at her own pace.",
+    body: (c: string) => `Lessons ${c}’s teachers set, at their own pace.`,
     icon: (
       <path d="M4 5a2 2 0 0 1 2-2h6v18H6a2 2 0 0 0-2 2zM20 5a2 2 0 0 0-2-2h-6v18h6a2 2 0 0 1 2 2z" />
     ),
@@ -57,7 +64,7 @@ const POINTS = [
     key: "keep",
     title: () => "What we keep",
     body: (c: string) =>
-      `${c}'s name, class, and how she's getting on - shared only with her school.`,
+      `${c}’s name, class, and how they’re getting on - shared only with their school.`,
     icon: (
       <>
         <path d="M12 3l7 3v5c0 4.4-3 8.3-7 9.5C8 21.3 5 17.4 5 13V6z" />
@@ -68,7 +75,8 @@ const POINTS = [
   {
     key: "control",
     title: () => "You stay in control",
-    body: () => "You can withdraw any time. Her progress is always saved.",
+    body: (c: string) =>
+      `You can withdraw any time. ${sentenceCase(c)}’s progress is always saved.`,
     icon: (
       <path d="M12 20s-6.5-4.2-9-8.2C1.5 9 3 5.5 6.2 5.5c2 0 3.2 1.2 3.8 2.3.6-1.1 1.8-2.3 3.8-2.3C21 5.5 22.5 9 21 11.8c-2.5 4-9 8.2-9 8.2z" />
     ),
@@ -135,8 +143,8 @@ export function ParentConsent({
             Thank you &mdash; that&rsquo;s all we needed.
           </h1>
           <p className="mt-3 max-w-[320px] text-[15px] leading-[1.6] text-nevo-near-black/68">
-            {childLead} can start learning with her class. Set up an account and
-            you can follow how she&rsquo;s getting on, whenever you like.
+            {childLead} can start learning with their class. Set up an account
+            and you can follow how they&rsquo;re getting on, whenever you like.
           </p>
 
           <AccountSetup
@@ -166,7 +174,7 @@ export function ParentConsent({
             All done &mdash; thank you.
           </h1>
           <p className="mt-3 max-w-[320px] text-[15px] leading-[1.6] text-nevo-near-black/68">
-            {childLead} can start learning with her class. You can set up an
+            {childLead} can start learning with their class. You can set up an
             account later from the same link.
           </p>
           {receipt && (
@@ -290,25 +298,31 @@ export function ParentConsent({
           {invitation.schoolName}
         </div>
         <h1 className="mt-3 text-[24px] font-semibold leading-[1.25] tracking-[-0.01em] text-nevo-near-black">
-          {childLead}&rsquo;s school would like your okay to get her started on
-          Nevo.
+          {childLead}&rsquo;s school would like your okay to get {child} started
+          on Nevo.
         </h1>
         <p className={BODY}>
           Nevo is the school&rsquo;s learning platform &mdash; personalised
           learning for every student. As {child}&rsquo;s parent or guardian, your
-          consent is all we need before she begins.
+          consent is all we need before they begin.
         </p>
       </div>
 
-      <div className="mt-6 flex flex-col gap-3.5">
+      {/* Mobile stacks them as rows, icon beside the words. Desktop is the
+          frame's three-column grid, each cell centred on its own icon. Same
+          three promises either way - the layout changes, the content does not. */}
+      <div className="mt-6 grid gap-3.5 md:grid-cols-3">
         {POINTS.map((p) => (
-          <div key={p.key} className="flex items-start gap-3.5">
+          <div
+            key={p.key}
+            className="flex items-start gap-3.5 md:flex-col md:items-center md:rounded-[12px] md:bg-nevo-cream md:px-3.5 md:py-4 md:text-center"
+          >
             <span className="flex size-[38px] flex-none items-center justify-center rounded-[10px] bg-nevo-violet/20 text-nevo-navy">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 {p.icon}
               </svg>
             </span>
-            <div>
+            <div className="md:mt-2.5">
               <div className="text-[14.5px] font-semibold text-nevo-near-black">
                 {p.title(child)}
               </div>
@@ -538,10 +552,20 @@ function sentenceCase(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
+/**
+ * Phone-first, because that is how a parent opens an SMS link - but the frame
+ * also draws a desktop, and this screen had NO breakpoint at all: a 430px
+ * column stretched down the middle of a laptop, which is not what was designed.
+ *
+ * Desktop is the frame's 560px card on the cream ground, centred vertically.
+ * Mobile is untouched.
+ */
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-dvh bg-nevo-cream px-6 py-7 text-nevo-near-black">
-      <div className="mx-auto flex w-full max-w-[430px] flex-col">{children}</div>
+    <main className="min-h-dvh bg-nevo-cream px-6 py-7 text-nevo-near-black md:flex md:items-center md:justify-center md:px-8 md:py-12">
+      <div className="mx-auto flex w-full max-w-[430px] flex-col md:max-w-[560px] md:rounded-[20px] md:bg-nevo-cream-elevated md:px-12 md:py-11 md:shadow-[0_12px_40px_rgba(0,0,0,0.10)]">
+        {children}
+      </div>
     </main>
   );
 }

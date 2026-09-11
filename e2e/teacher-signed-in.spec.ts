@@ -200,7 +200,7 @@ test.describe("a signed-in teacher", () => {
     await expect(page.getByText(/Amina|Chidi|Tunde Bakare|Ngozi/)).toHaveCount(0);
   });
 
-  test("never offers school SSO as though it worked", async ({ page, context }) => {
+  test("never offers school SSO as though it worked", async ({ context }) => {
     // Signed out, on the door. The control stays, but tapping it must explain
     // rather than mime a handoff to a provider it cannot reach.
     await context.clearCookies();
