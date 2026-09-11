@@ -529,6 +529,61 @@ Until 1 and 2 exist there is no signed-in parent to show anything to, so this is
 
 ---
 
+## Signed-in E2E — LIVE as of 11 Sep. 9 specs, and how to run them.
+
+The suite is no longer signed-out only. `e2e/teacher-signed-in.spec.ts` holds a
+real session against the E2E school and asserts the one property no unit test
+can reach: **a signed-in teacher is never shown invented data.**
+
+**Why that is the assertion, and not "the class list appears".** Every console is
+live-first with a fixture fallback. "The teacher signs in and sees their class
+list" PASSES when the read 401s, because the fallback renders a class list. So
+the test asks the question the failure mode cannot satisfy: is anything on this
+page carrying `data-nevo-sample`. As of 11 Sep the answer across dashboard,
+classes, lessons, insights and students is **no marks at all**.
+
+### Running it
+
+```
+E2E_TEACHER_EMAIL=... E2E_TEACHER_PASSWORD=... npm run e2e
+```
+
+Unset, the signed-in specs **skip** and the rest still run - a fork without the
+secrets gets a green, meaningful run rather than a red one for a sign-in it was
+never going to reach. CI passes them from repository secrets of the same names.
+
+**The account:** a teacher on the E2E school (`751A1136`), assigned to
+`E2E Probe Class`. Password is in CI secrets and nowhere else.
+
+### Three traps, each of which cost real time
+
+1. **`storageState` cannot carry this session.** The token is in localStorage,
+   but the ROLE COOKIE is written by the client at sign-in and `proxy.ts` reads
+   it ON THE SERVER to decide whether to serve console markup. Restore one
+   without the other and the guard bounces you to the door. Sign in through the
+   API, set the cookie on the context, and plant localStorage with
+   `addInitScript` - not `evaluate` after navigating, or the console mounts as a
+   guest and renders the fixtures you are testing for.
+2. **`waitForLoadState("networkidle")` never settles** in this app. The first
+   version used it and timed out; the failure looked like a fixture bug and was
+   not one. Wait for a real element instead.
+3. **ONE ACCOUNT MEANS SERIAL, and short tests.** `SessionResponse` carries
+   `replaced_session`: a second sign-in as the same user kills the first. Under
+   `fullyParallel`, a sibling test's login killed this one's session mid-walk.
+   The file is `mode: "serial"`, and the five-page sweep is five short tests
+   that each sign in fresh rather than one long one holding a session across
+   five navigations.
+
+### What it does NOT cover yet
+
+No write path is exercised - no assign, no upload, no cancel. The E2E class
+holds **no students**, because `POST /api/v1/students` and
+`PATCH /students/{id}/class` both return 500 (raised). An empty tenant is
+actually the sharpest setting for the fixture assertion, but it means the roster,
+profile and assign flows have nothing real to act on.
+
+---
+
 ## Coordination — read this first
 
 Three sessions build in this SAME worktree in parallel: **student**, **admin**, and
