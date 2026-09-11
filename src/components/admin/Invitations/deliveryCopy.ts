@@ -1,4 +1,5 @@
 import type { InvitationDeliveryStatus } from "@/lib/api/invites";
+import type { ConsentStatus } from "@/lib/api/consents";
 
 /**
  * What we are allowed to tell an admin after an invite goes out.
@@ -34,10 +35,20 @@ import type { InvitationDeliveryStatus } from "@/lib/api/invites";
  *    sentence on null, exactly as `deliveryLine` already handles a null
  *    `deliveryStatus`.
  *
- * TODO(api): no call QUEUES a consent request against an invitation.
- * `POST /students/{id}/parent-consent-requests` needs a student uuid, and the
- * contract never links an invite to one before it is accepted. So this file
- * can report a request's state once threaded, but still cannot start one.
+ * THE STATE IS REPORTED NOW. `InvitationResponse.consentStatus` is threaded
+ * onto `Invitation` and read by `consentNote` and `parentConsentLine` below, so
+ * a screen can finally say where a consent request has got to.
+ *
+ * WHAT IT STILL MUST NOT DO IS OFFER TO SEND ONE. No call queues a consent
+ * request against an invitation: `POST /students/{id}/parent-consent-requests`
+ * needs a student uuid, and the contract never links an invite to one before it
+ * is accepted. `requestParentConsent` also needs a `ParentLink` with a parent
+ * NAME, which an invite's bare `parentContact` cannot produce - so for exactly
+ * the students these flows create, the Students screen already answers "there's
+ * nobody to send this to". Copy here promises no action for that reason.
+ *
+ * TODO(api): a call that queues a consent request for an invited student, or a
+ * way to mint a parent link from an invitation's contact.
  */
 
 /** The invite email's outcome, in the admin's language. */
@@ -81,19 +92,69 @@ export function needsManualDelivery(
 }
 
 /**
- * What is true about the parent after a student invite, with no claim about
- * whether anyone has been contacted.
+ * Where the parent's consent has actually got to, in a few words.
  *
- * THE SECOND SENTENCE USED TO BLOCK THE CHILD: "{who} can't begin lessons
- * until consent is confirmed". SCRUM-80 says otherwise - the school warrants
- * consent through the DSA and the child proceeds; only a withdrawal stops
- * anything. So this states the school's obligation, which is real, rather than
- * a consequence for the learner, which is not.
+ * Short by design: it sits under a name in a list, beside the expiry date. The
+ * full sentence is `parentConsentLine`.
+ *
+ * NULL MEANS THE INVITE CARRIED NO CONSENT RECORD, which is not `not_sent` -
+ * older invitations predate the field entirely. It returns null and the caller
+ * renders nothing, rather than reporting that nobody has been asked.
+ */
+export function consentNote(status: ConsentStatus | null): string | null {
+  switch (status) {
+    case "confirmed":
+      return "Parent consent recorded";
+    case "pending":
+      return "Parent asked · no reply yet";
+    case "not_sent":
+      return "No consent request sent";
+    case "withdrawn":
+      return "Parent withdrew consent";
+    default:
+      return null;
+  }
+}
+
+/**
+ * What is true about the parent after a student invite.
+ *
+ * TWO CLAIMS HAVE BEEN CUT FROM THIS LINE, both of which were false:
+ *
+ * 1. "{who} can't begin lessons until consent is confirmed". SCRUM-80 says the
+ *    school warrants consent through the DSA and the child proceeds; only a
+ *    withdrawal stops anything.
+ * 2. "confirming creates the parent account". It did once. The backend replaced
+ *    parent password auth with a code flow on 11 Sep - `POST /consents/parent/
+ *    {token}/account` is GONE, and a parent now signs in through
+ *    `/auth/parent/request-code`. Confirming records consent; it does not mint
+ *    an account.
+ *
+ * Nothing here offers to SEND a request, because nothing can - see the note at
+ * the top of this file.
  */
 export function parentConsentLine(
   parentContact: string,
   studentName: string | null,
+  consentStatus: ConsentStatus | null,
 ): string {
   const who = studentName ?? "this student";
-  return `${parentContact} is recorded as the parent contact. Your school still needs to record consent for ${who}, and confirming creates the parent account.`;
+  const contact = `${parentContact} is recorded as the parent contact.`;
+  switch (consentStatus) {
+    case "confirmed":
+      return `${contact} Their consent is already recorded.`;
+    case "pending":
+      return `${contact} A consent request has gone to them, and they haven’t replied yet.`;
+    case "withdrawn":
+      // States the record, and claims no consequence. Whether processing has
+      // actually stopped is the backend's to answer - see
+      // docs/open-questions-consent.md.
+      return `${contact} They have withdrawn consent, so your school’s record shows a withdrawal rather than an agreement.`;
+    case "not_sent":
+      return `${contact} No consent request has been sent to them yet.`;
+    default:
+      // Older invitations predate the field. Say only what holds either way -
+      // the shape `deliveryLine` uses for a null `deliveryStatus`.
+      return `${contact} Your school still needs to record consent for ${who}.`;
+  }
 }
