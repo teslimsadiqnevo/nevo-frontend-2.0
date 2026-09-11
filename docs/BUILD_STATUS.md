@@ -1142,10 +1142,78 @@ screen may read a subset. A required field the client ignores only reaches
 check 2's advisory list when NOTHING in the client names it — and `consent` is
 named all over the students lane.
 
-**Six corrected in place** so far (`AdminSidebar`, `JoinLanding`, `ClassesView`,
-`StudentDetailView`, `BandStep`, plus the two Settings docblocks). Each states
-what it used to say and what the document holds, rather than quietly changing
-its mind. **Fourteen misleading markers remain**, itemised below.
+**All twenty corrected in place**, each stating what it used to say and what the
+document holds rather than quietly changing its mind. Four landed with the audit
+(`AdminSidebar`, `JoinLanding`, `ClassesView`, `StudentDetailView`) alongside
+`BandStep` and the two Settings docblocks; the remaining sixteen landed 11 Sep.
+
+*(The PR that closed the first four said "fourteen remain". The real number was
+sixteen — that count was taken before `BandStep` was reclassified. Corrected
+here rather than left to be rediscovered.)*
+
+## The three things the audit itself got wrong, 11 Sep
+
+Correcting the sixteen meant re-verifying each against the pinned spec first,
+and that surfaced three problems with the audit, not just with the markers.
+
+**1. It missed a sibling.** `ClassDetailView`'s SECOND marker said an assignment
+history "No endpoint returns it" — the identical claim to the one being
+corrected on `TeacherDetailView`, in a file the audit had already opened.
+`AssignedTeacherResponse` carries `role` and `assigned_at`, both required, and
+`ClassDetailView` already holds them in `teachers`. Three of SCRUM-40's five
+fields are on a call the screen makes; what is missing is WHO CHANGED IT and
+ENDED assignments. Corrected. The lesson is the one already in the recurring-
+defect list: when a marker is wrong, grep for the same sentence elsewhere.
+
+**2. It never swept `src/lib/api/**`.** The audit covered
+`src/components/admin/**` and reported "every marker in the admin console",
+which read as complete. Eight API-client files carrying `TODO(api)` were never
+examined — and those files are where contract claims are densest. Sweeping them
+by hand found two more:
+
+- `school.ts` had **two docblocks stacked on the same function saying opposite
+  things**: "the schema declares a 201 with NO PROPERTIES" sitting directly
+  above "IT RETURNS A BODY, and this was typed `void`". A correction was written
+  and the thing it corrected was never deleted. Merged, keeping the one claim
+  that survives (still no session on the 201).
+- `sso.ts:114` asked backend to "poll the run and report the real counts" two
+  lines below its own paragraph naming the poll route and its client wrapper.
+
+The other six check out: `invites.ts` (no delivery field on `InvitationRequest`
+— true), `students.ts` (`StudentMove` is `{classId}` only — true), `billing.ts`
+(`vatRate` is a bare `string` with a numeric pattern and no example, so
+percent-vs-fraction really is unresolved — true), `team.ts` (a question, not a
+claim), and `askNevo.ts`/`signals.ts`, which belong to the student lane and are
+left to it.
+
+**3. A NEW defect shape, which the audit's categories had no name for.** Several
+markers were not stale at all — they were **addressed to the wrong party**.
+`TODO(api)` on work that needs no backend: SsoView's sync log (the structured
+`issues[]` is already on the response), sso.ts's polling loop, the class filter
+on AdaptationLogView (`classId` is already a declared query param). A marker
+tagged `TODO(api)` is invisible as client work; it reads as blocked. These are
+retagged `TODO (client, not api)` so the distinction survives a grep.
+
+### What the corrections revealed is buildable today
+
+Not built — the markers now say so honestly, which is what this pass was for.
+Roughly in ascending cost:
+
+| | |
+|---|---|
+| getting-started TEACHERS tick | `counts.teachers > 0`, already in state — no new call |
+| ClassDetail / TeacherDetail | dated current-assignment list from `assigned_at` |
+| AdaptationLogView class filter | `classesApi.list()` + the existing `classId` param |
+| SsoView technical details | widen `issues: unknown[]`, render the list |
+| deliveryCopy consent line | thread `consentStatus` onto `Invitation` |
+| ndpaClaims two claim rows | consent coverage, retention position — both readable |
+| Overview roll-up | 2 of 3 rows live; shrink the fixture, narrow `SampleRegion` |
+| LearnerProfile engagement patterns | `observations` off the class roster read |
+| SENCo list figures | 2 of 3 cheap; only active support needs a bulk route |
+
+The Overview one carries a trap worth naming: if those rows go live, the
+`SampleRegion` wrapper and the "These three are a sample" note must narrow with
+them, or the e2e suite is trained to accept a real roll-up as an invented one.
 
 ### The vitest worker flake
 

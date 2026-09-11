@@ -47,9 +47,18 @@ import { WriteFailed } from "../WriteFailed";
  * is connected; `GET /api/v1/school` carries `code` and `slug` for any school
  * actor with no SSO dependency.
  *
- * TODO(api): a raw sync log. D10 puts server-rendered text verbatim in a
- * <pre> behind "View technical details"; the run response carries structured
- * counts and a failure reason, and no log text.
+ * THE SYNC LOG IS OURS TO BUILD, AND THIS SAID IT WAS BACKEND'S. It read
+ * "TODO(api): a raw sync log... the run response carries structured counts and
+ * a failure reason, and no log text." It carries a third thing:
+ * `RosterSyncRunResponse.issues[]`, required, each `{id, externalReference,
+ * description, resolutionHint}` - the per-row detail an admin opening
+ * "technical details" is actually looking for, and the runs already arrive on
+ * `syncHistory()`.
+ *
+ * TODO (client, not api): widen `issues: unknown[]` in `lib/api/sso.ts` to
+ * `RosterSyncIssueResponse[]` and render the list behind "View technical
+ * details" alongside `failureReason`. There is no raw log text in the API and
+ * D10's verbatim <pre> is not coming; the structured list replaces it.
  */
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";

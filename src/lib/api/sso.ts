@@ -111,8 +111,12 @@ export interface RosterSyncHistory {
  * The counts live on the RUN, fetched from `pollUrl` / `runDetail(runId)`,
  * which is why `GET /admin/sso/roster-sync/{run_id}` sat unconsumed.
  *
- * TODO(api): poll the run and report the real counts. Until then the screen
- * says a sync has started and stops claiming numbers it does not have.
+ * TODO (client, not api): poll the run and report the real counts. This was
+ * tagged `TODO(api)`, which asks backend for a route the two lines above say
+ * already exists - `GET /admin/sso/roster-sync/{run_id}`, typed here as
+ * `runDetail`. Nothing is missing from the contract; the polling loop is ours
+ * to write. Until it is, the screen says a sync has started and stops claiming
+ * numbers it does not have.
  */
 export interface RosterSyncAccepted {
   runId: string;

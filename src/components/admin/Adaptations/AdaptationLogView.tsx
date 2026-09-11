@@ -26,12 +26,23 @@ import { NoAccess, failureKind } from "../NoAccess";
  * - Before / after. Each row expands to show what the lesson looked like
  *   either side of the change; the response carries `adaptation` and `trigger`
  *   and nothing describing the prior state. The expander shows what exists.
- * - Type and class filters. `eventType` is not a query parameter, and no
- *   endpoint lists classes, so neither filter has a source. The date range is
- *   real - `dateFrom` - and is the one filter offered.
+ * - The TYPE filter. `eventType` comes back on every row but is not a query
+ *   parameter, and there is no enum for it, so there is nothing to populate a
+ *   filter from. The date range is real - `dateFrom` - and is offered.
  *
- * TODO(api): a before/after pair on the event, an eventType filter, and a class
- * list so the frame's other two filters can exist.
+ * THE CLASS FILTER WAS LISTED HERE AS IMPOSSIBLE AND IS NOT. This read "no
+ * endpoint lists classes, so neither filter has a source". `GET /api/v1/classes`
+ * lists them, `classesApi.list()` is called on half the screens in this
+ * console, and `classId` is already a declared query parameter on the log
+ * endpoint, typed in `lib/api/schoolIntelligence.ts`. That is a filter this
+ * screen already has the wire for and simply does not draw - the exact kind of
+ * stale marker that costs the next person a feature they already own.
+ *
+ * TODO(api): a before/after pair on the event, and an eventType filter (or at
+ * least an enum for the field) so the frame's type filter can exist.
+ *
+ * TODO (client, not api): the class filter - `classesApi.list()` for the
+ * options, `classId` onto the existing query.
  */
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";

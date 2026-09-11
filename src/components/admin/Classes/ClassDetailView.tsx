@@ -42,17 +42,30 @@ import { WriteFailed } from "../WriteFailed";
  * it commits. Archived classes keep every record and can be restored; students
  * and their progress are not affected. The admin set has no red anywhere.
  *
- * TODO(api): the roster route carries no CONSENT field. D5b and SCRUM-40 both
- * put a consent pill on every student row - it is the one status an admin
- * scans for, and the spec's own "done when" asks for it - but
- * `GET /api/v1/classes/{id}/students` returns account status and learner
- * profile state and nothing about parental consent. Rather than dress up
- * `status` as consent and mislead an admin about a legal fact, the pill is
- * absent until the field exists. This is the single biggest gap on this screen.
+ * THE CONSENT PILL IS BUILT, and a marker here outlived it by long enough to
+ * contradict code in its own file. It said "the roster route carries no CONSENT
+ * field... the pill is absent until the field exists. This is the single
+ * biggest gap on this screen." `ClassStudentResponse.consent` is REQUIRED and
+ * is a full `{status, actorId, actorName, timestamp, channel}`; the client type
+ * had simply never declared it, so the field arrived on every response and was
+ * discarded. `ConsentPill` renders it on every row below.
  *
- * TODO(api): SCRUM-40 asks for a collapsed ASSIGNMENT HISTORY section here and
- * on teacher detail - date, teacher, class, role, who changed it. No endpoint
- * returns it, so the section is not built.
+ * The concern behind that marker was right and still governs: an absent consent
+ * object reads as "Unknown", never as "Not sent", and `status` is never dressed
+ * up as consent. Getting that wrong misstates a legal fact about a child.
+ *
+ * ASSIGNMENT HISTORY. SCRUM-40 asks for a collapsed section here and on teacher
+ * detail - date, teacher, class, role, who changed it. This said "No endpoint
+ * returns it", and three of those five arrive on a call this screen ALREADY
+ * MAKES: `GET /api/v1/classes/{id}/teachers` returns `AssignedTeacherResponse`
+ * with `role` and `assigned_at` required on every row, sitting in `teachers`
+ * below. (The same is true of `/teachers/{id}/classes` on the other screen.)
+ *
+ * TODO(api): the two fields that really are missing - WHO CHANGED IT (no actor
+ * on any assignment schema) and ENDED assignments (the DELETE returns no body
+ * and nothing carries an `ended_at`). So a current-assignments list with dates
+ * is buildable today and a history is not; the section stays unbuilt because
+ * half a history under that heading would read as the whole of one.
  */
 
 type Phase = "loading" | "ready" | "failed" | "denied";

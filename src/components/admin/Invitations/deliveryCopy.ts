@@ -14,23 +14,30 @@ import type { InvitationDeliveryStatus } from "@/lib/api/invites";
  *    the one thing it means for them: send the link yourself.
  *
  * 2. THE PARENT CONSENT REQUEST. Both invite flows told the admin a consent
- *    request had been sent to the parent. Nothing supported that.
- *    `InvitationResponse` carries no consent field; consent has its own
- *    endpoint (`POST /students/{id}/parent-consent-requests`) with its own
- *    `ConsentDeliveryStatus`, and `consentsApi.requestParentConsent` is typed
- *    in this repo with NO CALLER anywhere. The claim was produced from the
- *    parent contact the admin had just typed.
+ *    request had been sent to the parent, and nothing supported that. The
+ *    claim was produced from the parent contact the admin had just typed.
  *
- *    It cannot simply be wired up here either: consent is requested against a
- *    STUDENT id, and an invitation has no student behind it until it is
- *    accepted. So this file states what is actually known - the contact is
- *    recorded, and the child cannot begin lessons until consent is confirmed -
- *    and promises no delivery in either direction.
+ *    TWO SENTENCES THAT USED TO JUSTIFY THIS ARE NOW FALSE, and both were the
+ *    kind that stop a future reader from looking again:
  *
- * TODO(api): report the consent request's own state on the invitation, or give
- * us a call that queues one for an invited (not yet accepted) student. Until
- * one of those exists, no screen can honestly tell an admin a parent has been
- * contacted.
+ *      - "`InvitationResponse` carries no consent field." It carries
+ *        `consentStatus: ConsentStatus | null` - not_sent | pending |
+ *        confirmed | withdrawn - which is exactly the state this file said no
+ *        screen could honestly report.
+ *      - "`consentsApi.requestParentConsent` is typed in this repo with NO
+ *        CALLER anywhere." It has callers now: the roster row and the
+ *        student's own record, via `useConsentRequests`.
+ *
+ *    TODO (client, not api): thread `consentStatus` onto `Invitation` in
+ *    `lib/api/invites.ts` and branch `parentConsentLine` on it - nobody asked
+ *    yet / asked and no reply / recorded - falling back to today's no-claim
+ *    sentence on null, exactly as `deliveryLine` already handles a null
+ *    `deliveryStatus`.
+ *
+ * TODO(api): no call QUEUES a consent request against an invitation.
+ * `POST /students/{id}/parent-consent-requests` needs a student uuid, and the
+ * contract never links an invite to one before it is accepted. So this file
+ * can report a request's state once threaded, but still cannot start one.
  */
 
 /** The invite email's outcome, in the admin's language. */

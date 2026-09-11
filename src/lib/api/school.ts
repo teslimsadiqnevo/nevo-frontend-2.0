@@ -215,20 +215,22 @@ export const schoolApi = {
    * Create the school and its founding admin. PUBLIC - this is the one call in
    * the admin surface made before any session exists.
    *
-   * TODO(api): the schema declares a 201 with NO PROPERTIES. SCRUM-39 expects
-   * `school_id`, `admin_id` and a session back, and the wizard needs at least
-   * a session to write the later steps. Until the response carries one, the
-   * wizard signs in with the credentials just submitted - which works, but is
-   * a second round trip that a returned session would remove.
-   */
-  /**
-   * Create the school and its founding admin.
-   *
    * IT RETURNS A BODY, and this was typed `void`. `SchoolRegistrationResponse`
    * carries `{schoolId, adminId, schoolCode}`, all required - three facts the
    * onboarding wizard was throwing away, including the join code the school
-   * signs in with. Still no SESSION, so the wizard does have to sign in
-   * afterwards; see `SignUpStep`, which now tells those two round trips apart.
+   * signs in with.
+   *
+   * A SECOND DOCBLOCK USED TO SIT ABOVE THIS ONE SAYING THE OPPOSITE - "the
+   * schema declares a 201 with NO PROPERTIES" - and the two were adjacent,
+   * which is how long a corrected note can sit beside the thing it corrected
+   * without anyone deleting the original. Its one surviving claim is kept
+   * here:
+   *
+   * TODO(api): still no SESSION on the 201. SCRUM-39 expects one and the
+   * wizard needs it to write the later steps, so it signs in with the
+   * credentials just submitted - which works, but is a second round trip a
+   * returned session would remove. See `SignUpStep`, which tells the two
+   * round trips apart.
    */
   register: (payload: {
     schoolName: string;

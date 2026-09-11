@@ -35,11 +35,22 @@ import {
  * flow. Teacher detail mirrors it with the same role cards and identical
  * wording; where the two would diverge, class detail wins.
  *
- * TODO(api): the backend does not demote the previous primary as part of this
- * call, and offers no transaction that would. The notice therefore describes an
- * intent the API does not yet guarantee. Raised with backend - until it is
- * settled, a school can end up with two primaries, and only the backend can
- * prevent that.
+ * TODO(api): `POST /api/v1/teacher-class-assignments` creates a row and
+ * nothing more. The contract documents no demotion, no one-primary-per-class
+ * rule (`TeacherAssignmentRole` is a bare enum) and no 409, so a plain create
+ * with `role: "primary"` can leave a class with two primaries. The notice
+ * above therefore describes an intent the API does not guarantee.
+ *
+ * "ONLY THE BACKEND CAN PREVENT THAT" USED TO CLOSE THIS, and it is not true.
+ * There is no PATCH on an assignment, but there is a role-changing seam:
+ * `POST /api/v1/teacher-class-assignments/{assignment_id}/reassign` taking
+ * `{new_teacher_id, role?}`, already wrapped as `classesApi.reassign` and
+ * already used by RemoveAccessSheet. Honouring the notice client-side means
+ * reassigning the incumbent's row to co_teacher and creating the new primary -
+ * TWO CALLS, NOT ONE TRANSACTION, so the open question is what the second
+ * failing should leave behind. That is a decision this console can make and
+ * has not; it is not a thing it is waiting on. A transaction is still the
+ * right ask of backend, and is still the only way to close the window.
  */
 
 const LABEL =
