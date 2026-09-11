@@ -12,6 +12,7 @@ import { OfflineTakeover, useOnline } from "./OfflineTakeover";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useHydrated } from "@/hooks/useHydrated";
 import { useSessionRefresh } from "@/hooks/useSessionRefresh";
+import { flushPendingProgress } from "@/lib/lessons/pendingProgress";
 import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
 import { useDisplayName } from "./useDisplayName";
 
@@ -45,6 +46,16 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   // so it covers the full-screen routes below too - a child mid-lesson is the
   // case that matters, and the one the old behaviour handled worst.
   useSessionRefresh();
+  /*
+   * Deliver anything a lesson could not save before it was closed.
+   *
+   * Here rather than only in the player, because a child who gave up on a
+   * lesson while offline may never open that lesson again - and their position
+   * still belongs on Home's "Pick back up" card. Any student screen is enough.
+   */
+  useEffect(() => {
+    void flushPendingProgress();
+  }, []);
   const { textSize } = useAccessibility();
   // The chrome calls the student by their own name, not the fixture's.
   const student = useDisplayName();
