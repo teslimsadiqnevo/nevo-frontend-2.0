@@ -39,11 +39,28 @@ const PAIR_ICONS: Record<AgeBand, [string, string]> = {
 };
 
 /** 2A trial script (same/different), 2B trial script (flanker congruency). */
-const PATTERN_TRIALS: { same: boolean }[] = [{ same: false }, { same: true }, { same: false }];
-const FLANKER_TRIALS: ("congruent" | "incongruent" | "neutral")[] = [
-  "congruent",
-  "incongruent",
-  "incongruent",
+const PATTERN_TRIALS: { same: boolean }[] = [
+  { same: false },
+  { same: true },
+  { same: false },
+];
+
+/**
+ * 2B trials, each carrying the direction the CENTRE arrow points.
+ *
+ * It used to carry only congruency, and the centre arrow was a plain
+ * `<ArrowRight>` that nothing ever rotated - so "Right" was the answer on every
+ * trial of every run. A child who noticed that could stop looking after the
+ * first one and tap Right twice more, which is precisely the attention the task
+ * exists to measure. A flanker task with a fixed target measures nothing.
+ */
+const FLANKER_TRIALS: {
+  congruency: "congruent" | "incongruent" | "neutral";
+  target: "left" | "right";
+}[] = [
+  { congruency: "congruent", target: "right" },
+  { congruency: "incongruent", target: "left" },
+  { congruency: "incongruent", target: "right" },
 ];
 
 export function PatternFlankerModule({
@@ -66,10 +83,19 @@ export function PatternFlankerModule({
   });
 
   const icons = PAIR_ICONS[band] ?? PAIR_ICONS.p46;
-  const patternTrial = PATTERN_TRIALS[Math.min(trial, PATTERN_TRIALS.length - 1)];
-  const flankerTrial = FLANKER_TRIALS[Math.min(trial, FLANKER_TRIALS.length - 1)];
+  const patternTrial =
+    PATTERN_TRIALS[Math.min(trial, PATTERN_TRIALS.length - 1)];
+  const flankerTrial =
+    FLANKER_TRIALS[Math.min(trial, FLANKER_TRIALS.length - 1)];
+  const targetRotate = flankerTrial.target === "left" ? 180 : 0;
+  // Congruent flankers point with the target, incongruent against it - which is
+  // only meaningful now that the target itself moves. Neutral sits across both.
   const flankRotate =
-    flankerTrial === "incongruent" ? 180 : flankerTrial === "neutral" ? -90 : 0;
+    flankerTrial.congruency === "neutral"
+      ? -90
+      : flankerTrial.congruency === "incongruent"
+        ? (targetRotate + 180) % 360
+        : targetRotate;
   const flankViolet = band === "ss";
   const singleArrow = band === "p13";
 
@@ -91,33 +117,43 @@ export function PatternFlankerModule({
         ) : act === "pattern" ? (
           <>
             <div className="flex flex-col items-center justify-center gap-3.5 sm:flex-row sm:gap-8">
-              {[icons[0], patternTrial.same ? icons[0] : icons[1]].map((svg, i) => (
-                <div
-                  key={`${trial}-${i}`}
-                  className="flex h-[150px] w-[300px] items-center justify-center rounded-[12px] border-2 border-nevo-navy bg-nevo-cream sm:size-[180px]"
-                >
+              {[icons[0], patternTrial.same ? icons[0] : icons[1]].map(
+                (svg, i) => (
                   <div
-                    className="size-[72px] text-nevo-navy sm:size-[100px]"
-                    dangerouslySetInnerHTML={{ __html: svg }}
-                  />
-                </div>
-              ))}
+                    key={`${trial}-${i}`}
+                    className="flex h-[150px] w-[300px] items-center justify-center rounded-[12px] border-2 border-nevo-navy bg-nevo-cream sm:size-[180px]"
+                  >
+                    <div
+                      className="size-[72px] text-nevo-navy sm:size-[100px]"
+                      dangerouslySetInnerHTML={{ __html: svg }}
+                    />
+                  </div>
+                ),
+              )}
             </div>
             <div className="flex w-full max-w-[300px] flex-col gap-3.5 sm:w-auto sm:max-w-none sm:flex-row">
-              <TrialButton label="Same" pressed={picked === 0} onClick={() =>
+              <TrialButton
+                label="Same"
+                pressed={picked === 0}
+                onClick={() =>
                   pick(0, {
                     pair: patternTrial.same ? "same" : "different",
                     // Derivable here and nowhere downstream: "Same" is right
                     // when the pair IS the same. The reducer had only speed.
                     correct: patternTrial.same === true,
                   })
-                } />
-              <TrialButton label="Different" pressed={picked === 1} onClick={() =>
+                }
+              />
+              <TrialButton
+                label="Different"
+                pressed={picked === 1}
+                onClick={() =>
                   pick(1, {
                     pair: patternTrial.same ? "same" : "different",
                     correct: patternTrial.same === false,
                   })
-                } />
+                }
+              />
             </div>
           </>
         ) : (
@@ -134,28 +170,57 @@ export function PatternFlankerModule({
                         ? "size-[50px] text-nevo-navy sm:size-[50px]"
                         : cn(
                             "size-[34px]",
-                            flankViolet ? "text-nevo-violet" : "text-nevo-near-black/40",
+                            flankViolet
+                              ? "text-nevo-violet"
+                              : "text-nevo-near-black/40",
                           ),
                     )}
-                    style={central ? undefined : { transform: `rotate(${flankRotate}deg)` }}
+                    style={{
+                      transform: `rotate(${central ? targetRotate : flankRotate}deg)`,
+                    }}
                   />
                 );
               })}
             </div>
             <div className="flex w-full max-w-[300px] flex-col gap-4 sm:w-auto sm:max-w-none sm:flex-row">
               <TrialButton
-                icon={<ArrowRight className="size-9 rotate-180 text-nevo-navy" strokeWidth={2.6} />}
+                icon={
+                  <ArrowRight
+                    className="size-9 rotate-180 text-nevo-navy"
+                    strokeWidth={2.6}
+                  />
+                }
                 label="Left"
                 iconOnly
                 pressed={picked === 0}
-                onClick={() => pick(0, { congruency: flankerTrial })}
+                onClick={() =>
+                  pick(0, {
+                    congruency: flankerTrial.congruency,
+                    // Known here and nowhere downstream. Without it the vector
+                    // said how FAST a child answered an interference trial and
+                    // never whether the flankers had captured them - so a wrong
+                    // fast tap scored better than a right considered one, on
+                    // the one measure where that inverts the finding.
+                    correct: flankerTrial.target === "left",
+                  })
+                }
               />
               <TrialButton
-                icon={<ArrowRight className="size-9 text-nevo-navy" strokeWidth={2.6} />}
+                icon={
+                  <ArrowRight
+                    className="size-9 text-nevo-navy"
+                    strokeWidth={2.6}
+                  />
+                }
                 label="Right"
                 iconOnly
                 pressed={picked === 1}
-                onClick={() => pick(1, { congruency: flankerTrial })}
+                onClick={() =>
+                  pick(1, {
+                    congruency: flankerTrial.congruency,
+                    correct: flankerTrial.target === "right",
+                  })
+                }
               />
             </div>
           </>
