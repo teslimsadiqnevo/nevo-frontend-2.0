@@ -6,6 +6,7 @@ import { IllustrationWrapper } from "@/components/shared/IllustrationWrapper";
 import { MasteryDualTrack } from "@/components/teacher/Student/MasteryDualTrack";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import { getClassInsights, hasGap } from "@/lib/mocks/teacherInsights";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 import { LiveClassInsights } from "./LiveClassInsights";
 import { cn } from "@/lib/utils";
 
@@ -39,16 +40,34 @@ export function InsightsView() {
   // C14 A3: nothing is selected on arrival, so this is nullable by contract.
   const [classId, setClassId] = useState<string | null>(null);
   // The selector offers the teacher's real classes, not the fixture three.
-  const { options: classes, live } = useTeacherClasses();
+  const { options: classes, live, sample, loading } = useTeacherClasses();
   // A live class reads from the intelligence endpoints (see
   // `LiveClassInsights`); the fixtures back the designed screens only.
-  const picked = classId ? classes.find((c) => c.id === classId) : null;
-  const data = classId && !live ? getClassInsights(classId) : null;
+  //
+  // `sample` and `loading` are read here because this screen was the LAST
+  // consumer still deciding on `live` alone, and the two bugs that causes are
+  // both live on a screen a teacher makes decisions from:
+  //
+  //  - while the class read is in flight, `live` is already false, so the
+  //    selector offered the fixture three - JSS 2A, JSS 2B, SSS 1 - to a
+  //    teacher who has none of them.
+  //  - when the read FAILS, this rendered invented misconceptions, mastery and
+  //    recommendations for those classes with no notice of any kind, and
+  //    without a `data-nevo-sample` mark, so the signed-in end-to-end
+  //    assertion could not catch it either.
+  //
+  // `ClassesList` carries the same guard and says the same thing; this is its
+  // sibling, missed when that one was fixed because the shape here is a
+  // ternary rather than an `&&`.
+  const selectable = loading ? [] : classes;
+  const picked = classId ? selectable.find((c) => c.id === classId) : null;
+  const data =
+    classId && !live && !loading ? getClassInsights(classId) : null;
   const liveClass = live && picked ? picked : null;
 
   const pills = (
     <div className="flex gap-2">
-      {classes.map((c) => {
+      {selectable.map((c) => {
         const on = c.id === classId;
         return (
           <button
@@ -79,6 +98,20 @@ export function InsightsView() {
     </div>
   );
 
+  /*
+   * Shown in BOTH shells. The first draft put it only in the populated return,
+   * so a teacher whose class read failed and who had not yet picked a class -
+   * which is the state they LAND on - saw the fixture three in the selector
+   * with nothing saying they were samples. The warning has to reach the screen
+   * where the wrong choice gets made.
+   */
+  const sampleNotice = sample ? (
+    <p className="mt-3 max-w-[620px] text-[13px] leading-[1.5] text-nevo-near-black/60 italic">
+      We couldn&rsquo;t reach your school just now, so these are sample classes
+      and sample insights &ndash; not your week.
+    </p>
+  ) : null;
+
   // ---- C14 A3: no class selected. The shell itself changes shape - the
   // header stops scrolling and the body centres in the viewport. ----
   if (!data && !liveClass) {
@@ -86,6 +119,7 @@ export function InsightsView() {
       <div className="flex min-h-full flex-1 flex-col">
         <div className="shrink-0 px-[38px] pt-[34px] xl:px-[52px] xl:pt-11">
           {heading}
+          {sampleNotice}
         </div>
         <div className="flex flex-1 flex-col items-center justify-center px-12 pb-10 text-center">
           <IllustrationWrapper
@@ -125,9 +159,12 @@ export function InsightsView() {
           />
         )}
 
+        {sampleNotice}
+
         {/* ---- C09 sparse: one calm card, nothing else ---- */}
-        {data &&
-          (data.sparse ? (
+        {data && (
+        <SampleRegion kind="teacher:insights">
+        {(data.sparse ? (
           <div className="mt-8 flex max-w-[640px] items-start gap-4 rounded-xl bg-nevo-cream-elevated p-7 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
             <span className="mt-px size-[22px] shrink-0 text-nevo-violet xl:size-6">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="size-full">
@@ -333,6 +370,8 @@ export function InsightsView() {
             )}
             </>
           ))}
+        </SampleRegion>
+        )}
       </div>
     </div>
   );

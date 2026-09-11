@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useHydrated } from "@/hooks/useHydrated";
+import { useLessonDetail } from "@/hooks/useLessonDetail";
 import { getToken } from "@/lib/auth/session";
 import type {
   LessonDetailData,
   LibraryLesson,
 } from "@/lib/mocks/teacherLibrary";
 import { VariantReview } from "./VariantReview";
+import { LiveVariantReview } from "./LiveVariantReview";
 
 /**
  * C16d HAD no live source. It has one now, and the paragraph that used to
@@ -33,11 +35,17 @@ import { VariantReview } from "./VariantReview";
 export function VariantReviewRoute({
   fixture,
   sectionIndex,
+  lessonId,
 }: {
   fixture: (LibraryLesson & { detail: LessonDetailData }) | null;
   sectionIndex: number;
+  lessonId: string;
 }) {
   const hydrated = useHydrated();
+  // Hooks run before any early return, per the rules of hooks. The read is
+  // cheap and the lesson page has almost always warmed it already.
+  const { lesson, loading, missing } = useLessonDetail(lessonId);
+
   if (!hydrated) return null;
 
   if (!getToken() && fixture) {
@@ -50,22 +58,73 @@ export function VariantReviewRoute({
     );
   }
 
+  // A real lesson, read live. Segments come back in `sequenceOrder`, but the
+  // URL counts sections from 1, so sort before indexing rather than trusting
+  // the array order the server happened to serialise.
+  const segments = lesson
+    ? [...lesson.segments].sort((a, b) => a.sequenceOrder - b.sequenceOrder)
+    : [];
+  const segment = segments[sectionIndex - 1];
+
+  if (segment && lesson) {
+    return (
+      <LiveVariantReview
+        lessonId={lessonId}
+        lessonTitle={lesson.title}
+        segment={segment}
+        sectionIndex={sectionIndex}
+      />
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
+        <div className="mx-auto flex max-w-[680px] flex-col gap-4 xl:max-w-[820px]">
+          <div className="h-8 w-[62%] animate-pulse rounded-[8px] bg-nevo-cream-elevated" />
+          <div className="h-[220px] animate-pulse rounded-[12px] bg-nevo-cream-elevated" />
+        </div>
+      </div>
+    );
+  }
+
+  /*
+   * The honest states, and note what is NOT here any more.
+   *
+   * This route used to answer every signed-in teacher with "Variants aren't
+   * available yet ... they're not part of what a lesson gives us back". That
+   * was true when it was written and stopped being true: all five variants are
+   * declared schemas on `LessonSegmentResponse`, which the lesson read above
+   * returns. The screen was telling teachers a feature was impossible while the
+   * data sat in a response the console had already fetched.
+   *
+   * What remains is a genuine miss - the lesson would not load, or it holds no
+   * section with that number - and each says which.
+   */
+  const outOfRange = Boolean(lesson) && !segment;
+
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
       <div className="mx-auto max-w-[660px] rounded-[12px] bg-nevo-cream-elevated px-[26px] py-7 shadow-elevation-1">
         <h2 className="text-[17px] font-semibold text-nevo-near-black">
-          Variants aren&rsquo;t available yet
+          {missing
+            ? "We couldn’t find this lesson"
+            : outOfRange
+              ? "This lesson has no section " + sectionIndex
+              : "We couldn’t load this lesson"}
         </h2>
         <p className="mt-2 text-sm leading-[1.55] text-nevo-near-black/62">
-          Nevo builds a different version of each section for reading, seeing,
-          listening and doing. We can&rsquo;t show you those yet &ndash;
-          they&rsquo;re not part of what a lesson gives us back.
+          {missing
+            ? "It may have been removed from your library."
+            : outOfRange
+              ? "It may have been re-parsed since this link was made."
+              : "It hasn’t gone anywhere. Try again in a moment."}
         </p>
         <Link
-          href="/teacher/lessons"
+          href={`/teacher/lessons/${lessonId}`}
           className="mt-5 inline-flex h-[46px] cursor-pointer items-center rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
         >
-          Back to your library
+          Back to the lesson
         </Link>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { TEXT_ZOOM, useAccessibility } from "@/context/AccessibilityContext";
+import { useSessionLapse } from "@/hooks/useSessionLapse";
 import { AskNevo } from "./AskNevo";
 import { TeacherSidebar } from "./TeacherSidebar";
 
@@ -14,6 +15,26 @@ import { TeacherSidebar } from "./TeacherSidebar";
 export function TeacherShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
   const { textSize } = useAccessibility();
+
+  /*
+   * Notice when a teacher's session runs out under them.
+   *
+   * `StudentShell` has called this since the hook was written; this shell
+   * never did, so a teacher's lapse was silent. The door it needs already
+   * exists and is already role-aware - `sessionExpiredDoor` returns
+   * `/auth/teacher/session-expired` for `role === "teacher"`, and that page is
+   * built - so the whole gap was this one call, and the page it was built for
+   * was unreachable.
+   *
+   * The failure mode is the same one the hook's own docblock describes: an
+   * expired session clears itself, so no request is made, so no 401 arrives,
+   * so nothing redirects. The route guard runs only on navigation - and a
+   * teacher reading one class's roster does not navigate. They work on into a
+   * void.
+   *
+   * ABOVE THE EARLY RETURN, deliberately: hooks cannot run conditionally.
+   */
+  useSessionLapse();
 
   if (pathname.startsWith("/teacher/onboarding")) return <>{children}</>;
 
