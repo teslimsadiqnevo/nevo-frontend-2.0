@@ -179,6 +179,36 @@ mount it.** It is role-aware (`sessionExpiredDoor(role)`) and takes no arguments
 
 ---
 
+## ACTION NEEDED — PARENT LANE IS BROKEN AGAINST THE DEPLOYED BACKEND, 11 Sep
+
+**A backend deploy has replaced parent password auth with a code flow, and one
+client call now 404s.** Found because `scripts/contract-check.mjs` started
+failing on `main` — the gate was right and a pinned spec copy was stale.
+
+| | |
+|---|---|
+| **GONE** | `POST /api/v1/consents/parent/{token}/account` (+ `ParentAccountRequest`, `ParentAccountResponse`) |
+| **GONE** | `POST /api/v1/auth/login/parent` (+ `ParentLoginRequest`) |
+| **NEW** | `POST /api/v1/auth/parent/request-code` (+ `ParentCodeRequest`, `ParentCodeSentResponse`) |
+| **NEW** | `POST /api/v1/auth/parent/verify-code` (+ `ParentCodeVerifyRequest`) |
+
+**The live break:** `parentApi.createAccount` (`src/lib/api/parent.ts:246`) is
+called by `ParentConsent.tsx:409`. A parent who completes consent and sets a
+password now gets a 404 — on the consent flow, which is the most sensitive path
+in the product. `/auth/login/parent` has NO caller, so that removal is harmless.
+
+**This is a design change, not a rename.** Parents move from a password to a
+requested code, so it needs the two-step flow built, not a URL swap. It belongs
+to whoever owns the parent lane.
+
+**The wider lesson, and it applies to every session:** the admin work this week
+was verified against a spec copy pinned on 10 Sep. Re-diffed against live on
+11 Sep, every admin schema and query parameter was identical — 16 schemas, 3
+paginated endpoints, zero drift — so that work stands. But the pin hid a real
+change for a day. **Re-fetch before trusting a pinned copy**, and treat a
+contract-check failure on `main` as a finding rather than noise: it was correct
+here and would have been dismissed as a false positive on the path matcher.
+
 ## ACTION NEEDED — student and admin sessions
 
 **Wrap your fixture fallbacks in `<SampleRegion>`.** Ten minutes each, and the
