@@ -3,18 +3,13 @@
 import { useRef, useState } from "react";
 import { holdBaseline } from "@/lib/profiling/pendingBaseline";
 import { ONBOARDING_SIGNAL_TYPES } from "@/lib/constants";
-import {
-  bandForAge,
-  bandForYearLabel,
-  gridSpanConfig,
-} from "@/lib/profiling/bands";
+import { bandForAge, gridSpanConfig } from "@/lib/profiling/bands";
 import { getOnboardingDraft } from "@/lib/auth/onboarding";
 import {
   BaselineCapture,
   reduceGridSpan,
   reduceTrialModule,
 } from "@/lib/profiling/capture";
-import { MOCK_STUDENT } from "@/components/student/Shell/studentNav";
 import { randomId } from "@/lib/utils";
 import type { TrackEvent } from "@/hooks";
 import { DomainProbeModule } from "./DomainProbeModule";
@@ -54,14 +49,30 @@ export function ProfilingFlow({
     | "m4"
     | "complete"
   >("intro");
-  // The child told us their age in Step 1. Use it - the fixture year label was
-  // standing in for a year group `users/me` does not carry, and it meant every
-  // child ran the same band whatever they had just typed. The label stays as
-  // the fallback for a run reached without a draft (a re-run from Profile).
-  const [band] = useState(() => {
-    const age = getOnboardingDraft().age;
-    return age ? bandForAge(age) : bandForYearLabel(MOCK_STUDENT.subtitle);
-  });
+  /*
+   * THE BAND IS NEVER GUESSED FROM A FIXTURE.
+   *
+   * It decides the grid size, the span ceiling, whether the dual task runs and
+   * which domain questions a child sees, so getting it wrong does not just skew
+   * the measurement - it decides what a child is asked to do.
+   *
+   * The age comes from onboarding Step 1. When it is missing this fell back to
+   * `bandForYearLabel(MOCK_STUDENT.subtitle)` - a FIXTURE's "Year 4" - and the
+   * comment beside it named only one draft-less path, a re-run from Profile. It
+   * missed the one that ships: a child arriving by SSO never sees Step 1, so
+   * EVERY SSO child sat the Primary 4-6 baseline. A sixteen-year-old on a 4x4
+   * grid with no dual task; a seven-year-old with SEND asked "What is 15% of
+   * 200?" as their first minutes in Nevo.
+   *
+   * Nothing a signed-in child can read carries an age or a year group -
+   * `users/me` has neither and there is no student-facing class read - so it
+   * cannot be derived. When we do not know, we ask, on the intro screen that
+   * was already there. One question is cheaper than mis-pitching four modules,
+   * and far cheaper than a baseline that measures the wrong child.
+   */
+  const [askedAge, setAskedAge] = useState("");
+  const draftAge = getOnboardingDraft().age;
+  const band = draftAge ? bandForAge(draftAge) : bandForAge(Number(askedAge));
   const [capture] = useState(
     () => new BaselineCapture(`baseline-${randomId()}`),
   );
@@ -118,6 +129,9 @@ export function ProfilingFlow({
   if (phase === "intro") {
     return (
       <ProfilingIntro
+        askAge={!draftAge}
+        age={askedAge}
+        onAgeChange={setAskedAge}
         mode="intro"
         onContinue={() => {
           track?.(ONBOARDING_SIGNAL_TYPES.BASELINE_MODULE_START, {

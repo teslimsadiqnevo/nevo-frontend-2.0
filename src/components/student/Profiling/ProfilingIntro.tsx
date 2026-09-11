@@ -1,6 +1,10 @@
 "use client";
 
 import { IllustrationWrapper } from "@/components/shared";
+import {
+  AgeStepper,
+  isAgeInRange,
+} from "@/components/student/Onboarding/AgeStepper";
 import { ProfilingShell } from "./ProfilingShell";
 
 /**
@@ -18,9 +22,28 @@ export function ProfilingIntro({
   mode,
   onContinue,
   saved = null,
+  askAge = false,
+  age = "",
+  onAgeChange,
 }: {
   mode: "intro" | "complete";
   onContinue: () => void;
+  /**
+   * Ask before starting, because we do not know.
+   *
+   * The band decides the grid size, the span ceiling, whether the dual task
+   * runs and which domain questions a child sees. It normally comes from the
+   * age given in onboarding Step 1 - but a child arriving by SSO never sees
+   * that step, and the code fell back to a FIXTURE's "Year 4". Every SSO child
+   * therefore sat the Primary 4-6 baseline: a sixteen-year-old on a 4x4 grid
+   * with no dual task, a seven-year-old asked "What is 15% of 200?".
+   *
+   * Nothing a signed-in child can read carries an age or year group, so it
+   * cannot be derived. One question is cheaper than mis-pitching four modules.
+   */
+  askAge?: boolean;
+  age?: string;
+  onAgeChange?: (value: string) => void;
   /**
    * Whether the baseline reached Nevo. Null while it is still resolving, which
    * reads as the settled copy - the child did their part either way and the
@@ -49,7 +72,9 @@ export function ProfilingIntro({
           className="h-[160px] w-auto sm:h-[200px]"
         />
         <h1 className="mt-[22px] text-[22px] leading-[1.25] font-semibold tracking-[-0.015em] text-balance text-nevo-navy sm:mt-[26px] sm:text-2xl">
-          {complete ? "All set. Nevo is ready for you." : "Let's set up your learning space"}
+          {complete
+            ? "All set. Nevo is ready for you."
+            : "Let's set up your learning space"}
         </h1>
         <p className="mt-3 max-w-[400px] text-[15px] leading-[1.55] text-pretty text-nevo-near-black sm:text-base">
           {complete
@@ -58,10 +83,24 @@ export function ProfilingIntro({
               : "Your learning space has been personalized."
             : "You'll do four quick activities. No tests, no scores. This just helps Nevo work better for you."}
         </p>
+        {askAge && !complete && (
+          <div className="mt-6 w-full">
+            <p className="mb-2 text-[15px] font-medium text-nevo-near-black">
+              How old are you?
+            </p>
+            <AgeStepper value={age} onChange={(v) => onAgeChange?.(v)} />
+          </div>
+        )}
+
         <button
           type="button"
+          disabled={askAge && !complete && !isAgeInRange(age)}
           onClick={onContinue}
-          className="mt-[30px] h-[52px] w-full cursor-pointer rounded-[10px] bg-nevo-navy text-base font-semibold text-nevo-cream transition-[filter,transform] hover:brightness-109 active:scale-[0.985] sm:mt-[34px]"
+          className={
+            askAge && !complete && !isAgeInRange(age)
+              ? "mt-[30px] h-[52px] w-full cursor-not-allowed rounded-[10px] bg-nevo-navy text-base font-semibold text-nevo-cream opacity-40 sm:mt-[34px]"
+              : "mt-[30px] h-[52px] w-full cursor-pointer rounded-[10px] bg-nevo-navy text-base font-semibold text-nevo-cream transition-[filter,transform] hover:brightness-109 active:scale-[0.985] sm:mt-[34px]"
+          }
         >
           {complete ? "Start my first lesson" : "Let's go"}
         </button>
