@@ -50,6 +50,10 @@
  *   behind, which on this screen of all screens would be the worst thing to
  *   invent.
  *
+ * TWO OF THE FOUR ARE MEASURED NOW - consent coverage from the roster read and
+ * the retention position from `GET /api/v1/school` - and carry real figures
+ * under the `school` verification rather than a mechanism with no number.
+ *
  * TODO(api): erasure requests in progress, and a subprocessor count - the two
  * states this screen genuinely cannot verify.
  * `POST /api/v1/parent/{token}/rights` mints a request id but nothing reads one
@@ -69,15 +73,77 @@
  * below is built to the ops breach tone; design and counsel both to confirm.
  */
 
-export type ClaimVerification = "labels" | "product" | "unverified";
+import type { StudentConsent } from "@/lib/api/students";
+import { withoutRecordedConsent } from "../Students/ConsentPill";
+
+/**
+ * Coverage is counted with the ROSTER'S OWN function, deliberately.
+ *
+ * The compliance screen and the Students screen must not be able to disagree
+ * about how many consents a school holds - two implementations of one legal
+ * figure is how they end up differing by one and nobody notices.
+ */
+export interface ConsentCoverage {
+  /** Rows this read returned. */
+  roster: number;
+  /** Rows carrying a confirmed record. */
+  confirmed: number;
+  /** Rows carrying a record that is not confirmed. */
+  outstanding: number;
+  /** Rows carrying NO consent record at all. Not zero - unknown. */
+  unknown: number;
+}
+
+export type ConsentInput = ConsentCoverage | "unreadable";
+export interface RetentionPosition {
+  policy: string;
+  days: number;
+}
+export type RetentionInput = RetentionPosition | "unreadable";
+
+export interface NdpaInputs {
+  labels: number;
+  consent: ConsentInput;
+  retention: RetentionInput;
+}
+
+/**
+ * The coverage figures, from the roster read the Students screen already makes.
+ *
+ * `confirmed` is derived by SUBTRACTION so it cannot drift from the count the
+ * roster header quotes. `unknown` is kept apart from both: a row that came back
+ * without a consent object is neither covered nor outstanding, and folding it
+ * into either would be a guess on the one screen where guessing is worst.
+ */
+export function consentCoverage(
+  rows: { consent?: StudentConsent | null }[],
+): ConsentCoverage {
+  const outstanding = withoutRecordedConsent(rows);
+  const unknown = rows.filter((r) => !r.consent).length;
+  return {
+    roster: rows.length,
+    outstanding,
+    unknown,
+    confirmed: rows.length - outstanding - unknown,
+  };
+}
+
+export type ClaimVerification =
+  | "labels"
+  | "product"
+  /** Measured from THIS school's own data, not an architectural property. */
+  | "school"
+  | "unverified";
 
 export interface NdpaClaim {
   title: string;
-  /** Only used when verification is "product". */
+  /** The chip. "product" and "school" rows carry one; "unverified" never does. */
   state?: string;
   mechanism: string;
   evidence: string;
   verification: ClaimVerification;
+  /** Why this row carries no figure. Only ever set on "unverified". */
+  note?: string;
 }
 
 export interface LabelHero {
@@ -124,8 +190,113 @@ export function labelHero(
   };
 }
 
-/** The claims table. Only the labels row moves with the audit. */
-export function ndpaClaims(count: number): NdpaClaim[] {
+/**
+ * The parental-consent row.
+ *
+ * NOTE WHAT THIS DOES NOT SAY. An outstanding consent is the SCHOOL'S record to
+ * complete, not a bar on the child: SCRUM-80 ruled that the school warrants
+ * consent through the DSA and only a withdrawal stops processing. An earlier
+ * draft of this row said those learners "cannot begin lessons until it is",
+ * which is the claim the rest of the console was corrected for making.
+ *
+ * `unknown` rows send the whole row back to `unverified`. A coverage figure
+ * computed over a roster we only partly understand is worse than no figure on
+ * this screen, because it looks exactly like one we do understand.
+ */
+function consentClaim(input: ConsentInput): NdpaClaim {
+  const base = {
+    title: "Parental consent coverage",
+    evidence: "Consent register (count only)",
+  };
+  const generic =
+    "A parental consent is recorded against each learner, and this row counts how many are covered. Coverage is a count only \u2013 which learner, who consented and when stays on the student record.";
+
+  if (input === "unreadable") {
+    return {
+      ...base,
+      mechanism: generic,
+      verification: "unverified",
+      note: "Your roster didn\u2019t come back when this page loaded, so no count is shown. That is this console failing to read it \u2013 nothing about your school\u2019s consents has changed.",
+    };
+  }
+  if (input.unknown > 0) {
+    return {
+      ...base,
+      mechanism: generic,
+      verification: "unverified",
+      note: `${input.unknown} of the ${input.roster} learners in this read came back with no consent record at all. Counting those as covered, or as missing, would both be guesses, so no figure is shown.`,
+    };
+  }
+  if (input.roster === 0) {
+    return {
+      ...base,
+      state: "No learners yet",
+      mechanism:
+        "No learners are enrolled yet, so there is no consent to cover. The count appears here as soon as your first learner is enrolled.",
+      verification: "school",
+    };
+  }
+  if (input.outstanding === 0) {
+    return {
+      ...base,
+      state: `${input.roster} of ${input.roster}`,
+      mechanism: `All ${input.roster} learners on your roster have a parental consent recorded against their name. This screen holds the count only \u2013 which learner, who consented and when stays on the student record.`,
+      verification: "school",
+    };
+  }
+  const one = input.outstanding === 1;
+  return {
+    ...base,
+    state: `${input.confirmed} of ${input.roster}`,
+    mechanism: `${input.confirmed} of the ${input.roster} learners on your roster have a parental consent recorded. ${input.outstanding} ${one ? "does" : "do"} not yet \u2013 your school\u2019s record to complete, and your Students page lists which. Learning is not held up while it is outstanding.`,
+    verification: "school",
+  };
+}
+
+/**
+ * The retention row.
+ *
+ * `retentionPolicy` and `retentionDays` are BOTH required on `GET
+ * /api/v1/school`, so this is a measurement rather than an architectural claim
+ * - which is why the row moved off `unverified`, where it sat because an
+ * earlier note said no endpoint reported it.
+ *
+ * The title lost "within counsel limits": this reports the school's configured
+ * position, and whether that position satisfies counsel is counsel's judgement,
+ * not a thing this screen can check.
+ */
+function retentionClaim(input: RetentionInput): NdpaClaim {
+  const base = {
+    title: "Records retention",
+    evidence: "Retention policy, deletion jobs",
+    mechanism:
+      "Account and enrolment records are kept only for the period set with counsel; nothing is retained beyond it. Learning signals, being ephemeral, have no retention period at all.",
+  };
+  if (input === "unreadable") {
+    return {
+      ...base,
+      verification: "unverified",
+      note: "Your school record didn\u2019t come back when this page loaded, so the configured period isn\u2019t shown here.",
+    };
+  }
+  return {
+    ...base,
+    state: `${input.days} days`,
+    mechanism: `${base.mechanism} Your school is set to ${POLICY_LABEL[input.policy] ?? input.policy}, which is ${input.days} days.`,
+    verification: "school",
+  };
+}
+
+/** The three values the contract's `retentionPolicy` pattern allows. */
+const POLICY_LABEL: Record<string, string> = {
+  contract: "the contract term",
+  contract_plus_3_years: "the contract term plus three years",
+  contract_plus_7_years: "the contract term plus seven years",
+};
+
+/** The claims table. */
+export function ndpaClaims(inputs: NdpaInputs): NdpaClaim[] {
+  const count = inputs.labels;
   return [
     {
       title: "Ephemeral processing",
@@ -148,13 +319,7 @@ export function ndpaClaims(count: number): NdpaClaim[] {
       evidence: "Data-model audit, schema review",
       verification: "labels",
     },
-    {
-      title: "Parental consent coverage",
-      mechanism:
-        "Every enrolled learner has a recorded parental consent before any processing begins. Coverage is shown as a count for the school; individual consent records live with the parent and the SENCo, not here.",
-      evidence: "Consent register (count only)",
-      verification: "unverified",
-    },
+    consentClaim(inputs.consent),
     {
       title: "Data-flow transparency",
       state: "Documented",
@@ -163,18 +328,7 @@ export function ndpaClaims(count: number): NdpaClaim[] {
       evidence: "Data-flow map, DPA schedule 2",
       verification: "product",
     },
-    {
-      // Was `state: "Within limits"` - a per-school verdict rendered as a
-      // verified-looking chip with no measurement anywhere behind it, which
-      // is exactly what this file's own rule sends to `unverified`. Whether
-      // THIS school's records sit within the retention period is not an
-      // architectural property, and no endpoint reports it.
-      title: "Retention within counsel limits",
-      mechanism:
-        "Account and enrolment records are kept only for the period set with counsel; nothing is retained beyond it. Learning signals, being ephemeral, have no retention period at all.",
-      evidence: "Retention policy, deletion jobs",
-      verification: "unverified",
-    },
+    retentionClaim(inputs.retention),
     {
       title: "Right to erasure",
       mechanism:

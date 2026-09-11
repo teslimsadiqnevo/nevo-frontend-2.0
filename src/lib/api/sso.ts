@@ -25,7 +25,22 @@ import { api } from "./client";
 
 export type SsoProvider = "microsoft" | "google";
 export type SsoConnectionStatus = "connected" | "needs_attention" | "disconnected";
-export type RosterSyncStatus = "completed" | "partial_manual_review" | "failed";
+/**
+ * THE ENUM HAS FOUR MEMBERS AND THIS TYPE CARRIED THREE.
+ *
+ * `running` was missing, and it is the one a client meets first:
+ * `POST /admin/sso/roster-sync` answers 202 carrying this same enum, so a run
+ * queued by "Sync now" comes back `running` - and the most recent run in the
+ * history is exactly the one that can still be in flight while the screen is
+ * open. A union that cannot express it forces every reader into the "finished"
+ * branch, which is the console's oldest mistake: telling IN FLIGHT from
+ * ANSWERED.
+ */
+export type RosterSyncStatus =
+  | "running"
+  | "completed"
+  | "partial_manual_review"
+  | "failed";
 
 /** One row of the D10b data-flow disclosure, server-supplied. */
 export interface SsoDataFlowCategory {

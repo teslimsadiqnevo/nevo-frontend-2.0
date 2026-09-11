@@ -9,7 +9,15 @@ import {
 } from "@/lib/api/schoolIntelligence";
 import { getToken } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
-import { labelHero, ndpaClaims } from "./ndpaClaims";
+import {
+  consentCoverage,
+  labelHero,
+  ndpaClaims,
+  type ConsentInput,
+  type RetentionInput,
+} from "./ndpaClaims";
+import { studentsApi } from "@/lib/api/students";
+import { schoolApi } from "@/lib/api/school";
 import { NoAccess, failureKind } from "../NoAccess";
 
 /**
@@ -55,6 +63,15 @@ export function ComplianceView() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [audit, setAudit] = useState<ComplianceAudit | null>(null);
   const [exporting, setExporting] = useState<Export>("idle");
+  /*
+   * Two rows are MEASURED from this school rather than asserted about the
+   * product, so they need two reads the audit does not carry. Both start
+   * "unreadable" and both own their own failure: a roster that will not answer
+   * must cost this page a figure, never the page. The audit is still the only
+   * call that can set `phase`.
+   */
+  const [consent, setConsent] = useState<ConsentInput>("unreadable");
+  const [retention, setRetention] = useState<RetentionInput>("unreadable");
 
   const load = useCallback(() => {
     schoolIntelligenceApi
@@ -64,6 +81,22 @@ export function ComplianceView() {
         setPhase("ready");
       })
       .catch((err: unknown) => setPhase(failureKind(err)));
+
+    studentsApi
+      .list()
+      .then((rows) => setConsent(consentCoverage(rows)))
+      .catch(() => setConsent("unreadable"));
+
+    schoolApi
+      .get()
+      .then((school) =>
+        setRetention(
+          typeof school.retentionDays === "number" && school.retentionPolicy
+            ? { policy: school.retentionPolicy, days: school.retentionDays }
+            : "unreadable",
+        ),
+      )
+      .catch(() => setRetention("unreadable"));
   }, []);
 
   useEffect(() => {
@@ -99,7 +132,7 @@ export function ComplianceView() {
 
   const labels = audit?.diagnosticLabelsStored ?? 0;
   const hero = labelHero(labels, "audit");
-  const claims = ndpaClaims(labels);
+  const claims = ndpaClaims({ labels, consent, retention });
 
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
@@ -214,7 +247,7 @@ export function ComplianceView() {
                     ? audit.diagnosticLabelsStored === 0
                       ? "Verified"
                       : "Needs review"
-                    : c.verification === "product"
+                    : c.verification === "product" || c.verification === "school"
                       ? c.state
                       : null;
                 return (
@@ -250,10 +283,14 @@ export function ComplianceView() {
                         ? ` · Last checked: ${fmtDate(audit.generatedAt)}`
                         : ""}
                     </p>
+                    {/* A row that cannot show a figure says WHY, in its own
+                        words where it has them. "Sits outside the audit" was
+                        true of all four rows when none could be measured; two
+                        can now, and the remaining reasons differ. */}
                     {c.verification === "unverified" && (
                       <p className="mt-1.5 text-[13px] leading-[1.5] text-nevo-near-black/50 italic">
-                        This figure isn&rsquo;t reachable from here yet &ndash;
-                        the register it comes from sits outside the audit.
+                        {c.note ??
+                          "This figure isn’t reachable from here yet – the register it comes from sits outside the audit."}
                       </p>
                     )}
                   </div>
