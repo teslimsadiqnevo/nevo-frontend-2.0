@@ -5,10 +5,19 @@
  * Pure CSS: hidden by default, shown only when a coarse-pointer (touch) device
  * is held landscape - a desktop with a mouse never sees it, whatever its aspect.
  * Calm, no error framing; content resumes untouched underneath when rotated back.
+ *
+ * Covering the app is not the same as stopping it - see `RotateLock`, which
+ * makes the page beneath inert so a child on a keyboard or switch cannot tab
+ * into a lesson they have been asked to turn away from.
  */
-export function RotatePrompt() {
+export function RotatePrompt({ ref }: { ref?: React.Ref<HTMLDivElement> }) {
   return (
     <div
+      ref={ref}
+      // Focused by `RotateLock` when the device turns, which is what actually
+      // announces it - a `role="status"` region whose content never changes
+      // (only its `display`) is not reliably announced by anything.
+      tabIndex={-1}
       role="status"
       className="fixed inset-0 z-[100] hidden flex-col items-center justify-center bg-nevo-cream px-10 text-center text-nevo-near-black md:px-14 [@media(orientation:landscape)_and_(pointer:coarse)]:flex"
     >
@@ -55,8 +64,8 @@ export function RotatePrompt() {
         Turn your tablet upright
       </h2>
       <p className="mt-3 max-w-[280px] text-[15px] leading-[1.55] text-nevo-near-black/66 md:max-w-[360px] md:text-[17px]">
-        Nevo is designed to stand tall. Rotate your tablet and we&apos;ll pick up
-        right where you were.
+        Nevo is designed to stand tall. Rotate your tablet and we&apos;ll pick
+        up right where you were.
       </p>
     </div>
   );
