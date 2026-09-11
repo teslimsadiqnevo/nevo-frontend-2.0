@@ -57,6 +57,32 @@ export const DPA_CLAUSES: DpaClause[] = [
     title: "What Nevo does not do",
     body: "Nevo does not sell personal data, does not use a school's data to advertise, and does not train shared models on identifiable student data. Adaptation happens against the individual learner's own record.",
   },
+  /*
+   * ============================================================================
+   * CONFLICT WITH SCRUM-80 - NOT RESOLVED HERE, BECAUSE IT IS COUNSEL'S TO
+   * RESOLVE. Flagged 11 Sep 2026.
+   *
+   * This clause warrants that Nevo "will not activate a learner whose consent
+   * has not been confirmed". SCRUM-80 (7 Sep) ruled the opposite: the School
+   * warrants consent through the DSA, so an unconfirmed consent is the
+   * school's administrative task and the learner PROCEEDS - only an explicit
+   * withdrawal stops processing. `lib/api/consents.ts` encodes that ruling and
+   * the deployed `ConsentGateResponse` carries `granted` and `blocked` as two
+   * separate booleans precisely because they are different questions.
+   *
+   * Both cannot be true. This matters more than ordinary copy drift because
+   * the school FORMALLY ACCEPTS this document - `POST /school/dpa-acceptance`
+   * records the version, the accepting administrator and the timestamp, and
+   * the D22 compliance surface then cites that acceptance as evidence. So it
+   * is a contractual term that may not describe the product.
+   *
+   * Unlike clauses 6 and 7 this one carries no `[Placeholder: ...]` marker, so
+   * it reads as settled. The text is deliberately left EXACTLY as counsel last
+   * had it: silently rewording a term a school has already accepted would be
+   * the worse error. Either the clause changes or the product gates - and
+   * whichever it is, it is not a decision this file gets to make.
+   * ============================================================================
+   */
   {
     num: "5",
     title: "Parental consent",
