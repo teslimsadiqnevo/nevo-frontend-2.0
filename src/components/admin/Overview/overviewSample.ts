@@ -14,7 +14,9 @@
  * TODO(api): a roll-up of what actually needs a decision. No single endpoint
  * returns one.
  *
- * TWO OF THESE THREE ROWS NO LONGER NEED IT, which this said nothing about:
+ * TWO OF THESE THREE ROWS ARE LIVE NOW and have left this file - see
+ * `overviewGlance.ts`. What follows is the history, kept because the third row
+ * is still fixture and the reasoning still applies to it:
  *
  *   - "waiting on parent consent" is `GET /api/v1/students` filtered on
  *     `consent.status === "pending"`.
@@ -24,12 +26,13 @@
  *     nearest proxy is `GET /api/admin/adaptation-log?classId=`, one call per
  *     class, which is not the same claim.
  *
- * So the fixture should shrink to the third row rather than wait for an
- * endpoint. Two things must move WITH that change or the screen starts lying
- * in a new way: the sample note on OverviewView ("These three are a sample")
- * becomes false copy, and the `SampleRegion` wrapper must narrow to the one
- * row that is still fixture - a marked region around live rows would train the
- * e2e suite to accept a real roll-up as an invented one.
+ * Both of those moved with the change, and they had to: a sample note reading
+ * "These three are a sample" would have been false the moment two of them were
+ * real, and a `SampleRegion` wrapped around live rows would train the e2e suite
+ * to accept a genuine roll-up as an invented one. The wrapper now encloses this
+ * row alone.
+ *
+ * DELETING THIS FILE IS STILL THE GOAL. It is one row from being empty.
  */
 
 /** D04's `narrativePop`, verbatim - a worked example of the register. */
@@ -42,20 +45,6 @@ export interface GlanceRow {
 }
 
 export const WORTH_A_GLANCE: GlanceRow[] = [
-  {
-    title: "6 students are waiting on parent consent",
-    // Was "They can look around, but can't begin live lessons until it's
-    // confirmed" - a gate SCRUM-80 says Nevo does not operate.
-    sub: "They're learning as normal; your school's consent record is what's outstanding.",
-    action: "Review in Students",
-    href: "/admin/students",
-  },
-  {
-    title: "4 students have active support flags",
-    sub: "Each is already with their teacher this half-term - nothing new is unattended.",
-    action: "Open Learning Support",
-    href: "/admin/senco",
-  },
   {
     title: "2 classes haven't run a lesson yet",
     sub: "JSS 1B and SSS 2 Arts - might be worth a nudge to their teachers.",

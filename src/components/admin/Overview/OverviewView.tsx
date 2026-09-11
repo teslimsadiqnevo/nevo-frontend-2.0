@@ -18,6 +18,9 @@ import {
 import { schoolApi, type SchoolNarrative, type SchoolRosterCounts } from "@/lib/api/school";
 import { SampleRegion } from "@/components/shared/SampleRegion";
 import { WORTH_A_GLANCE } from "./overviewSample";
+import { glanceRows } from "./overviewGlance";
+import { intelligenceApi, type AttentionFlag } from "@/lib/api/intelligence";
+import { studentsApi, type AdminStudentRow } from "@/lib/api/students";
 import { NoAccess, failureKind } from "../NoAccess";
 
 /**
@@ -97,6 +100,14 @@ export function OverviewView() {
   const [narrative, setNarrative] = useState<SchoolNarrative | null>(null);
   const [narrativeFailed, setNarrativeFailed] = useState(false);
   const [counts, setCounts] = useState<SchoolRosterCounts | null>(null);
+  /*
+   * The two roll-up rows that are this school's own. Both stay NULL until a
+   * read completes, and a read that fails leaves them null - the row is then
+   * absent rather than reported as zero. `null` is also the first-render value,
+   * which is correct here: we have not asked yet, so we have nothing to say.
+   */
+  const [roster, setRoster] = useState<AdminStudentRow[] | null>(null);
+  const [flags, setFlags] = useState<AttentionFlag[] | null>(null);
 
   const load = useCallback(() => {
     Promise.all([
@@ -106,12 +117,24 @@ export function OverviewView() {
       // their own failures - neither should take the page down.
       schoolApi.narrative().catch(() => null),
       schoolApi.overview().catch(() => null),
+      // Own failures, like their neighbours. The flags read is scoped `senco`
+      // while this screen is `oversight`, so an admin without it gets a 403
+      // here routinely - and that must cost them one ROW, never the page.
+      studentsApi.list().catch(() => null),
+      intelligenceApi
+        .allFlags()
+        // `complete: false` means we could not read them all, and a count off
+        // a partial read is a floor. Report nothing rather than a floor.
+        .then((r) => (r.complete ? r.flags : null))
+        .catch(() => null),
     ])
-      .then(([a, log, n, ov]) => {
+      .then(([a, log, n, ov, rows, openFlags]) => {
         setAudit(a);
         setNarrative(n);
         setNarrativeFailed(n === null);
         setCounts(ov ? ov.counts : null);
+        setRoster(rows);
+        setFlags(openFlags);
         setAdaptationTotal(log?.total ?? a.adaptationEventsLogged);
         setPhase("ready");
       })
@@ -418,43 +441,87 @@ export function OverviewView() {
                 })}
               </div>
             ) : (
-            /* The last sample left on this screen. Marked so the end-to-end
-               suite can see it: a signed-in admin should never meet an invented
-               roll-up, and an UNMARKED fallback is invisible to that test - it
-               walks past reporting success, which is worse than no test. */
-            <SampleRegion kind="admin:overview-worth-a-glance">
-            <div className={cn(CARD, "mt-3 overflow-hidden")}>
-              {WORTH_A_GLANCE.map((g, i) => (
-                <Link
-                  key={g.title}
-                  href={g.href}
-                  className={cn(
-                    "flex items-center gap-4 px-[22px] py-[18px] transition-[filter] hover:brightness-[0.985]",
-                    i < WORTH_A_GLANCE.length - 1 &&
-                      "border-b border-nevo-near-black/7",
+            (() => {
+              /*
+               * TWO OF THESE ROWS ARE THIS SCHOOL'S NOW, and the third is not.
+               * That split is the whole reason this is shaped the way it is:
+               *
+               * The live rows render OUTSIDE `SampleRegion`. Wrapping a real
+               * roll-up in the marker that means "invented" would teach the
+               * end-to-end suite to walk past a genuine one, which is worse
+               * than having no marker at all.
+               *
+               * The fixture row keeps the marker, and keeps its own note. A
+               * signed-in admin should never meet an invented count without
+               * being told, and an UNMARKED fallback is invisible to the test
+               * that checks for exactly that.
+               */
+              const live = glanceRows(roster, flags);
+              return (
+                <>
+                  {live.length > 0 && (
+                    <div className={cn(CARD, "mt-3 overflow-hidden")}>
+                      {live.map((g, i) => (
+                        <Link
+                          key={g.key}
+                          href={g.href}
+                          className={cn(
+                            "flex items-center gap-4 px-[22px] py-[18px] transition-[filter] hover:brightness-[0.985]",
+                            i < live.length - 1 &&
+                              "border-b border-nevo-near-black/7",
+                          )}
+                        >
+                          <span className="flex min-w-0 flex-1 flex-col">
+                            <span className="text-[15px] font-semibold text-nevo-near-black">
+                              {g.title}
+                            </span>
+                            <span className="mt-0.5 text-[13px] text-nevo-near-black/58">
+                              {g.sub}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-[13.5px] font-semibold text-nevo-navy">
+                            {g.action} &rarr;
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
                   )}
-                >
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="text-[15px] font-semibold text-nevo-near-black">
-                      {g.title}
-                    </span>
-                    <span className="mt-0.5 text-[13px] text-nevo-near-black/58">
-                      {g.sub}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-[13.5px] font-semibold text-nevo-navy">
-                    {g.action} &rarr;
-                  </span>
-                </Link>
-              ))}
-            </div>
-            </SampleRegion>
+
+                  <SampleRegion kind="admin:overview-worth-a-glance">
+                    <div className={cn(CARD, "mt-3 overflow-hidden")}>
+                      {WORTH_A_GLANCE.map((g) => (
+                        <Link
+                          key={g.title}
+                          href={g.href}
+                          className="flex items-center gap-4 px-[22px] py-[18px] transition-[filter] hover:brightness-[0.985]"
+                        >
+                          <span className="flex min-w-0 flex-1 flex-col">
+                            <span className="text-[15px] font-semibold text-nevo-near-black">
+                              {g.title}
+                            </span>
+                            <span className="mt-0.5 text-[13px] text-nevo-near-black/58">
+                              {g.sub}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-[13.5px] font-semibold text-nevo-navy">
+                            {g.action} &rarr;
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </SampleRegion>
+                </>
+              );
+            })()
             )}
             {!early && (
+              /* Was "These three are a sample", which stopped being true when
+                 two of them became real. It names the row it is about rather
+                 than counting, so it cannot go stale the same way again. */
               <SampleNote>
-                These three are a sample. Nothing yet rolls up what actually
-                needs a decision at {school}, so the counts above are not yours
-                &ndash; the links go to the real screens.
+                The classes row is a sample &ndash; nothing yet reports which
+                classes have taught a lesson at {school}, so that count is not
+                yours. The link goes to the real screen.
               </SampleNote>
             )}
           </>
