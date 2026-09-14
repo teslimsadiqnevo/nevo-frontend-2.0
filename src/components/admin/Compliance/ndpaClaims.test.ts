@@ -135,3 +135,37 @@ describe("the retention row", () => {
     expect(titles).not.toContain("Retention within counsel limits");
   });
 });
+
+/**
+ * Two rows were PULLED on 14 Sep because they were false, and design and
+ * counsel are rewriting both. These fail if either returns without a decision.
+ *
+ * A compliance screen making a false statement is worse than a missing one —
+ * this is the screen a school shows a regulator.
+ */
+describe("the two claims that were pulled", () => {
+  const all = () =>
+    ndpaClaims({ labels: 0, consent: "unreadable", retention: "unreadable" });
+
+  it("makes no claim that nothing is written to long-term storage", () => {
+    // `GET /api/admin/adaptation-log` returns studentFirstName with trigger
+    // and timestamp, filterable by student. The sentence changes, not the log.
+    const text = all()
+      .map((c) => `${c.title} ${c.mechanism}`)
+      .join(" ");
+    expect(text).not.toMatch(/nothing about how a learner performed/i);
+    expect(text).not.toMatch(/then discarded/i);
+    expect(all().map((c) => c.title)).not.toContain("Ephemeral processing");
+  });
+
+  it("does not offer a parent a right to erasure they cannot exercise", () => {
+    // ParentRightType is request_data | object | withdraw_consent. "erasure"
+    // appears nowhere in the deployed contract.
+    const text = all()
+      .map((c) => `${c.title} ${c.mechanism}`)
+      .join(" ");
+    expect(text).not.toMatch(/request erasure/i);
+    expect(all().map((c) => c.title)).not.toContain("Right to erasure");
+  });
+});
+

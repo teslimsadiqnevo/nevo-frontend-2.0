@@ -117,28 +117,49 @@ export function OverviewView() {
       // their own failures - neither should take the page down.
       schoolApi.narrative().catch(() => null),
       schoolApi.overview().catch(() => null),
-      // Own failures, like their neighbours. The flags read is scoped `senco`
-      // while this screen is `oversight`, so an admin without it gets a 403
-      // here routinely - and that must cost them one ROW, never the page.
-      studentsApi.list().catch(() => null),
-      intelligenceApi
-        .allFlags()
-        // `complete: false` means we could not read them all, and a count off
-        // a partial read is a floor. Report nothing rather than a floor.
-        .then((r) => (r.complete ? r.flags : null))
-        .catch(() => null),
     ])
-      .then(([a, log, n, ov, rows, openFlags]) => {
+      .then(([a, log, n, ov]) => {
         setAudit(a);
         setNarrative(n);
         setNarrativeFailed(n === null);
         setCounts(ov ? ov.counts : null);
-        setRoster(rows);
-        setFlags(openFlags);
         setAdaptationTotal(log?.total ?? a.adaptationEventsLogged);
         setPhase("ready");
       })
       .catch((err: unknown) => setPhase(failureKind(err)));
+
+    /*
+     * THE ROLL-UP READS DO NOT GATE THE PAGE, and they used to.
+     *
+     * They sat inside the `Promise.all` above under a comment of mine reading
+     * "that must cost them one ROW, never the page" - which is the rule, while
+     * the code one line below broke it. Two consequences, one of them only
+     * visible in production:
+     *
+     *  - `allFlags()` pages up to ten SEQUENTIAL requests. The Overview's
+     *    first paint was waiting for every one of them before it drew
+     *    anything, on the screen that exists to answer "why are we paying for
+     *    this" in ten seconds.
+     *  - A read that hangs rather than fails held the whole page on its
+     *    skeleton for ever. That is how the getting-started test caught this:
+     *    it does not mock these two, so they never settled and `phase` never
+     *    left "loading".
+     *
+     * The flags read is `senco`-scoped while this screen is `oversight`, so a
+     * 403 here is routine rather than exceptional - all the more reason it can
+     * only ever cost the row it feeds.
+     */
+    studentsApi
+      .list()
+      .then(setRoster)
+      .catch(() => setRoster(null));
+
+    intelligenceApi
+      .allFlags()
+      // `complete: false` means we could not read them all, and a count off a
+      // partial read is a floor. Report nothing rather than a floor.
+      .then((r) => setFlags(r.complete ? r.flags : null))
+      .catch(() => setFlags(null));
   }, []);
 
   useEffect(() => {

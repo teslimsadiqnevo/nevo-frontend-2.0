@@ -177,3 +177,35 @@ describe("teachersOnRoster", () => {
     expect(teachersOnRoster({ teachers: 40 })).toBe(true);
   });
 });
+
+/**
+ * THE ROLL-UP READS MUST NEVER GATE THE PAGE.
+ *
+ * They were briefly inside the `Promise.all` that sets `phase`, under a
+ * comment of mine saying they must cost "one ROW, never the page". A read that
+ * HANGS rather than fails then held the Overview on its skeleton for ever —
+ * which is how this very file caught it, by not mocking them.
+ *
+ * It matters in production too: `allFlags()` pages up to ten sequential
+ * requests, and the first paint was waiting for all of them.
+ */
+describe("the roll-up reads and the page", () => {
+  it("renders the page even when neither roll-up read ever settles", async () => {
+    const never = () => new Promise<never>(() => {});
+    vi.doMock("@/lib/api/students", () => ({
+      studentsApi: { list: never },
+    }));
+    vi.doMock("@/lib/api/intelligence", () => ({
+      intelligenceApi: { allFlags: never },
+    }));
+
+    const { container } = render(<OverviewView />);
+
+    // The checklist is below the fold of the page gate: if `phase` were still
+    // "loading" this would time out, which is exactly the bug.
+    await waitFor(() =>
+      expect(visibleText(container)).toMatch(/Invite your teachers/),
+    );
+  });
+});
+

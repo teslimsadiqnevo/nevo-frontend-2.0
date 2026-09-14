@@ -30,6 +30,31 @@ vi.mock("@/lib/api", () => ({
   notificationsApi: { unreadExists: async () => ({ unreadExists: false }) },
 }));
 
+/*
+ * THESE TESTS RUN ON THE DESKTOP RAIL, and say so.
+ *
+ * The rail collapses below 1280px, and `vitest.setup.ts` supplies a
+ * `matchMedia` that answers `matches: false` to everything - so without this
+ * every DOM test silently renders the TABLET rail, where the identity block is
+ * initials and the persona's name never appears. The assertions below are
+ * about that name, so the viewport has to be stated rather than inherited.
+ */
+let wide = true;
+beforeEach(() => {
+  wide = true;
+  window.matchMedia = ((query: string) =>
+    ({
+      matches: wide,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }) as unknown as MediaQueryList) as typeof window.matchMedia;
+});
+
 const marks = (c: HTMLElement) =>
   Array.from(c.querySelectorAll(`[${SAMPLE_ATTR}]`)).map((el) =>
     el.getAttribute(SAMPLE_ATTR),
@@ -58,5 +83,40 @@ describe("AdminSidebar sample marking", () => {
     // The signed-in branch was restructured to lift the fixture out; it must
     // still say what the real admin's scopes are rather than nothing at all.
     expect(container.textContent).toMatch(/oversight|General oversight/i);
+  });
+});
+
+/**
+ * The rail follows the viewport, which `AdminShell`'s docblock had claimed
+ * since it was written while nothing implemented it. Every admin frame is
+ * drawn at 1024 with a 64px rail, so the content columns were laid out against
+ * 960px and given 776px.
+ */
+describe("the rail and the viewport", () => {
+  it("opens expanded on a desktop viewport", () => {
+    const { container } = render(<AdminSidebar />);
+    expect(container.querySelector("aside")?.className).toMatch(/w-\[248px\]/);
+    // The wordmark, not the icon.
+    expect(container.querySelector("img")?.getAttribute("src")).toMatch(
+      /logo-wordmark-purple/,
+    );
+  });
+
+  it("opens collapsed on a tablet viewport", () => {
+    wide = false;
+    const { container } = render(<AdminSidebar />);
+    expect(container.querySelector("aside")?.className).toMatch(/w-16/);
+    expect(container.querySelector("img")?.getAttribute("src")).toMatch(
+      /logo-icon-purple/,
+    );
+  });
+
+  it("carries the real brand mark at both widths, never a substitute", () => {
+    for (const w of [true, false]) {
+      wide = w;
+      const { container } = render(<AdminSidebar />);
+      const src = container.querySelector("img")?.getAttribute("src") ?? "";
+      expect(src.startsWith("/brand/")).toBe(true);
+    }
   });
 });

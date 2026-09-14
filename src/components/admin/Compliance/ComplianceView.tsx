@@ -249,25 +249,40 @@ export function ComplianceView() {
                 The spec documents no meaning for the flag, so this reports it
                 as the server's own verdict and interprets nothing.
                 Findings' CONTENTS stay off screen - see ComplianceFinding. */}
-            {(audit.findings.length > 0 || !audit.compliant) && (
-              <div className={cn(CARD, "mt-4 px-[26px] py-6")}>
-                <h3 className="text-[16px] font-semibold text-nevo-near-black">
-                  {audit.findings.length > 0
-                    ? `${audit.findings.length} finding${audit.findings.length === 1 ? "" : "s"} from the last check`
-                    : "The last check didn’t pass"}
-                </h3>
-                {/* "Look at THESE" pointed at a list that is not on screen
-                    and, under counsel's ruling, never will be: the only fields
-                    a finding carries beyond a database locator are the two we
-                    must not show. So it says where the detail actually lives
-                    rather than gesturing at something the reader cannot see. */}
-                <p className="mt-2 text-sm leading-[1.55] text-nevo-near-black/66">
-                  {audit.findings.length > 0
-                    ? "The detail sits with your data officer, not on this screen. They should clear these before the next audit."
-                    : "The audit reported this school as not yet compliant without listing what to look at. Your data officer should follow it up before the next audit."}
-                </p>
-              </div>
-            )}
+            {/*
+              * ONE LINE, NOT A LIST. Design ruled on 14 Sep that the
+              * diagnostic-label scan is an INTERNAL Zero-Tag enforcement tool
+              * and not an admin-facing feature at all.
+              *
+              * The reasoning is worth keeping, because it reverses a whole
+              * PR's worth of work and the reversal is right: once `term` and
+              * `recordId` are stripped - and counsel required both - a finding
+              * is a database locator. `student_profiles` / `notes` tells an
+              * administrator nothing and gives them nothing to act on. A row
+              * per finding was detail without meaning.
+              *
+              * So the school is told the two things it can use: when we last
+              * checked, and whether it came back clean. Anything found is ours
+              * to handle, not theirs to read.
+              *
+              * `compliant` and the finding COUNT both feed "clean", because
+              * either can say otherwise and the spec documents no meaning for
+              * the flag - so it is reported as the server's own verdict rather
+              * than interpreted.
+              */}
+            <div className={cn(CARD, "mt-4 px-[26px] py-6")}>
+              <h3 className="text-[16px] font-semibold text-nevo-near-black">
+                {audit.findings.length === 0 && audit.compliant
+                  ? "The last check came back clean"
+                  : "The last check flagged something"}
+              </h3>
+              <p className="mt-2 max-w-[62ch] text-sm leading-[1.55] text-nevo-near-black/66">
+                {`Checked ${fmtDate(audit.generatedAt)}. `}
+                {audit.findings.length === 0 && audit.compliant
+                  ? "Nothing of the kind this check looks for is held about your students."
+                  : "We're looking into it, and we'll come to you if anything is needed from your side."}
+              </p>
+            </div>
 
             <h3 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
               Verifiable claims
