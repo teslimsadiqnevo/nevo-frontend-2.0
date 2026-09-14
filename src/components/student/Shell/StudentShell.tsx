@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { BottomNav, Sidebar } from "@/components/shared";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 import { AskNevo } from "@/components/student/AskNevo/AskNevo";
 import { TEXT_ZOOM, useAccessibility } from "@/context/AccessibilityContext";
 import { useBehaviouralCapture } from "@/hooks";
@@ -38,6 +39,27 @@ import { useDisplayName } from "./useDisplayName";
  * The shell is a fixed-height viewport frame: the sidebar/nav stay put while only
  * the content region scrolls.
  */
+/**
+ * `SampleRegion`, but only when there is something to mark.
+ *
+ * The chrome is on every student screen, so wrapping it unconditionally would
+ * put a sample mark on the page for every signed-in child and make the
+ * end-to-end assertion useless. `display: contents` either way, so neither
+ * branch changes a pixel.
+ */
+function MaybeSample({
+  showing,
+  kind,
+  children,
+}: {
+  showing: boolean;
+  kind: string;
+  children: React.ReactNode;
+}) {
+  if (!showing) return <>{children}</>;
+  return <SampleRegion kind={kind}>{children}</SampleRegion>;
+}
+
 export function StudentShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
   // SCRUM-76: on-device behavioural timing capture for the affective engine -
@@ -72,6 +94,21 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   // `useDisplayName` waits - nobody is described until we know who is looking.
   const hydrated = useHydrated();
   const online = useOnline();
+  /*
+   * Is the chrome showing the FIXTURE's identity rather than this child's?
+   *
+   * `useDisplayName` falls back to `MOCK_STUDENT` only once it can tell a
+   * signed-out visitor from a signed-in child, and the sidebar's subtitle is
+   * gated on the same thing - so today a signed-in child never sees "Ada" or
+   * "Year 4". That gating is the whole defence, and nothing was checking it.
+   *
+   * The mark makes it checkable. The end-to-end test signs in and asserts no
+   * sample region is on the page; if this gate ever regresses, the mark appears
+   * while signed in and the suite fails. An UNMARKED fallback is invisible to
+   * that test, which walks past reporting success while a real child is shown
+   * another child's name.
+   */
+  const showingFixtureIdentity = hydrated && !signedIn;
   // Offline takes over network-backed tabs (board 28); Downloads stays
   // reachable - it is where "See saved lessons" points.
   const offlineTakeover = !online && !pathname.startsWith("/student/downloads");
@@ -108,20 +145,24 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-[100dvh] bg-nevo-cream text-nevo-near-black">
       {/* Sidebar — tablet & desktop */}
       <div className="hidden shrink-0 md:block">
-        <Sidebar
-          items={STUDENT_NAV}
-          activeHref={activeHref}
-          // A live student's year group has no source (`users/me` carries
-          // none), so the fixture's "Year 4" is dropped rather than shown
-          // under their real name. Restored when a year group exists.
-          user={{
-            ...MOCK_STUDENT,
-            ...student,
-            subtitle: hydrated && !signedIn ? MOCK_STUDENT.subtitle : undefined,
-          }}
-          collapsed={collapsed}
-          onToggle={setCollapsed}
-        />
+        <MaybeSample showing={showingFixtureIdentity} kind="student:identity">
+          <Sidebar
+            items={STUDENT_NAV}
+            activeHref={activeHref}
+            // A live student's year group has no source (`users/me` carries
+            // none), so the fixture's "Year 4" is dropped rather than shown
+            // under their real name. Restored when a year group exists.
+            user={{
+              ...MOCK_STUDENT,
+              ...student,
+              subtitle: showingFixtureIdentity
+                ? MOCK_STUDENT.subtitle
+                : undefined,
+            }}
+            collapsed={collapsed}
+            onToggle={setCollapsed}
+          />
+        </MaybeSample>
       </div>
 
       <div className="relative flex min-w-0 flex-1 flex-col">
@@ -137,9 +178,14 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           />
           <div className="flex items-center gap-1">
             <NotificationBell />
-            <span className="flex size-10 items-center justify-center rounded-full bg-nevo-navy text-sm font-semibold text-nevo-cream">
-              {student.initials}
-            </span>
+            <MaybeSample
+              showing={showingFixtureIdentity}
+              kind="student:identity"
+            >
+              <span className="flex size-10 items-center justify-center rounded-full bg-nevo-navy text-sm font-semibold text-nevo-cream">
+                {student.initials}
+              </span>
+            </MaybeSample>
           </div>
         </header>
 

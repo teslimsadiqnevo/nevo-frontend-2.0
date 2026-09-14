@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useHydrated } from "@/hooks/useHydrated";
 import { useDueReviews } from "@/hooks/useDueReviews";
@@ -123,120 +124,136 @@ export function SubjectDetail({
     setSheetOpen(true);
   };
 
+  /*
+   * Everything below this line is the DESIGNED FIXTURE for the signed-out
+   * walkthrough - a child's own subject is rendered by `LiveSubjectDetail`
+   * above, and never reaches here.
+   *
+   * The mark is what makes that checkable. The planned end-to-end test signs in
+   * and asserts no sample region is on the page; an UNMARKED fallback is
+   * invisible to it, so the suite walks past reporting success while a real
+   * child reads invented reflection on their own learning. That is the failure
+   * this architecture actually has, and the one a flow test sails straight past
+   * because the fixture renders exactly what the assertion looks for.
+   *
+   * `display: contents`, so it joins no layout and changes no pixel.
+   */
   return (
-    <div className="flex min-h-full flex-col">
-      {/* Back to Progress */}
-      <div className="flex h-14 shrink-0 items-center px-3 sm:px-5">
-        <Link
-          href="/student/progress"
-          aria-label="Back to Progress"
-          className="flex size-11 items-center justify-center rounded-[10px] transition-colors hover:bg-nevo-near-black/[0.06]"
-        >
-          <ChevronLeft
-            className="size-6 text-nevo-near-black"
-            strokeWidth={2}
-          />
-        </Link>
-        <span className="ml-1.5 text-sm text-nevo-near-black/60 max-sm:hidden">
-          Progress
-        </span>
-      </div>
-
-      <div className="mx-auto w-full max-w-[680px] px-6 pb-8 sm:px-8">
-        <h1 className="text-[26px] font-semibold tracking-[-0.01em] text-nevo-near-black sm:text-[30px] lg:text-[32px]">
-          {subject.name}
-        </h1>
-
-        <p className="mt-[18px] text-base leading-[1.65] text-nevo-near-black sm:text-[17px]">
-          {subject.prose}
-        </p>
-
-        {/* Growth timeline — decorative direction, not a chart of numbers */}
-        <div className="mt-7 rounded-[12px] bg-nevo-cream-elevated px-[18px] py-6 shadow-elevation-1">
-          <div className="relative h-20 w-full sm:h-[100px] lg:h-[110px]">
-            <svg
-              viewBox="0 0 320 80"
-              width="100%"
-              height="100%"
-              preserveAspectRatio="none"
-              className="absolute inset-0 overflow-visible"
-              aria-hidden
-            >
-              <path
-                d={smoothPath(subject.timeline)}
-                fill="none"
-                stroke="#9a9ccb"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            </svg>
-            {subject.timeline.map(([x, y], i) => {
-              const dot = (
-                <span
-                  aria-hidden
-                  className="size-[13px] rounded-full bg-nevo-navy shadow-[0_0_0_4px_rgba(237,232,220,0.9)]"
-                />
-              );
-              const s = sessionForDot(i);
-              return s ? (
-                // 44×44 hit area around the 13px marker (touch-first).
-                <button
-                  key={i}
-                  type="button"
-                  aria-label={`View session: ${s.title}, ${s.date}`}
-                  onClick={() => openSession(s)}
-                  className="absolute flex size-11 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-transform active:scale-95"
-                  style={{
-                    left: `${(x / 320) * 100}%`,
-                    top: `${(y / 80) * 100}%`,
-                  }}
-                >
-                  {dot}
-                </button>
-              ) : (
-                <span
-                  key={i}
-                  className="absolute flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center"
-                  style={{
-                    left: `${(x / 320) * 100}%`,
-                    top: `${(y / 80) * 100}%`,
-                  }}
-                >
-                  {dot}
-                </span>
-              );
-            })}
-          </div>
+    <SampleRegion kind="student:subject-detail">
+      <div className="flex min-h-full flex-col">
+        {/* Back to Progress */}
+        <div className="flex h-14 shrink-0 items-center px-3 sm:px-5">
+          <Link
+            href="/student/progress"
+            aria-label="Back to Progress"
+            className="flex size-11 items-center justify-center rounded-[10px] transition-colors hover:bg-nevo-near-black/[0.06]"
+          >
+            <ChevronLeft
+              className="size-6 text-nevo-near-black"
+              strokeWidth={2}
+            />
+          </Link>
+          <span className="ml-1.5 text-sm text-nevo-near-black/60 max-sm:hidden">
+            Progress
+          </span>
         </div>
 
-        <h2 className="mt-7 text-base font-semibold text-nevo-near-black">
-          What you&apos;ve been learning
-        </h2>
-        <ul className="mt-3">
-          {subject.lessons.map((lesson) => (
-            <li
-              key={lesson.title}
-              className="flex items-center justify-between border-b border-nevo-near-black/8 py-3.5"
-            >
-              <span className="text-[15px] text-nevo-near-black">
-                {lesson.title}
-              </span>
-              <span className="text-[13px] text-nevo-near-black/55">
-                {lesson.date}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
+        <div className="mx-auto w-full max-w-[680px] px-6 pb-8 sm:px-8">
+          <h1 className="text-[26px] font-semibold tracking-[-0.01em] text-nevo-near-black sm:text-[30px] lg:text-[32px]">
+            {subject.name}
+          </h1>
 
-      <SessionDetailSheet
-        session={session}
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-      />
-    </div>
+          <p className="mt-[18px] text-base leading-[1.65] text-nevo-near-black sm:text-[17px]">
+            {subject.prose}
+          </p>
+
+          {/* Growth timeline — decorative direction, not a chart of numbers */}
+          <div className="mt-7 rounded-[12px] bg-nevo-cream-elevated px-[18px] py-6 shadow-elevation-1">
+            <div className="relative h-20 w-full sm:h-[100px] lg:h-[110px]">
+              <svg
+                viewBox="0 0 320 80"
+                width="100%"
+                height="100%"
+                preserveAspectRatio="none"
+                className="absolute inset-0 overflow-visible"
+                aria-hidden
+              >
+                <path
+                  d={smoothPath(subject.timeline)}
+                  fill="none"
+                  stroke="#9a9ccb"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+              {subject.timeline.map(([x, y], i) => {
+                const dot = (
+                  <span
+                    aria-hidden
+                    className="size-[13px] rounded-full bg-nevo-navy shadow-[0_0_0_4px_rgba(237,232,220,0.9)]"
+                  />
+                );
+                const s = sessionForDot(i);
+                return s ? (
+                  // 44×44 hit area around the 13px marker (touch-first).
+                  <button
+                    key={i}
+                    type="button"
+                    aria-label={`View session: ${s.title}, ${s.date}`}
+                    onClick={() => openSession(s)}
+                    className="absolute flex size-11 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-transform active:scale-95"
+                    style={{
+                      left: `${(x / 320) * 100}%`,
+                      top: `${(y / 80) * 100}%`,
+                    }}
+                  >
+                    {dot}
+                  </button>
+                ) : (
+                  <span
+                    key={i}
+                    className="absolute flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center"
+                    style={{
+                      left: `${(x / 320) * 100}%`,
+                      top: `${(y / 80) * 100}%`,
+                    }}
+                  >
+                    {dot}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+
+          <h2 className="mt-7 text-base font-semibold text-nevo-near-black">
+            What you&apos;ve been learning
+          </h2>
+          <ul className="mt-3">
+            {subject.lessons.map((lesson) => (
+              <li
+                key={lesson.title}
+                className="flex items-center justify-between border-b border-nevo-near-black/8 py-3.5"
+              >
+                <span className="text-[15px] text-nevo-near-black">
+                  {lesson.title}
+                </span>
+                <span className="text-[13px] text-nevo-near-black/55">
+                  {lesson.date}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <SessionDetailSheet
+          session={session}
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+        />
+      </div>
+    </SampleRegion>
   );
 }
 
