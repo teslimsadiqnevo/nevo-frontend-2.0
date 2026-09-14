@@ -106,3 +106,108 @@ Three of the four states are `granted: false`, which is exactly why reading
 `granted` alone cannot implement the ruling — `status` is the field that matters.
 The admin console's bug was that it read "not confirmed" as "blocked", in eight
 places, including one that named an individual child.
+
+---
+
+# Addendum — the NDPA findings list, 14 September 2026
+
+Counsel cleared the compliance screen with four rules: show the category in
+plain language, never the `term`, never the `recordId`, and no student
+assessment data. Three of the four were already satisfied and the fourth cannot
+be built. Details below, with what backend would need to add.
+
+## What changed in code today
+
+- **`term` and `recordId` are stripped at the API boundary**, not merely left
+  unrendered, so they never enter React state. Rebuilt field by field rather
+  than destructured-and-rested, so a new identifying field the backend adds
+  later cannot ride in by default. Mutation-verified.
+- **The PDF export is held** behind a constant — see below.
+- The findings card no longer says "your data officer should look at these",
+  which pointed at a list that is not on screen and now never will be.
+
+## 1 · For counsel — the category you cleared does not exist
+
+`ComplianceFindingResponse` is `{table, recordId, field, term}`, all four
+required. **There is no category field, no date, and no resolved status.**
+
+Rules 2 and 3 remove `term` and `recordId`. What remains is `table` and `field`
+— database locators, e.g. table `student_profiles`, field `notes`. They are not
+NDPA categories and nothing in the contract maps them to one.
+
+So "category and status only" leaves this screen with **nothing to show per
+finding**. It can honestly show a count, which is what it has always shown.
+
+**The deeper mismatch.** The updated D22b frame draws rows categorised
+"Parental consent", "Data subject request" and "Consent withdrawal", each with
+a date and a Pending/Resolved chip. Those are **data-subject rights events** —
+they match `ParentRightType` (`request_data | object | withdraw_consent`), not
+this endpoint. `GET /api/admin/compliance-audit` is a **diagnostic-label scan**:
+it reports where in the data model a clinical term was found, which is why its
+findings are shaped table/field/term/recordId.
+
+The frame and the endpoint are describing two different features. Worth
+confirming which one counsel actually reviewed.
+
+## 2 · For counsel — the PDF export is outside the ruling, and is now held
+
+The screen offers "Export report (PDF)", composed by **backend**. Its 200 has an
+empty schema, so the contract constrains nothing, and the obvious contents of a
+compliance report are exactly the two fields we were told to withhold. A rule
+kept on screen and broken by a download is not kept.
+
+It is disabled behind `EXPORT_CLEARED_BY_COUNSEL = false` in `ComplianceView`.
+Nothing of value was lost: it had been arriving corrupt anyway (see below).
+
+**The question:** does `report.pdf` contain the flagged term or the record
+identifier? If it does, either it is regenerated without them or the button
+stays off.
+
+## 3 · For counsel — two claims on this screen that may breach rule 4
+
+Rule 4 says nothing about how a student performed or what the engine observed.
+The screen itself is clear — it renders only `diagnosticLabelsStored`, a count
+of things that should not exist. But two **claim rows** assert things worth a
+second look:
+
+- *"Nothing about how a learner performed is written to long-term storage"* and
+  *"Learning signals, being ephemeral, have no retention period at all."*
+  `GET /api/admin/adaptation-log` returns rows carrying `studentFirstName`,
+  `trigger`, `adaptation` and `timestamp`, filterable by `studentId` and date.
+  Whether that is "how a learner performed" is counsel's call, but the sentence
+  should not ship again unexamined.
+- The **right-to-erasure** row. The nearest real mechanism is
+  `DELETE /api/v1/students/{student_id}` ("Anonymize Student"), which only an
+  administrator can invoke; `ParentRightType` has no erasure value, and the
+  string "erasure" appears **zero times** in the entire contract.
+
+## 4 · For backend — what the frame needs
+
+To build D22b as drawn, the admin-facing findings response needs:
+
+- a **category** on each finding, from a closed enum, in the NDPA vocabulary the
+  frame uses — not a table/column locator;
+- an **occurredAt** per finding (today only the whole scan has `generatedAt`,
+  identical for every row);
+- a **resolved/pending** state per finding, and something that sets it;
+- and, ideally, **`term` and `recordId` removed from the admin response
+  entirely**, rather than sent and declined by the client. The safest version of
+  counsel's rule is one where the data never crosses the wire.
+
+A read endpoint for the rights log would cover most of this:
+`POST /api/v1/parent/{token}/rights` mints a `requestId` and **nothing anywhere
+reads one back** — `ParentRightResponse` is referenced by exactly that one
+operation in the whole spec.
+
+## 5 · For backend — the proxy was corrupting every PDF (fixed)
+
+`src/app/api/backend/[...path]/route.ts` read the upstream response with
+`await upstream.text()`, decoding binary as UTF-8 and re-encoding it. The file's
+own comment, four lines above, says that would corrupt the file — the REQUEST
+direction had been fixed to use an ArrayBuffer and the RESPONSE direction had
+not.
+
+Everything binary that fetches through `/api/backend` (the default base URL)
+arrived mangled: the NDPA compliance PDF **and every billing invoice PDF**. Now
+passes bytes through. Worth knowing if anyone reported invoices that would not
+open.
