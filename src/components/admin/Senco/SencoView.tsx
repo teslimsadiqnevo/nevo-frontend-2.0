@@ -11,6 +11,11 @@ import { intelligenceApi, type AttentionFlag } from "@/lib/api/intelligence";
 import { studentsApi, type AdminStudentRow } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
+import {
+  collectAdaptationWindow,
+  windowStart,
+} from "@/lib/adaptationWindow";
+import { schoolIntelligenceApi } from "@/lib/api/schoolIntelligence";
 import { NoAccess, failureKind } from "../NoAccess";
 import { WriteFailed } from "../WriteFailed";
 import {
@@ -76,13 +81,11 @@ import {
  * switched from `studentsApi.list({classId})` to `classesApi.classStudents`,
  * which carries the same membership plus `observations`. Same number of calls.
  *
- * ADAPTATIONS THIS WEEK IS NOT BUILT, and the "one windowed call" above
- * overstates it. `GET /api/admin/adaptation-log` caps `limit` at 100, and
+ * ADAPTATIONS THIS WEEK IS BUILT, by paging the window rather than trusting a
+ * count. See `lib/adaptationWindow.ts`: `limit` caps at 100, and
  * `AdaptationEventLogResponse.total` carries NO DESCRIPTION in the deployed
- * spec - so it is not known to be window-scoped or uncapped, and a per-learner
- * tally gated on it could under-report silently. Doing it honestly needs a
- * paging loop terminating on a short page (`events.length < limit`), which is
- * a real piece of work rather than a free one.
+ * spec, so termination is on a short page and `total` is not consulted at all.
+ * A partial or failed read renders NO figures rather than a floor.
  *
  * TODO(api): a list-scoped accommodations read, for ACTIVE SUPPORT. That is
  * the one of the three that genuinely costs a call per learner.
@@ -156,8 +159,36 @@ export function SencoView() {
    * be printed as the first.
    */
   const [lessonsDone, setLessonsDone] = useState<Record<string, number>>({});
+  /*
+   * Adaptations in the last seven days, per learner. NULL until the window has
+   * been read in full - which is not the same as an empty object, and the
+   * difference is the whole point: an empty tally after a COMPLETE read means
+   * nobody had an adaptation, and null means we do not know.
+   *
+   * `collectAdaptationWindow` returns `complete: false` for a partial or failed
+   * read, and that lands here as null. A count built from the pages we managed
+   * to get is a floor, and a floor beside a child's name reads as a finding.
+   */
+  const [adaptationsWeek, setAdaptationsWeek] = useState<Record<
+    string,
+    number
+  > | null>(null);
 
   const load = useCallback(() => {
+    /*
+     * Its own read, its own failure. This pages the whole week's log, so it is
+     * the slowest thing on the screen and must never hold the profiles behind
+     * it - the list renders, and the figures appear when they are trustworthy.
+     */
+    const from = windowStart(Date.now());
+    collectAdaptationWindow((offset) =>
+      schoolIntelligenceApi
+        .adaptationLog({ dateFrom: from, limit: 100, offset })
+        .then((log) => ({ events: log.events, total: log.total })),
+    )
+      .then((w) => setAdaptationsWeek(w.complete ? w.perLearner : null))
+      .catch(() => setAdaptationsWeek(null));
+
     Promise.all([
       intelligenceApi.getFlags({ limit: 50 }),
       studentsApi.list(),
@@ -557,6 +588,15 @@ export function SencoView() {
                     {typeof lessonsDone[s.id] === "number" ? (
                       <span className="flex-none text-[13px] text-nevo-near-black/55">
                         {`${lessonsDone[s.id]} ${lessonsDone[s.id] === 1 ? "lesson" : "lessons"} finished`}
+                      </span>
+                    ) : null}
+                    {/* Only once the WHOLE week has been read. A zero here is
+                        a real zero - nobody adapted anything for this learner
+                        in seven days - which is why the partial case renders
+                        nothing at all rather than a low number. */}
+                    {adaptationsWeek ? (
+                      <span className="flex-none text-[13px] text-nevo-near-black/55">
+                        {`${adaptationsWeek[s.id] ?? 0} this week`}
                       </span>
                     ) : null}
                     <span className="flex-none text-[13px] font-semibold text-nevo-navy">

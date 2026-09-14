@@ -1535,6 +1535,7 @@ unbuilt on purpose, not for want of an endpoint.
 | Overview roll-up rows 1-2 | Both live. Pending-consent is exact from the unpaginated `GET /api/v1/students`; open flags page `/api/intelligence/flags` at `limit=200` and terminate on a SHORT PAGE, never on a total. A partial read reports NOTHING — a count off the pages we happened to get is a floor. Counts distinct CHILDREN, not flags.                                                                |
 | The sample marker         | `SampleRegion` now wraps the ONE fixture row, and the note names it ("The classes row is a sample") rather than counting, so it cannot go stale the same way. Live rows sit OUTSIDE the marker: wrapping a real roll-up in it would train the e2e suite to walk past a genuine one.                                                                                                  |
 | SENCo lessons finished    | Free. The per-class fan-out moved from `studentsApi.list({classId})` to `classesApi.classStudents`, which carries `observations` at the same call count. A learner whose roster read failed, or has not answered, gets NO figure — never a zero.                                                                                                                                     |
+| SENCo adaptations-this-week | Pages the seven-day log at `limit=100`, terminating on a SHORT PAGE and deduplicating by event id. `total` is not consulted at all - see the note below. A partial or failed read renders NO figures; a complete read showing nothing for a learner renders a real `0`. Mutation-verified. |
 | Invitation consent state  | `consentStatus` is read now, on the invite row and in the create confirmation. Four branches, and NONE offers to send a request: nothing can, so an offer here is a promise D07 then refuses. A null state falls back to a no-claim sentence — older invitations predate the field, and "we weren't told" must not render as "nobody has been asked". Both guards mutation-verified. |
 
 ### A vacuous assertion, and how it got there — 11 Sep
@@ -1562,11 +1563,22 @@ Both guards on the new copy were then mutation-verified: reinstating the promise
 the audit killed fails "never offers to send one", and making the fallback
 assert contact fails two more.
 
-### Still buildable, not built — ONE item
+### Still buildable, not built — NONE
 
-|                             |                                                                                                                                                   |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SENCo adaptations-this-week | The last of D8b's three. Needs a paging loop terminating on `events.length < limit` — NOT on `total`, whose semantics the spec does not document. |
+The list is empty. Everything remaining on the admin console is blocked on an
+endpoint, below.
+
+**`total` did not just go unused — it was actively dangerous.** The first draft
+of `collectAdaptationWindow` used it as a corroborating gate: report nothing if
+`total` claims more rows than we read. The tests killed it, and the reasoning is
+worth keeping. If `total` counts the whole log rather than the seven-day window,
+that gate disagrees on every school on every load — so the figure would be blank
+everywhere, permanently and silently, for a reason nobody would ever find. A
+normal concurrent write during paging tripped it too. **A field whose semantics
+the contract does not document cannot be the thing that decides whether a screen
+speaks.** Termination is on a short page, which is the only exhaustion signal
+this contract actually supports.
+
 
 ### Blocked on backend, and NOT buildable at any velocity
 
@@ -1574,12 +1586,12 @@ These sat under "Still buildable" until 14 Sep, which was wrong in the way this
 console keeps being wrong: a heading that did not match its own contents. Two of
 the three rows said "Genuinely blocked" and "Blocked on…" in their own text.
 
-|                             |                                                                                                                                                                                                                                                                                                                                  |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SENCo active support        | Needs a list-scoped accommodations read. `GET /api/intelligence/accommodations/{student_id}` is the only route and takes no student list, so it is one call per learner.                                                                                                                                                         |
-| Adaptation log TYPE filter  | `eventType` is a response field with no query param and no enum to populate a filter from.                                                                                                                                                                                                                                       |
-| Assignment history proper   | No actor on any assignment schema, and an ended assignment leaves no record (the DELETE returns no body, nothing carries `ended_at`). The dates shipped; the history cannot.                                                                                                                                                     |
-| Settings — 4 sections       | Promotion, two-step sign-in, school address/logo/band, and profile email/role-title. No endpoint for any of them.                                                                                                                                                                                                                |
+| | |
+|---|---|
+| SENCo active support | The last of D8b's three, and the only one that really does cost a call per learner. Needs a list-scoped accommodations read. `GET /api/intelligence/accommodations/{student_id}` is the only route and takes no student list, so it is one call per learner. |
+| Adaptation log TYPE filter | `eventType` is a response field with no query param and no enum to populate a filter from. |
+| Assignment history proper | No actor on any assignment schema, and an ended assignment leaves no record (the DELETE returns no body, nothing carries `ended_at`). The dates shipped; the history cannot. |
+| Settings — 4 sections | Promotion, two-step sign-in, school address/logo/band, and profile email/role-title. No endpoint for any of them. |
 | `academicConfig` typed home | Still `Record<string, unknown>`. Term dates and the year-group label map live in an untyped blob that every screen reads through `yearGroupLabel`, and nothing validates the shape. **Wants a typed home before launch** — this is the one on this list that is ours to fix, and it needs a backend decision on the shape first. |
 
 **Not on this list, deliberately:** `POST /api/v1/students` has no caller and
