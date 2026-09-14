@@ -1524,13 +1524,31 @@ Both guards on the new copy were then mutation-verified: reinstating the promise
 the audit killed fails "never offers to send one", and making the fallback
 assert contact fails two more.
 
-### Still buildable, not built
+### Still buildable, not built — ONE item
 
 | | |
 |---|---|
-| SENCo adaptations-this-week | The last of D8b's three. Needs a paging loop terminating on `events.length < limit` — NOT on `total`, whose semantics the spec does not document. Active support stays blocked on a list-scoped accommodations read. |
-| Adaptation log TYPE filter | Genuinely blocked. `eventType` is a response field with no query param and no enum. |
-| Assignment history proper | Blocked on an actor field and on ended assignments. The dates shipped; the history did not. |
+| SENCo adaptations-this-week | The last of D8b's three. Needs a paging loop terminating on `events.length < limit` — NOT on `total`, whose semantics the spec does not document. |
+
+### Blocked on backend, and NOT buildable at any velocity
+
+These sat under "Still buildable" until 14 Sep, which was wrong in the way this
+console keeps being wrong: a heading that did not match its own contents. Two of
+the three rows said "Genuinely blocked" and "Blocked on…" in their own text.
+
+| | |
+|---|---|
+| SENCo active support | Needs a list-scoped accommodations read. `GET /api/intelligence/accommodations/{student_id}` is the only route and takes no student list, so it is one call per learner. |
+| Adaptation log TYPE filter | `eventType` is a response field with no query param and no enum to populate a filter from. |
+| Assignment history proper | No actor on any assignment schema, and an ended assignment leaves no record (the DELETE returns no body, nothing carries `ended_at`). The dates shipped; the history cannot. |
+| Settings — 4 sections | Promotion, two-step sign-in, school address/logo/band, and profile email/role-title. No endpoint for any of them. |
+| `academicConfig` typed home | Still `Record<string, unknown>`. Term dates and the year-group label map live in an untyped blob that every screen reads through `yearGroupLabel`, and nothing validates the shape. **Wants a typed home before launch** — this is the one on this list that is ours to fix, and it needs a backend decision on the shape first. |
+
+**Not on this list, deliberately:** `POST /api/v1/students` has no caller and
+500s, and that is fine. SCRUM-40 rules that "invites and enrolment live in D19,
+not here", and the Students screen's "Enrol a student" routes to
+`/admin/invitations` as it should. Direct student creation is not a flow this
+console is missing — it is an endpoint nothing needs.
 
 ### The vitest worker flake
 
