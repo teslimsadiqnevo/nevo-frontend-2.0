@@ -233,7 +233,10 @@ export function CalculationSolver({
             <div className="flex items-center justify-between rounded-[12px] border-2 border-nevo-navy bg-nevo-cream-elevated px-[18px] py-4 text-base font-semibold text-nevo-near-black shadow-elevation-1 sm:text-[18px]">
               <span>{current.choices[current.correct]}</span>
               <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-nevo-navy">
-                <Check className="size-[13px] text-nevo-cream" strokeWidth={2.8} />
+                <Check
+                  className="size-[13px] text-nevo-cream"
+                  strokeWidth={2.8}
+                />
               </span>
             </div>
             {current.onCorrect?.confirm && (
@@ -292,14 +295,18 @@ export function CalculationSolver({
                 Check my answer
               </Button>
             )}
-            {!showHint && <HintLink attempts={attempts} onClick={() => setShowHint(true)} />}
+            {!showHint && (
+              <HintLink attempts={attempts} onClick={() => setShowHint(true)} />
+            )}
           </>
         )}
 
         {isFinalStep && (
           <>
             <p className="text-center text-[19px] font-semibold leading-[1.35] text-nevo-near-black sm:text-[22px]">
-              {manip ? "Build the total - tap a quarter to drop it in." : current.prompt}
+              {manip
+                ? "Build the total - tap a quarter to drop it in."
+                : current.prompt}
             </p>
             {showHint && <HintPill text={hintText} />}
 
@@ -350,7 +357,7 @@ export function CalculationSolver({
                 layout="pad"
                 onKey={(d) => setNumVal(numVal + d)}
                 onBackspace={() => setNumVal(numVal.slice(0, -1))}
-                className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+                className="fixed inset-x-0 bottom-0 z-40"
               />
             )}
 
@@ -413,7 +420,8 @@ function BarRow({
                     ? "bg-nevo-navy"
                     : "bg-nevo-violet"
                   : "border border-nevo-near-black/12 bg-nevo-near-black/[0.08]",
-                ring && "outline outline-2 outline-nevo-violet outline-offset-2",
+                ring &&
+                  "outline outline-2 outline-nevo-violet outline-offset-2",
               )}
             />
           );
@@ -542,9 +550,12 @@ function NarrationBar({ onReplay }: { onReplay?: () => void }) {
   const [pct, setPct] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => () => {
-    if (timer.current) clearInterval(timer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearInterval(timer.current);
+    },
+    [],
+  );
 
   const toggle = () => {
     if (playing) {
@@ -568,7 +579,9 @@ function NarrationBar({ onReplay }: { onReplay?: () => void }) {
     }, 140);
   };
 
-  const bars = [6, 10, 13, 8, 14, 10, 12, 7, 13, 9, 11, 14, 8, 12, 10, 7, 13, 9, 11, 8];
+  const bars = [
+    6, 10, 13, 8, 14, 10, 12, 7, 13, 9, 11, 14, 8, 12, 10, 7, 13, 9, 11, 8,
+  ];
   const played = pct / 100;
 
   return (
@@ -582,7 +595,11 @@ function NarrationBar({ onReplay }: { onReplay?: () => void }) {
         {playing ? (
           <Pause className="size-[18px]" fill="currentColor" strokeWidth={0} />
         ) : (
-          <Play className="ml-0.5 size-[18px]" fill="currentColor" strokeWidth={0} />
+          <Play
+            className="ml-0.5 size-[18px]"
+            fill="currentColor"
+            strokeWidth={0}
+          />
         )}
       </button>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -599,7 +616,10 @@ function NarrationBar({ onReplay }: { onReplay?: () => void }) {
             <span
               key={i}
               className="w-[3px] shrink-0 rounded-full bg-nevo-navy transition-opacity duration-[160ms]"
-              style={{ height: `${h}px`, opacity: (i + 1) / bars.length <= played ? 0.95 : 0.28 }}
+              style={{
+                height: `${h}px`,
+                opacity: (i + 1) / bars.length <= played ? 0.95 : 0.28,
+              }}
             />
           ))}
         </div>

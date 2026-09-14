@@ -32,9 +32,12 @@ export function StudentFeedbackScreen() {
   const kb = useNevoKeyboardDock();
 
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    },
+    [],
+  );
 
   const back = () => router.push(PROFILE_HREF);
 
@@ -80,7 +83,10 @@ export function StudentFeedbackScreen() {
         {sent ? (
           <div className="m-auto text-center">
             <span className="inline-flex size-14 items-center justify-center rounded-full bg-nevo-navy motion-safe:animate-nevo-pop">
-              <Check className="size-[26px] text-nevo-cream" strokeWidth={2.6} />
+              <Check
+                className="size-[26px] text-nevo-cream"
+                strokeWidth={2.6}
+              />
             </span>
             <h3 className="mt-4 text-[17px] font-semibold text-nevo-near-black">
               Thank you - that&apos;s on its way
@@ -159,7 +165,7 @@ export function StudentFeedbackScreen() {
           onKey={(c) => setNote((n) => n + c)}
           onBackspace={() => setNote((n) => n.slice(0, -1))}
           onReturn={() => setNote((n) => n + "\n")}
-          className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-40"
         />
       )}
     </div>

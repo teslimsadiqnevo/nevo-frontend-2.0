@@ -6,10 +6,7 @@ import { Check, ChevronRight, LogOut, MessageCircle } from "lucide-react";
 import { NevoKeyboard, Switch } from "@/components/shared";
 import { useAuth } from "@/hooks";
 import { useDisplayName } from "@/components/student/Shell/useDisplayName";
-import {
-  getRememberedProfile,
-  setStoredDisplayName,
-} from "@/lib/auth/session";
+import { getRememberedProfile, setStoredDisplayName } from "@/lib/auth/session";
 import { settingsApi } from "@/lib/api/settings";
 import { useAccessibility } from "@/context/AccessibilityContext";
 import { cn } from "@/lib/utils";
@@ -67,9 +64,12 @@ export function ProfileSettings() {
   // Transient "Saved" confirmation.
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (savedTimer.current) clearTimeout(savedTimer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    },
+    [],
+  );
   const flashSaved = useCallback(() => {
     setSaved(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
@@ -243,7 +243,10 @@ export function ProfileSettings() {
             Tell us something
           </span>
         </span>
-        <ChevronRight className="size-5 text-nevo-near-black/40" strokeWidth={2} />
+        <ChevronRight
+          className="size-5 text-nevo-near-black/40"
+          strokeWidth={2}
+        />
       </button>
       <button
         type="button"
@@ -251,7 +254,10 @@ export function ProfileSettings() {
         className="flex w-full cursor-pointer items-center justify-between border-t border-nevo-near-black/8 py-4 text-left"
       >
         <span className="text-[15px] text-nevo-near-black">Change PIN</span>
-        <ChevronRight className="size-5 text-nevo-near-black/40" strokeWidth={2} />
+        <ChevronRight
+          className="size-5 text-nevo-near-black/40"
+          strokeWidth={2}
+        />
       </button>
       <button
         type="button"
@@ -262,7 +268,10 @@ export function ProfileSettings() {
           <LogOut className="size-[18px] text-nevo-navy/70" strokeWidth={1.9} />
           <span className="text-[15px] text-nevo-near-black">Sign out</span>
         </span>
-        <ChevronRight className="size-5 text-nevo-near-black/40" strokeWidth={2} />
+        <ChevronRight
+          className="size-5 text-nevo-near-black/40"
+          strokeWidth={2}
+        />
       </button>
 
       <SignOutSheet
@@ -294,7 +303,7 @@ export function ProfileSettings() {
           onKey={(c) => setName((n) => n + c)}
           onBackspace={() => setName((n) => n.slice(0, -1))}
           onReturn={() => nameInputRef.current?.blur()}
-          className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-40"
         />
       )}
 

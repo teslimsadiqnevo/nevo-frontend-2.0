@@ -20,9 +20,12 @@ export function useNevoKeyboardDock() {
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    },
+    [],
+  );
 
   const onFocus = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -51,6 +54,35 @@ export function useNevoKeyboardDock() {
  * Chrome tones (`#e4ddcc` tray, `#d8d0be` modifier keys) are keyboard-specific,
  * not DS surface tokens.
  */
+/**
+ * WHO NEEDS THIS KEYBOARD IS A QUESTION ABOUT THE POINTER, NOT THE WIDTH.
+ *
+ * Every screen that uses this sets `inputMode="none"` on its field, which
+ * suppresses the device's own keyboard - this one is meant to replace it. Each
+ * caller then hid this with `lg:hidden`, on the assumption that 1024px or wider
+ * means a desktop with a real keyboard attached.
+ *
+ * That assumption is false, and it locked children out. A touch tablet whose
+ * PORTRAIT width is 1024px or more - an iPad Pro 12.9" is exactly 1024 - got no
+ * device keyboard because we suppressed it, and no Nevo keyboard because we hid
+ * it. No PIN, no name, no school code. The screens rendered perfectly and simply
+ * would not accept a character, with nothing on screen to explain why and no
+ * error to report.
+ *
+ * `(pointer: fine)` asks the right question: is the PRIMARY pointer a mouse or
+ * trackpad? If so there is a hardware keyboard and this one is noise. A touch
+ * device answers `coarse` however wide it is, and keeps its keyboard.
+ *
+ * The failure direction is deliberate. A tablet with a keyboard case may answer
+ * `coarse` and get a keyboard it did not need - a small annoyance. The reverse,
+ * which is what we shipped, is a child who cannot use the app at all. And a
+ * browser too old to know `pointer` matches nothing, so the keyboard stays.
+ *
+ * It lives HERE rather than at each call site because the call sites are what
+ * got it wrong: four repeated `lg:hidden`, and a fifth screen that forgot it.
+ */
+const HIDE_WHEN_A_REAL_KEYBOARD_EXISTS = "[@media(pointer:fine)]:hidden";
+
 export function NevoKeyboard({
   layout,
   onKey,
@@ -119,7 +151,12 @@ export function NevoKeyboard({
       // Keep the focused field focused when a key is tapped (the keys drive its
       // state directly), so a focus-gated keyboard doesn't dismiss itself.
       onMouseDown={(e) => e.preventDefault()}
-      className={cn("flex flex-col", composer && "motion-safe:animate-nevo-kb-up", className)}
+      className={cn(
+        "flex flex-col",
+        HIDE_WHEN_A_REAL_KEYBOARD_EXISTS,
+        composer && "motion-safe:animate-nevo-kb-up",
+        className,
+      )}
     >
       {composer && (
         <div className="w-full border-t border-nevo-near-black/8 bg-[#e4ddcc] px-1.5 pt-1.5 pb-1 md:px-3 md:pt-3 md:pb-2">
@@ -171,7 +208,10 @@ function Key({
       type="button"
       onClick={onClick}
       style={grow ? { flexGrow: grow } : undefined}
-      className={cn(KEY_BASE, "bg-nevo-cream text-[20px] font-normal md:text-[22px]")}
+      className={cn(
+        KEY_BASE,
+        "bg-nevo-cream text-[20px] font-normal md:text-[22px]",
+      )}
     >
       {label}
     </button>
@@ -209,13 +249,24 @@ function ModKey({
 }
 
 /** The navy accent key (return). */
-function AccentKey({ label, onClick, grow }: { label: string; onClick: () => void; grow?: number }) {
+function AccentKey({
+  label,
+  onClick,
+  grow,
+}: {
+  label: string;
+  onClick: () => void;
+  grow?: number;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       style={grow ? { flexGrow: grow } : undefined}
-      className={cn(KEY_BASE, "bg-nevo-navy text-[13px] font-medium text-nevo-cream md:text-[15px]")}
+      className={cn(
+        KEY_BASE,
+        "bg-nevo-navy text-[13px] font-medium text-nevo-cream md:text-[15px]",
+      )}
     >
       {label}
     </button>
@@ -300,7 +351,10 @@ function QwertyLayout({
       aria-label="Delete"
       onClick={onBackspace}
       style={{ flexGrow: 1.5 }}
-      className={cn(KEY_BASE, "bg-[#d8d0be] shadow-[0_1px_1px_rgba(43,43,47,0.22)]")}
+      className={cn(
+        KEY_BASE,
+        "bg-[#d8d0be] shadow-[0_1px_1px_rgba(43,43,47,0.22)]",
+      )}
     >
       <Delete className="size-5" strokeWidth={2} />
     </button>
@@ -320,7 +374,12 @@ function QwertyLayout({
           ))}
         </div>
         <div className={ROW}>
-          <ModKey label="#+=" onClick={onToggleCaps} ariaLabel="More symbols" grow={1.5} />
+          <ModKey
+            label="#+="
+            onClick={onToggleCaps}
+            ariaLabel="More symbols"
+            grow={1.5}
+          />
           {NUM_ROWS[2].map((c) => (
             <Key key={c} label={c} onClick={() => onKey(c)} />
           ))}
@@ -329,7 +388,9 @@ function QwertyLayout({
         <div className={ROW}>
           <ModKey label="ABC" onClick={onToggleNumeric} grow={1.5} />
           <Key label="space" onClick={() => onKey(" ")} grow={5} />
-          {onReturn && <AccentKey label={returnLabel} onClick={onReturn} grow={1.8} />}
+          {onReturn && (
+            <AccentKey label={returnLabel} onClick={onReturn} grow={1.8} />
+          )}
         </div>
       </>
     );
@@ -368,7 +429,9 @@ function QwertyLayout({
       <div className={ROW}>
         <ModKey label="123" onClick={onToggleNumeric} grow={1.5} />
         <Key label="space" onClick={() => onKey(" ")} grow={5} />
-        {onReturn && <AccentKey label={returnLabel} onClick={onReturn} grow={1.8} />}
+        {onReturn && (
+          <AccentKey label={returnLabel} onClick={onReturn} grow={1.8} />
+        )}
       </div>
     </>
   );

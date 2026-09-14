@@ -135,7 +135,7 @@ export function NameAndAgeStep() {
           onKey={(c) => setName((n) => n + c)}
           onBackspace={() => setName((n) => n.slice(0, -1))}
           onReturn={submit}
-          className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-40"
         />
       )}
     </OnboardingShell>
