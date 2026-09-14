@@ -39,6 +39,8 @@ const INVITATION: ParentInvitation = {
   schoolPhone: null,
   schoolEmail: null,
   parentName: "Ngozi Okafor",
+  parentContact: "ada.okoro@example.com",
+  parentContactMethod: "email",
   status: "pending",
   consentTypes: ["data_processing"],
   expiresAt: "2026-12-01T00:00:00Z",
