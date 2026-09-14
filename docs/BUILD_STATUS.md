@@ -1,6 +1,6 @@
 # Nevo frontend — what is left
 
-Last updated **11 September 2026**. Written from a survey of the source and the
+Last updated **14 September 2026**. Written from a survey of the source and the
 deployed OpenAPI document, not from tickets.
 
 **Start with the section directly below.** It is the only measured, whole-product
@@ -116,6 +116,44 @@ found 17 of 97 markers repo-wide were already stale; assume the same rate here.
 
 ---
 
+## Student sign-in on a new device — PARKED pending design, 14 Sep
+
+**Do not start building this.** Raised with design and backend on 14 Sep; Olayinka
+has asked that it wait for their rulings. Recorded here so nobody picks it up.
+
+**The gap.** A returning child on a new or wiped device cannot sign in. The
+Welcome screen offers only "I have a school code" and "I'm joining through my
+teacher" and both CREATE AN ACCOUNT; `/auth/login` (`page.tsx:56`) only unlocks a
+profile the device already remembers and otherwise redirects into onboarding. So
+the child is re-onboarded into a second account and their history is orphaned.
+This is the top launch blocker for the student console.
+
+**Not a backend gap.** `POST /api/v1/auth/login/pin` is public (no `security` on
+the deployed document) and takes `{school_code, login_identifier, pin}`.
+`POST /api/v1/auth/login` and `POST /api/v1/auth/pin/reset` are public and
+uncalled too. The obstacle is that `login_identifier` is server-issued and no
+STUDENT screen has ever shown one, so a child cannot supply it.
+
+**Correction to the 10 Sep blockers writeup**, which said the identifier is shown
+"to nobody — not the child, not their teacher". False. `LiveClassDetail.tsx:122`
+shows it to teachers and `StudentDetailView.tsx:228` labels it "Username" for
+admins. Only the student surface never shows it.
+
+**Not a missing form — a product decision.** How a child names themselves before
+the PIN is the question: pick your name from the class (best for young SEND
+learners, needs a new public class-code-keyed endpoint AND a safeguarding ruling,
+since it lists children's first names to anyone with a class code); a sign-in QR
+from the teacher (no roster exposed, needs a new endpoint); or type the
+identifier a teacher reads out (nothing needed from anyone, poor for primary).
+
+**Separable sub-case, also parked.** The device remembers exactly ONE child —
+`nevo.auth.profile` is a single slot that `rememberProfile` overwrites. So the
+second child to onboard on a shared classroom tablet displaces the first. Fixing
+that is pure frontend (a list plus a picker) and needs no backend, but it needs a
+picker frame, so it is parked with the rest.
+
+---
+
 ## Student lane — measurement sweep, 11 Sep
 
 Seven merged today (#344, #346, #348, #350, #352, #353 and the useStudentLesson
@@ -185,12 +223,12 @@ mount it.** It is role-aware (`sessionExpiredDoor(role)`) and takes no arguments
 client call now 404s.** Found because `scripts/contract-check.mjs` started
 failing on `main` — the gate was right and a pinned spec copy was stale.
 
-| | |
-|---|---|
+|          |                                                                                                    |
+| -------- | -------------------------------------------------------------------------------------------------- |
 | **GONE** | `POST /api/v1/consents/parent/{token}/account` (+ `ParentAccountRequest`, `ParentAccountResponse`) |
-| **GONE** | `POST /api/v1/auth/login/parent` (+ `ParentLoginRequest`) |
-| **NEW** | `POST /api/v1/auth/parent/request-code` (+ `ParentCodeRequest`, `ParentCodeSentResponse`) |
-| **NEW** | `POST /api/v1/auth/parent/verify-code` (+ `ParentCodeVerifyRequest`) |
+| **GONE** | `POST /api/v1/auth/login/parent` (+ `ParentLoginRequest`)                                          |
+| **NEW**  | `POST /api/v1/auth/parent/request-code` (+ `ParentCodeRequest`, `ParentCodeSentResponse`)          |
+| **NEW**  | `POST /api/v1/auth/parent/verify-code` (+ `ParentCodeVerifyRequest`)                               |
 
 **The live break:** `parentApi.createAccount` (`src/lib/api/parent.ts:246`) is
 called by `ParentConsent.tsx:409`. A parent who completes consent and sets a
@@ -1492,12 +1530,12 @@ unbuilt on purpose, not for want of an endpoint.
 
 ### Built since — 11 Sep
 
-| | |
-|---|---|
-| Overview roll-up rows 1-2 | Both live. Pending-consent is exact from the unpaginated `GET /api/v1/students`; open flags page `/api/intelligence/flags` at `limit=200` and terminate on a SHORT PAGE, never on a total. A partial read reports NOTHING — a count off the pages we happened to get is a floor. Counts distinct CHILDREN, not flags. |
-| The sample marker | `SampleRegion` now wraps the ONE fixture row, and the note names it ("The classes row is a sample") rather than counting, so it cannot go stale the same way. Live rows sit OUTSIDE the marker: wrapping a real roll-up in it would train the e2e suite to walk past a genuine one. |
-| SENCo lessons finished | Free. The per-class fan-out moved from `studentsApi.list({classId})` to `classesApi.classStudents`, which carries `observations` at the same call count. A learner whose roster read failed, or has not answered, gets NO figure — never a zero. |
-| Invitation consent state | `consentStatus` is read now, on the invite row and in the create confirmation. Four branches, and NONE offers to send a request: nothing can, so an offer here is a promise D07 then refuses. A null state falls back to a no-claim sentence — older invitations predate the field, and "we weren't told" must not render as "nobody has been asked". Both guards mutation-verified. |
+|                           |                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Overview roll-up rows 1-2 | Both live. Pending-consent is exact from the unpaginated `GET /api/v1/students`; open flags page `/api/intelligence/flags` at `limit=200` and terminate on a SHORT PAGE, never on a total. A partial read reports NOTHING — a count off the pages we happened to get is a floor. Counts distinct CHILDREN, not flags.                                                                |
+| The sample marker         | `SampleRegion` now wraps the ONE fixture row, and the note names it ("The classes row is a sample") rather than counting, so it cannot go stale the same way. Live rows sit OUTSIDE the marker: wrapping a real roll-up in it would train the e2e suite to walk past a genuine one.                                                                                                  |
+| SENCo lessons finished    | Free. The per-class fan-out moved from `studentsApi.list({classId})` to `classesApi.classStudents`, which carries `observations` at the same call count. A learner whose roster read failed, or has not answered, gets NO figure — never a zero.                                                                                                                                     |
+| Invitation consent state  | `consentStatus` is read now, on the invite row and in the create confirmation. Four branches, and NONE offers to send a request: nothing can, so an offer here is a promise D07 then refuses. A null state falls back to a no-claim sentence — older invitations predate the field, and "we weren't told" must not render as "nobody has been asked". Both guards mutation-verified. |
 
 ### A vacuous assertion, and how it got there — 11 Sep
 
@@ -1526,8 +1564,8 @@ assert contact fails two more.
 
 ### Still buildable, not built — ONE item
 
-| | |
-|---|---|
+|                             |                                                                                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | SENCo adaptations-this-week | The last of D8b's three. Needs a paging loop terminating on `events.length < limit` — NOT on `total`, whose semantics the spec does not document. |
 
 ### Blocked on backend, and NOT buildable at any velocity
@@ -1536,12 +1574,12 @@ These sat under "Still buildable" until 14 Sep, which was wrong in the way this
 console keeps being wrong: a heading that did not match its own contents. Two of
 the three rows said "Genuinely blocked" and "Blocked on…" in their own text.
 
-| | |
-|---|---|
-| SENCo active support | Needs a list-scoped accommodations read. `GET /api/intelligence/accommodations/{student_id}` is the only route and takes no student list, so it is one call per learner. |
-| Adaptation log TYPE filter | `eventType` is a response field with no query param and no enum to populate a filter from. |
-| Assignment history proper | No actor on any assignment schema, and an ended assignment leaves no record (the DELETE returns no body, nothing carries `ended_at`). The dates shipped; the history cannot. |
-| Settings — 4 sections | Promotion, two-step sign-in, school address/logo/band, and profile email/role-title. No endpoint for any of them. |
+|                             |                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SENCo active support        | Needs a list-scoped accommodations read. `GET /api/intelligence/accommodations/{student_id}` is the only route and takes no student list, so it is one call per learner.                                                                                                                                                         |
+| Adaptation log TYPE filter  | `eventType` is a response field with no query param and no enum to populate a filter from.                                                                                                                                                                                                                                       |
+| Assignment history proper   | No actor on any assignment schema, and an ended assignment leaves no record (the DELETE returns no body, nothing carries `ended_at`). The dates shipped; the history cannot.                                                                                                                                                     |
+| Settings — 4 sections       | Promotion, two-step sign-in, school address/logo/band, and profile email/role-title. No endpoint for any of them.                                                                                                                                                                                                                |
 | `academicConfig` typed home | Still `Record<string, unknown>`. Term dates and the year-group label map live in an untyped blob that every screen reads through `yearGroupLabel`, and nothing validates the shape. **Wants a typed home before launch** — this is the one on this list that is ours to fix, and it needs a backend decision on the shape first. |
 
 **Not on this list, deliberately:** `POST /api/v1/students` has no caller and
@@ -1806,12 +1844,12 @@ now two stacks under super-headings, scope-gated, with the section index.
 
 **What is genuinely absent, and stays absent rather than mocked:**
 
-| section                     | why                                                                                                                                                                                                                             |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D12.4b Promotion            | No endpoint. Needs a bulk year-group advance, a leavers pass and a 7-day undo; `PATCH /students/{id}/class` is a different operation. A control that appeared to move 287 children and silently did nothing would be dangerous. |
-| D12.8 Two-step sign-in      | No endpoint anywhere - no enrolment, no secret, no verify, no recovery codes.                                                                                                                                                   |
+| section                     | why                                                                                                                                                                                                                                                                                                                           |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D12.4b Promotion            | No endpoint. Needs a bulk year-group advance, a leavers pass and a 7-day undo; `PATCH /students/{id}/class` is a different operation. A control that appeared to move 287 children and silently did nothing would be dangerous.                                                                                               |
+| D12.8 Two-step sign-in      | No endpoint anywhere - no enrolment, no secret, no verify, no recovery codes.                                                                                                                                                                                                                                                 |
 | D12.6 Profile editing       | PARTLY BUILT, and this row said otherwise until 11 Sep. `PATCH /api/v1/users/me` is live and `AccountSettings` writes the name through it. `ProfilePatch` is `{firstName, lastName, subjects}` only, so EMAIL and ROLE TITLE stay read-only - email is an auth identifier and needs a verification flow, not a silent change. |
-| D12.2 address / logo / band | `PATCH /school` takes `{name, profile, academicConfig, retentionPolicy}` only, and there is no logo upload endpoint.                                                                                                            |
+| D12.2 address / logo / band | `PATCH /school` takes `{name, profile, academicConfig, retentionPolicy}` only, and there is no logo upload endpoint.                                                                                                                                                                                                          |
 
 **Three settings still live in an untyped blob.** `academicConfig` is
 `additionalProperties: true`, so the term dates and the year-group label map are
