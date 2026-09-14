@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/sso";
 import { schoolApi, type School } from "@/lib/api/school";
 import { cn } from "@/lib/utils";
+import { timeAgo } from "@/lib/relativeTime";
 import { hasTechnicalDetail, latestRun, runIssues } from "@/lib/rosterSync";
 import { NoAccess, failureKind } from "../NoAccess";
 import { WriteFailed } from "../WriteFailed";
@@ -116,18 +117,6 @@ function StatusPill({ status }: { status: "connected" | "attention" | "off" }) {
   );
 }
 
-function timeAgo(iso: string | null): string {
-  if (!iso) return "never";
-  const then = Date.parse(iso);
-  if (Number.isNaN(then)) return "never";
-  const mins = Math.round((Date.now() - then) / 60000);
-  if (mins < 2) return "just now";
-  if (mins < 60) return `${mins} minutes ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs} hour${hrs === 1 ? "" : "s"} ago`;
-  const days = Math.round(hrs / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
-}
 
 export function SsoView() {
   const [phase, setPhase] = useState<Phase>("loading");

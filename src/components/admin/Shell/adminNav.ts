@@ -104,3 +104,28 @@ export function scopeSummary(scopes: PermissionScope[]): string {
   if (scopes.includes("oversight")) return "General oversight";
   return `${SCOPE_LABELS[scopes[0]]} +${scopes.length - 1}`;
 }
+
+/**
+ * Where an admin lands after signing in.
+ *
+ * THE PERSONA HOMES EXIST NOW, and sign-in used to send everyone to the
+ * Overview because they did not - see the TODO(screen) this replaces. A
+ * finance-only admin landed on a dashboard gated on `oversight`, which they do
+ * not hold, so their first sight of Nevo was a refusal.
+ *
+ * `proxy.ts` CANNOT make this decision and must not try: it reads only the role
+ * mirror cookie, and the role is `senco_admin | other_admin`, which says
+ * nothing about scopes. `GET /api/v1/permissions/me` is the only source, and
+ * `PermissionProvider` already fetches it above every /admin route - so this
+ * costs no extra request.
+ *
+ * Oversight wins when present: a proprietor who also holds billing wants the
+ * school, not the invoices.
+ */
+export function adminHomeForScopes(scopes: PermissionScope[]): string {
+  if (scopes.includes("oversight")) return "/admin/dashboard";
+  if (scopes.includes("it_sso")) return "/admin/sso/home";
+  if (scopes.includes("billing")) return "/admin/billing/home";
+  // Whatever their rail offers first, rather than a screen they cannot open.
+  return navForScopes(scopes)[0]?.href ?? "/admin/settings";
+}
