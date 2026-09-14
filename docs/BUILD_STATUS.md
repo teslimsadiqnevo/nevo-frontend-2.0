@@ -1588,6 +1588,48 @@ speaks.** Termination is on a short page, which is the only exhaustion signal
 this contract actually supports.
 
 
+### The two persona homes — built 14 Sep
+
+D17 and D18 were the last unbuilt admin screens, and neither was blocked. Sign-in
+had been routing every persona to the Overview because they did not exist — and
+the Overview is gated on `oversight`, so an IT contractor or a finance
+administrator met a REFUSAL as their first sight of Nevo.
+
+`/admin` is now a chooser (`adminHomeForScopes`). It lives there rather than in
+`proxy.ts` deliberately: the proxy holds only the role mirror cookie, and the
+role is `senco_admin | other_admin`, which says nothing about scopes.
+`PermissionProvider` already fetches them above every /admin route, so the
+chooser costs no extra request. Neither home adds a rail row —
+`activeNavLabel`'s longest-prefix rule lights IT & SSO and Billing already.
+
+**Two cards on the IT home are absent, and stay absent:**
+
+- *"2 connected · Microsoft + Google"*. `GET /admin/sso/status` returns ONE
+  `SsoConnectionHealthResponse` with a single provider. One per school is what
+  the data model says, so the card NAMES the provider instead of counting them.
+  This is a product question, not a missing endpoint — do not file it as one.
+- *"SSO signing certificate renews in 40 days"*. **TODO(api):** no certificate
+  or expiry field exists anywhere in the contract; the only `expiry*` fields
+  belong to payment cards. Nothing today can see a signing certificate lapse
+  coming.
+
+**Three copy corrections the frames needed:**
+
+1. `missingTeacherClassMappings` counts TEACHERS. The frame says "3 accounts
+   couldn't be matched to a class"; calling them accounts would widen a
+   teacher-to-class gap into a claim about students' sign-ins.
+2. `UpcomingCharge` carries a due date and **no issue date**, so the finance
+   home says an invoice "is due", never that it "issues on" — a different event.
+3. The finance home prints **no VAT rate**, though the frame shows "+ 7.5% VAT".
+   `vatRate` is still a bare string with no example; Billing shows the amount
+   for that reason and this screen agrees with Billing rather than the frame.
+
+Also caught in review and fixed before shipping: `RosterSyncStatus` has FOUR
+values and the first draft handled three, so a run the provider named
+`partial_manual_review` produced no row and the hero then said nothing needed
+attention. And the neutral "N imported" row was being counted in "N things worth
+a glance", telling a healthy school it had something to look at.
+
 ### Blocked on backend, and NOT buildable at any velocity
 
 These sat under "Still buildable" until 14 Sep, which was wrong in the way this
