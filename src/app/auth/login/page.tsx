@@ -4,8 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { NevoKeyboard } from "@/components/shared";
-import { ApiError, authApi } from "@/lib/api";
-import { getRememberedProfile, type RememberedProfile } from "@/lib/auth/session";
+import { authApi } from "@/lib/api";
+import {
+  classifyLoginFailure,
+  type LoginFailure,
+} from "@/lib/auth/loginFailure";
+import { AccountOnPauseScreen } from "@/components/student/Auth/AccountOnPauseScreen";
+import {
+  getRememberedProfile,
+  type RememberedProfile,
+} from "@/lib/auth/session";
 import { useAuth } from "@/hooks";
 import { STUDENT_PIN_LENGTH, type UserRole } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -41,8 +49,24 @@ export default function LoginPage() {
    * did not answer. All of those used to render as "That PIN didn't match",
    * which blames a child for our fault and hides the real cause: a 6-digit
    * PIN truncated to 4 read exactly like a wrong PIN, and cost an evening.
+   *
+   * A 401 IS NO LONGER ONE THING. Backend now names which, in the 401's own
+   * documented description: `authentication_failed` when the credential is
+   * wrong, `account_paused` when it is RIGHT but the account is not open, and
+   * `too_many_attempts` when rate limited. Collapsing all three into
+   * "credentials" told a paused child and a rate-limited child that they had
+   * mistyped - the same blame-the-child shape, for two more causes.
+   *
+   * "paused" takes over the whole screen rather than adding a line, because the
+   * PIN row underneath it would be an invitation to keep trying something that
+   * cannot work.
+   *
+   * An UNRECOGNISED code falls back to "credentials", which is the honest
+   * default for a 401: the server rejected these credentials and did not say
+   * why. The set is not closed - the session-validation codes are not in the
+   * document at all - so this must never assume it has seen them all.
    */
-  const [error, setError] = useState<null | "credentials" | "ours">(null);
+  const [error, setError] = useState<LoginFailure | null>(null);
   const [checking, setChecking] = useState(false);
   const [done, setDone] = useState(false);
   const [kbOpen, setKbOpen] = useState(false);
@@ -100,9 +124,7 @@ export default function LoginPage() {
         // we sent a shape it rejects - the PIN length is the live example -
         // and anything else is the network or the server. Only the first is
         // about the child.
-        const status = cause instanceof ApiError ? cause.status : 0;
-        const credentials = status === 401 || status === 403;
-        setError(credentials ? "credentials" : "ours");
+        setError(classifyLoginFailure(cause));
       } finally {
         setChecking(false);
       }
@@ -131,6 +153,15 @@ export default function LoginPage() {
   }, []);
 
   if (!profile) return null;
+
+  /*
+   * A paused account takes the whole screen, per the frame: it is shown "in
+   * place of the normal login flow", not as a line under a PIN row the child
+   * could keep tapping at. Rendered here rather than routed to, deliberately -
+   * a `/auth/paused` URL would be a screen anyone could visit and be told their
+   * account is on pause when it is not.
+   */
+  if (error === "paused") return <AccountOnPauseScreen />;
 
   const focusInput = () => inputRef.current?.focus();
 
@@ -187,7 +218,10 @@ export default function LoginPage() {
         {done ? (
           <>
             <span className="mt-6 flex size-16 items-center justify-center rounded-full bg-nevo-navy motion-safe:animate-nevo-pop">
-              <Check className="size-[34px] text-nevo-cream" strokeWidth={2.6} />
+              <Check
+                className="size-[34px] text-nevo-cream"
+                strokeWidth={2.6}
+              />
             </span>
             <h2 className="mt-5 text-[23px] leading-[1.3] font-medium tracking-[-0.01em] text-nevo-near-black sm:text-[26px]">
               Welcome back, {profile.displayName}
@@ -234,6 +268,11 @@ export default function LoginPage() {
                 "That PIN didn't match. Try again, or ask your teacher."}
               {error === "ours" &&
                 "We couldn't check that just now - that's on us, not you. Try again in a moment."}
+              {/* No frame covers this one; the copy is ours and deliberately
+                  plain. What it must not do is what it used to: tell a child
+                  who typed the right PIN too quickly that it was wrong. */}
+              {error === "throttled" &&
+                "That's a lot of tries in a row. Wait a moment, then try again."}
             </p>
             <button
               type="button"
