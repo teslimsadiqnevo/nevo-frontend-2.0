@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BaselineCapture, reduceGridSpan, reduceTrialModule } from "./capture";
 
 /**
@@ -102,18 +102,40 @@ describe("reduceTrialModule", () => {
  * read.
  */
 
-/** A correct tap at `posInSeq`, `gap` ms after the previous event. */
+/** A correct tap at `posInSeq`, stamped at wherever the test clock now stands. */
 function tapAt(capture: BaselineCapture, posInSeq: number) {
   capture.record("tap", { cell: posInSeq, correct: true, posInSeq, length: 3 });
 }
 
-/** Move the clock on without waiting for it. */
-function advance(ms: number) {
-  const base = performance.now();
-  vi.spyOn(performance, "now").mockReturnValue(base + ms);
-}
+/*
+ * THE TEST OWNS THE CLOCK, START TO FINISH.
+ *
+ * `advance` used to read the REAL `performance.now()` and anchor a mock at
+ * `real + ms`. But the first `tapAt` had already stamped itself from the real
+ * clock too - so the first gap came out as `ms` PLUS however long the worker
+ * actually took to get between those two statements. Idle, that is a fraction
+ * of a millisecond and rounds away. On a loaded machine it does not: this test
+ * failed once in a full-suite run where six other files were timing out, and
+ * passed on every run in isolation, which is the signature of exactly this.
+ *
+ * Mixing one real reading with mocked ones is the defect. `mockImplementation`
+ * over a counter never reads the real clock at all, so every stamp is exact and
+ * nothing the rest of the suite does can reach it.
+ *
+ * `vitest.setup.ts` calls `vi.restoreAllMocks()` after every test, which puts
+ * the real `performance.now` back.
+ */
+let clock = 0;
+const advance = (ms: number) => {
+  clock += ms;
+};
 
 describe("reduceGridSpan", () => {
+  beforeEach(() => {
+    clock = 1_000;
+    vi.spyOn(performance, "now").mockImplementation(() => clock);
+  });
+
   it("does not time the pause between rounds as recall speed", () => {
     // Two taps 300ms apart inside one recall, then a four-second wait while the
     // next sequence plays, then two more 300ms apart. The old pairing counted
