@@ -60,6 +60,13 @@ export function ObservedInteractionSequence() {
   const [sessionId] = useState(() => randomId());
   const { trackEvent, flush } = useSignals(sessionId, undefined, "onboarding");
   const [phase, setPhase] = useState<"transition" | "activities">("transition");
+  /*
+   * Whether this device can sign the child back in on its own. False for an
+   * invite-link child, who has a real account and no school code to pair with
+   * their username — see `rememberOnboardedStudent`. Starts true so the
+   * celebration does not flash a warning before there is anything to warn about.
+   */
+  const [deviceRemembered, setDeviceRemembered] = useState(true);
   const [index, setIndex] = useState(0);
 
   if (phase === "transition") {
@@ -169,10 +176,21 @@ export function ObservedInteractionSequence() {
           flush();
         }}
         onComplete={() => {
-          // The device now belongs to this student - but only if the server
-          // issued an identifier it will recognise. SSO students re-enter
-          // through their provider, not a PIN.
-          if (!isSso) rememberOnboardedStudent(identifierRef.current);
+          /*
+           * The device now belongs to this student - but only if the server
+           * issued an identifier it will recognise AND the draft carries the
+           * school code that is the other half of the credential. SSO students
+           * re-enter through their provider, not a PIN.
+           *
+           * THE ANSWER IS NOT DISCARDED ANY MORE. An invite-link child has no
+           * school code — the join endpoints return a `schoolName` and never a
+           * code — so this returns false for them, correctly, and used to do it
+           * in silence. They were then told "You're all set" and would find the
+           * next morning that the tablet had never heard of them.
+           */
+          setDeviceRemembered(
+            isSso ? true : rememberOnboardedStudent(identifierRef.current),
+          );
           advance();
         }}
       />
@@ -185,6 +203,10 @@ export function ObservedInteractionSequence() {
   // fires the instant an account is created - so the dashboard read is almost
   // always still in flight here. `useNextLessonHref` is where that is decided.
   return (
-    <YoureInScreen onDone={() => router.push(firstLesson)} track={trackEvent} />
+    <YoureInScreen
+      onDone={() => router.push(firstLesson)}
+      track={trackEvent}
+      deviceRemembered={deviceRemembered}
+    />
   );
 }
