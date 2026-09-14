@@ -19,6 +19,14 @@ Keep this current. Two rules make it useful rather than decorative:
 
 ---
 
+> **What is undone on the teacher and parent consoles now lives in
+> [`docs/CONSOLE_INVENTORY.md`](./CONSOLE_INVENTORY.md)** — one table, every line carrying
+> the `file:line` or spec quote that decided it. It exists because "is the console
+> complete?" got a different answer every time it was asked, each one re-derived from
+> grep and memory. Read and update that file rather than rebuilding the answer. The
+> sections below remain the narrative record; the inventory is the current state.
+
+
 ## WHERE THE PRODUCT ACTUALLY IS — measured 10 Sep
 
 Assessed against the deployed OpenAPI document, the design repo and a worktree
