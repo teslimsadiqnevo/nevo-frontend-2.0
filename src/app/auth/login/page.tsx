@@ -9,6 +9,7 @@ import {
   classifyLoginFailure,
   type LoginFailure,
 } from "@/lib/auth/loginFailure";
+import { safeNextPath } from "@/lib/auth/nextPath";
 import { AccountOnPauseScreen } from "@/components/student/Auth/AccountOnPauseScreen";
 import {
   getRememberedProfile,
@@ -79,8 +80,34 @@ export default function LoginPage() {
     const hydrate = () => {
       const remembered = getRememberedProfile();
       if (!remembered) {
-        // Nothing to unlock on this device - enter through onboarding.
-        router.replace("/student/onboarding");
+        /*
+         * Nothing to unlock on this device - so ask who they are, rather than
+         * assuming they are new.
+         *
+         * This used to `replace("/student/onboarding")`, which made a RETURNING
+         * child create a second account: new identifier, no history, and a class
+         * they might not be able to rejoin. It happened on a cleared browser, a
+         * new tablet, a reimaged school laptop, and on any shared tablet where
+         * another child onboarded after them - the device remembers exactly one.
+         * Nothing told them or their teacher.
+         *
+         * Frame 00c is the door. It carries "I'm new to Nevo" for the children
+         * who really are, which is why removing this redirect loses nothing.
+         */
+        // The proxy sets `?next=` when it bounces a signed-out child off a
+        // student route. This screen has never read it; carrying it across
+        // means the sign-in lands them where they were going. Read from
+        // `location` rather than `useSearchParams` - this is already a
+        // client-only effect, and the hook would demand a Suspense boundary
+        // for a value we only need here.
+        const wanted = safeNextPath(
+          new URLSearchParams(window.location.search).get("next"),
+        );
+        router.replace(
+          wanted
+            ? `/auth/sign-in?next=${encodeURIComponent(wanted)}`
+            : "/auth/sign-in",
+        );
         return;
       }
       setProfile(remembered);
@@ -283,6 +310,23 @@ export default function LoginPage() {
               className="mt-2 h-11 cursor-pointer px-4 text-[15px] font-medium text-nevo-navy"
             >
               Forgot PIN?
+            </button>
+            {/*
+              Frame 00c, state 4. The device remembers SOMEBODY, but it may not
+              be the child holding it - a shared classroom tablet remembers only
+              the last child to onboard on it. Without this, the only way past
+              another child's avatar was to re-onboard, which created a second
+              account and orphaned the history behind it.
+            */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push("/auth/sign-in");
+              }}
+              className="h-11 cursor-pointer px-4 text-[15px] font-medium text-nevo-near-black/70"
+            >
+              Using a different device?
             </button>
           </>
         )}

@@ -44,6 +44,12 @@ const ADMIN_SIGN_IN = "/auth/admin";
 const ADMIN_HOME = "/admin/dashboard";
 /** The child's door is the PIN screen, not a password form. */
 const STUDENT_SIGN_IN = "/auth/login";
+/**
+ * The door for a device that remembers nobody (frame 00c). Separate from the
+ * PIN screen because it asks for a school code and username as well - the PIN
+ * screen has no fields at all, only the pad.
+ */
+const STUDENT_RETURNING_SIGN_IN = "/auth/sign-in";
 const STUDENT_HOME = "/student/dashboard";
 
 /** The invite link lands here with no session - it is how you get one. */
@@ -114,7 +120,10 @@ export function proxy(request: NextRequest) {
   // uses a HARD navigation, not a router push - `ProfileSettings` does that
   // deliberately, so the cookie clear has settled before this is asked. A
   // client-side push would race it and land them back in the console.
-  if (pathname === STUDENT_SIGN_IN && isStudent) {
+  if (
+    (pathname === STUDENT_SIGN_IN || pathname === STUDENT_RETURNING_SIGN_IN) &&
+    isStudent
+  ) {
     return NextResponse.redirect(new URL(STUDENT_HOME, request.url));
   }
 
@@ -134,5 +143,6 @@ export const config = {
     "/student",
     "/student/:path*",
     "/auth/login",
+    "/auth/sign-in",
   ],
 };
