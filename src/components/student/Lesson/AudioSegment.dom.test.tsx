@@ -105,6 +105,27 @@ describe("AudioSegment", () => {
     expect(screen.queryByText(/0:40/)).toBeNull();
   });
 
+  it("ignores a supplied duration outright when there is a real clip", () => {
+    // Nothing covered this, and it is the rule that stops a nullable wire field
+    // becoming a fabricated length. `durationMs` can now arrive as null, and the
+    // tempting repair - "fall back to the backend's duration" - would put a
+    // number nobody measured on a real clip's card. The element is the only
+    // thing that knows, so a supplied `durationSec` must lose to it every time.
+    const { container } = render(
+      <AudioSegment content={{ ...CONTENT, durationSec: 40 }} />,
+    );
+    const el = audioEl(container);
+
+    expect(screen.getByText(/0:00 \/ --:--/)).toBeTruthy();
+    expect(screen.queryByText(/0:40/)).toBeNull();
+
+    Object.defineProperty(el, "duration", { value: 12, configurable: true });
+    fireEvent.loadedMetadata(el);
+
+    expect(screen.getByText(/0:12/)).toBeTruthy();
+    expect(screen.queryByText(/0:40/)).toBeNull();
+  });
+
   it("follows the element when something else pauses it", () => {
     // A headphone unplug, the lock screen, another tab taking the audio focus.
     // The card has to stay truthful about what is happening.

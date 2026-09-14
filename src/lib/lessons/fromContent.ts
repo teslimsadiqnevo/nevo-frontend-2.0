@@ -153,11 +153,16 @@ function visualFor(
  * therefore not offered at all - narration nobody can fall back from is exactly
  * the blank frame the rule at the top forbids.
  *
- * `durationMs` IS DELIBERATELY NOT MAPPED WHEN ZERO. The backend returns 0 on
- * real narration today - verified against an 80,893-byte mp3 that plays - so it
- * is un-computed metadata rather than an empty clip. Passing 0 through would
- * have the card claim a clip of no length; omitting it lets the audio element
- * report the truth once it has the file.
+ * ONLY A POSITIVE MEASURED `durationMs` IS MAPPED. It was 0 on real narration -
+ * verified against an 80,893-byte mp3 that plays - and since 14 Sep the field is
+ * `integer | null` and backend sends null when nothing measured the file. Both
+ * mean the same thing: un-computed metadata, not a clip of no length. Passing
+ * either through would have the card claim a length nobody measured; omitting it
+ * lets the audio element report the truth once it has the file.
+ *
+ * The guard must stay a POSITIVE-NUMBER test. `!== 0` lets null through and
+ * `Math.round(null / 1000)` is 0, which fabricates the very claim this avoids;
+ * `!= null` lets a measured 0 through and does the same.
  */
 function audioFor(
   segment: ContentSegment,
@@ -172,7 +177,7 @@ function audioFor(
     title: `Narrated: ${heading}`,
     src: variant.audioUrl,
     transcript,
-    ...(variant.durationMs > 0
+    ...(typeof variant.durationMs === "number" && variant.durationMs > 0
       ? { durationSec: Math.round(variant.durationMs / 1000) }
       : {}),
   };

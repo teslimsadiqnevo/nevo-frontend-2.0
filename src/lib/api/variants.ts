@@ -50,7 +50,14 @@ export interface AudioVariant {
   script: string;
   audioUrl: string;
   storagePath: string | null;
-  durationMs: number;
+  /**
+   * NULLABLE since 14 Sep. Null means nothing measured the file - there is no
+   * audio library behind the generator and backend would not estimate a length
+   * from bitrate, since it is a number a child's progress might touch. So null
+   * and 0 mean the same thing here: un-computed metadata, never a clip of no
+   * length. Only the audio element knows the truth, and it is asked.
+   */
+  durationMs: number | null;
   provider: string;
   voice: string | null;
   format: string;

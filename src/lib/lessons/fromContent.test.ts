@@ -200,6 +200,25 @@ describe("lessonFromContent - the audio channel", () => {
     expect(out?.segments[0].audio?.durationSec).toBeUndefined();
   });
 
+  it("omits a null duration too, not just a zero one", () => {
+    // `durationMs` went `integer | null` on 14 Sep: null means nothing measured
+    // the file. Kept as its own case rather than folded into the zero test -
+    // they are different mutants, and merging them would let a guard rewritten
+    // as `!== 0` pass. That guard maps `Math.round(null / 1000)` to 0 and has
+    // the card claim a measured clip of no length.
+    const out = lessonFromContent(
+      lesson([
+        segment({
+          availableModalities: ["text", "audio"],
+          audioVariant: audioVariant({ durationMs: null }),
+        }),
+      ]),
+    );
+
+    expect(out?.segments[0].audio).toBeDefined();
+    expect(out?.segments[0].audio?.durationSec).toBeUndefined();
+  });
+
   it("uses a real duration when the backend computes one", () => {
     const out = lessonFromContent(
       lesson([

@@ -5,7 +5,11 @@ import { useState } from "react";
 import { IllustrationWrapper } from "@/components/shared/IllustrationWrapper";
 import type { LessonSegment } from "@/lib/api/lessons";
 import type { SegmentReviewReason } from "@/lib/api/lessons";
-import { VARIANT_ORIENTATION, VARIANT_TABS, type VariantTab } from "@/lib/mocks/teacherIntelligence";
+import {
+  VARIANT_ORIENTATION,
+  VARIANT_TABS,
+  type VariantTab,
+} from "@/lib/mocks/teacherIntelligence";
 import { cn } from "@/lib/utils";
 
 /**
@@ -102,10 +106,19 @@ function Para({ children }: { children: React.ReactNode }) {
   );
 }
 
-function VariantBody({ tab, segment }: { tab: VariantTab; segment: LessonSegment }) {
+function VariantBody({
+  tab,
+  segment,
+}: {
+  tab: VariantTab;
+  segment: LessonSegment;
+}) {
   if (tab === "Text") {
     const v = segment.textVariant;
-    if (!v) return <Empty>Nevo has not generated a written version of this section.</Empty>;
+    if (!v)
+      return (
+        <Empty>Nevo has not generated a written version of this section.</Empty>
+      );
     return (
       <div className="flex flex-col gap-2.5">
         <Para>{v.body}</Para>
@@ -130,7 +143,10 @@ function VariantBody({ tab, segment }: { tab: VariantTab; segment: LessonSegment
 
   if (tab === "Visual") {
     const v = segment.visualVariant;
-    if (!v) return <Empty>Nevo has not generated a visual version of this section.</Empty>;
+    if (!v)
+      return (
+        <Empty>Nevo has not generated a visual version of this section.</Empty>
+      );
     return (
       <div className="flex flex-col gap-3">
         {v.imageUrl && (
@@ -156,8 +172,16 @@ function VariantBody({ tab, segment }: { tab: VariantTab; segment: LessonSegment
 
   if (tab === "Audio") {
     const v = segment.audioVariant;
-    if (!v) return <Empty>Nevo has not generated a narrated version of this section.</Empty>;
-    const seconds = Math.round(v.durationMs / 1000);
+    if (!v)
+      return (
+        <Empty>
+          Nevo has not generated a narrated version of this section.
+        </Empty>
+      );
+    // `durationMs` went nullable on 14 Sep. Behaviour is unchanged - null and 0
+    // both give 0 here, and the line below is already gated on `seconds > 0` -
+    // but the compiler now sees the null the wire can send.
+    const seconds = Math.round((v.durationMs ?? 0) / 1000);
     return (
       <div className="flex flex-col gap-2.5">
         <Para>{v.script}</Para>
@@ -173,7 +197,12 @@ function VariantBody({ tab, segment }: { tab: VariantTab; segment: LessonSegment
   }
 
   const v = segment.interactiveVariant;
-  if (!v) return <Empty>Nevo has not generated an interactive version of this section.</Empty>;
+  if (!v)
+    return (
+      <Empty>
+        Nevo has not generated an interactive version of this section.
+      </Empty>
+    );
   return (
     <div className="flex flex-col gap-2.5">
       <Para>{v.prompt}</Para>
@@ -219,7 +248,17 @@ export function LiveVariantReview({
           href={`/teacher/lessons/${lessonId}`}
           className="inline-flex cursor-pointer items-center gap-[7px] text-[13px] text-nevo-near-black/55 transition-transform active:scale-[0.99] xl:text-[13.5px]"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
             <path d="M15 6l-6 6 6 6" />
           </svg>
           Lesson Library · Variant review
@@ -229,7 +268,9 @@ export function LiveVariantReview({
           {`${lessonTitle} · Section ${sectionIndex}`}
         </h2>
         {segment.title && (
-          <p className="mt-1 text-[14px] text-nevo-near-black/60">{segment.title}</p>
+          <p className="mt-1 text-[14px] text-nevo-near-black/60">
+            {segment.title}
+          </p>
         )}
 
         <p className="mt-4 text-[13px] leading-[1.6] text-nevo-near-black/60 italic">
@@ -254,7 +295,11 @@ export function LiveVariantReview({
           </div>
         )}
 
-        <div className="mt-4 flex flex-wrap gap-2 xl:flex-nowrap" role="tablist" aria-label="Lesson variants">
+        <div
+          className="mt-4 flex flex-wrap gap-2 xl:flex-nowrap"
+          role="tablist"
+          aria-label="Lesson variants"
+        >
           {VARIANT_TABS.map((t) => (
             <button
               key={t}
