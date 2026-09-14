@@ -3,6 +3,7 @@ export {
   api,
   request,
   ApiError,
+  apiErrorCode,
   BASE_URL,
   type RequestOptions,
 } from "./client";

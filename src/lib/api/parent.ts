@@ -118,13 +118,7 @@ export type ParentContactMethod = "email" | "sms";
  * `ApiError.detail` is the whole parsed body, so the code sits one level in.
  * Same shape `tosseErrorMessage` narrows.
  */
-export function apiErrorCode(detail: unknown): string | null {
-  if (!detail || typeof detail !== "object") return null;
-  const inner = (detail as { detail?: unknown }).detail;
-  if (!inner || typeof inner !== "object") return null;
-  const code = (inner as { code?: unknown }).code;
-  return typeof code === "string" && code ? code : null;
-}
+export { apiErrorCode } from "./client";
 
 /**
  * 202 of POST /api/v1/auth/parent/request-code.

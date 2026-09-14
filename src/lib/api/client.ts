@@ -38,6 +38,27 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The backend's own name for what went wrong, out of an error body.
+ *
+ * FastAPI nests it: `{ detail: { code, message } }`, so `ApiError.detail` is the
+ * OUTER object and the code is one level in. Lived next to the parent-auth
+ * client because that is where it was first needed; it belongs here, beside the
+ * error it reads.
+ *
+ * Returns null for any shape that is not that - an older deployment, a proxy's
+ * own error page, a plain string detail. A caller that cannot name the cause
+ * must fall back to its generic case rather than guess, because guessing here
+ * means telling a child the wrong thing about their own account.
+ */
+export function apiErrorCode(detail: unknown): string | null {
+  if (!detail || typeof detail !== "object") return null;
+  const inner = (detail as { detail?: unknown }).detail;
+  if (!inner || typeof inner !== "object") return null;
+  const code = (inner as { code?: unknown }).code;
+  return typeof code === "string" && code ? code : null;
+}
+
 /** User-friendly message per the Design System — never raw technical errors. */
 function friendlyMessage(status: number): string {
   if (status === 0)
@@ -211,7 +232,11 @@ export async function request<T>(
     if (response.status === 401) {
       handleAuthFailure(path, Boolean(token));
     }
-    throw new ApiError(response.status, friendlyMessage(response.status), detail);
+    throw new ApiError(
+      response.status,
+      friendlyMessage(response.status),
+      detail,
+    );
   }
 
   if (response.status === 204) return undefined as T;
@@ -248,7 +273,10 @@ export async function requestBlob(
       ...rest,
       method: "GET",
       credentials: rest.credentials ?? "include",
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
+      },
     });
   } catch (cause) {
     throw new ApiError(0, friendlyMessage(0), cause);
