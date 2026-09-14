@@ -170,7 +170,7 @@ export function ConnectView() {
   ) => {
     const threadId = await sendLive(to, text);
     if (!threadId) {
-      if (toast) flashToast("That didn’t send – try again");
+      if (toast) flashToast("That didn’t send. Try again");
       // THROW, do not return. Callers cannot tell success from failure if this
       // resolves either way - which is exactly how the compose modal came to
       // report "Message sent" over a send that never happened.

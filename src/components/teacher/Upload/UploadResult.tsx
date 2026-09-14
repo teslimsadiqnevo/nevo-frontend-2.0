@@ -79,10 +79,26 @@ function Segment({
           </p>
         )}
         {segment.needsReview && (
+          /*
+           * "Worth a look", and NOT the reasons.
+           *
+           * Both this row and the upload result used to append
+           * `reviewReasons.map(r => r.replace(/_/g, " ").toLowerCase())` - which
+           * is, word for word, the thing `SegmentReviewReason`'s own contract
+           * description exists to prevent: "Enumerated so the console can render
+           * its own copy per reason instead of printing the raw token with
+           * underscores swapped for spaces." A teacher was reading
+           * "audio generation failed".
+           *
+           * The console DOES have that copy, in `LiveVariantReview`, written per
+           * reason and in sentences. It is too long for an inline chip, and
+           * inventing a second short register for the same six reasons is how
+           * two wordings drift. So the row says the one true thing and the
+           * variant review link beside it - added the same day - goes to the
+           * screen that explains which. Flagged to design.
+           */
           <p className="mt-2 text-[13px] leading-[1.5] text-nevo-navy">
             Worth a look
-            {segment.reviewReasons.length > 0 &&
-              ` – ${segment.reviewReasons.map((r) => r.replace(/_/g, " ").toLowerCase()).join(", ")}`}
           </p>
         )}
       </div>

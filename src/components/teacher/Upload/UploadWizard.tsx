@@ -14,7 +14,7 @@ import {
   ParseFallback,
   type FallbackKind,
 } from "./ParseFallback";
-import { PARSE_STAGES, ParseProgress } from "./ParseProgress";
+import { PARSE_STAGES, ParseProgress, rungFor } from "./ParseProgress";
 import { SectionReview } from "./SectionReview";
 import { LiveStructureTree } from "./LiveStructureTree";
 import { UploadResult } from "./UploadResult";
@@ -604,6 +604,20 @@ export function UploadWizard() {
                     Try another file
                   </button>
                 </div>
+              ) : rungFor(staged.stage) >= 0 ? (
+                /*
+                 * THE LADDER, ON THE LIVE PATH. It used to render only when
+                 * there was NO real upload id - so the one teacher who saw the
+                 * staged parse story was the one not doing a real upload, and
+                 * everybody else got the spinner below.
+                 *
+                 * `staged.stage` has been on the hook all along and was read by
+                 * nothing. Now that the rungs are keyed to `UploadStage` there
+                 * is an honest mapping, so the real parse drives the real
+                 * ladder. An unrecognised stage falls through to the spinner
+                 * rather than guessing at a rung.
+                 */
+                <ParseProgress stage={rungFor(staged.stage)} />
               ) : (
                 <div className="flex max-w-[720px] items-center gap-5 rounded-[16px] bg-nevo-cream-elevated p-9 shadow-elevation-1">
                   <span className="size-11 shrink-0 rounded-full border-4 border-nevo-navy/20 border-t-nevo-navy motion-safe:animate-spin motion-safe:[animation-duration:800ms]" />
@@ -613,7 +627,7 @@ export function UploadWizard() {
                     </p>
                     <p className="mt-1.5 text-sm leading-[1.5] text-nevo-near-black/62">
                       {staged.slow
-                        ? "This one is taking a while. It hasn’t stalled - a longer document takes longer to read."
+                        ? "This one is taking a while. It hasn’t stalled, and a longer document takes longer to read."
                         : "This can take a minute for a longer document."}
                     </p>
                   </div>

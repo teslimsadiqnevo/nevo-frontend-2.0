@@ -485,7 +485,7 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                             // possible thing on a screen that assigns work.
                             <p className="text-[13.5px] leading-[1.5] text-nevo-near-black/60">
                               Picking individual students isn&rsquo;t connected
-                              yet &ndash; assign to the whole class for now.
+                              yet. Assign to the whole class for now.
                             </p>
                           )}
                         </div>

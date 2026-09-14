@@ -215,7 +215,7 @@ export function LiveStructureTree({
     } catch {
       setSaving("failed");
       setError(
-        "We couldn’t save that just now. Your changes are still here – try again in a moment.",
+        "We couldn’t save that just now. Your changes are still here. Try again in a moment.",
       );
     }
   };
@@ -241,7 +241,7 @@ export function LiveStructureTree({
     } catch {
       setPhase("idle");
       setError(
-        "We couldn’t add that to your library just now. Nothing has changed – try again in a moment.",
+        "We couldn’t add that to your library just now. Nothing has changed. Try again in a moment.",
       );
     }
   };

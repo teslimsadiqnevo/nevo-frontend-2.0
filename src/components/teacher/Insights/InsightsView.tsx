@@ -108,7 +108,7 @@ export function InsightsView() {
   const sampleNotice = sample ? (
     <p className="mt-3 max-w-[620px] text-[13px] leading-[1.5] text-nevo-near-black/60 italic">
       We couldn&rsquo;t reach your school just now, so these are sample classes
-      and sample insights &ndash; not your week.
+      and sample insights, not your week.
     </p>
   ) : null;
 

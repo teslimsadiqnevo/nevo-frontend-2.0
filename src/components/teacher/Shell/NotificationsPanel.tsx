@@ -121,7 +121,7 @@ export function NotificationsPanel({
               We couldn&rsquo;t load your notifications.
             </p>
             <p className="mt-1 text-[13.5px] text-nevo-near-black/50">
-              This isn&rsquo;t an empty inbox &ndash; try again in a moment.
+              This isn&rsquo;t an empty inbox. Try again in a moment.
             </p>
           </div>
         ) : empty ? (

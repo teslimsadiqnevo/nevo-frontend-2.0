@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { UploadStage } from "@/lib/api/uploads";
 import { cn } from "@/lib/utils";
 
 /**
@@ -14,12 +15,37 @@ import { cn } from "@/lib/utils";
  * at 50% per the audit; flagged to design.
  */
 
-export const PARSE_STAGES = [
-  { line: "Reading your lessons…", label: "Finding the lessons" },
-  { line: "Finding the sections…", label: "Finding the sections in each lesson" },
-  { line: "Splitting into segments…", label: "Splitting sections into segments" },
-  { line: "Writing the recaps and previews…", label: "Writing the recaps and previews" },
+/**
+ * THREE RUNGS, ONE PER `UploadStage`, and that is the whole rule.
+ *
+ * Design, 14 Sep: "never draw a rung the backend doesn't report." The ladder
+ * had four rungs invented to match C07e's drawing, driven by a mock clock, and
+ * `UploadStage` reports three - `lessons | structure | complete`. So a teacher
+ * watched a four-step story about a three-step process, and on the LIVE path
+ * did not see the ladder at all: a real upload id routed to a plain spinner,
+ * because there was no honest way to map three values onto four rungs.
+ *
+ * Labels are design's own words. `complete` is a rung like the others rather
+ * than the ladder resolving, which was the reading design confirmed after I
+ * flagged that "three rungs" and "completion is the whole ladder resolved"
+ * pulled in different directions - `complete` is reported, so it ticks.
+ *
+ * Keyed by the enum rather than positional, so a new stage value cannot
+ * silently shift a teacher onto the wrong rung.
+ */
+export const PARSE_STAGES: { stage: UploadStage; label: string }[] = [
+  { stage: "lessons", label: "Reading your upload" },
+  { stage: "structure", label: "Breaking it into segments" },
+  { stage: "complete", label: "Ready to review" },
 ];
+
+/**
+ * Where a stage sits on the ladder. `-1` for a value we do not know, and for
+ * `null` - which the hook uses before the first poll answers.
+ */
+export function rungFor(stage: UploadStage | null | undefined): number {
+  return PARSE_STAGES.findIndex((s) => s.stage === stage);
+}
 
 export function ParseProgress({ stage }: { stage: number }) {
   return (
@@ -28,7 +54,7 @@ export function ParseProgress({ stage }: { stage: number }) {
         <div className="flex flex-col items-center gap-[18px]">
           <span className="size-[52px] shrink-0 rounded-full border-4 border-nevo-navy/16 border-t-nevo-navy motion-safe:animate-spin motion-safe:[animation-duration:950ms]" />
           <div className="text-center text-[19px] font-semibold tracking-[-0.01em] text-nevo-near-black xl:text-[21px]">
-            {PARSE_STAGES[stage].line}
+            {PARSE_STAGES[stage]?.label ?? PARSE_STAGES[0].label}
           </div>
         </div>
 
@@ -38,7 +64,7 @@ export function ParseProgress({ stage }: { stage: number }) {
             const active = i === stage;
             return (
               <div
-                key={s.label}
+                key={s.stage}
                 className={cn(
                   "flex items-center gap-[13px] rounded-xl px-[15px] py-[11px]",
                   active && "bg-nevo-violet/20",

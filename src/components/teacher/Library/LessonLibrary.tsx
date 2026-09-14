@@ -114,7 +114,7 @@ export function LessonLibrary() {
         </h2>
         {slow && (
           <p className="mt-2 max-w-[560px] text-[13px] leading-[1.5] text-nevo-near-black/55">
-            Still fetching your lessons &ndash; the server is taking a moment.
+            Still fetching your lessons. The server is taking a moment.
           </p>
         )}
         <div className="mt-[18px] h-12 max-w-[1000px] animate-pulse rounded-[10px] bg-nevo-cream-elevated xl:mt-[22px] xl:h-[50px]" />

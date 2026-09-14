@@ -43,7 +43,7 @@ export function HomeClasses() {
     return (
       <p className="mt-3.5 max-w-[560px] text-[13px] leading-[1.5] text-nevo-near-black/60 italic">
         We couldn&rsquo;t reach your school just now, so your classes
-        aren&rsquo;t here. They haven&rsquo;t gone anywhere &ndash; try again in
+        aren&rsquo;t here. They haven&rsquo;t gone anywhere. Try again in
         a moment.
       </p>
     );

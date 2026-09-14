@@ -114,7 +114,7 @@ export function EditProfileModal({
           </label>
           {failed && (
             <p className="rounded-[10px] bg-nevo-violet/14 px-3.5 py-3 text-[13px] leading-[1.5] text-nevo-near-black/78">
-              We couldn&rsquo;t save that just now. Nothing has changed &ndash;
+              We couldn&rsquo;t save that just now. Nothing has changed.
               your edits are still here, so you can try again.
             </p>
           )}
