@@ -145,7 +145,26 @@ export function AdminSidebar() {
   const pathname = usePathname();
   const { scopes, resolved, status, refresh } = usePermissions();
   const signedIn = useHasSession();
+  /*
+   * Desktop opens expanded, tablet collapsed - which `AdminShell`'s docblock
+   * has claimed since it was written ("tablet 1024x768 with the rail
+   * collapsed") while nothing implemented it. Every admin frame is drawn at
+   * 1024 with a 64px rail, so the content columns were laid out against 960px
+   * and got 776px.
+   *
+   * The breakpoint re-asserts the DEFAULT; the chevron stays free, so an admin
+   * who collapses it on a wide screen keeps their choice until the viewport
+   * itself changes. Same rule, same breakpoint and same mechanism as the
+   * teacher rail - a second behaviour here would be a second thing to learn.
+   */
   const [expanded, setExpanded] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1280px)");
+    const sync = () => setExpanded(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
   const [panelOpen, setPanelOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
@@ -190,7 +209,44 @@ export function AdminSidebar() {
         expanded ? "w-[248px] px-3.5" : "w-16 px-3",
       )}
     >
-      <nav className="flex flex-1 flex-col">
+      {/*
+        * THE RAIL HAD NO LOGO AT ALL. The sidebar frame draws one at the top -
+        * the wordmark when expanded, the icon when collapsed - and neither
+        * this file nor `AdminShell` rendered any mark, so the admin console
+        * was the one surface carrying no Nevo branding.
+        *
+        * Both files are the real 1080-square brand assets cropped by the same
+        * offsets the frame uses and the teacher rail already uses. Never draw
+        * a substitute mark.
+        */}
+      <div
+        className={cn(
+          "flex shrink-0 items-center",
+          expanded ? "px-2" : "justify-center",
+        )}
+      >
+        {expanded ? (
+          <span className="relative block h-[17px] w-[58px] overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/logo-wordmark-purple.png"
+              alt="Nevo"
+              className="absolute block h-[169px] w-[169px] max-w-none -translate-x-[61px] -translate-y-[81px]"
+            />
+          </span>
+        ) : (
+          <span className="relative block size-[22px] overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/logo-icon-purple.png"
+              alt="Nevo"
+              className="absolute block h-[86px] w-[86px] max-w-none -translate-x-[32px] -translate-y-[35px]"
+            />
+          </span>
+        )}
+      </div>
+
+      <nav className="mt-7 flex flex-1 flex-col">
         {items.map((item, i) => {
           const on = item.label === active;
           const startsGroup = i > 0 && item.group !== items[i - 1].group;
