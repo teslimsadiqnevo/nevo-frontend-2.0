@@ -33,6 +33,7 @@ export default async function VariantReviewPage({
   return (
     <VariantReviewRoute
       fixture={fixture}
+      lessonId={lessonId}
       sectionIndex={Number.isNaN(parsed) ? 1 : Math.max(parsed, 1)}
     />
   );
