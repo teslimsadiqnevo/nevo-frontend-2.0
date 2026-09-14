@@ -114,7 +114,20 @@ async function forward(
       signal: AbortSignal.timeout(budget),
     });
     if (upstream.status === 204) return new Response(null, { status: 204 });
-    const payload = await upstream.text();
+    /*
+     * BYTES, NOT TEXT - and the comment above the request body already said so.
+     *
+     * The REQUEST direction was fixed to use an ArrayBuffer precisely because
+     * "decoding it as UTF-8 to re-encode it would corrupt the file". The
+     * RESPONSE direction went on doing exactly that, so every binary this
+     * proxy carried came out the other side mangled: the NDPA compliance PDF
+     * and every billing invoice PDF, both of which fetch through here because
+     * `/api/backend` is the default base URL.
+     *
+     * A JSON body survives an ArrayBuffer round trip unchanged, so this is
+     * right for both, the same way it is on the way in.
+     */
+    const payload = await upstream.arrayBuffer();
     return new Response(payload, {
       status: upstream.status,
       headers: {

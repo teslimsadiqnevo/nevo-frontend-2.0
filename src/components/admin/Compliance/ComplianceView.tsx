@@ -50,6 +50,13 @@ const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.0
 type Phase = "loading" | "ready" | "failed" | "denied";
 type Export = "idle" | "working" | "done" | "failed";
 
+/**
+ * Flip to true when backend has confirmed the PDF carries neither `term` nor
+ * `recordId`. A constant rather than a deletion, so the wiring below stays
+ * under test and the reason is greppable.
+ */
+const EXPORT_CLEARED_BY_COUNSEL = false;
+
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
     day: "numeric",
@@ -155,7 +162,27 @@ export function ComplianceView() {
               </p>
             )}
           </div>
-          {phase === "ready" && (
+          {/*
+            * THE EXPORT IS HELD, and it is the one thing on this screen that
+            * counsel's ruling does not reach.
+            *
+            * They cleared what the SCREEN may show: category and status, never
+            * the flagged term, never the recordId. This button hands over a
+            * PDF that BACKEND composes - its 200 is an empty schema, so the
+            * contract constrains nothing - and the obvious contents of a
+            * compliance report are exactly the two fields we were told to
+            * withhold. A rule kept on screen and broken by a download is not
+            * kept.
+            *
+            * Nothing of value is lost by holding it today: the file has been
+            * arriving corrupt anyway, because the proxy decoded it as UTF-8
+            * (fixed in this change, which is what makes the question live).
+            *
+            * Restore it when backend confirms in writing what the PDF
+            * contains, and route it through `api.blob` rather than the
+            * hand-rolled fetch below.
+            */}
+          {EXPORT_CLEARED_BY_COUNSEL && phase === "ready" && (
             <button
               type="button"
               onClick={exportReport}
@@ -229,9 +256,14 @@ export function ComplianceView() {
                     ? `${audit.findings.length} finding${audit.findings.length === 1 ? "" : "s"} from the last check`
                     : "The last check didn’t pass"}
                 </h3>
+                {/* "Look at THESE" pointed at a list that is not on screen
+                    and, under counsel's ruling, never will be: the only fields
+                    a finding carries beyond a database locator are the two we
+                    must not show. So it says where the detail actually lives
+                    rather than gesturing at something the reader cannot see. */}
                 <p className="mt-2 text-sm leading-[1.55] text-nevo-near-black/66">
                   {audit.findings.length > 0
-                    ? "Your data officer should look at these before the next audit."
+                    ? "The detail sits with your data officer, not on this screen. They should clear these before the next audit."
                     : "The audit reported this school as not yet compliant without listing what to look at. Your data officer should follow it up before the next audit."}
                 </p>
               </div>
