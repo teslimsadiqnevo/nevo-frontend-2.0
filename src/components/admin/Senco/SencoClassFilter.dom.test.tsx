@@ -30,7 +30,14 @@ vi.mock("@/lib/api/classes", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api/classes")>();
   return {
     ...actual,
-    classesApi: { ...actual.classesApi, list: () => classList() },
+    classesApi: {
+      ...actual.classesApi,
+      list: () => classList(),
+      // The per-class read MOVED here from `studentsApi.list({ classId })`:
+      // `ClassStudentResponse` carries `observations`, which is what makes the
+      // lessons-finished figure free. Same call count, richer payload.
+      classStudents: (id: string) => perClass(id),
+    },
   };
 });
 
@@ -51,10 +58,8 @@ vi.mock("@/lib/api/students", async (importOriginal) => {
     ...actual,
     studentsApi: {
       ...actual.studentsApi,
-      // The whole-school read and the per-class read are the same function
-      // with different arguments; only the second one is under test.
-      list: (opts?: { classId?: string }) =>
-        opts?.classId ? perClass(opts.classId) : Promise.resolve(students),
+      // Whole-school only now - the per-class read is `classesApi.classStudents`.
+      list: () => Promise.resolve(students),
     },
   };
 });
@@ -62,6 +67,24 @@ vi.mock("@/lib/api/students", async (importOriginal) => {
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
 }));
+
+/** A roster row, as `GET /classes/{id}/students` returns it. */
+const onRoster = (
+  studentId: string,
+  observations?: { pattern: string; count?: number | null }[],
+) => ({
+  studentId,
+  firstName: "Amara",
+  lastName: "Okafor",
+  displayName: "Amara Okafor",
+  loginIdentifier: "amara",
+  status: "active",
+  profileStatus: "active",
+  latestSessionAt: null,
+  observations,
+  seatContext: "active",
+  consent: null,
+});
 
 const klass = (id: string, name: string): AdminClass => ({
   id,
@@ -127,5 +150,66 @@ describe("SencoView class filter", () => {
     );
     expect(visibleText(container)).not.toMatch(/No profiles match/i);
     expect(visibleText(container)).not.toMatch(/couldn't read/i);
+  });
+});
+
+/**
+ * D8b's lessons-finished figure, which was deferred for months on the claim
+ * that it needed a request per learner. It rides the per-class roster read the
+ * screen already makes.
+ */
+describe("lessons finished on the profile row", () => {
+  it("shows the count the roster reported", async () => {
+    classList.mockResolvedValue([klass("c1", "JSS 2A")]);
+    perClass.mockResolvedValue([
+      onRoster("s1", [{ pattern: "completed_lessons", count: 12 }]),
+    ]);
+
+    const { container } = render(<SencoView />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Learner profiles" }));
+
+    await waitFor(() =>
+      expect(visibleText(container)).toMatch(/12 lessons finished/),
+    );
+  });
+
+  it("reads naturally at one", async () => {
+    classList.mockResolvedValue([klass("c1", "JSS 2A")]);
+    perClass.mockResolvedValue([
+      onRoster("s1", [{ pattern: "completed_lessons", count: 1 }]),
+    ]);
+
+    const { container } = render(<SencoView />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Learner profiles" }));
+
+    await waitFor(() => expect(visibleText(container)).toMatch(/1 lesson finished/));
+  });
+
+  it("shows NOTHING when the roster read failed - never a zero", async () => {
+    // THE LOAD-BEARING ONE. "0 lessons finished" beside a child's name, because
+    // a request did not answer, is a statement about the child.
+    classList.mockResolvedValue([klass("c1", "JSS 2A")]);
+    perClass.mockRejectedValue(new Error("500"));
+
+    const { container } = render(<SencoView />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Learner profiles" }));
+
+    await waitFor(() => expect(visibleText(container)).toMatch(/Amara Okafor/));
+    expect(visibleText(container)).not.toMatch(/lessons? finished/);
+    expect(visibleText(container)).not.toMatch(/0 lessons/);
+  });
+
+  it("shows nothing when the roster carried no count for that learner", async () => {
+    // `count` is optional and nullable on the contract; absent is not zero.
+    classList.mockResolvedValue([klass("c1", "JSS 2A")]);
+    perClass.mockResolvedValue([
+      onRoster("s1", [{ pattern: "completed_lessons", count: null }]),
+    ]);
+
+    const { container } = render(<SencoView />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Learner profiles" }));
+
+    await waitFor(() => expect(visibleText(container)).toMatch(/Amara Okafor/));
+    expect(visibleText(container)).not.toMatch(/lessons? finished/);
   });
 });

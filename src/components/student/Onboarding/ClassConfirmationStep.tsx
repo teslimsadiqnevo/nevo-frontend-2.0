@@ -100,12 +100,27 @@ export function ClassConfirmationStep() {
     [],
   );
 
-  // Auto-skip: show the confirmation briefly, then advance.
+  /*
+   * Auto-skip: show the confirmation briefly, then advance.
+   *
+   * RECORD THE CLASS FIRST. This branch only navigated, and `pick` was the one
+   * writer of `classId` - so a school with exactly ONE class told the child
+   * "You're in <class>", moved on, and left the draft with no class in it at
+   * all. Account creation ends at `connectClassCode`, which needs `classCode`
+   * or `classId` + `schoolCode`; with neither it answers 422 "classCode or
+   * classId with schoolCode is required", and the child is told their PIN did
+   * not save at the very last screen of onboarding.
+   *
+   * A single-class school is not an edge case here - it is most small schools,
+   * and it is the shape of every test tenant.
+   */
+  const only = classes.length === 1 ? classes[0] : null;
   useEffect(() => {
-    if (mode !== "autoskip") return;
+    if (mode !== "autoskip" || !only) return;
+    mergeOnboardingDraft({ className: only.name, classId: only.id });
     const t = setTimeout(() => router.push(NEXT_STEP), 1400);
     return () => clearTimeout(t);
-  }, [mode, router]);
+  }, [mode, only, router]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

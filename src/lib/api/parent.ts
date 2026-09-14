@@ -1,5 +1,6 @@
 import { api } from "./client";
 import type { ConsentStatus, ConsentType } from "./consents";
+import type { LoginResponse } from "./auth";
 
 /**
  * The parent action pages (D01b consent, D01c data management; SCRUM-80).
@@ -49,6 +50,19 @@ export interface ParentInvitation {
   schoolPhone: string | null;
   schoolEmail: string | null;
   parentName: string;
+  /**
+   * THE CONTACT THE SCHOOL ENTERED, and the only one a code may be sent to on
+   * this path. Backend, 11 Sep: "with a token present, the contact must be the
+   * one the school entered - a link holder can't redirect a code to an address
+   * they chose." So this is a security boundary, not a convenience.
+   *
+   * Both landed 11 Sep after being raised as missing. `parentContactMethod`
+   * decides whether the screen says "Check your email" or "Check your phone" -
+   * `ParentContactMethod` is `email | sms`, and Nigeria is SMS-first, so the
+   * email-only reading of D02 does not survive contact with real schools.
+   */
+  parentContact: string;
+  parentContactMethod: ParentContactMethod;
   status: ConsentStatus;
   /**
    * What THIS invitation asks for. `ConsentType` has three members, but the
@@ -112,21 +126,22 @@ export function apiErrorCode(detail: unknown): string | null {
   return typeof code === "string" && code ? code : null;
 }
 
-/** 201 of POST /api/v1/consents/parent/{token}/account. */
-export interface ParentAccount {
-  userId: string;
-  /** The address or number the account is keyed to. */
-  contact: string;
-  contactMethod: ParentContactMethod;
-  studentId: string;
-  session: {
-    access_token: string;
-    token_type: string;
-    expires_at: string;
-    user_id: string;
-    role: string;
-    replaced_session: boolean;
-  };
+/**
+ * 202 of POST /api/v1/auth/parent/request-code.
+ *
+ * ALWAYS 202, whether or not the contact is one Nevo knows, and that is the
+ * point. Backend's own words: "A 'we could not find an account' reply on a
+ * surface tied to named children is a way to find out which families use Nevo,
+ * one address at a time." A throttled send answers identically too, so a
+ * caller cannot probe the rate limit either.
+ *
+ * So there is NOTHING here for a screen to branch on. Do not write a
+ * "we don't recognise that" state; there is no signal that could drive one.
+ */
+export interface ParentCodeSent {
+  sent?: boolean;
+  /** ISO 8601. The code's ten-minute window. */
+  expiresAt: string;
 }
 
 /** One child a signed-in parent is linked to. */
@@ -243,11 +258,41 @@ export const parentApi = {
    * whose consent went by SMS, because password login is email-only - see
    * `ParentConsent` for how that is surfaced.
    */
-  createAccount: (token: string, password: string) =>
-    api.post<ParentAccount>(
-      `/api/v1/consents/parent/${encodeURIComponent(token)}/account`,
-      { password },
-    ),
+  /**
+   * Send a sign-in code to the contact the school holds.
+   *
+   * REPLACES `createAccount`, which posted a password to
+   * `POST /consents/parent/{token}/account`. That endpoint and
+   * `POST /auth/login/parent` were both removed on 11 Sep - "gone, not
+   * deprecated. Nothing on the parent path takes a password." This is the
+   * replacement, and it is the better shape: a password login was email-only,
+   * which stranded every SMS-first family. A code goes wherever the school's
+   * contact points.
+   *
+   * `token` is optional on the contract but always sent from the consent flow:
+   * it binds the code to the invitation, so a link holder cannot have the code
+   * delivered somewhere of their choosing.
+   */
+  requestCode: (contact: string, token?: string) =>
+    api.post<ParentCodeSent>("/api/v1/auth/parent/request-code", {
+      contact,
+      ...(token ? { token } : {}),
+    }),
+
+  /**
+   * Exchange a code for a session - "the same shape every other login
+   * returns", so `LoginResponse` is reused rather than restated.
+   *
+   * ONE FAILURE CODE, `code_invalid`, covering both wrong and expired. That is
+   * deliberate and must not be split in the UI: telling a caller their guess
+   * was structurally right but late narrows the search, and "expired" confirms
+   * a code was issued at all, which confirms the contact is known.
+   */
+  verifyCode: (contact: string, code: string) =>
+    api.post<LoginResponse>("/api/v1/auth/parent/verify-code", {
+      contact,
+      code,
+    }),
 
   /** The signed-in parent's own children. 403 for any non-parent role. */
   myChildren: () => api.get<ParentChild[]>("/api/v1/parents/me/children"),

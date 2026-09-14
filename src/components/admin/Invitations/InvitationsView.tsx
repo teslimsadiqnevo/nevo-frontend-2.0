@@ -9,7 +9,7 @@ import { BulkImportModal } from "./BulkImportModal";
 import { InviteStatusPill, normaliseStatus } from "./inviteStatus";
 import { NewInviteModal } from "./NewInviteModal";
 import { LinkHandout } from "./LinkHandout";
-import { confirmedSent, needsManualDelivery } from "./deliveryCopy";
+import { confirmedSent, consentNote, needsManualDelivery } from "./deliveryCopy";
 import { inviteeName, joinLink } from "./joinLink";
 import { NoAccess, failureKind } from "../NoAccess";
 
@@ -406,6 +406,17 @@ export function InvitationsView() {
                           <span className="block text-[12.5px] text-nevo-near-black/55">
                             Expires {formatDate(invite.expiresAt)}
                           </span>
+                          {/* Students only - consent is a fact about a child,
+                              and a teacher invite has no parent behind it. The
+                              note is ABSENT when the invite carried no consent
+                              record at all: older invitations predate the
+                              field, and "we weren't told" must not render as
+                              "nobody has been asked". */}
+                          {tab === "student" && consentNote(invite.consentStatus) ? (
+                            <span className="block text-[12.5px] text-nevo-near-black/55">
+                              {consentNote(invite.consentStatus)}
+                            </span>
+                          ) : null}
                         </span>
                         <span className="min-w-0 truncate text-sm text-nevo-near-black/66 max-lg:hidden">
                           {invite.email ?? "—"}

@@ -198,6 +198,42 @@ export const intelligenceApi = {
   }) => api.get<AttentionFlag[]>("/api/intelligence/flags", { params }),
 
   /**
+   * Every flag, for a count that has to be a TOTAL rather than a page.
+   *
+   * `GET /api/intelligence/flags` returns a BARE ARRAY capped at `limit`
+   * (default 50, maximum 200). The unpaged total is reported in the
+   * `X-Total-Count` header, which this client cannot reach - and it would not
+   * help anyway: it counts FLAGS, and the only thing worth reporting to a
+   * school is how many CHILDREN are involved. Deduplicating by `studentId`
+   * needs the rows themselves.
+   *
+   * TERMINATION IS ON A SHORT PAGE, not on a total. `events.length < limit` is
+   * the only exhaustion signal the contract actually supports; nothing
+   * documents what a total would be scoped to.
+   *
+   * `complete: false` means the caller must not report a number. A count built
+   * from the pages we managed to read is a FLOOR, and a floor rendered as a
+   * total is the quiet under-report this console has shipped before.
+   */
+  allFlags: async (
+    maxPages = 10,
+  ): Promise<{ flags: AttentionFlag[]; complete: boolean }> => {
+    const PAGE = 200;
+    const flags: AttentionFlag[] = [];
+    for (let page = 0; page < maxPages; page += 1) {
+      const batch = await api.get<AttentionFlag[]>("/api/intelligence/flags", {
+        params: { limit: PAGE, offset: page * PAGE },
+      });
+      if (!Array.isArray(batch)) return { flags, complete: false };
+      flags.push(...batch);
+      if (batch.length < PAGE) return { flags, complete: true };
+    }
+    // Ran out of pages with a full page still coming back: there is more we
+    // have not seen, so say so rather than returning what we happen to hold.
+    return { flags, complete: false };
+  },
+
+  /**
    * Acknowledge a flag: the SENCo has seen it and it stops asking.
    *
    * Not a dismissal and not a resolution - the flag stays on the record with

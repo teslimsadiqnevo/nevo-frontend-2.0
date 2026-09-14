@@ -155,12 +155,11 @@ export function NewInviteModal({
           <p className="mt-4 text-center text-[14.5px] leading-[1.6] text-nevo-near-black/72">
             {parentContact ? (
               /* Was: "A consent request is on its way to {parentContact}."
-                 Nothing sends one. The invitation response carries no consent
-                 field, consent has its own endpoint against a STUDENT id that
-                 does not exist until the invite is accepted, and
-                 `requestParentConsent` has no caller anywhere. The claim came
-                 from the contact the admin had just typed. */
-              <>{parentConsentLine(parentContact, sent.name)}</>
+                 Nothing sends one, and the claim came from the contact the
+                 admin had just typed. It reports `consentStatus` off the
+                 create response now - which on a fresh invite is usually
+                 "not sent", said plainly, with no offer to send one. */
+              <>{parentConsentLine(parentContact, sent.name, sent.consentStatus)}</>
             ) : (
               "The invitation has been created."
             )}

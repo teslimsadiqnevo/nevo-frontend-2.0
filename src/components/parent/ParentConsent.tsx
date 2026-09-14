@@ -5,7 +5,6 @@ import { useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { setSession } from "@/lib/auth/session";
 import {
-  apiErrorCode,
   parentApi,
   type ParentContactMethod,
   type ParentInvitation,
@@ -149,9 +148,12 @@ export function ParentConsent({
 
           <AccountSetup
             token={token}
-            /* Both of these used to be withheld. The button had no endpoint to
-               call and nowhere to land; the receipt line promised a copy that
-               nothing sent. Both exist now. */
+            /* The contact the SCHOOL entered. Passed down rather than asked
+               for: it is what the code is bound to, and asking a parent to
+               type it would both duplicate a fact we hold and open the door
+               the binding exists to close. */
+            contact={invitation.parentContact}
+            contactMethod={invitation.parentContactMethod}
             onSkip={() => setPhase("skipped")}
           />
 
@@ -371,151 +373,212 @@ export function ParentConsent({
 }
 
 /**
- * D01b's "Set up my parent account", which the frame has always drawn and which
- * only became buildable on 10 Sep.
+ * D02 Parent Account Setup - "confirm the contact, verify a code, and land
+ * straight in". Rendered here rather than at its own URL: the frame calls it a
+ * standalone screen between D01b and D03, and the journey is identical, but the
+ * consent token lives in this route. Flagged to design; moving it is a route
+ * change, not a rewrite.
  *
- * The consent token is the authorisation — it went to this parent, for this
- * child — so no email is asked for and no second link is sent. The response
- * carries a session, which is why this signs them straight in rather than
- * handing them a password and a door to find.
+ * WHAT THIS REPLACED. Until 11 Sep this asked for a password and posted it to
+ * `POST /consents/parent/{token}/account`. That endpoint and
+ * `POST /auth/login/parent` are both gone - "not deprecated" - and nothing on
+ * the parent path takes a password any more. The replacement is better for the
+ * families this product is for: password sign-in was email-only, so every
+ * SMS-first parent hit a dead end that the old code had a whole state for
+ * (`sms-only`). That state is deleted, because the limitation it explained no
+ * longer exists.
  *
- * MINIMUM 8 CHARACTERS is the server's rule, checked here too so a parent is
- * told before the round trip rather than after it.
+ * TWO DEVIATIONS FROM D02, both flagged to design rather than resolved here:
+ *
+ *  1. THE CONTACT IS NOT EDITABLE. D02 draws it pre-filled with "Change it if
+ *     you'd prefer a different address." It cannot be editable on this path:
+ *     backend binds the code to the contact the school entered whenever a token
+ *     is present, precisely so "a link holder can't redirect a code to an
+ *     address they chose". Making the field editable would either break the
+ *     send or, if we dropped the token to make it work, hand whoever opens the
+ *     link a way to point a child's account at themselves. So it is shown, not
+ *     offered.
+ *  2. D02 SAYS "EMAIL" THROUGHOUT. `parentContactMethod` is `email | sms`, and
+ *     Nigeria is SMS-first, so the copy follows the method the school recorded.
+ *     The email wording is the frame's; the SMS wording is ours.
  */
 function AccountSetup({
   token,
+  contact,
+  contactMethod,
   onSkip,
 }: {
   token: string;
+  contact: string;
+  contactMethod: ParentContactMethod;
   onSkip: () => void;
 }) {
-  const [password, setPassword] = useState("");
+  const [step, setStep] = useState<"confirm" | "code">("confirm");
+  const [digits, setDigits] = useState<string[]>(["", "", "", ""]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<"created" | "sms-only" | "exists" | null>(
-    null,
-  );
+  const [resent, setResent] = useState(false);
 
-  const tooShort = password.length > 0 && password.length < 8;
+  const byEmail = contactMethod === "email";
+  const code = digits.join("");
 
-  async function create() {
-    if (password.length < 8) {
-      setError("Please choose a password of at least 8 characters.");
-      return;
-    }
+  async function send(isResend: boolean) {
     setBusy(true);
     setError(null);
     try {
-      const account = await parentApi.createAccount(token, password);
+      await parentApi.requestCode(contact, token);
+      setStep("code");
+      setDigits(["", "", "", ""]);
+      if (isResend) setResent(true);
+    } catch {
+      // A send failure is OURS, not a verdict on the contact - request-code
+      // answers 202 whether or not it knows the address, so anything else is a
+      // transport problem and must not be reported as "we don't know you".
+      setError("We couldn’t send that code just now. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verify() {
+    if (code.length !== 4) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const session = await parentApi.verifyCode(contact, code);
       setSession({
-        token: account.session.access_token,
-        expiresAt: account.session.expires_at,
-        userId: account.session.user_id,
-        role: account.session.role,
+        token: session.access_token,
+        expiresAt: session.expires_at,
+        userId: session.user_id,
+        role: session.role,
       });
-      setDone("created");
       // A hard navigation, not a router push: the session and its mirror cookie
       // must have settled before the portal is asked for.
       window.location.assign("/parent-portal");
     } catch (e) {
       setBusy(false);
-      if (!(e instanceof ApiError)) {
-        setError("We couldn’t set that up just now. Please try again.");
-        return;
-      }
-      const code = apiErrorCode(e.detail);
-      if (code === "parent_contact_not_email") {
-        // Password sign-in is email-only. Nigeria is SMS-first, so this is a
-        // real slice of parents, not an edge case - and it is not their fault,
-        // so it does not read as an error.
-        setDone("sms-only");
-      } else if (e.status === 409) {
-        setDone("exists");
-      } else if (e.status === 404) {
-        setError(
-          "This link is no longer active. Your child’s school can send you a new one.",
-        );
+      setDigits(["", "", "", ""]);
+      /*
+       * ONE MESSAGE FOR WRONG AND FOR EXPIRED, because the contract has one
+       * code for both. Backend: distinguishing them "tells an attacker their
+       * guess was structurally right and only late - and worse, 'expired'
+       * confirms a code was issued, which confirms the address is known."
+       * Do not split this on `e.status` either; 401 is the only failure shape.
+       */
+      if (e instanceof ApiError) {
+        setError("That code is wrong or has expired. Ask for a new one.");
       } else {
-        setError("We couldn’t set that up just now. Please try again.");
+        setError("We couldn’t check that code just now. Please try again.");
       }
     }
   }
 
-  if (done === "created") {
-    return (
-      <p className="mt-6 text-[15px] text-nevo-near-black/68">
-        Taking you to your account…
-      </p>
-    );
+  function setDigit(index: number, value: string) {
+    const digit = value.replace(/\D/g, "").slice(-1);
+    setDigits((d) => d.map((x, i) => (i === index ? digit : x)));
+    setError(null);
+    if (digit && index < 3) {
+      document.getElementById("parent-code-" + (index + 1))?.focus();
+    }
   }
 
-  if (done === "sms-only") {
+  if (step === "confirm") {
     return (
-      <div className="mt-6 w-full max-w-[340px] rounded-[12px] bg-nevo-violet/14 px-5 py-4 text-left">
-        <p className="text-[14.5px] leading-[1.55] text-nevo-near-black/80">
-          We can&rsquo;t set up an account with a phone number just yet &mdash;
-          sign-in needs an email address. Your consent is recorded either way,
-          and the link the school sent you still works.
+      <div className="mt-7 w-full max-w-[340px] text-left">
+        <p className="text-[15px] leading-[1.5] text-nevo-near-black/80">
+          This is how you&rsquo;ll sign in to check on your child&rsquo;s
+          progress.
         </p>
-      </div>
-    );
-  }
+        <p className="mt-4 text-[14px] font-medium text-nevo-near-black/80">
+          {byEmail ? "Your email address" : "Your phone number"}
+        </p>
+        <p className="mt-1.5 rounded-[10px] border border-nevo-navy/20 bg-nevo-cream px-3.5 py-3.5 text-[16px] break-all text-nevo-near-black">
+          {contact}
+        </p>
+        <p className="mt-1.5 text-[12.5px] leading-[1.45] text-nevo-near-black/50">
+          From your school&rsquo;s records. To use a different one, ask your
+          school to update it.
+        </p>
 
-  if (done === "exists") {
-    return (
-      <div className="mt-6 w-full max-w-[340px] rounded-[12px] bg-nevo-violet/14 px-5 py-4 text-left">
-        <p className="text-[14.5px] leading-[1.55] text-nevo-near-black/80">
-          You&rsquo;ve already set up an account for {""}
-          this child, so there&rsquo;s nothing more to do here. Use the password
-          you chose then.
-        </p>
+        <button
+          type="button"
+          className={PRIMARY}
+          disabled={busy}
+          onClick={() => void send(false)}
+        >
+          {busy ? "Sending…" : "Continue"}
+        </button>
+        <button type="button" className={TEXT_BTN} disabled={busy} onClick={onSkip}>
+          Maybe later
+        </button>
+
+        {error && (
+          <p role="alert" className="mt-2 text-[13.5px] leading-[1.5] text-nevo-navy">
+            {error}
+          </p>
+        )}
       </div>
     );
   }
 
   return (
     <div className="mt-7 w-full max-w-[340px] text-left">
-      <label
-        htmlFor="parent-password"
-        className="block text-[14px] font-medium text-nevo-near-black/80"
-      >
-        Choose a password
-      </label>
-      <input
-        id="parent-password"
-        type="password"
-        autoComplete="new-password"
-        value={password}
-        onChange={(e) => {
-          setPassword(e.target.value);
-          setError(null);
-        }}
-        className="mt-1.5 h-[52px] w-full rounded-[10px] border border-nevo-navy/20 bg-nevo-cream px-3.5 text-[16px] text-nevo-near-black outline-none focus:border-nevo-navy/45"
-      />
-      <p className="mt-1.5 text-[12.5px] text-nevo-near-black/50">
-        At least 8 characters.
+      <p className="text-[15px] font-semibold text-nevo-near-black">
+        {byEmail ? "Check your email." : "Check your phone."}
       </p>
+      <p className="mt-2 text-[14.5px] leading-[1.55] text-nevo-near-black/72">
+        {"We’ve sent a code to " + contact + ". Enter it below to finish setting up your account."}
+      </p>
+
+      <div className="mt-4 flex gap-2.5">
+        {digits.map((d, i) => (
+          <input
+            key={i}
+            id={"parent-code-" + i}
+            inputMode="numeric"
+            autoComplete={i === 0 ? "one-time-code" : "off"}
+            maxLength={1}
+            aria-label={"Digit " + (i + 1) + " of 4"}
+            value={d}
+            onChange={(e) => setDigit(i, e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Backspace" && !digits[i] && i > 0) {
+                document.getElementById("parent-code-" + (i - 1))?.focus();
+              }
+            }}
+            className="h-[58px] w-[58px] rounded-[10px] border border-nevo-navy/20 bg-nevo-cream text-center text-[22px] text-nevo-near-black outline-none focus:border-nevo-navy/45"
+          />
+        ))}
+      </div>
 
       <button
         type="button"
         className={PRIMARY}
-        disabled={busy || password.length < 8}
-        onClick={() => void create()}
+        disabled={busy || code.length !== 4}
+        onClick={() => void verify()}
       >
-        {busy ? "Setting up…" : "Set up my parent account"}
+        {busy ? "Checking…" : "Verify and sign in"}
       </button>
-      <button type="button" className={TEXT_BTN} disabled={busy} onClick={onSkip}>
-        Maybe later
+      <button
+        type="button"
+        className={TEXT_BTN}
+        disabled={busy}
+        onClick={() => void send(true)}
+      >
+        Resend code
       </button>
 
-      {(error || tooShort) && (
+      {(error || resent) && (
         <p role="alert" className="mt-2 text-[13.5px] leading-[1.5] text-nevo-navy">
-          {error ?? "Please choose a password of at least 8 characters."}
+          {/* A resend retires the previous code, so say so - a parent looking
+              at two messages needs to know which one still works. */}
+          {error ?? "We’ve sent a new code. The one before it no longer works."}
         </p>
       )}
     </div>
   );
 }
+
 
 function ContactRow({
   href,
