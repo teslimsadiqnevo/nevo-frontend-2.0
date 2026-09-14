@@ -298,14 +298,25 @@ const POLICY_LABEL: Record<string, string> = {
 export function ndpaClaims(inputs: NdpaInputs): NdpaClaim[] {
   const count = inputs.labels;
   return [
-    {
-      title: "Ephemeral processing",
-      state: "Active",
-      mechanism:
-        "Raw learning signals are used in the moment to adapt the lesson, then discarded. Nothing about how a learner performed is written to long-term storage.",
-      evidence: "Processing logs, retention schedule",
-      verification: "product",
-    },
+    /*
+     * PULLED 14 SEP, PENDING A REWRITE BY DESIGN AND COUNSEL.
+     *
+     * It read: "Raw learning signals are used in the moment to adapt the
+     * lesson, then discarded. Nothing about how a learner performed is written
+     * to long-term storage."
+     *
+     * `GET /api/admin/adaptation-log` returns `studentFirstName` alongside
+     * `trigger`, `adaptation` and `timestamp`, filterable by `studentId` and
+     * by date range. Whatever that is, it is not nothing written to long-term
+     * storage about how a learner performed.
+     *
+     * THE SENTENCE CHANGES, NOT THE LOG - design's ruling, and the right way
+     * round: the log is a real product capability and an audit trail. What was
+     * wrong was a compliance screen denying it existed.
+     *
+     * A compliance screen making a false statement is worse than a missing
+     * one, so the row is absent until the replacement wording arrives.
+     */
     {
       // The plain form, which the v1 Build Lock settles on: "the plain
       // 'Diagnostic labels stored: 0' fact. The plain form wins going
@@ -329,13 +340,24 @@ export function ndpaClaims(inputs: NdpaInputs): NdpaClaim[] {
       verification: "product",
     },
     retentionClaim(inputs.retention),
-    {
-      title: "Right to erasure",
-      mechanism:
-        "A parent or guardian can request erasure of their child’s account data at any time; requests are actioned within the window agreed with counsel.",
-      evidence: "Erasure request log",
-      verification: "unverified",
-    },
+    /*
+     * PULLED 14 SEP, PENDING A REWRITE BY DESIGN AND COUNSEL.
+     *
+     * It read: "A parent or guardian can request erasure of their child's
+     * account data at any time; requests are actioned within the window agreed
+     * with counsel."
+     *
+     * A parent cannot exercise that. `ParentRightType` is
+     * `request_data | object | withdraw_consent` - there is no erasure value,
+     * and the string "erasure" does not appear anywhere in the deployed
+     * contract. The nearest real mechanism is
+     * `DELETE /api/v1/students/{student_id}` ("Anonymize Student"), which only
+     * a school administrator can invoke.
+     *
+     * Describing a right the product does not offer, on the screen a school
+     * shows a regulator, is the worst version of this console's oldest
+     * mistake. Absent until the replacement wording arrives.
+     */
     {
       title: "Subprocessors",
       mechanism:

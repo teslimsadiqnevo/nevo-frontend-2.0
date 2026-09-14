@@ -211,3 +211,88 @@ Everything binary that fetches through `/api/backend` (the default base URL)
 arrived mangled: the NDPA compliance PDF **and every billing invoice PDF**. Now
 passes bytes through. Worth knowing if anyone reported invoices that would not
 open.
+
+---
+
+# Rulings — 14 September 2026
+
+Design and counsel came back. Recorded here because several reverse earlier
+decisions, and the reasons matter more than the outcomes.
+
+## The category ruling was applied to the wrong feature
+
+Confirmed: the diagnostic-label scan and D22b are two different features, and
+the ruling was written while picturing the frame. That is now untangled.
+
+## 1 · DPA clause 5 — WITH COUNSEL, do not build either way
+
+Back to Oladayo. **Two readings, and they lead opposite ways:**
+
+- We are a PROCESSOR, and the clause just needs redrafting. SCRUM-80 stands.
+- We are a CONTROLLER for the adaptation engine, and the gate is deliberate.
+  **If so, SCRUM-80 REVERSES and the admin consent trigger becomes a launch
+  blocker.**
+
+The clause text stays untouched, and nothing is built in either direction until
+he answers. Note what this means: the consent-gate correction shipped across the
+admin console on 11 Sep assumed the first reading. If the second is right, that
+work inverts — it is not wasted, but it is not final either.
+
+## 2 · The scan is NOT an admin-facing list — BUILT
+
+Design's ruling, and it reverses a PR's worth of work in the right direction:
+once `term` and `recordId` are gone, a finding is a database locator.
+`student_profiles` / `notes` tells an administrator nothing and gives them
+nothing to act on. It is an internal Zero-Tag enforcement tool.
+
+On the admin surface it is now **one aggregate line**: when the last scan ran,
+and whether it came back clean. Anything found is ours to handle, not the
+school's to read. The per-finding row is gone entirely.
+
+The boundary strip in `schoolIntelligence.ts` stays regardless — the forbidden
+fields never enter React state, which is cheap insurance whatever is displayed.
+
+## 3 · D22b stays as drawn — WITH COUNSEL, do not build
+
+Its categories are genuine NDPA categories. Oladayo is being asked to confirm
+that parental consent, data subject request and consent withdrawal — shown with
+dates and status, no learner identified — is cleared.
+
+**Still blocked on backend regardless:** there is no read endpoint for any of
+it. `POST /api/v1/parent/{token}/rights` mints a `requestId` and nothing reads
+one back; `ParentRightResponse` is referenced by exactly that one operation in
+the whole spec.
+
+## 4 · Both claim rows PULLED — DONE
+
+Design: "a compliance screen making a false statement is worse than a missing
+screen." Both are absent, with the reasoning in place and tests that fail if
+either returns.
+
+- **Ephemeral processing.** Said "nothing about how a learner performed is
+  written to long-term storage". The adaptation log returns `studentFirstName`
+  with `trigger` and `timestamp`, filterable by student. THE SENTENCE CHANGES,
+  NOT THE LOG — the log is a real capability and an audit trail.
+- **Right to erasure.** Described a right a parent cannot exercise.
+  `ParentRightType` has no erasure value and the word appears nowhere in the
+  contract; the nearest mechanism is admin-only.
+
+Both are being rewritten against what the contract genuinely does.
+
+## For the student lane — three rulings
+
+Not this session's to build, recorded so they are not lost:
+
+1. **The withdrawn child's copy is decided:** stopped at the door with "Your
+   Nevo account is on pause. If you have questions, talk to your teacher."
+   Blameless, no explanation of why. **No frame exists yet — a real gap, and a
+   frame is coming.** The parent-side wording stands.
+2. **The rotate prompt is an accessibility failure.** A device fixed in
+   landscape on a wheelchair tray cannot satisfy it, which locks a child out by
+   posture. Ticket going in for a way through — an explicit continue, or
+   landscape support on the affected screens.
+3. **The synthetic calibration voice is acceptable** — on the condition that it
+   is the IDENTICAL voice every time. Calibration depends on consistency, not
+   warmth; a varying voice would contaminate the baseline. Worth checking that
+   `speechSynthesis` pins a specific voice rather than taking the platform
+   default, which differs per device and per OS version.
