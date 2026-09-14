@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { ApiError } from "@/lib/api/client";
 
 const { push, loginPassword, signIn } = vi.hoisted(() => ({
   push: vi.fn(),
@@ -101,5 +102,84 @@ describe("the school SSO button", () => {
     clickSso();
 
     expect(loginPassword).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * What a failed sign-in TELLS a teacher.
+ *
+ * Until 14 Sep this door mapped every 401 and 403 to "That email and password
+ * didn't match" - so a teacher whose password was RIGHT, on an account that had
+ * been paused, was told they had mistyped it. They retype it, and retype it,
+ * and it keeps being correct and keeps being refused. A rate-limited teacher
+ * was told to "try again", which is the one instruction that extends a lockout.
+ *
+ * Backend documents the three cases on the endpoint itself, and
+ * `classifyLoginFailure` has been parsing them - tested, role-neutral - since
+ * the student doors shipped it. Only the two staff doors were left behind.
+ *
+ * These assert on the MESSAGE, because the message is the defect. Asserting
+ * that sign-in failed would have passed throughout.
+ */
+describe("what a failed sign-in says", () => {
+  const submit = () => {
+    render(<TeacherSignIn />);
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "a.adeyemi@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "a-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Sign in$/i }));
+  };
+
+  const fail = (status: number, code?: string) =>
+    loginPassword.mockRejectedValueOnce(
+      new ApiError(status, "no", code ? { detail: { code } } : {}),
+    );
+
+  it("does not tell a paused teacher their password was wrong", async () => {
+    fail(401, "account_paused");
+    submit();
+
+    const msg = await screen.findByText(/open at the moment/i);
+    expect(msg).toBeInTheDocument();
+    expect(screen.queryByText(/email and password/i)).not.toBeInTheDocument();
+  });
+
+  it("does not tell a paused teacher to try again", async () => {
+    // The retry is the thing that cannot work. Pointing at the school admin is
+    // the only route that can.
+    fail(401, "account_paused");
+    submit();
+
+    const msg = await screen.findByText(/open at the moment/i);
+    expect(msg).toHaveTextContent(/school admin/i);
+    expect(msg).not.toHaveTextContent(/try again/i);
+  });
+
+  it("tells a rate-limited teacher to wait, not to retry", async () => {
+    fail(401, "too_many_attempts");
+    submit();
+
+    expect(await screen.findByText(/too many attempts/i)).toHaveTextContent(
+      /wait a few minutes/i,
+    );
+  });
+
+  it("still says the ordinary thing for an ordinary wrong password", async () => {
+    fail(401);
+    submit();
+
+    expect(await screen.findByText(/email and password/i)).toBeInTheDocument();
+  });
+
+  it("blames neither the teacher nor their account when the failure is ours", async () => {
+    // A 500 or a dead network is not a fact about this teacher's credentials.
+    fail(500);
+    submit();
+
+    expect(screen.queryByText(/email and password/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/Nothing on your end/i)).toBeInTheDocument();
   });
 });

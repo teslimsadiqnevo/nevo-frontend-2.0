@@ -2,7 +2,8 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, authApi } from "@/lib/api";
+import { authApi } from "@/lib/api";
+import { classifyLoginFailure } from "@/lib/auth/loginFailure";
 import { useAuth } from "@/hooks";
 import type { UserRole } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,30 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const MISMATCH_MSG =
   "That email and password didn't match. Try again, or reset your password.";
+/**
+ * A 401 STOPPED BEING ONE THING, and this door was still reading it as one.
+ *
+ * Backend documents the distinction on `POST /api/v1/auth/login/password`
+ * itself: "authentication_failed when the credential is wrong, account_paused
+ * when it is right but the account is not open, too_many_attempts when rate
+ * limited." Mapping all three to MISMATCH_MSG told a teacher whose password was
+ * CORRECT that they had mistyped it, and told a rate-limited teacher to do the
+ * one thing that extends the lockout.
+ *
+ * `classifyLoginFailure` already existed, already tested, already role-neutral,
+ * and both student doors already used it. Only the two staff doors were left
+ * reading a 401 as a typo.
+ *
+ * NO WHOLE-SCREEN PAUSE STATE HERE, deliberately. `Account On Pause` is drawn
+ * "NEVO · STUDENT" and reads "If you have questions, talk to your teacher" -
+ * which is not a sentence to show a teacher. Raised with design; until there is
+ * a staff variant this stays an inline line that neither blames nor invites a
+ * retry that cannot work.
+ */
+const PAUSED_MSG =
+  "Your account isn't open at the moment. Your school admin can tell you more.";
+const THROTTLED_MSG =
+  "Too many attempts just now. Wait a few minutes before trying again.";
 /**
  * Never a dead end: it says what to do instead, and names the admin rather
  * than leaving a teacher to guess who could turn it on.
@@ -125,10 +150,15 @@ export function TeacherSignIn() {
         );
       })
       .catch((err: unknown) => {
+        const failure = classifyLoginFailure(err);
         setErrMsg(
-          err instanceof ApiError && (err.status === 401 || err.status === 403)
-            ? MISMATCH_MSG
-            : UNREACHABLE_MSG,
+          failure === "paused"
+            ? PAUSED_MSG
+            : failure === "throttled"
+              ? THROTTLED_MSG
+              : failure === "credentials"
+                ? MISMATCH_MSG
+                : UNREACHABLE_MSG,
         );
         setPhase("error");
       });

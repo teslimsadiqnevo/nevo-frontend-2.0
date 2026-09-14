@@ -46,15 +46,15 @@ largest category of undone work here.*
 | Upload scope + file | LIVE | — | NONE | — |
 | Teacher activation | LIVE | Error states unsigned-off | DESIGN | S |
 | Password reset | LIVE | Error states unsigned-off | DESIGN | S |
-| Session expired door | LIVE | Only the "expired" variant; revoked drawn 10 Sep | FRONTEND | S |
+| Session expired door | LIVE | Only the "expired" variant. Backend now sends four codes (`session_expired`, `session_revoked`, `session_replaced`, `account_paused`); **none is consumed anywhere**, and `ConsoleSessionExpired` takes only `signInHref`. Carrying a reason means changing `client.ts`, which all three consoles route through | FRONTEND | **M** |
 | Lesson library | LIVE | Subject pills hidden — upload cannot set a subject | BACKEND | S |
-| Notifications panel | LIVE | Category filter impossible — no `category` field | BACKEND | S |
+| Notifications panel | LIVE | — | NONE | — |
 | Class code / QR | LIVE | No standalone route; dialog only | DESIGN | S |
 | Sign-in | PARTIAL | A paused or rate-limited teacher is told their password is wrong | FRONTEND | S |
 | Console shell + nav rail | PARTIAL | Role label is `MOCK_TEACHER.role` unconditionally; Help & support has no destination | FRONTEND; DESIGN | S |
 | My Classes list | PARTIAL | Card carries no subjects, headcount or summary line | FRONTEND | S |
 | Class detail + roster | PARTIAL | Chips, seat, headcount fetched and dropped; no Lessons/Activity tab; consent not shown | FRONTEND; BACKEND (activity); DESIGN (consent) | L |
-| Compose message | PARTIAL | Deep link resolves against fixtures; cannot address a class | FRONTEND | S |
+| Compose message | PARTIAL | Deep link resolves against fixtures in **three** places (`ConnectView:108`, `ComposeModal:69` and `:108`) and the profile link carries no query at all; cannot address a class | FRONTEND | **M** |
 | Home dashboard | PARTIAL | **Emits no sample marks at all**; class trio subject/status; activity counts; "Good to know" | FRONTEND; BACKEND; DESIGN (cutoffs) | M |
 | Insights | PARTIAL | Written summary; "Looking ahead"; per-student recommendations | BACKEND; FRONTEND (fan-out) | M |
 | Student profile | PARTIAL | Read-only — 1 of 4 drawn actions; no noticing banner | FRONTEND | L |
@@ -74,6 +74,16 @@ largest category of undone work here.*
 | SSO callback | NOT BUILT | Component complete and live-wired; nothing navigates to it | BACKEND | M |
 | Notifications page | NOT BUILT | Deliberate redirect — C13 is a popover | NONE | — |
 | Students index | NOT BUILT | Deliberate redirect to Classes | NONE | — |
+
+
+**Variant review, two divergences found 14 Sep.** C07b draws it as ONE screen with segment
+*pills* and a "← My Lessons" back link; what is built takes `?section=N`. More
+substantially, C07b's stated purpose is that "the teacher reviews each segment's variants
+and **approves** them for the class. Approval is manual and deliberate." **There is no
+approval transport** — `approve` appears in none of the 183 paths and nowhere in the
+document; the only sign-off field is `VisualVariant.reviewedBy`, which is a read. So what
+is built is review *without* approval, and the approval half is a backend ask nobody had
+made. Added to list B.
 
 ## Parent console
 
@@ -111,8 +121,12 @@ undocumented expiry on it.
 7. **Recommend a lesson.** Wrap `POST /api/v1/lesson-assignments`; delete the fixture
    sheet's false "That's sent". **M**
 8. **Class headcount** — a join on `classId` against data rendered two sections up. **S**
-9. **Revoked session-end variant** — drawn 10 Sep, still two variants in code. **S**
-10. **Connect deep link** — compose discards `presetStudent` when signed in. **S**
+9. **Revoked session-end variant.** **M, not S** — re-sized 14 Sep on inspection. The
+   four codes are consumed nowhere, `ConsoleSessionExpired` has no reason prop, and the
+   plumbing runs through `client.ts`, which student and admin share.
+10. **Connect deep link.** **M, not S** — re-sized 14 Sep. The preset is fixture-bound in
+    three places across two components, and the profile link sends no query at all, so
+    this is a preset-resolution change rather than a one-line href.
 11. **Delete or re-point `/teacher/lessons/upload/structure`.** **S**
 12. **Parent polish** — name the recipient in D01c, school attribution on D15d, link
     `/parent-portal` from somewhere. **S**
@@ -138,6 +152,9 @@ undocumented expiry on it.
 11. **What an expired parent consent token returns.** Settle before shipping D03.
 12. **Gendered growth statements** — the prose renders verbatim and cannot be fixed
     client-side.
+13. **Variant approval.** C07b: "the teacher reviews each segment's variants and approves
+    them for the class." No approval endpoint exists. Either a write, or a ruling that
+    review is read-only and C07b's copy is stale.
 
 ## C. Blocked on design — the exact ask
 
@@ -166,6 +183,10 @@ undocumented expiry on it.
   the teacher's mouth, and no sample mark makes that acceptable.
 - `not_enough_yet` on the growth view is a correct state, not missing data.
 - A parent who withdrew is never re-asked.
+- **No notification filter.** C13 draws none — it is "a calm reverse-chronological
+  popover", unread carrying a soft tint and nothing else. An earlier version of this file
+  listed a missing `category` field as a backend ask; there is no control for it to feed,
+  and `NotificationType` already carries nine values if one is ever drawn.
 
 ---
 

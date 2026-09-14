@@ -79,14 +79,41 @@ function TypeTag({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * THE ENTRY INTO VARIANT REVIEW, which did not exist until 14 Sep.
+ *
+ * `/teacher/lessons/{id}/variants?section=N` was built, tested and live, and
+ * nothing in the product linked to it - a finished screen reachable only by
+ * typing a URL. C16d's breadcrumb ("Lesson Library · Variant review",
+ * "Photosynthesis · Segment 2") says it is entered per segment from the lesson,
+ * which is what this is.
+ *
+ * SHOWN ON EVERY SEGMENT, including ones with no variants yet. The screen says
+ * plainly which of the four Nevo has not generated, and that is worth reaching;
+ * hiding the link on those segments would make the control appear and disappear
+ * for reasons a teacher cannot see.
+ *
+ * TWO THINGS RAISED WITH DESIGN AND BACKEND, not resolved here:
+ *  - C07b draws this as ONE screen with segment PILLS, not a URL per section,
+ *    and its own back link reads "← My Lessons". The built screen takes
+ *    `?section=N`. Both reach the same place; the shapes differ.
+ *  - C07b's stated purpose is that "the teacher reviews each segment's variants
+ *    and APPROVES them for the class. Approval is manual and deliberate."
+ *    There is no approval transport: `approve` appears in none of the 183 paths
+ *    and nowhere in the document. The only sign-off field on the contract is
+ *    `VisualVariant.reviewedBy`, which is a read. So what is built is review
+ *    WITHOUT approval, and the approval half is a backend ask nobody had made.
+ */
 function SegmentRow({
   segment,
   index,
+  lessonId,
   progress,
   slowest,
 }: {
   segment: LessonSegment;
   index: number;
+  lessonId: string;
   progress?: SegmentProgress;
   slowest?: boolean;
 }) {
@@ -106,6 +133,12 @@ function SegmentRow({
             {segment.title ?? `Section ${index + 1}`}
           </span>
           <TypeTag>{typeLabel(segment.contentType)}</TypeTag>
+          <Link
+            href={`/teacher/lessons/${lessonId}/variants?section=${index + 1}`}
+            className="cursor-pointer text-[12.5px] font-medium text-nevo-navy underline-offset-2 transition-[filter] hover:underline"
+          >
+            Variant review
+          </Link>
         </div>
         {segment.body && (
           <p className="mt-1.5 line-clamp-2 max-w-[62ch] text-[13.5px] leading-[1.5] text-nevo-near-black/62">
@@ -354,6 +387,7 @@ export function LiveLessonDetail({
                       key={s.id}
                       segment={s}
                       index={segments.indexOf(s)}
+                      lessonId={lesson.id}
                       progress={bySegment.get(s.id)}
                       slowest={progress?.slowestSegmentId === s.id}
                     />
@@ -374,6 +408,7 @@ export function LiveLessonDetail({
                 key={s.id}
                 segment={s}
                 index={i}
+                lessonId={lesson.id}
                 progress={bySegment.get(s.id)}
                 slowest={progress?.slowestSegmentId === s.id}
               />

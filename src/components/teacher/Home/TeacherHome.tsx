@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTeacherFlags } from "@/hooks/useTeacherFlags";
 import { useTeacherHome } from "@/hooks/useTeacherHome";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 import { ClassPulse } from "./ClassPulse";
 import { LiveClassPulse } from "./LiveClassPulse";
 import { LiveFlagCard } from "./LiveFlagCard";
@@ -132,7 +133,21 @@ export function TeacherHome() {
         {!noClasses &&
           (homeLive
             ? pulse.map((p) => <LiveClassPulse key={p.classId} pulse={p} />)
-            : showFixtureHome && <ClassPulse />)}
+            : showFixtureHome && (
+                /*
+                 * MARKED, and it was not until 14 Sep. Home rendered fixtures
+                 * on a failed read - correctly, per the fallback design - but
+                 * emitted no `data-nevo-sample` anywhere, while every sibling
+                 * surface did. `e2e/teacher-signed-in.spec.ts` walks
+                 * `/teacher/dashboard` asserting zero sample marks, so that
+                 * assertion PASSED VACUOUSLY on the one screen a teacher opens
+                 * first. An assertion that cannot fail is worse than none,
+                 * because it is counted as coverage.
+                 */
+                <SampleRegion kind="teacher:home-pulse">
+                  <ClassPulse />
+                </SampleRegion>
+              ))}
 
         {/* All of this is class-derived. With no classes there is nothing
             truthful to put here - including the calm no-flags card, which
@@ -151,14 +166,19 @@ export function TeacherHome() {
                   {flags.map((flag) => (
                     <LiveFlagCard key={flag.id} flag={flag} />
                   ))}
-                  {fixtureFlags.map((flag) => (
-                    <FlagCard key={flag.id} flag={flag} />
-                  ))}
+                  {fixtureFlags.length > 0 && (
+                    <SampleRegion kind="teacher:home-flags">
+                      {fixtureFlags.map((flag) => (
+                        <FlagCard key={flag.id} flag={flag} />
+                      ))}
+                    </SampleRegion>
+                  )}
                 </div>
 
                 {/* Good to know - a quiet win, never a flag. Fixture prose, so
                     it does not sit beside live flags pretending to be theirs. */}
                 {fixtureFlags.length > 0 && (
+                <SampleRegion kind="teacher:home-good-to-know">
                 <div className="mt-[22px] flex max-w-[660px] items-start gap-3 rounded-[12px] bg-nevo-violet/14 px-[18px] py-4">
                   <span className="mt-px shrink-0 text-nevo-navy">
                     <svg
@@ -183,6 +203,7 @@ export function TeacherHome() {
                     {GOOD_TO_KNOW}
                   </p>
                 </div>
+                </SampleRegion>
                 )}
               </>
             ) : (
@@ -254,6 +275,7 @@ export function TeacherHome() {
             )}
 
             {showFixtureHome && (
+            <SampleRegion kind="teacher:home-activity">
             <div className="mt-3.5 overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1 xl:mt-4">
               {HOME_ACTIVITY.map((a, i) => (
                 <Link
@@ -289,6 +311,7 @@ export function TeacherHome() {
                 </Link>
               ))}
             </div>
+            </SampleRegion>
             )}
           </>
         )}
