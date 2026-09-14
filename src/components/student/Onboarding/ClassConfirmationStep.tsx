@@ -291,7 +291,7 @@ export function ClassConfirmationStep() {
           onKey={(c) => setQuery((q) => q + c)}
           onBackspace={() => setQuery((q) => q.slice(0, -1))}
           onReturn={kb.close}
-          className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-40"
         />
       )}
     </OnboardingShell>

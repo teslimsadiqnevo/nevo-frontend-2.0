@@ -337,7 +337,7 @@ export default function LoginPage() {
           layout="pad"
           onKey={addDigits}
           onBackspace={backspace}
-          className="shrink-0 lg:hidden"
+          className="shrink-0"
         />
       )}
     </main>

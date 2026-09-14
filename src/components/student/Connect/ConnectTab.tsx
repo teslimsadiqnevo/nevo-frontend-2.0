@@ -263,7 +263,10 @@ export function ConnectTab() {
             onClick={() => setMobileView("list")}
             className="absolute left-2 flex size-11 items-center justify-center rounded-[10px] transition-colors hover:bg-nevo-near-black/[0.06] md:hidden"
           >
-            <ChevronLeft className="size-6 text-nevo-near-black" strokeWidth={2} />
+            <ChevronLeft
+              className="size-6 text-nevo-near-black"
+              strokeWidth={2}
+            />
           </button>
           <span className="text-base font-medium text-nevo-near-black">
             {active.name}
@@ -283,7 +286,9 @@ export function ConnectTab() {
         <div className="flex shrink-0 items-center gap-2.5 border-t border-nevo-near-black/8 px-4 py-3">
           <input
             value={draft}
-            onChange={(e) => setDraft(e.target.value.slice(0, MESSAGE_MAX_LENGTH))}
+            onChange={(e) =>
+              setDraft(e.target.value.slice(0, MESSAGE_MAX_LENGTH))
+            }
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -320,12 +325,10 @@ export function ConnectTab() {
             // means this keyboard IS the way a child types on a tablet, so a
             // cap enforced only by the input's `maxLength` is no cap at all -
             // it would let them past 5000 and the send would 422 on them.
-            onKey={(c) =>
-              setDraft((d) => (d + c).slice(0, MESSAGE_MAX_LENGTH))
-            }
+            onKey={(c) => setDraft((d) => (d + c).slice(0, MESSAGE_MAX_LENGTH))}
             onBackspace={() => setDraft((d) => d.slice(0, -1))}
             onReturn={send}
-            className="shrink-0 lg:hidden"
+            className="shrink-0"
           />
         )}
       </section>

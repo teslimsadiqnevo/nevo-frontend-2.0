@@ -477,7 +477,7 @@ export function AskNevo() {
                 kb.close();
                 send();
               }}
-              className="shrink-0 lg:hidden"
+              className="shrink-0"
             />
           )}
         </SheetContent>
