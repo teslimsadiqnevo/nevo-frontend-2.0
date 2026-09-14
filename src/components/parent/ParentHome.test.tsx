@@ -73,23 +73,40 @@ beforeEach(() => {
 });
 
 describe("a parent who is not signed in", () => {
-  it("is told the true thing, since there is no parent sign-in screen", async () => {
-    // Design has not drawn a parent door. Inventing one on a surface this
-    // sensitive is worse than saying what is actually true: the link the school
-    // sent still works.
-    //
-    // Awaited rather than asserted synchronously: the local session check now
-    // runs inside the same promise chain as the request, so the state settles a
-    // microtask later. That is deliberate - it keeps every setState in a
-    // callback - and it costs one tick, not a visible loading flash.
+  it("offers the sign-in screen rather than sending them hunting for a link", async () => {
+    /*
+     * THIS TEST USED TO ASSERT THE DEAD END, and its comment said "design has
+     * not drawn a parent door". D03 Parent Sign-In was drawn the whole time -
+     * nobody had built it. So the screen told a parent who HAS an account to go
+     * and find the consent link, which for many of them had already expired:
+     * the invitation carries `expiresAt`, and a spent token 404s.
+     *
+     * Awaited rather than asserted synchronously: the local session check runs
+     * inside the same promise chain as the request, so the state settles a
+     * microtask later. Deliberate - it keeps every setState in a callback - and
+     * it costs one tick, not a visible loading flash.
+     */
+    getSession.mockReturnValue(null);
+    render(<ParentHome />);
+
+    const door = await screen.findByRole("link", { name: "Sign in" });
+    expect(door).toHaveAttribute("href", "/parent-sign-in");
+    expect(
+      screen.queryByText(/Open the link your school sent you/i),
+    ).not.toBeInTheDocument();
+    // Still no request: the throw happens before `myChildren` is reached.
+    expect(myChildren).not.toHaveBeenCalled();
+  });
+
+  it("still tells them where a first-time account comes from", async () => {
+    // Sign-in is for a parent who already has one. A parent who does not must
+    // not be left thinking this screen is their route in.
     getSession.mockReturnValue(null);
     render(<ParentHome />);
 
     expect(
-      await screen.findByText(/Open the link your school sent you/i),
+      await screen.findByText(/Open the consent link your child’s school sent you/i),
     ).toBeInTheDocument();
-    // Still no request: the throw happens before `myChildren` is reached.
-    expect(myChildren).not.toHaveBeenCalled();
   });
 
   it("says the same thing when the server rejects the session", async () => {
@@ -97,9 +114,21 @@ describe("a parent who is not signed in", () => {
     myChildren.mockRejectedValue(new ApiError(401, "no"));
     render(<ParentHome />);
 
-    expect(
-      await screen.findByText(/Open the link your school sent you/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/parent-sign-in",
+    );
+  });
+
+  it("offers a non-parent no parent door, because it is not theirs", async () => {
+    // 403 is a different fact from 401. A teacher who lands here is signed in,
+    // just not as a parent, and a "Sign in" button would send them round a loop
+    // that cannot end well.
+    myChildren.mockRejectedValue(new ApiError(403, "forbidden"));
+    render(<ParentHome />);
+
+    await screen.findByText(/This page is for parents and guardians/i);
+    expect(screen.queryByRole("link", { name: "Sign in" })).not.toBeInTheDocument();
   });
 
   it("points a signed-in NON-parent at their own console instead", async () => {

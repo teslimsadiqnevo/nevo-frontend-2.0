@@ -91,16 +91,26 @@ made. Added to list B.
 |---|---|---|---|---|
 | Parent consent (D01b) | LIVE | — | NONE | — |
 | Parent data management (D01c) | LIVE | Does not name the recipient address the frame names | FRONTEND; CONTENT | S |
-| Parent growth view (D15d) | LIVE | **Unreachable on any second visit**; no school attribution; gendered templates | FRONTEND; BACKEND (prose) | S |
+| Parent growth view (D15d) | LIVE | No school attribution; gendered statement templates. (Reachable on a second visit now that sign-in exists) | FRONTEND; BACKEND (prose) | S |
 | Parent account setup (D02) | PARTIAL | No route of its own; contact read-only where the frame draws it editable; SMS copy invented | DESIGN | M |
-| Parent sign-in (D03) | NOT BUILT | No component, no route. Frame drawn; both endpoints public and already wrapped | FRONTEND | M |
+| Parent sign-in (D03) | LIVE | — (built 14 Sep at `/parent-sign-in`; takes email **or** phone, see the note) | NONE | — |
 
-**The parent lane hangs on one token.** There is no sign-in, `/parent-portal` is linked
-from exactly one line in the codebase, the invitation's `expiresAt` is typed and never
-read, and `GET /api/v1/consents/parent/{token}` documents **only 200 and 422 — no 404**,
-which the UI assumes. A parent who tapped "Maybe later" is told they can set up an
-account later, and cannot. The screen built to guarantee an NDPA right has an
-undocumented expiry on it.
+**The parent lane no longer hangs on one token** (14 Sep). `/parent-sign-in` is built, and
+`/parent-portal` offers it instead of telling a parent to go and find a link that may
+already have expired.
+
+**Two things about it design should see.** D03 says "Email only, no password" and labels
+the field "Email address"; the 14 Sep ruling on the sister screen says "SMS is the path to
+get right, not the fallback", and `request-code` takes `contact` rather than `email`. Built
+to the newer ruling, so the field accepts either — email-only would lock out every parent
+whose school holds a number. And the resend reads "Send it again" per that ruling, not
+D03's "Resend code", because two parent auth screens with two wordings for one action is
+the worse outcome. Both are a label and a validator to reverse.
+
+**Still open:** the invitation's `expiresAt` is typed and never read, and
+`GET /api/v1/consents/parent/{token}` documents **only 200 and 422 — no 404**, which the
+UI assumes. That is backend item 11 and matters less now that a dead token is no longer
+the end of the road.
 
 ---
 
@@ -109,8 +119,8 @@ undocumented expiry on it.
 1. **Paused teacher told their password is wrong.** `classifyLoginFailure` is written and
    tested and used on both student doors; `TeacherSignIn.tsx:127` and `AdminSignIn.tsx:152`
    still map 401/403 to "check your details". **S**
-2. **Parent sign-in (D03).** The only absence that makes an already-built statutory right
-   unexercisable once the token dies. **M**
+2. ~~**Parent sign-in (D03).**~~ **DONE 14 Sep.** Built at `/parent-sign-in`; the portal's
+   signed-out screen offers it rather than pointing at a link that may have expired.
 3. **Student observations on class detail (C16b).** Largest drawn-but-unbuilt teacher
    screen; chips, seat and headcount are all already on the wire. **M**
 4. **Home sample marks.** Until Home emits them the one E2E assertion cited as proof no
