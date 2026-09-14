@@ -101,10 +101,13 @@ export function AdminSignIn() {
   const { signIn } = useAuth();
   // Same-app paths only, never an open redirect.
   const nextParam = searchParams.get("next");
+  // `/admin` picks the persona home from the caller's scopes - the Overview
+  // is gated on `oversight`, so sending everyone there landed IT and finance
+  // admins on a refusal. A deep link still wins.
   const destination =
     nextParam && nextParam.startsWith("/admin/")
       ? nextParam
-      : "/admin/dashboard";
+      : "/admin";
 
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");

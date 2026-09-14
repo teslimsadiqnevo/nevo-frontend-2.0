@@ -41,7 +41,10 @@ import { isAdminRole, USER_ROLES } from "@/lib/constants/permissions";
 const SIGN_IN = "/auth/teacher";
 const CONSOLE_HOME = "/teacher/dashboard";
 const ADMIN_SIGN_IN = "/auth/admin";
-const ADMIN_HOME = "/admin/dashboard";
+// `/admin` chooses the persona home from the caller's scopes, which this
+// file cannot see - it holds only the role mirror cookie. See
+// `adminHomeForScopes`.
+const ADMIN_HOME = "/admin";
 /** The child's door is the PIN screen, not a password form. */
 const STUDENT_SIGN_IN = "/auth/login";
 /**
