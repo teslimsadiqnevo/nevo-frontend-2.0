@@ -85,16 +85,37 @@ export function ParentHome() {
     return (
       <Shell>
         <Card>
+          {/*
+           * THIS USED TO BE A DEAD END. The heading read "Open the link your
+           * school sent you", which was the only true thing to say while the
+           * consent link was the only door - and became wrong twice over the
+           * moment account setup shipped. Wrong for a parent who HAS an
+           * account and should simply sign in; useless to one whose link has
+           * expired, because a spent token 404s and the school has to issue a
+           * new one. Sign-in exists now, so this offers it.
+           */}
           <h1 className="text-[21px] font-semibold text-nevo-near-black">
-            Open the link your school sent you
+            {phase === "not-parent"
+              ? "This page is for parents and guardians"
+              : "Sign in to see how your child is getting on"}
           </h1>
           <p className={BODY}>
             {phase === "not-parent"
-              ? "This page is for parents and guardians. If you have a Nevo account for school, sign in there instead."
-              : "Your consent link takes you straight to your child’s details, and lets you see and manage their data at any time."}
+              ? "If you have a Nevo account for school, sign in there instead."
+              : "We’ll send a code to the email address or phone number your child’s school has for you."}
           </p>
+          {phase === "signed-out" && (
+            <a
+              href="/parent-sign-in"
+              className="mt-5 inline-flex h-[50px] w-full cursor-pointer items-center justify-center rounded-[10px] bg-nevo-navy text-[15px] font-semibold text-nevo-cream transition-[filter] duration-[120ms] hover:brightness-93"
+            >
+              Sign in
+            </a>
+          )}
           <p className={BODY}>
-            If you can’t find it, your child’s school can send you a new one.
+            {phase === "not-parent"
+              ? "If you can’t find it, your child’s school can send you a new one."
+              : "Haven’t set up an account yet? Open the consent link your child’s school sent you, or ask them to send a new one."}
           </p>
         </Card>
       </Shell>
