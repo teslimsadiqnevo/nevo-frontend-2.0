@@ -174,13 +174,27 @@ export interface SchoolTerm {
  * The academic shape of a school year, and the per-school year-group labels
  * SCRUM-99 owns.
  *
- * `academicConfig` is an untyped `object` on the contract, so this shape is
- * ours - the third provisional contract in this codebase, after the onboarding
- * block and the school contact. `yearGroupLabels` is the one the rest of the
- * product has been waiting on: `lib/constants/yearGroups.ts` has carried a
- * TODO for it since the roster screens, and reads it from here now.
+ * HALF TYPED NOW, AND THE TYPED HALF IS THE ONE THAT BILLS. Backend gave
+ * `academicConfig` a schema on 15 Sep: `termStartDates`, up to three ISO
+ * dates, which per-term billing invoices from. A malformed date is a 422
+ * instead of being silently swallowed - a school that mistyped one used to be
+ * invoiced on dates it never chose.
+ *
+ * The schema keeps `additionalProperties: true`, so the fields below still
+ * pass through untouched and remain OURS - a provisional contract, the third
+ * in this codebase after the onboarding block and the school contact. That is
+ * fine for labels and less fine for anything money or dates depend on, which
+ * is exactly the half that has now been lifted out.
+ *
+ * `yearGroupLabels` is the one the rest of the product waited on:
+ * `lib/constants/yearGroups.ts` reads it from here.
  */
 export interface AcademicConfig {
+  /**
+   * Term starts, earliest first, at most three - the backend's own field, and
+   * the only one here it validates. ISO dates (`2026-09-08`), not date-times.
+   */
+  termStartDates?: string[];
   yearStart?: string;
   yearEnd?: string;
   terms?: SchoolTerm[];
@@ -188,6 +202,20 @@ export interface AcademicConfig {
   yearGroupLabels?: Record<string, string>;
   /** Which preset the labels came from, so the UI can say "custom". */
   taxonomyPreset?: string;
+}
+
+/**
+ * Term starts, or an empty list.
+ *
+ * Guarded rather than trusted: `additionalProperties: true` means anything can
+ * be in this object, and a school configured before the field existed has no
+ * `termStartDates` at all. A non-array, or entries that are not strings, read
+ * as none rather than throwing on a screen that is only showing dates.
+ */
+export function termStartDates(config: AcademicConfig): string[] {
+  const raw = config.termStartDates;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((d): d is string => typeof d === "string" && d.length > 0);
 }
 
 export function readAcademic(school: School): AcademicConfig {

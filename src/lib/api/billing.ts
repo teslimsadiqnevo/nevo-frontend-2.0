@@ -67,6 +67,17 @@ export interface Invoice {
   perStudentRate: string | null;
   totalBeforeVat: string | null;
   vatAmount: string | null;
+  /**
+   * The percentage THIS invoice's VAT was charged at - stored per invoice now
+   * rather than assumed, so the VAT line has a rate to label itself with.
+   *
+   * NULLABLE AND OMISSIBLE, and both matter: invoices issued before the field
+   * existed genuinely have no rate recorded. Backfilled at 7.50 where known.
+   * An invoice without one shows its AMOUNT and no rate, rather than borrowing
+   * today's - a historic invoice charged at a different rate would otherwise
+   * be relabelled with a figure it was never charged at.
+   */
+  vatRate?: string | null;
 }
 
 export interface UpcomingCharge {
@@ -164,10 +175,14 @@ export interface Pricing {
   rateLockedUntil: string | null;
   totalBeforeVat: string;
   /**
-   * TODO(api): percentage or fraction? "7.5" and "0.075" are the same rate and
-   * differ by 100x on screen, and the contract says only `string`. Until that
-   * is settled the VAT line shows the AMOUNT, which is unambiguous, and no
-   * rate. A wrong tax rate on a school's invoice is not a rounding error.
+   * A PERCENTAGE, not a fraction - settled 15 Sep and now documented in the
+   * schema with an example. Nigeria's 7.5% arrives as "7.50": render it with a
+   * per-cent sign and do not multiply.
+   *
+   * This carried a TODO(api) asking the question, twice, because "7.5" and
+   * "0.075" are the same rate a hundredfold apart on screen and a wrong tax
+   * rate on a school's invoice is not a rounding error. Rendered through
+   * `formatVatRate`, which is the one place that knows.
    */
   vatRate: string;
   vatAmount: string;
