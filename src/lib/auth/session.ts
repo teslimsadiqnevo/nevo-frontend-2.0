@@ -93,7 +93,21 @@ function hasExpired(s: StoredSession, deviceNow: number): boolean {
 export interface RememberedProfile {
   schoolCode: string;
   loginIdentifier: string;
-  displayName: string;
+  /**
+   * What to call them on the lock screen. First name only, never the username.
+   *
+   * OPTIONAL, because the device genuinely may not know it. A PIN login returns
+   * a session, not a profile, so the returning-sign-in screen has to go and ask
+   * - and when that ask fails there is no name to remember. It used to store
+   * the LOGIN IDENTIFIER in here as a stand-in, which put a string that is half
+   * a credential on a pre-authentication screen, beside a school code every
+   * child in the building knows.
+   *
+   * A lock screen with no name says "Welcome back" and nothing else. That is a
+   * smaller cost than greeting a child as `amara.k`, and a far smaller one than
+   * showing their username to whoever picks the tablet up next.
+   */
+  displayName?: string;
   /** Avatar initials, e.g. "AK". */
   initials: string;
 }

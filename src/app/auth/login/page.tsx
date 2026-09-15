@@ -26,6 +26,23 @@ const PIN_LENGTH = STUDENT_PIN_LENGTH;
 const DONE_MS = 700;
 
 /**
+ * The lock screen's greeting, which must survive not knowing who they are.
+ *
+ * `displayName` is optional on a remembered profile: a PIN login returns a
+ * session rather than a profile, so a child who signed in on an unrecognised
+ * device may be remembered without a name. This used to be papered over by
+ * storing their LOGIN IDENTIFIER as the name, which put half a credential on a
+ * pre-authentication screen beside a school code the whole building knows.
+ *
+ * A bare "Welcome back" is the right nameless state. It is warm, it is true,
+ * and it tells a passer-by nothing about whose tablet this is.
+ */
+function greeting(displayName?: string): string {
+  const name = displayName?.trim();
+  return name ? `Welcome back, ${name}` : "Welcome back";
+}
+
+/**
  * Student Login (frame 00) - the returning-student PIN unlock. The device
  * remembers who signs in here (school code + identifier + name, seeded at
  * onboarding); the student only enters their PIN. One box per digit, the Nevo pad
@@ -251,7 +268,7 @@ export default function LoginPage() {
               />
             </span>
             <h2 className="mt-5 text-[23px] leading-[1.3] font-medium tracking-[-0.01em] text-nevo-near-black sm:text-[26px]">
-              Welcome back, {profile.displayName}
+              {greeting(profile.displayName)}
             </h2>
             <p className="mt-2.5 text-[15px] text-nevo-near-black/60">
               Taking you to your lessons…
@@ -260,7 +277,7 @@ export default function LoginPage() {
         ) : (
           <>
             <h2 className="mt-5 text-[23px] leading-[1.3] font-medium tracking-[-0.01em] text-nevo-near-black sm:text-[26px]">
-              Welcome back, {profile.displayName}
+              {greeting(profile.displayName)}
             </h2>
             <p className="mt-2.5 text-[15px] text-nevo-near-black/60">
               Enter your PIN to keep going
