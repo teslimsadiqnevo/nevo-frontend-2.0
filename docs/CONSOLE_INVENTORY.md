@@ -54,7 +54,7 @@ largest category of undone work here.*
 | Sign-in | PARTIAL | A paused or rate-limited teacher is told their password is wrong | FRONTEND | S |
 | Console shell + nav rail | PARTIAL | Role label is `MOCK_TEACHER.role` unconditionally; Help & support has no destination | FRONTEND; DESIGN | S |
 | My Classes list | PARTIAL | Card carries no subjects, headcount or summary line | FRONTEND | S |
-| Class detail + roster | PARTIAL | Chips, seat, headcount fetched and dropped; no Lessons/Activity tab; consent not shown | FRONTEND; BACKEND (activity); DESIGN (consent) | L |
+| Class detail + roster | PARTIAL | No Lessons or Activity tab. (Chips, seat and the two markers built 15 Sep; the header already carried the headcount) | BACKEND (activity); DESIGN (a Lessons tab) | M |
 | Compose message | PARTIAL | Deep link resolves against fixtures in **three** places (`ConnectView:108`, `ComposeModal:69` and `:108`) and the profile link carries no query at all; cannot address a class | FRONTEND | **M** |
 | Home dashboard | PARTIAL | **Emits no sample marks at all**; class trio subject/status; activity counts; "Good to know" | FRONTEND; BACKEND; DESIGN (cutoffs) | M |
 | Insights | PARTIAL | Written summary; "Looking ahead"; per-student recommendations | BACKEND; FRONTEND (fan-out) | M |
@@ -68,7 +68,7 @@ largest category of undone work here.*
 | Parse progress ladder | LIVE | — (three rungs keyed to `UploadStage`, driven by the live stage; design ruling 14 Sep) | NONE | — |
 | Upload module / section review | FIXTURE-ONLY | Hardcoded Photosynthesis six; every control writes nothing | FRONTEND | M |
 | Structure preview (standalone) | FIXTURE-ONLY | Orphaned duplicate; no session gate | FRONTEND | S |
-| Student observations (C16b) | NOT BUILT | Fully drawn. Data, enum and copy all exist; nothing renders them | FRONTEND | M |
+| Student observations (C16b) | LIVE | — (built 15 Sep: chips, seat, and the two markers) | NONE | — |
 | Recommend a lesson | NOT BUILT | Unreachable signed in; fixture sheet claims a send it never makes | FRONTEND (+BACKEND for the note) | M |
 | Share with Learning Support | NOT BUILT | Button correctly disabled; no teacher→SENCo transport | BACKEND | M |
 | Session detail | NOT BUILT | No per-student, per-segment session read exists | BACKEND | M |
@@ -122,8 +122,9 @@ the end of the road.
    still map 401/403 to "check your details". **S**
 2. ~~**Parent sign-in (D03).**~~ **DONE 14 Sep.** Built at `/parent-sign-in`; the portal's
    signed-out screen offers it rather than pointing at a link that may have expired.
-3. **Student observations on class detail (C16b).** Largest drawn-but-unbuilt teacher
-   screen; chips, seat and headcount are all already on the wire. **M**
+3. ~~**Student observations (C16b).**~~ **DONE 15 Sep.** Chips imported from
+   `lib/constants/observations.ts` rather than restated; seat context shown; the two
+   markers labelled rather than coloured.
 4. **Home sample marks.** Until Home emits them the one E2E assertion cited as proof no
    teacher sees invented data is vacuous on the dashboard. **S**
 5. **Variant review entry point.** One prop; a finished, tested screen is URL-only. **S**
