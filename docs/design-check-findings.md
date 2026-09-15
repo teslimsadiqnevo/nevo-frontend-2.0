@@ -58,6 +58,44 @@ the reason is given — those are the rows worth reading.
 
 New, tested: `snapshotTiles.ts`, `boardPack.ts`.
 
+### IT & SSO — 30, 31, 32, 33, 34, 35, 53
+
+- **32, the disconnected school.** `SsoConnectionStatus` has three members and
+  the page branched on two, so "we hold a status record" was read as "a
+  provider is live". A school that had turned Microsoft 365 off got the full
+  connected page — a "Healthy" roster sync with a Sync now button, a sign-in
+  URL nobody can use, and an offer to disconnect what is already disconnected.
+  `isLive` now draws that line once, and the school gets its **code** instead,
+  with a line saying when the provider went and that nothing of theirs was
+  lost.
+- **34, never synced.** "Healthy · Last synced never" was what a school in its
+  first hour saw. The ladder is now ordered and tested in `ssoState.ts`, and
+  `next_scheduled_sync_at` — fetched and never rendered anywhere — is what the
+  waiting state says.
+- **30, the mapping gap.** Banner and the degraded sync word, both to D10's
+  copy. The **action is scope-gated**: assigning a teacher to a class is
+  `roster`, this screen is `it_sso`, and `it_sso` can be held alone — so an
+  admin who cannot open Classes is told the fact without being sent to a
+  refusal. That follows the rule `itHomeRows` already keeps.
+- **31, the disclosure.** Both groups, both headings and the route out. "What
+  we never touch" is a **product guarantee held in the client**, because no
+  endpoint can enumerate an absence. It renders for a disconnected school too,
+  in the past tense — that reader is the one most likely to be asking.
+- **33, copy.** Local to the button, clears after 2.2s, and a clipboard the
+  browser refuses says so rather than going silent. It used to write "Copied"
+  into the page-wide notice several sections above, overwriting whatever the
+  last sync or disconnect had said, and never clearing.
+- **35, provenance — not built, by design.** D10b prints "Connected by Mr.
+  Idris Bello on 12 March 2026" and nothing in the contract carries an actor
+  or a connected-at. `reauthorised_at` is a different event; dating the line
+  from it would print the wrong year under the words "Connected by".
+  `TODO(api)` on `SsoStatus` naming the two fields wanted.
+- **53, "Not in use."** Back to being a description of one provider rather
+  than a pill on every card — a school with nothing connected met two cards
+  each stamped with it, on the page inviting them to connect one.
+
+New, tested: `ssoState.ts`.
+
 | # | sev | lane | finding | fix |
 |---|---|---|---|---|
 | 1 | law | intelligence | The adaptation log prints the engine's raw event key as each row's headline instead of the plain-language label the codebase already defines. | In src/components/admin/Adaptations/AdaptationLogView.tsx line 436, render the mapped label with a neutral fallback instead of the raw key: {eventTypeLabel(r.eventType) ?? "Nevo made an adju |

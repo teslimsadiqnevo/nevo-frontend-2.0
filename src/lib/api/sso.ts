@@ -49,6 +49,22 @@ export interface SsoDataFlowCategory {
   purpose: string;
 }
 
+/**
+ * TODO(api): WHO CONNECTED THIS, AND WHEN.
+ *
+ * D10b prints a provenance line above the reauthorise panel - "Connected by
+ * Mr. Idris Bello on 12 March 2026" - and there is nothing here to build it
+ * from. The three instants below are each a different event:
+ * `reauthorisedAt` is the last renewal, `connectionCheckedAt` is a health
+ * probe, `disconnectedAt` is the end. None is the beginning, and no field
+ * anywhere names the person.
+ *
+ * Wanted: `connectedByName` and `connectedAt`, both nullable for a
+ * connection made before they existed. The line stays unbuilt until then.
+ * Dating it from `reauthorisedAt` would put the wrong date, very often the
+ * wrong year, under the words "Connected by" - on the panel a school reads
+ * when it is deciding whether an expiry is expected or suspicious.
+ */
 export interface SsoStatus {
   provider: SsoProvider;
   status: SsoConnectionStatus;
