@@ -91,7 +91,24 @@ export interface StudentLessonState {
   adaptSegments: AdaptSegment[] | undefined;
 }
 
-export function useStudentLesson(lessonId: string): StudentLessonState {
+export function useStudentLesson(
+  lessonId: string,
+  options?: {
+    /**
+     * Ask the engine to adapt this lesson. Default true.
+     *
+     * The after-lesson screens read the same lesson but must NOT do this:
+     * `useAdaptation` posts `mode: "lesson_load"` to `/api/intelligence/adapt`,
+     * and firing it from `/summary` tells the engine the child has just STARTED
+     * a lesson they have in fact just finished. That is a fabricated signal
+     * about a child's learning, which is the one kind this product must never
+     * send.
+     *
+     * Gating on `live` alone is not enough - a real lesson's summary is live.
+     */
+    adapt?: boolean;
+  },
+): StudentLessonState {
   const signedIn = useHasSession();
   const hydrated = useHydrated();
   /**
@@ -189,7 +206,7 @@ export function useStudentLesson(lessonId: string): StudentLessonState {
   // Only for a live lesson: a mock's ids mean nothing to the engine, and its
   // authored plan is richer than anything `lesson_load` returns.
   const adaptation = useAdaptation(
-    live ? lessonId : undefined,
+    live && options?.adapt !== false ? lessonId : undefined,
     // `state`, not `resolved`: the id stamp is what keeps a previous lesson's
     // answer from being read as this one's, and the segments must come through
     // the same gate as the lesson they belong to.

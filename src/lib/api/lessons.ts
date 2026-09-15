@@ -16,19 +16,10 @@ import type { SegmentVariants } from "./variants";
  */
 
 export type LessonSourceType =
-  | "pdf"
-  | "word"
-  | "powerpoint"
-  | "google_drive"
-  | "onedrive"
-  | "text";
+  "pdf" | "word" | "powerpoint" | "google_drive" | "onedrive" | "text";
 
 export type LessonParseStatus =
-  | "pending"
-  | "processing"
-  | "completed"
-  | "completed_with_review"
-  | "failed";
+  "pending" | "processing" | "completed" | "completed_with_review" | "failed";
 
 export type LessonContentType =
   | "explanatory_text"
@@ -123,6 +114,24 @@ export interface LessonSegment extends SegmentVariants {
 export interface LessonDetailResponse extends LessonSummary {
   confirmationSummary: string | null;
   segments: LessonSegment[];
+  /**
+   * The end of the lesson, added by backend on 14 Sep and on BOTH detail reads.
+   *
+   * `recap` is a short closing paragraph written FOR THE CHILD - distinct from
+   * `confirmationSummary`, which is the parser talking to a teacher about its
+   * own confidence and must never be shown to a learner.
+   *
+   * `assessment` is literally `ComprehensionCheckpoint[]`, the same type a
+   * segment's inline checks use, so the same adapter draws both.
+   *
+   * OPTIONAL, deliberately: neither appears in the `required` list of either
+   * detail schema, and neither declares a default. Typing them as required
+   * would encode a guarantee the document does not make, and invite
+   * `res.assessment.length` at the call site - which throws against any
+   * deployment older than yesterday.
+   */
+  recap?: string | null;
+  assessment?: ComprehensionCheckpoint[];
 }
 
 /**
@@ -201,8 +210,7 @@ export const LESSON_STATUS = {
   EXITED: "exited",
 } as const;
 
-export type LessonStatus =
-  (typeof LESSON_STATUS)[keyof typeof LESSON_STATUS];
+export type LessonStatus = (typeof LESSON_STATUS)[keyof typeof LESSON_STATUS];
 
 export interface LessonProgressRequest {
   sessionId: string;
@@ -224,10 +232,9 @@ export interface LessonProgressResponse {
 export const lessonsApi = {
   /** One class's progress through this lesson. */
   classProgress: (lessonId: string, classId: string) =>
-    api.get<LessonClassProgress>(
-      `/api/v1/lessons/${lessonId}/class-progress`,
-      { params: { classId } },
-    ),
+    api.get<LessonClassProgress>(`/api/v1/lessons/${lessonId}/class-progress`, {
+      params: { classId },
+    }),
 
   /** The parsed lesson library. GET /api/content/lessons */
   list: (options?: { limit?: number }) =>

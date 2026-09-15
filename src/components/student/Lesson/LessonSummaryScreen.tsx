@@ -30,21 +30,31 @@ export function LessonSummaryScreen({ lesson }: { lesson: Lesson }) {
             {lesson.title}
           </h1>
 
-          {summary && (
-            <>
-              <p className="mt-5 text-base leading-[1.7] text-nevo-near-black/72 sm:mt-6 sm:text-[17px] lg:text-lg">
-                {summary.recap}
-              </p>
+          {summary?.recap && (
+            <p className="mt-5 text-base leading-[1.7] text-nevo-near-black/72 sm:mt-6 sm:text-[17px] lg:text-lg">
+              {summary.recap}
+            </p>
+          )}
 
-              <div className="mt-7 rounded-[12px] bg-nevo-cream-elevated p-[18px] shadow-elevation-1 sm:p-[22px] lg:p-6">
-                <span className="font-mono text-[11px] tracking-[0.06em] text-nevo-near-black/55">
-                  WHAT YOU COVERED
-                </span>
-                <p className="mt-2.5 text-[15px] leading-[1.6] text-nevo-near-black sm:text-base">
-                  {summary.covered}
-                </p>
-              </div>
-            </>
+          {/*
+            The two halves are gated SEPARATELY now, because they have separate
+            sources. `recap` comes off the wire; `covered` is derived from the
+            concepts the lesson's checkpoints actually name, and a lesson that
+            names none produces nothing.
+
+            Gating them together drew a card headed WHAT YOU COVERED with an
+            empty paragraph under it - failure rendered as emptiness, on the
+            screen the frame makes most prominent.
+          */}
+          {summary?.covered && (
+            <div className="mt-7 rounded-[12px] bg-nevo-cream-elevated p-[18px] shadow-elevation-1 sm:p-[22px] lg:p-6">
+              <span className="font-mono text-[11px] tracking-[0.06em] text-nevo-near-black/55">
+                WHAT YOU COVERED
+              </span>
+              <p className="mt-2.5 text-[15px] leading-[1.6] text-nevo-near-black sm:text-base">
+                {summary.covered}
+              </p>
+            </div>
           )}
 
           {(mastered.length > 0 || revisit.length > 0) && (
@@ -59,7 +69,10 @@ export function LessonSummaryScreen({ lesson }: { lesson: Lesson }) {
                     className="flex items-center gap-3 rounded-[12px] bg-nevo-cream-elevated px-4 py-3.5 shadow-elevation-1"
                   >
                     <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-nevo-navy">
-                      <Check className="size-3 text-nevo-cream" strokeWidth={2.8} />
+                      <Check
+                        className="size-3 text-nevo-cream"
+                        strokeWidth={2.8}
+                      />
                     </span>
                     <span className="text-[15px] font-medium text-nevo-near-black">
                       {item}

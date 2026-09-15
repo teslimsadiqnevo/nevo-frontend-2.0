@@ -517,7 +517,7 @@ export function LessonPlayer({
     }
     // Review sessions end on the strengthened completion - the quick checks
     // were the retrieval, so no second assessment (37d).
-    setPhase(lesson.assessment && !review ? "assessment" : "complete");
+    setPhase(hasAssessment && !review ? "assessment" : "complete");
   };
 
   /**
@@ -615,6 +615,22 @@ export function LessonPlayer({
     setSuggestionSpent(true);
   }, [index]);
 
+  /*
+   * AN ASSESSMENT WITH NO QUESTIONS IS NOT AN ASSESSMENT.
+   *
+   * These gates asked `lesson.assessment` - truthiness - and `{ questions: [] }`
+   * passes it. The player would then enter the assessment phase and hand
+   * `AfterLessonAssessment` a list with nothing in it, at the very end of a
+   * lesson a child had just finished.
+   *
+   * `fromContent` will not produce that shape: `assessmentFor` returns
+   * undefined when nothing survives `toQuickCheck`. But the TYPE permits it,
+   * `assessment: []` is what the contract's own default would deliver, and the
+   * fixtures are hand-written - so the consumer checks too rather than trusting
+   * every producer to keep getting it right.
+   */
+  const hasAssessment = (lesson.assessment?.questions.length ?? 0) > 0;
+
   const requestExit = () => {
     trackEvent(SIGNAL_EVENT_TYPES.EXIT_ATTEMPT, {
       segmentId: segment.id,
@@ -635,7 +651,7 @@ export function LessonPlayer({
   const nextDisabled =
     calcBlocking ||
     (index === total - 1 &&
-      !lesson.assessment &&
+      !hasAssessment &&
       !(segment.quickCheck && !passedChecks.has(segment.id)));
 
   // The entry, assessment and completion screens each take over the full
