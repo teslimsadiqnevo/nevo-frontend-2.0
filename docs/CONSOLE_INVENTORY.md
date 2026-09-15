@@ -58,7 +58,7 @@ largest category of undone work here.*
 | Compose message | PARTIAL | Deep link resolves against fixtures in **three** places (`ConnectView:108`, `ComposeModal:69` and `:108`) and the profile link carries no query at all; cannot address a class | FRONTEND | **M** |
 | Home dashboard | PARTIAL | **Emits no sample marks at all**; class trio subject/status; activity counts; "Good to know" | FRONTEND; BACKEND; DESIGN (cutoffs) | M |
 | Insights | PARTIAL | Written summary; "Looking ahead"; per-student recommendations | BACKEND; FRONTEND (fan-out) | M |
-| Student profile | PARTIAL | Read-only — 1 of 4 drawn actions; no noticing banner | FRONTEND | L |
+| Student profile | PARTIAL | 2 of 4 drawn actions now (recommend added 15 Sep); share with Learning Support and session detail remain; no noticing banner | BACKEND (both actions); FRONTEND (banner) | M |
 | Lesson detail | PARTIAL | No entry point to variant review; multi-class reports first class only | FRONTEND; DESIGN | S |
 | Lesson assignment wizard | PARTIAL | "Specific students" refused by a guard whose stated reason is false | FRONTEND | M |
 | Variant review | PARTIAL | Live and correct but **no entry point**; no 5th-variant tab; no audio player | FRONTEND; DESIGN; CONTENT | S |
@@ -69,7 +69,7 @@ largest category of undone work here.*
 | Upload module / section review | FIXTURE-ONLY | Hardcoded Photosynthesis six; every control writes nothing | FRONTEND | M |
 | Structure preview (standalone) | FIXTURE-ONLY | Orphaned duplicate; no session gate | FRONTEND | S |
 | Student observations (C16b) | LIVE | — (built 15 Sep: chips, seat, and the two markers) | NONE | — |
-| Recommend a lesson | NOT BUILT | Unreachable signed in; fixture sheet claims a send it never makes | FRONTEND (+BACKEND for the note) | M |
+| Recommend a lesson | PARTIAL | Built and live 15 Sep. No note field (no endpoint carries one) and no "Suggested" badge (`Recommendation` is prose with no lesson id) | BACKEND | S |
 | Share with Learning Support | NOT BUILT | Button correctly disabled; no teacher→SENCo transport | BACKEND | M |
 | Session detail | NOT BUILT | No per-student, per-segment session read exists | BACKEND | M |
 | SSO callback | NOT BUILT | Component complete and live-wired; nothing navigates to it | BACKEND | M |
@@ -130,8 +130,8 @@ the end of the road.
 5. **Variant review entry point.** One prop; a finished, tested screen is URL-only. **S**
 6. **"Specific students" in the assign wizard.** Swap `ClassOption.roster` for
    `useClassRoster`, key on `studentId`. **M**
-7. **Recommend a lesson.** Wrap `POST /api/v1/lesson-assignments`; delete the fixture
-   sheet's false "That's sent". **M**
+7. ~~**Recommend a lesson.**~~ **DONE 15 Sep.** Reused `assignmentsApi.create` rather
+   than wrapping a second path. Note field and "Suggested" badge both wait on backend.
 8. **Class headcount** — a join on `classId` against data rendered two sections up. **S**
 9. **Revoked session-end variant.** **M, not S** — re-sized 14 Sep on inspection. The
    four codes are consumed nowhere, `ConsoleSessionExpired` has no reason prop, and the

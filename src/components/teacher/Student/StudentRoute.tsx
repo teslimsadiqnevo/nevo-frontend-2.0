@@ -46,7 +46,17 @@ export function StudentRoute({
   }
 
   if (state.profile) {
-    return <LiveStudentProfile state={state} classHref={classHref} />;
+    return (
+      <LiveStudentProfile
+        state={state}
+        classHref={classHref}
+        /* DROPPED UNTIL 15 SEP. `/teacher/students/{id}/recommend` passes this,
+           and the live branch ignored it - so the route existed, resolved, and
+           rendered an ordinary profile. C08c was unreachable for every
+           signed-in teacher. */
+        recommendOpen={recommendOpen}
+      />
+    );
   }
 
   if (state.loading) {
