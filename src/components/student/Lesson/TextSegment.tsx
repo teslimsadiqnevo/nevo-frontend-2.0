@@ -26,11 +26,21 @@ export function TextSegment({
   density,
   reading = false,
   attention = false,
+  onReadProgress,
 }: {
   content: TextContent;
   density: Density | null;
   reading?: boolean;
   attention?: boolean;
+  /**
+   * How much of the body the child has actually been shown, 0-100.
+   *
+   * Only the chunked flow reports: it is the one mode where the body is
+   * DELIBERATELY not all on screen, so the player's own "it all fits, so they
+   * saw it" measurement would be a lie. Every other mode leaves the player to
+   * measure the layout as it always has.
+   */
+  onReadProgress?: (pct: number) => void;
 }) {
   const body = (density && content.body[density]) ?? content.body.default;
   const callout = content.callouts?.[density ?? "default"];
@@ -44,9 +54,21 @@ export function TextSegment({
   );
 
   const bodyBlock = attention ? (
-    <AttentionChunkedBody key={body} body={body} className={bodyType} reading={reading} />
+    <AttentionChunkedBody
+      key={body}
+      body={body}
+      className={bodyType}
+      reading={reading}
+      onReadProgress={onReadProgress}
+    />
   ) : (
-    <p className={cn("mt-4", bodyType, reading && "rounded-[12px] bg-[#e5dfd3] px-5 py-4")}>
+    <p
+      className={cn(
+        "mt-4",
+        bodyType,
+        reading && "rounded-[12px] bg-[#e5dfd3] px-5 py-4",
+      )}
+    >
       {body}
     </p>
   );
@@ -131,15 +153,39 @@ function AttentionChunkedBody({
   body,
   className,
   reading,
+  onReadProgress,
 }: {
   body: string;
   className: string;
   reading: boolean;
+  onReadProgress?: (pct: number) => void;
 }) {
   const parts = chunk(body);
   const [part, setPart] = useState(0);
   const [pausing, setPausing] = useState(false);
   const [pauseReady, setPauseReady] = useState(false);
+
+  /*
+   * TELL THE PLAYER HOW MUCH OF THE BODY THE CHILD HAS ACTUALLY SEEN.
+   *
+   * Without this the attention accommodation fabricates a reading signal. The
+   * player decides a segment was fully read when its column has no room to
+   * scroll - correct for an ordinary segment, and exactly wrong here, because
+   * a chunk is a third of the body and so always fits. A child who stopped at
+   * Part 1 of 3 was reported to the adaptation engine as having read all of
+   * it, and the engine learns from that.
+   *
+   * Worse, it would have been wrong for precisely the children this
+   * accommodation exists to help: only a child WITH the attention
+   * accommodation is ever chunked, so only their signal would be corrupted.
+   *
+   * Reported on mount as well as on change, because Part 1 of 3 is already a
+   * claim - "a third", not "all of it".
+   */
+  const total = parts.length;
+  useEffect(() => {
+    onReadProgress?.(Math.round(((part + 1) / total) * 100));
+  }, [part, total, onReadProgress]);
 
   useEffect(() => {
     if (!pausing) return;
@@ -149,7 +195,13 @@ function AttentionChunkedBody({
 
   if (parts.length === 1) {
     return (
-      <p className={cn("mt-4", className, reading && "rounded-[12px] bg-[#e5dfd3] px-5 py-4")}>
+      <p
+        className={cn(
+          "mt-4",
+          className,
+          reading && "rounded-[12px] bg-[#e5dfd3] px-5 py-4",
+        )}
+      >
         {body}
       </p>
     );
@@ -161,8 +213,18 @@ function AttentionChunkedBody({
         <p className="text-[17px] text-nevo-near-black/82">
           Take a breath. Ready when you are.
         </p>
+        {/*
+         * Inert until it has surfaced, not merely invisible. `opacity-0` with
+         * `pointer-events-none` stops a mouse and stops nothing else: the
+         * button stayed in the tab order and a screen reader announced a live
+         * "Continue" the moment the pause began. A child using a keyboard or
+         * switch access could skip the breathing pause without knowing it was
+         * there, and a child using a reader was told about a control they
+         * could not see. `disabled` closes both while leaving the fade alone.
+         */}
         <button
           type="button"
+          disabled={!pauseReady}
           onClick={() => {
             setPausing(false);
             setPauseReady(false);
