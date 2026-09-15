@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { authApi } from "@/lib/api";
+import { ApiError, authApi } from "@/lib/api";
 import { clearSession, getSession } from "@/lib/auth/session";
 import type { UserRole } from "@/lib/constants";
 import {
@@ -46,7 +46,9 @@ export interface AuthContextValue {
   signOut: () => void;
 }
 
-export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+export const AuthContext = createContext<AuthContextValue | undefined>(
+  undefined,
+);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -72,10 +74,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setStatus("authenticated");
           setEphemeralStudent(s.user_id);
         })
-        .catch(() => {
+        .catch((cause: unknown) => {
           if (cancelled) return;
-          clearSession();
-          setStatus("unauthenticated");
+          /*
+           * ONLY THE SERVER CAN SAY A SESSION IS DEAD.
+           *
+           * This cleared the token on ANY failure - a 500, a timeout, a cold
+           * backend, a classroom 3G blip. So a child who opened Nevo on a bad
+           * signal was signed out before they saw anything, and the PIN screen
+           * they landed on needs the network too, so they got "we couldn't
+           * check that just now" instead of their lessons. Nothing about their
+           * session was wrong.
+           *
+           * A 401 or 403 is the server saying this token is no longer good, and
+           * that is worth acting on. Anything else means WE DO NOT KNOW - so
+           * keep the session we have. It carries its own expiry and clears
+           * itself when that passes, and any real request will 401 into
+           * `handleAuthFailure`, which sends them to the right door.
+           *
+           * Erring this way costs an unreachable child one failed read. Erring
+           * the other way costs them their session for no reason at all.
+           */
+          const status = cause instanceof ApiError ? cause.status : 0;
+          if (status === 401 || status === 403) {
+            clearSession();
+            setStatus("unauthenticated");
+            return;
+          }
+          const stillStored = getSession();
+          if (!stillStored) {
+            setStatus("unauthenticated");
+            return;
+          }
+          setUser({
+            id: stillStored.userId,
+            role: stillStored.role as UserRole,
+            schoolId: "",
+          });
+          setStatus("authenticated");
+          setEphemeralStudent(stillStored.userId);
         });
     };
     hydrate();
