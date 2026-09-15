@@ -92,6 +92,26 @@ export function JoinLanding({ token }: { token: string }) {
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-nevo-cream px-6 py-12">
+      {/*
+        * THE MARK, ABOVE THE PANEL AND OUTSIDE EVERY BRANCH.
+        *
+        * This is the one page in the lane a stranger opens from a link in a
+        * message, on a phone, with nothing else around it - and it carried
+        * nothing at all saying who had sent them. It renders in all four
+        * states deliberately: an expired link is exactly the moment someone
+        * wants to know whether the thing they were sent was real.
+        *
+        * The crop is the sidebar's, scaled - one source image, so the two
+        * surfaces cannot drift apart.
+        */}
+      <span className="relative mb-9 block h-[24px] w-[81px] overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/logo-wordmark-purple.png"
+          alt="Nevo"
+          className="absolute block h-[236px] w-[236px] max-w-none -translate-x-[85px] -translate-y-[113px]"
+        />
+      </span>
       <div className="w-full max-w-[420px] text-center">
         {phase === "loading" ? (
           <div className="flex flex-col items-center gap-3 py-16">

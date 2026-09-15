@@ -96,6 +96,29 @@ New, tested: `snapshotTiles.ts`, `boardPack.ts`.
 
 New, tested: `ssoState.ts`.
 
+### Invitations — 8, 9, 10, 57
+
+- **8, the counters.** D19 draws them as the screen's primary filter and they
+  were three numbers nobody could press. The first counted the whole tab — a
+  total is not a subset any filter can select, so pressing it could only ever
+  mean "clear". The set is now the frame's own Pending / Joined / Expired, and
+  pressing the active one clears.
+- **10, the consent filter.** Its own value, **not a fourth status**. D19's
+  fixture folds "Consent Withdrawn" into the status badge; the contract does
+  not, and a withdrawn child's invitation is very often `joined` — so a
+  status-only filter could never have surfaced them, which is the point of
+  the filter. Student tab only, and it clears itself when the admin switches
+  to Teachers rather than hiding every row behind a control no longer on
+  screen.
+- **9, pagination.** Twenty a page, the frame's size, with its "Showing 1-20
+  of 47" line. The window is **clamped**, so narrowing a filter while on page
+  four lands on page one instead of an empty table.
+- **57, the join landing.** The wordmark, above the panel and outside every
+  branch — including expired and invalid, which is exactly when someone wants
+  to know whether the link they were sent was real. Same crop as the sidebar.
+
+New, tested: `inviteFilters.ts`.
+
 | # | sev | lane | finding | fix |
 |---|---|---|---|---|
 | 1 | law | intelligence | The adaptation log prints the engine's raw event key as each row's headline instead of the plain-language label the codebase already defines. | In src/components/admin/Adaptations/AdaptationLogView.tsx line 436, render the mapped label with a neutral fallback instead of the raw key: {eventTypeLabel(r.eventType) ?? "Nevo made an adju |

@@ -7,6 +7,13 @@ import { cn } from "@/lib/utils";
 import { CARD, GHOST_BTN, PRIMARY_BTN, PlusIcon, ROW_DIVIDER } from "../Roster/primitives";
 import { BulkImportModal } from "./BulkImportModal";
 import { InviteStatusPill, normaliseStatus } from "./inviteStatus";
+import {
+  CONSENT_WITHDRAWN,
+  PAGE_SIZE,
+  matchesStatus,
+  pageWindow,
+  statTiles,
+} from "./inviteFilters";
 import { NewInviteModal } from "./NewInviteModal";
 import { LinkHandout } from "./LinkHandout";
 import { confirmedSent, consentNote, needsManualDelivery } from "./deliveryCopy";
@@ -88,6 +95,7 @@ export function InvitationsView() {
   const [tab, setTab] = useState<Tab>("teacher");
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [composing, setComposing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [toast, setToast] = useState("");
@@ -139,8 +147,7 @@ export function InvitationsView() {
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return forTab.filter((i) => {
-      const s = normaliseStatus(i.status, i.expiresAt, now);
-      if (status && s !== status) return false;
+      if (!matchesStatus(i, status, now)) return false;
       if (!needle) return true;
       return (
         (i.name ?? "").toLowerCase().includes(needle) ||
@@ -149,18 +156,28 @@ export function InvitationsView() {
     });
   }, [forTab, search, status, now]);
 
-  const stats = useMemo(() => {
-    const count = (want: string) =>
-      forTab.filter((i) => normaliseStatus(i.status, i.expiresAt, now) === want).length;
-    return [
-      { n: forTab.length, label: "Invited" },
-      { n: count("pending"), label: "Pending" },
-      { n: count("joined"), label: "Joined" },
-    ];
-  }, [forTab, now]);
+  const stats = useMemo(() => statTiles(forTab, now), [forTab, now]);
+
+  /*
+   * Paged. This screen's own bulk import takes five hundred rows in one go and
+   * the table rendered every one of them, so a school that imported its roster
+   * met a list it could only scroll.
+   *
+   * The window is CLAMPED rather than trusted: narrowing a filter while on
+   * page four would otherwise leave an admin looking at an empty table with no
+   * indication that the rows are elsewhere.
+   */
+  const pager = pageWindow(visible.length, page);
+  const rows = visible.slice(pager.start, pager.start + PAGE_SIZE);
 
   const noun = tab === "teacher" ? "teachers" : "students";
   const filtering = Boolean(search.trim() || status);
+
+  /** Any change to what is being looked at starts again at the top. */
+  const filterBy = (next: string) => {
+    setStatus(next);
+    setPage(1);
+  };
 
   /** Straight to the clipboard - the recovery this screen never offered. */
   const copyLink = (invite: Invitation) => {
@@ -260,7 +277,14 @@ export function InvitationsView() {
               type="button"
               role="tab"
               aria-selected={tab === t}
-              onClick={() => setTab(t)}
+              onClick={() => {
+                setTab(t);
+                setPage(1);
+                // The consent filter is offered on the student tab only, so
+                // carrying it to Teachers would hide every row behind a
+                // control that is no longer on screen to clear.
+                if (status === CONSENT_WITHDRAWN) setStatus("");
+              }}
               className={cn(
                 "-mb-px cursor-pointer border-b-2 px-4 pb-3 pt-2 text-[14.5px] font-semibold transition-colors",
                 tab === t
@@ -319,17 +343,41 @@ export function InvitationsView() {
 
         {phase === "ready" && (forTab.length > 0 || filtering) ? (
           <>
+            {/* D19 draws these as the screen's primary filter control, and
+                they were three numbers nobody could press. The first of them
+                counted the whole tab, which is not a subset anything can
+                select - so the set is now the frame's own Pending / Joined /
+                Expired, and pressing the active one clears back to all. */}
             <div className="mt-6 flex gap-3.5 max-lg:flex-col">
-              {stats.map((s) => (
-                <div key={s.label} className={cn(CARD, "flex-1 px-[22px] py-5")}>
-                  <div className="text-[34px] font-semibold leading-none tracking-[-0.02em] text-nevo-navy">
-                    {s.n}
-                  </div>
-                  <div className="mt-2.5 text-sm font-semibold text-nevo-near-black">
-                    {s.label}
-                  </div>
-                </div>
-              ))}
+              {stats.map((s) => {
+                const on = status === s.key;
+                return (
+                  <button
+                    key={s.key}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => filterBy(on ? "" : s.key)}
+                    className={cn(
+                      "flex-1 cursor-pointer rounded-xl border-[1.5px] px-[22px] py-5 text-left transition-colors",
+                      on
+                        ? "border-nevo-violet bg-nevo-cream-elevated"
+                        : "border-transparent bg-nevo-cream-inset hover:border-nevo-violet/40 hover:bg-nevo-cream-elevated",
+                    )}
+                  >
+                    <span className="block text-[34px] leading-none font-semibold tracking-[-0.02em] text-nevo-navy">
+                      {s.n}
+                    </span>
+                    <span
+                      className={cn(
+                        "mt-2.5 block text-sm font-semibold",
+                        on ? "text-nevo-navy" : "text-nevo-near-black",
+                      )}
+                    >
+                      {s.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -348,7 +396,7 @@ export function InvitationsView() {
                 <span className="sr-only">Filter by status</span>
                 <select
                   value={status}
-                  onChange={(e) => setStatus(e.target.value)}
+                  onChange={(e) => filterBy(e.target.value)}
                   className="cursor-pointer appearance-none bg-transparent outline-none"
                 >
                   {STATUS_FILTERS.map((o) => (
@@ -356,6 +404,14 @@ export function InvitationsView() {
                       {o.label}
                     </option>
                   ))}
+                  {/* Students only: a teacher invite has no parent behind it.
+                      Every student row already carries `consentStatus`, and
+                      until now there was no way to ask the screen which
+                      families had withdrawn - the one question this roster is
+                      most likely to be opened for. */}
+                  {tab === "student" ? (
+                    <option value={CONSENT_WITHDRAWN}>Consent withdrawn</option>
+                  ) : null}
                 </select>
               </label>
             </div>
@@ -380,7 +436,7 @@ export function InvitationsView() {
                     type="button"
                     onClick={() => {
                       setSearch("");
-                      setStatus("");
+                      filterBy("");
                     }}
                     className="mt-3 cursor-pointer text-sm font-semibold text-nevo-navy hover:opacity-75"
                   >
@@ -388,7 +444,7 @@ export function InvitationsView() {
                   </button>
                 </div>
               ) : (
-                visible.map((invite, i) => {
+                rows.map((invite, i) => {
                   const s = normaliseStatus(invite.status, invite.expiresAt, now);
                   const confirming = confirmRevoke === invite.id;
                   const working = busy === invite.id;
@@ -396,7 +452,7 @@ export function InvitationsView() {
                   return (
                     <div
                       key={invite.id}
-                      className={cn("px-6 py-[15px]", i < visible.length - 1 && ROW_DIVIDER)}
+                      className={cn("px-6 py-[15px]", i < rows.length - 1 && ROW_DIVIDER)}
                     >
                       <div className="grid grid-cols-[1.4fr_1.4fr_110px_150px] items-center gap-4 max-lg:grid-cols-[1.4fr_110px_120px]">
                         <span className="min-w-0">
@@ -516,6 +572,41 @@ export function InvitationsView() {
                 })
               )}
             </div>
+
+            {pager.label ? (
+              <div className="mt-4 flex items-center justify-between gap-4">
+                <span className="text-[13px] text-nevo-near-black/58">
+                  {pager.label}
+                </span>
+                {pager.pageCount > 1 ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={pager.page === 1}
+                      aria-label="Previous page"
+                      className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-nevo-cream-inset bg-nevo-cream-elevated text-nevo-navy transition-colors hover:bg-nevo-navy/[0.06] disabled:cursor-default disabled:opacity-40"
+                    >
+                      &lsaquo;
+                    </button>
+                    <span className="text-[13px] font-medium text-nevo-near-black/70">
+                      {`Page ${pager.page} of ${pager.pageCount}`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPage((p) => Math.min(pager.pageCount, p + 1))
+                      }
+                      disabled={pager.page === pager.pageCount}
+                      aria-label="Next page"
+                      className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-nevo-cream-inset bg-nevo-cream-elevated text-nevo-navy transition-colors hover:bg-nevo-navy/[0.06] disabled:cursor-default disabled:opacity-40"
+                    >
+                      &rsaquo;
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </>
         ) : null}
       </div>
