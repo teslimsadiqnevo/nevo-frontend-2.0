@@ -21,7 +21,13 @@ import {
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import { accommodationCopy } from "@/lib/constants/accommodations";
-import { Avatar, CARD, GHOST_BTN, PRIMARY_BTN, ROW_DIVIDER } from "../Roster/primitives";
+import {
+  Avatar,
+  CARD,
+  GHOST_BTN,
+  PRIMARY_BTN,
+  ROW_DIVIDER,
+} from "../Roster/primitives";
 import { NoAccess, failureKind } from "../NoAccess";
 
 /**
@@ -122,7 +128,9 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [student, setStudent] = useState<AdminStudentDetail | null>(null);
   const [classes, setClasses] = useState<AdminClass[]>([]);
-  const [accommodations, setAccommodations] = useState<Accommodations | null>(null);
+  const [accommodations, setAccommodations] = useState<Accommodations | null>(
+    null,
+  );
   const [mastery, setMastery] = useState<ConceptMasteryRow[]>([]);
   const [adaptations, setAdaptations] = useState<StudentAdaptation[]>([]);
   /*
@@ -164,7 +172,11 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
         // A profile is still worth showing when one of the three intelligence
         // reads does not answer - but that section says so rather than
         // reporting an absence it has not established.
-        setFailed({ accommodations: false, mastery: false, adaptations: false });
+        setFailed({
+          accommodations: false,
+          mastery: false,
+          adaptations: false,
+        });
         studentsApi
           .accommodations(studentId)
           .then(setAccommodations)
@@ -275,7 +287,8 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
    * starts the fetch is a synchronous setState in an effect. A learner in a
    * class whose roster read has not answered yet is exactly `idle`.
    */
-  const observationsLoading = Boolean(rosterClassId) && observationsPhase === "idle";
+  const observationsLoading =
+    Boolean(rosterClassId) && observationsPhase === "idle";
   const active = accommodations?.activeAccommodations ?? [];
   const signals = accommodations?.frontendSignals ?? [];
 
@@ -295,7 +308,11 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
             {name}
           </h2>
           <div className="mt-[3px] truncate text-[14.5px] text-nevo-near-black/62">
-            {cls ? [cls.name, yearGroupLabel(cls.yearGroup)].filter(Boolean).join(" · ") : "No class"}
+            {cls
+              ? [cls.name, yearGroupLabel(cls.yearGroup)]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "No class"}
           </div>
         </div>
       </div>
@@ -303,7 +320,11 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
       <SectionLabel>Current accommodations</SectionLabel>
       <div className={cn(CARD, "mt-2.5 px-6 py-[22px]")}>
         {failed.accommodations ? (
-          <ReadFailed firstName={firstName} what="accommodations" onRetry={load} />
+          <ReadFailed
+            firstName={firstName}
+            what="accommodations"
+            onRetry={load}
+          />
         ) : active.length === 0 ? (
           <p className="m-0 text-sm text-nevo-near-black/62">
             Nevo isn&rsquo;t adjusting anything for {firstName} at the moment.
@@ -352,7 +373,9 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
       <div className={cn(CARD, "mt-2.5 px-6 py-[22px]")}>
         {observationsLoading ? (
           <div className="h-[72px] animate-pulse rounded-[10px] bg-nevo-navy/[0.05]" />
-        ) : observationsPhase === "ready" && observations && observations.length > 0 ? (
+        ) : observationsPhase === "ready" &&
+          observations &&
+          observations.length > 0 ? (
           <ul className="m-0 flex list-none flex-col gap-4 p-0">
             {observations.map((o) => {
               const copy = OBSERVATION_COPY[o.pattern];
@@ -360,7 +383,7 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
               // than rendered as its raw key - `revisited_content` on a SENCo
               // screen reads as a judgement nobody wrote.
               if (!copy) return null;
-              const times = observationCount(o.count);
+              const times = observationCount(o.pattern, o.count);
               return (
                 <li key={o.pattern} className="flex items-start gap-2.5">
                   <span
@@ -392,7 +415,10 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
                 off the accommodations read, not the roster's observations. */}
             <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
               {signals.map((s) => (
-                <li key={s} className="flex items-start gap-2.5 text-sm leading-[1.55] text-nevo-near-black/78">
+                <li
+                  key={s}
+                  className="flex items-start gap-2.5 text-sm leading-[1.55] text-nevo-near-black/78"
+                >
                   <span
                     aria-hidden="true"
                     className="mt-[7px] size-[6px] flex-none rounded-full bg-nevo-violet"
@@ -424,7 +450,11 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
         </p>
         {failed.mastery ? (
           <div className="border-t border-nevo-near-black/8 px-6 py-6">
-            <ReadFailed firstName={firstName} what="concept record" onRetry={load} />
+            <ReadFailed
+              firstName={firstName}
+              what="concept record"
+              onRetry={load}
+            />
           </div>
         ) : mastery.length === 0 ? (
           <p className="m-0 border-t border-nevo-near-black/8 px-6 py-6 text-sm text-nevo-near-black/62">
@@ -433,14 +463,23 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
         ) : (
           mastery.slice(0, 10).map((row, i) => {
             // Bars, never numbers - see the note at the top of this file.
-            const concept = Math.max(0, Math.min(1, row.masteryProbabilityConcept));
-            const reading = Math.max(0, Math.min(1, row.masteryProbabilityReading));
+            const concept = Math.max(
+              0,
+              Math.min(1, row.masteryProbabilityConcept),
+            );
+            const reading = Math.max(
+              0,
+              Math.min(1, row.masteryProbabilityReading),
+            );
             const gap = concept - reading;
             const textIsTheBarrier = gap > 0.15;
             return (
               <div
                 key={row.conceptId}
-                className={cn("px-6 py-4", i < Math.min(mastery.length, 10) - 1 && ROW_DIVIDER)}
+                className={cn(
+                  "px-6 py-4",
+                  i < Math.min(mastery.length, 10) - 1 && ROW_DIVIDER,
+                )}
               >
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="text-[14.5px] font-semibold text-nevo-near-black">
@@ -453,8 +492,16 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
                   ) : null}
                 </div>
                 <div className="mt-3 flex flex-col gap-2">
-                  <Track label="Understands the idea" value={concept} tone="navy" />
-                  <Track label="Handles the reading" value={reading} tone="violet" />
+                  <Track
+                    label="Understands the idea"
+                    value={concept}
+                    tone="navy"
+                  />
+                  <Track
+                    label="Handles the reading"
+                    value={reading}
+                    tone="violet"
+                  />
                 </div>
               </div>
             );
@@ -466,7 +513,11 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
       <div className={cn(CARD, "mt-2.5")}>
         {failed.adaptations ? (
           <div className="px-6 py-6">
-            <ReadFailed firstName={firstName} what="adaptation history" onRetry={load} />
+            <ReadFailed
+              firstName={firstName}
+              what="adaptation history"
+              onRetry={load}
+            />
           </div>
         ) : adaptations.length === 0 ? (
           <p className="m-0 px-6 py-6 text-sm text-nevo-near-black/62">
