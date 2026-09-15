@@ -1,7 +1,7 @@
 # Console inventory — what is undone
 
-**Teacher and parent consoles. Verified 14 Sep 2026 against `main` @ `b7e4c3e` and the
-deployed spec (v2.0.0, 183 paths, 335 schemas).**
+**Teacher and parent consoles. Verified 15 Sep 2026 against `main` @ `3795640` and the
+deployed spec (v2.0.0, 188 paths, 343 schemas).**
 
 ## Why this file exists
 
@@ -33,6 +33,13 @@ and variant review were six items sitting behind comments that had stopped being
 Every one is a frontend afternoon. *Stale comments, not missing endpoints, are the
 largest category of undone work here.*
 
+**Updated 15 Sep: that is now true of almost everything.** Backend delivered eleven of the
+thirteen items in list B in a single afternoon. Of thirteen backend blockers this morning,
+**one remains open** (variant approval) and **one was declined** (`category` on
+notifications, now a product question rather than a backend one). Ten new items landed in
+list A as a result — see *Unblocked 15 Sep*. The teacher console is no longer
+meaningfully waiting on backend; it is waiting on us, and in a few places on design.
+
 ---
 
 ## Teacher console
@@ -47,7 +54,7 @@ largest category of undone work here.*
 | Teacher activation | LIVE | — (copy signed off 14 Sep) | NONE | — |
 | Password reset | LIVE | Error states unsigned-off | DESIGN | S |
 | Session expired door | LIVE | Only the "expired" variant. Backend now sends four codes (`session_expired`, `session_revoked`, `session_replaced`, `account_paused`); **none is consumed anywhere**, and `ConsoleSessionExpired` takes only `signInHref`. Carrying a reason means changing `client.ts`, which all three consoles route through | FRONTEND | **M** |
-| Lesson library | LIVE | Subject pills hidden — upload cannot set a subject | BACKEND | S |
+| Lesson library | LIVE | Subject pills hidden. `subject` landed on the upload body 15 Sep, so this is ours now | FRONTEND | S |
 | Notifications panel | LIVE | — | NONE | — |
 | Feedback panel copy | LIVE | — (counter already present at the last 200 chars; design to confirm the threshold) | NONE | — |
 | Class code / QR | LIVE | No standalone route; dialog only | DESIGN | S |
@@ -56,23 +63,23 @@ largest category of undone work here.*
 | My Classes list | PARTIAL | Card carries no subjects, headcount or summary line | FRONTEND | S |
 | Class detail + roster | PARTIAL | No Lessons or Activity tab. (Chips, seat and the two markers built 15 Sep; the header already carried the headcount) | BACKEND (activity); DESIGN (a Lessons tab) | M |
 | Compose message | PARTIAL | Deep link resolves against fixtures in **three** places (`ConnectView:108`, `ComposeModal:69` and `:108`) and the profile link carries no query at all; cannot address a class | FRONTEND | **M** |
-| Home dashboard | PARTIAL | **Emits no sample marks at all**; class trio subject/status; activity counts; "Good to know" | FRONTEND; BACKEND; DESIGN (cutoffs) | M |
-| Insights | PARTIAL | Written summary; "Looking ahead"; per-student recommendations | BACKEND; FRONTEND (fan-out) | M |
-| Student profile | PARTIAL | 2 of 4 drawn actions now (recommend added 15 Sep); share with Learning Support and session detail remain; no noticing banner | BACKEND (both actions); FRONTEND (banner) | M |
+| Home dashboard | PARTIAL | **Emits no sample marks at all**; class trio subject/status; activity counts (`completedCount`/`totalCount` landed 15 Sep, both nullable); "Good to know" | FRONTEND; DESIGN (cutoffs) | M |
+| Insights | PARTIAL | Written summary and "Looking ahead" both landed 15 Sep at `/classes/{class_id}/insights`; per-student recommendations still fan out | FRONTEND | M |
+| Student profile | PARTIAL | 2 of 4 drawn actions now (recommend added 15 Sep); share with Learning Support and session detail both unblocked 15 Sep; no noticing banner | FRONTEND | M |
 | Lesson detail | PARTIAL | No entry point to variant review; multi-class reports first class only | FRONTEND; DESIGN | S |
 | Lesson assignment wizard | PARTIAL | "Specific students" refused by a guard whose stated reason is false | FRONTEND | M |
 | Variant review | PARTIAL | Live and correct but **no entry point**; no 5th-variant tab; no audio player | FRONTEND; DESIGN; CONTENT | S |
 | Parse fallback | PARTIAL | 2 of 4 states live; `partial`/`noBoundary` unreachable signed in | BACKEND | M |
 | Teacher onboarding | PARTIAL | Redirect covers password only; join-confirm + profile-setup unbuilt | FRONTEND | M |
-| Profile & settings | PARTIAL | "Change photo" is a `<button>` with no `onClick` | BACKEND | S |
+| Profile & settings | PARTIAL | "Change photo" is a `<button>` with no `onClick`. `profileImageUrl` and the upload endpoint landed 15 Sep | FRONTEND | S |
 | Parse progress ladder | LIVE | — (three rungs keyed to `UploadStage`, driven by the live stage; design ruling 14 Sep) | NONE | — |
 | Upload module / section review | FIXTURE-ONLY | Hardcoded Photosynthesis six; every control writes nothing | FRONTEND | M |
 | Structure preview (standalone) | FIXTURE-ONLY | Orphaned duplicate; no session gate | FRONTEND | S |
 | Student observations (C16b) | LIVE | — (built 15 Sep: chips, seat, and the two markers) | NONE | — |
-| Recommend a lesson | PARTIAL | Built and live 15 Sep. No note field (no endpoint carries one) and no "Suggested" badge (`Recommendation` is prose with no lesson id) | BACKEND | S |
-| Share with Learning Support | NOT BUILT | Button correctly disabled; no teacher→SENCo transport | BACKEND | M |
-| Session detail | NOT BUILT | No per-student, per-segment session read exists | BACKEND | M |
-| SSO callback | NOT BUILT | Component complete and live-wired; nothing navigates to it | BACKEND | M |
+| Recommend a lesson | PARTIAL | Built and live 15 Sep. The note field is now buildable (`note` landed on both creation contracts that afternoon); the "Suggested" badge stays blocked — `Recommendation` is prose with no lesson id | FRONTEND (note); BACKEND (badge) | S |
+| Share with Learning Support | NOT BUILT | Button correctly disabled. `POST /api/v1/escalations` landed 15 Sep, so the transport now exists | FRONTEND | M |
+| Session detail | NOT BUILT | The per-student session read landed 15 Sep with `sittings`, `narrative` and unscored `sections` | FRONTEND | M/L |
+| SSO callback | NOT BUILT | Component complete and live-wired; `slug` landed on `SchoolCodeResponse` 15 Sep, so the signed-out door can now reach it | FRONTEND | M |
 | Notifications page | NOT BUILT | Deliberate redirect — C13 is a popover | NONE | — |
 | Students index | NOT BUILT | Deliberate redirect to Classes | NONE | — |
 
@@ -81,7 +88,7 @@ largest category of undone work here.*
 *pills* and a "← My Lessons" back link; what is built takes `?section=N`. More
 substantially, C07b's stated purpose is that "the teacher reviews each segment's variants
 and **approves** them for the class. Approval is manual and deliberate." **There is no
-approval transport** — `approve` appears in none of the 183 paths and nowhere in the
+approval transport** — `approve` appears in none of the 188 paths (re-checked 15 Sep) and nowhere in the
 document; the only sign-off field is `VisualVariant.reviewedBy`, which is a read. So what
 is built is review *without* approval, and the approval half is a backend ask nobody had
 made. Added to list B.
@@ -92,7 +99,7 @@ made. Added to list B.
 |---|---|---|---|---|
 | Parent consent (D01b) | LIVE | — | NONE | — |
 | Parent data management (D01c) | LIVE | Does not name the recipient address the frame names | FRONTEND; CONTENT | S |
-| Parent growth view (D15d) | LIVE | No school attribution; gendered statement templates. (Reachable on a second visit now that sign-in exists) | FRONTEND; BACKEND (prose) | S |
+| Parent growth view (D15d) | LIVE | No school attribution. Backend reported 15 Sep that the statements are already gender-neutral and a regression test holds it — the one delivery of the eleven that cannot be checked against the spec, so it wants a spot-check on real prose before the row is closed | FRONTEND; VERIFY | S |
 | Parent account setup (D02) | PARTIAL | No route of its own; contact read-only where the frame draws it editable; SMS copy invented | DESIGN | M |
 | Parent sign-in (D03) | LIVE | — (built 14 Sep at `/parent-sign-in`; takes email **or** phone, see the note) | NONE | — |
 
@@ -150,30 +157,70 @@ the end of the road.
 17. **Parent polish** — name the recipient in D01c, school attribution on D15d, link
     `/parent-portal` from somewhere. **S**
 
+### Unblocked 15 Sep — these were list B this morning
+
+Sizes are first-pass, read off the shape of the endpoint rather than a written plan.
+Ten items; the eleventh delivery (gender-neutral growth statements) needs no frontend
+work at all.
+
+18. **Teacher→SENCo escalation.** `POST /api/v1/escalations`. The most-asked-for missing
+    action on the teacher console, and the one with a child's welfare behind it. **M**
+19. **Assignment note.** The confirmation already promises "She'll see your note when she
+    opens it". `note` now exists on both creation contracts, so the promise can be kept —
+    and the note field deliberately left out of recommend-a-lesson can go in. **S**
+20. **Class Insights narrative.** `weeklySummary` and `lookingAhead` replace fixture
+    prose on a screen that is currently `FIXTURE-ONLY`. **M**
+21. **Per-row completion on recent activity.** `completedCount` / `totalCount`, both
+    nullable — so the row must still render when they are absent. **S**
+22. **`failedPages`.** Makes `retryPages` sourceable; the retry control currently asks for
+    page numbers nobody can supply. **S**
+23. **`subject` on upload.** **S**
+24. **Profile photo.** Read `profileImageUrl`, then the upload endpoint. **M**
+25. **Teacher-initiated SSO.** `slug` on `SchoolCodeResponse` completes the signed-out
+    door. **M**
+26. **Per-student session detail.** `sittings`, `narrative`, unscored `sections`. The
+    largest of the ten, and the one whose copy is in a colleague's voice — it renders
+    verbatim, so it cannot be paraphrased client-side. **M/L**
+27. **Expired parent consent token.** 404 for unknown, revoked and expired is now
+    documented, so D03's terminal screen can be built against it rather than guessed. **S**
+
 ## B. Blocked on backend — the exact ask
 
-1. **Teacher→SENCo transport.** `MessageRecipientType` is `["student","class"]`.
-2. **Per-student, per-segment session read.** Return the per-section *prose*, not a
-   duration — the frame's notes are in a colleague's voice and cannot be generated from
-   seconds without inventing tone.
-3. **A note on an assignment.** `LessonAssignmentRequest` is
-   `{lessonId, classId, studentIds, dueAt, availableFrom}` — verified, no note field —
-   while the confirmation promises "She'll see your note when she opens it."
-4. **Profile photo** — no image property in any of 335 schemas.
-5. **Teacher-initiated SSO** — either a slug on the pre-auth `SchoolCodeResponse`, or
-   serve the `/s/{slug}` entry path the backend already generates.
-6. **`failedPages: int[]`** on `UploadStatusResponse` — `retryPages` takes page numbers
-   nobody can source.
-7. **A class-scoped written narrative** and "Looking ahead".
-8. **Per-row completion** (`done`/`total`) on `recentActivity`.
-9. **`subject` on `POST /api/content/upload`.**
-10. **`category` on `NotificationResponse`.**
-11. **What an expired parent consent token returns.** Settle before shipping D03.
-12. **Gendered growth statements** — the prose renders verbatim and cannot be fixed
-    client-side.
-13. **Variant approval.** C07b: "the teacher reviews each segment's variants and approves
-    them for the class." No approval endpoint exists. Either a write, or a ruling that
-    review is read-only and C07b's copy is stale.
+**Eleven of the thirteen were delivered on 15 Sep.** Each line below was re-checked
+against the deployed spec that day — this records what the spec shows, not what the mail
+said. All eleven are now frontend work and appear in list A.
+
+| Was blocked | Now on the wire |
+|---|---|
+| 1. Teacher→SENCo transport | `POST /api/v1/escalations` takes `{studentId, note, attentionFlagId?}`; `GET` returns the SENCo view. The recent picture is derived server-side. |
+| 2. Per-student session read | `GET /api/v1/students/{student_id}/sessions/{session_id}` → `{sessionId, lessonId, lessonTitle, occurredAt, sittings, narrative, sections}`. The per-section prose we asked for. |
+| 3. A note on an assignment | `note` on **both** `AssignmentCreate` and `LessonAssignmentRequest`; `AssignmentResponse` returns it. |
+| 4. Profile photo | `profileImageUrl` on `CurrentUserResponse` and `ProfilePatch`; upload at `POST /api/v1/users/me/profile-photo`. |
+| 5. Teacher-initiated SSO | `slug` on `SchoolCodeResponse`, alongside `schoolId`, `schoolName`, `authMethod`, `classes`. |
+| 6. `failedPages` | `failedPages` on `UploadStatusResponse`. Populated when page-level parsing falls back. |
+| 7. Class narrative | `GET /api/v1/classes/{class_id}/insights` → `weeklySummary`, `lookingAhead`. |
+| 8. Per-row completion | `completedCount`, `totalCount` on `TeacherRecentActivityResponse`, both nullable. |
+| 9. `subject` on upload | `subject` in the multipart body of `POST /api/content/upload`, carried into the lesson. |
+| 11. Expired consent token | 404 for unknown, revoked **and** expired, documented in OpenAPI. D03's terminal screen can rely on it. |
+| 12. Gendered growth statements | Backend reports the prose is already gender-neutral and a regression test holds it there. **Not spec-verifiable — taken on their word, unlike every other row here.** |
+
+Note the path parameters above: they are `{student_id}` and `{class_id}`, still
+snake_case, while every property those endpoints return is now camelCase. That is the
+wire, not a typo.
+
+**Two remain.**
+
+10. **`category` on `NotificationResponse` — declined.** Backend confirmed on 15 Sep this
+    will not be implemented. Re-checked the same day: `NotificationResponse` is
+    `{notificationId, recipientId, recipientRole, type, title, description, read,
+    createdAt, navigatesTo, archived, archivedAt}` — no category field. Whatever this was
+    for must be built on `type` or dropped. **This is now a design/product question, not a
+    backend one.**
+13. **Variant approval — unanswered.** Backend's reply did not mention it. Re-checked
+    15 Sep: no path matches `approve` or `variant`, and no non-GET operation mentions
+    either. C07b still says "the teacher reviews each segment's variants and approves them
+    for the class", and `VisualVariant.reviewedBy` exists to be written by something.
+    Either a write, or a ruling that review is read-only and C07b's copy is stale.
 
 ## C. Blocked on design
 
@@ -246,3 +293,23 @@ E2E suite has never run once — `gh api repos/:owner/:repo/actions/secrets` ret
 that do run (types, lint, unit, contract) are real. The gate everyone cites as proof that
 no real teacher sees invented data is not running — and on Home it would pass even if it
 were, because Home emits no sample marks to count.
+
+## The wire changed shape, 15 Sep
+
+Alongside the eleven, backend renamed **every schema property** from `snake_case` to
+`camelCase`. Main went red at 13:09 and stayed red for three merges. The client was
+brought into line in one pass; what matters for anyone reading this file later is that
+the rename was **surgical, not blanket**:
+
+- **Schema properties (404)** — now camelCase.
+- **Enum values (126)** — *unchanged*. `sudden_change`, `head_teacher`,
+  `multiple_choice`, `completed_with_review`, `learning_data` are all still snake_case.
+  A find-and-replace across the repo breaks every one of them, silently, because they are
+  string values and no type checks them.
+- **Path parameters (20 of 24)** — *unchanged*. `GET /api/v1/classes/{class_id}/insights`
+  returns `classId`.
+- **Query parameters** — camelCase, *except* `concept_id` and `window_days`, which were
+  missed. The same endpoint therefore takes one convention and returns the other.
+
+The last two points are open questions with backend, not settled design. The contract gate
+caught all of this within minutes of the first merge, which is the argument for it.
