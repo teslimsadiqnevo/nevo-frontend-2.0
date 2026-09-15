@@ -105,8 +105,21 @@ export function financeHomeRows(
         subscription.pricing.rateType === "founding_partner"
           ? `Your founding-partner rate is held until ${locked}`
           : `Your rate is held until ${locked}`,
-      sub: `${formatMoney(subscription.pricing.perStudentRate, subscription.pricing.currency)} per student. The full schedule is in Billing.`,
-      action: "See schedule",
+      /*
+       * "THE FULL SCHEDULE IS IN BILLING" WAS A PROMISE BILLING CANNOT KEEP.
+       *
+       * SCRUM-98's D11.3 draws a six-year rate table off `GET rate_schedule`,
+       * and no such endpoint is deployed - "schedule" does not appear in
+       * `lib/api/billing.ts` at all. What Billing actually holds is the
+       * `CostSheet`: this year's per-student rate, VAT and total, with the
+       * lock date. So the row names that instead of sending a finance
+       * administrator to look for a table that is not there.
+       *
+       * TODO(api): the rate schedule itself. Until it exists there is nothing
+       * to link to, and a row promising one is worse than a row that does not.
+       */
+      sub: `${formatMoney(subscription.pricing.perStudentRate, subscription.pricing.currency)} per student. Billing shows this year's cost in full.`,
+      action: "See the breakdown",
       href: BILLING,
     });
   }

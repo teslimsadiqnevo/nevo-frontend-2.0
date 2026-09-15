@@ -197,6 +197,36 @@ SCRUM-100 says eight ("Panel caps at eight with a route to the full page").
 Teachers only; it is one fix in three files, and leaving two behind is exactly
 the shape this register keeps finding.
 
+### Billing — 3, 42, 43
+
+- **3, overdue.** The row line and the 60-day page panel, both to D11.8. Every
+  constraint on them is the spec's and none is stylistic: "no red, no warning
+  glyph, no 'account at risk', no countdown to suspension", because
+  "non-payment never affects a student's or a teacher's access. Not at 60
+  days, not at 200, not ever." The row line therefore says how long it has
+  been and that nothing has changed for the children, and stops. Several
+  overdue invoices aggregate into **one** panel, with the bank details inline
+  so paying needs no navigation.
+- **A rule this turned up.** The aggregate total needed adding decimal
+  strings, and `money.ts` opens with "never through a float". `sumMoney` was
+  added there rather than a `Number()` sum written at the call site — on the
+  one figure a bursar reconciles against their own ledger. It is hand-written
+  string arithmetic because the project targets ES2017, matching the `carry()`
+  helper already in that file.
+- **42, the empty state.** SCRUM-98's done-criterion is "names the first
+  invoice date rather than saying nothing is here" — and the date is
+  `upcoming.dueAt`, which this screen already reads and renders forty lines
+  above. The one thing a bursar opens that section to find out was on the page
+  and not in the state that exists to answer it.
+- **43, a promise Billing cannot keep.** The finance home said "the full
+  schedule is in Billing" and offered "See schedule". SCRUM-98 draws that
+  six-year table off `GET rate_schedule`; no such endpoint is deployed and the
+  word "schedule" does not appear in `lib/api/billing.ts` at all. The row now
+  names what Billing does hold — this year's cost in full — with a `TODO(api)`
+  for the schedule itself.
+
+New, tested: `Billing/overdue.ts`, `money.sumMoney`.
+
 **Still carrying `max-lg:`, same defect, not raised by the check:**
 `Reports/ReportsView`, `Senco/IepExporterView`, `Settings/SchoolSettings`,
 `Students/StudentDetailView`, `Teachers/TeacherDetailView`,
