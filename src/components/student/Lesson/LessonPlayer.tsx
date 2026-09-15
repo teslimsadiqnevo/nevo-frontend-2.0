@@ -364,6 +364,8 @@ export function LessonPlayer({
   // Max scroll depth + which milestones have fired, reset per segment.
   const scrollDepth = useRef(0);
   const scrollMarks = useRef<Set<number>>(new Set());
+  /** The scrolling reading column, so a segment can be measured, not guessed. */
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
 
   /**
    * Put focus on the new segment when the content changes underneath it.
@@ -409,6 +411,41 @@ export function LessonPlayer({
       });
     };
   }, [index, lesson.segments, trackEvent]);
+
+  /*
+   * A SEGMENT THAT FITS ON ONE SCREEN WAS REPORTED AS UNREAD.
+   *
+   * `handleScroll` already had the right rule - no room to scroll means the
+   * child can see all of it, so depth is 100 - but it lives in an `onScroll`
+   * handler. A segment that fits never scrolls, so the handler never runs and
+   * the rule never fires. `scrollDepth` stayed at the 0 it is reset to on
+   * entry, and every short segment told the adaptation engine the child had
+   * read NONE of it.
+   *
+   * That is most segments. This product deliberately keeps them short for low
+   * cognitive load, so the engine was being fed "read nothing" about children
+   * who had read everything - a fabricated signal about a child's learning,
+   * which is the one kind this product must never send.
+   *
+   * Measured after the content is laid out, and re-measured when the modality
+   * changes, because an audio segment and a text segment are different heights.
+   *
+   * DECLARED AFTER THE RESET ABOVE, AND THAT ORDER IS LOAD-BEARING. React runs
+   * effects in declaration order, so measuring before the reset means the
+   * reset wipes the measurement on every segment change - which is exactly
+   * what the first version of this fix did, silently, while looking correct.
+   *
+   * Known and accepted: content that grows AFTER this runs - a late image -
+   * could leave 100 recorded for a segment that became scrollable. The child
+   * did see everything present at the time. Over-reporting one late-growing
+   * segment is a far smaller error than under-reporting every short one, which
+   * is what this replaces.
+   */
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    if (el.scrollHeight - el.clientHeight <= 0) scrollDepth.current = 100;
+  }, [index, modality]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
@@ -920,7 +957,11 @@ export function LessonPlayer({
 
       {/* Content — centered reading column. 37b: boredom frames it in a soft
           violet border ("more here if you want it"). */}
-      <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
+      <div
+        ref={scrollerRef}
+        className="flex-1 overflow-y-auto"
+        onScroll={handleScroll}
+      >
         <div
           className={cn(
             // The bottom padding clears the Ask Nevo trigger, which is
