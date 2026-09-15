@@ -6,6 +6,8 @@ import type {
 import { toQuickCheck } from "@/lib/api/checkpoints";
 import { MODALITY, type Modality } from "@/lib/constants";
 import type {
+  Assessment,
+  CompletionSummary,
   Lesson,
   LessonModule,
   LessonSegment,
@@ -264,13 +266,93 @@ export function lessonFromContent(
 
   const segments = ordered.map((s) => segmentFor(s, res.title));
 
+  const assessment = assessmentFor(res);
+  const summary = summaryFor(res, ordered);
+
   return {
     id: res.id,
     title: res.title,
     segments,
     modules: modulesFor(modules, segments),
-    // No assessment in the content contract, and no recap field the summary
-    // screen could honestly use: `confirmationSummary` is the parser talking
-    // to a teacher about its own confidence, not a recap written for a child.
+    // Omitted rather than set undefined, the same way the segment channels
+    // are: the player tests `lesson.assessment` and `lesson.summary` for
+    // PRESENCE, and an empty object would light a button that opens nothing.
+    ...(assessment ? { assessment } : {}),
+    ...(summary ? { summary } : {}),
   };
+}
+
+/**
+ * The after-lesson assessment, if there is one this app can honestly mark.
+ *
+ * Backend sends `ComprehensionCheckpoint[]` - the same type as a segment's
+ * inline check - so `toQuickCheck` is the adapter, not a second marker written
+ * for this surface. It already refuses everything `AfterLessonAssessment`
+ * cannot draw: no answer key (a question with no right answer, which would be
+ * a locked door), `multiple_choice` (the sheet takes one tap), an array key,
+ * fewer than two options, or a key matching none of them.
+ *
+ * RETURNS UNDEFINED RATHER THAN AN EMPTY ASSESSMENT. `assessment: []` is what
+ * the contract's default delivers, and it passes a truthiness gate: the player
+ * would enter the assessment phase and render a question list with no questions
+ * in it. An assessment nobody can answer is not an assessment.
+ *
+ * `recoveryNote` is deliberately dropped. `toQuickCheck` synthesises the quick
+ * check's own wording, and `AfterLessonAssessment` already owns the copy for
+ * this surface - letting the component's default win keeps one string in one
+ * place rather than two that can drift.
+ *
+ * `masteredConcepts`, `revisitConcepts` and `resultNote` are left unset:
+ * backend supplies none of them and none is derivable. Both consuming screens
+ * already guard on their absence.
+ */
+function assessmentFor(res: LessonDetailResponse): Assessment | undefined {
+  const questions = (res.assessment ?? [])
+    .map((checkpoint) => toQuickCheck(checkpoint))
+    .filter((q): q is NonNullable<typeof q> => q !== null)
+    .map((q) => ({
+      prompt: q.question,
+      options: q.options,
+      correctId: q.correctId,
+    }));
+
+  return questions.length > 0 ? { questions } : undefined;
+}
+
+/**
+ * The post-lesson recap, if the backend wrote one.
+ *
+ * `recap` is written for the child. `confirmationSummary` is NOT a substitute
+ * and never was - it is the parser telling a teacher how confident it is about
+ * its own output.
+ *
+ * `covered` HAS NO BACKEND FIELD. The summary screen renders it under "what you
+ * covered", so it is derived from the concepts the lesson actually checked -
+ * every `conceptName` across the assessment and the segments' own checkpoints,
+ * de-duplicated, in the order they appear. A lesson that names no concepts has
+ * no honest line to print, so the key is omitted and the screen drops the card
+ * rather than drawing an empty one.
+ *
+ * Segment TITLES are deliberately not a fallback: `textFor` already defaults a
+ * missing title to the lesson title, so a lesson of untitled segments would
+ * print its own name once per segment.
+ */
+function summaryFor(
+  res: LessonDetailResponse,
+  segments: ContentSegment[],
+): CompletionSummary | undefined {
+  const recap = res.recap?.trim();
+  if (!recap) return undefined;
+
+  const seen = new Set<string>();
+  for (const checkpoint of [
+    ...(res.assessment ?? []),
+    ...segments.flatMap((s) => s.comprehensionCheckpoints ?? []),
+  ]) {
+    const name = checkpoint.conceptName?.trim();
+    if (name) seen.add(name);
+  }
+
+  const covered = [...seen].join(" · ");
+  return covered ? { recap, covered } : { recap };
 }

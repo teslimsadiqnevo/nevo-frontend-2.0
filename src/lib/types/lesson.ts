@@ -52,7 +52,12 @@ export interface VisualContent {
   art?: { id: string; alt: string; caption?: string };
   illustration?: { src: string; alt: string; caption?: string };
   /** e.g. Photosynthesis "TAKES IN → GIVES OUT". */
-  diagram?: { inLabel: string; outLabel: string; inputs: string[]; outputs: string[] };
+  diagram?: {
+    inLabel: string;
+    outLabel: string;
+    inputs: string[];
+    outputs: string[];
+  };
 }
 
 /** Audio modality — a produced narration asset + transcript for the disclosure. */
@@ -178,8 +183,15 @@ export interface Assessment {
 export interface CompletionSummary {
   /** Warm recap paragraph — what they worked through, in plain language. */
   recap: string;
-  /** "What you covered" — a middot-joined list of the concepts touched. */
-  covered: string;
+  /**
+   * "What you covered" — a middot-joined list of the concepts touched.
+   *
+   * OPTIONAL, because the backend supplies no such field. It is derived from
+   * the `conceptName`s the lesson's checkpoints actually carry, and a lesson
+   * that names none has no honest line to print - so the summary screen drops
+   * the card rather than drawing one with an empty body.
+   */
+  covered?: string;
 }
 
 // ── Module structure (SCRUM-101) ────────────────────────────────────────────

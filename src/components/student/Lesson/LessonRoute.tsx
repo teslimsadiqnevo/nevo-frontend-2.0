@@ -5,6 +5,7 @@ import { SampleRegion } from "@/components/shared/SampleRegion";
 import { useHydrated } from "@/hooks/useHydrated";
 import { useStudentLesson } from "@/hooks/useStudentLesson";
 import { LessonLoadingSkeleton } from "./LessonLoadingSkeleton";
+import { LessonMessage } from "./LessonMessage";
 import { LessonPlayer } from "./LessonPlayer";
 
 const LESSONS_HREF = "/student/lessons";
@@ -108,47 +109,3 @@ export function LessonRoute({
  * without the shell, so these states carry their own way back rather than
  * relying on a nav that is not on screen.
  */
-function LessonMessage({
-  title,
-  body,
-  actionLabel,
-  onAction,
-  onBack,
-}: {
-  title: string;
-  body: string;
-  actionLabel: string;
-  onAction: () => void;
-  onBack?: () => void;
-}) {
-  return (
-    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-nevo-cream px-6 text-nevo-near-black">
-      <div className="w-full max-w-[420px] rounded-[16px] bg-nevo-cream-elevated p-[26px] shadow-elevation-1">
-        <h1 className="text-[20px] font-semibold tracking-[-0.01em]">
-          {title}
-        </h1>
-        <p className="mt-2.5 text-[15.5px] leading-[1.55] text-nevo-near-black/70">
-          {body}
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={onAction}
-            className="h-12 cursor-pointer rounded-[10px] bg-nevo-navy px-6 text-[15px] font-semibold text-nevo-cream transition-[filter,transform] hover:brightness-109 active:scale-[0.985]"
-          >
-            {actionLabel}
-          </button>
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="h-12 cursor-pointer rounded-[10px] px-5 text-[15px] font-medium text-nevo-navy transition-colors hover:bg-nevo-near-black/[0.05]"
-            >
-              Back to my lessons
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
