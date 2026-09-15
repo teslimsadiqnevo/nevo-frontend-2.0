@@ -299,6 +299,23 @@ New, tested: `academicCalendar.ts`, `taxonomy.ts`.
   10 files**. All are now `hover:brightness-110 active:brightness-93`, which
   also closes 64.
 
+### Intelligence — 6, 7
+
+- **6, the filtered-empty state.** It discriminated on the class filter alone,
+  so an admin who had narrowed to one KIND of adaptation and found nothing was
+  told "No adaptations were made in the last 30 days" — a flat statement about
+  their school, produced by a control they had set two rows above — with no way
+  back. The kind filter arrived after that branch was written and nothing in it
+  noticed.
+- **7, documentation rather than a build.** Cohort analytics ships with no
+  cohort selector, no time range and no previous-period comparison — three
+  controls SCRUM-65 locks as decided — and the docblock, exhaustive about
+  everything else on that screen, never said so. Each needs a parameter no
+  deployed endpoint accepts, and the responses are already aggregated, so there
+  is nothing to narrow client-side either. Recorded with the reason, because a
+  proprietor looking for "how is JSS 2 doing" should not have to infer from an
+  empty toolbar that nobody thought of it.
+
 **Still carrying `max-lg:`, same defect, not raised by the check:**
 `Reports/ReportsView`, `Senco/IepExporterView`, `Settings/SchoolSettings`,
 `Students/StudentDetailView`, `Teachers/TeacherDetailView`,

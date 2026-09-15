@@ -76,6 +76,28 @@ import { NoAccess, failureKind } from "../NoAccess";
  * TODO(api): D9 Reports - the report list with PDF/CSV export - shares this
  * route and has no endpoint at all. Still blocked.
  *
+ * THREE CONTROLS SCRUM-65 LOCKS AS DECIDED ARE NOT BUILT, and this docblock -
+ * exhaustive about everything else on the screen - never said so. Recorded
+ * here rather than built, because each needs a parameter no deployed endpoint
+ * accepts:
+ *
+ *   - A COHORT SELECTOR. The ticket settles it as year group or class, and
+ *     every read behind this screen (`transformationMetrics`, `schoolHealth`,
+ *     `conceptMastery`) is school-wide with no cohort parameter at all. There
+ *     is no client-side narrowing either: the responses are already
+ *     aggregated, so there are no per-learner rows to group.
+ *   - A TIME RANGE. `OutcomePeriod` is the only period control anywhere in
+ *     this lane, and it governs the outcomes card alone - the rest of the
+ *     screen has no date filter, so a range control at the top would change
+ *     one panel and silently not the others, which is worse than none.
+ *   - COMPARISON AGAINST A PREVIOUS PERIOD, which needs the same thing the
+ *     indices need: a series, not a point.
+ *
+ * All three are the same ask as the indices above rather than separate work,
+ * and none is a rendering gap. What matters is that their absence is stated:
+ * a proprietor looking for "how is JSS 2 doing" should not have to conclude
+ * from an empty toolbar that nobody thought of it.
+ *
  * AGGREGATE ONLY. Nothing on this screen names a student or can be narrowed to
  * one. That boundary is what keeps cohort analytics inside admin scope.
  */

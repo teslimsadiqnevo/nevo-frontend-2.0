@@ -221,6 +221,13 @@ export function AdaptationLogView() {
     setExpanded(null);
   };
 
+  /** Clearing the kind filter, from the row of chips or from the empty state. */
+  const clearTypes = () => {
+    setTypes([]);
+    setShown(PAGE);
+    setExpanded(null);
+  };
+
   /*
    * Toggling a kind resets to the first page, for the same reason changing the
    * class does: the pagination here is a GROWING LIMIT, so asking for 20 rows
@@ -348,11 +355,7 @@ export function AdaptationLogView() {
           {types.length > 0 && (
             <button
               type="button"
-              onClick={() => {
-                setTypes([]);
-                setShown(PAGE);
-                setExpanded(null);
-              }}
+              onClick={clearTypes}
               className="cursor-pointer px-1 text-[12.5px] font-semibold text-nevo-navy hover:opacity-75"
             >
               Show all kinds
@@ -387,26 +390,53 @@ export function AdaptationLogView() {
         )}
 
         {phase === "ready" && rows.length === 0 && (
+          /*
+           * THE EMPTY STATE HAS TO NAME EVERY FILTER THAT COULD BE CAUSING IT.
+           *
+           * It discriminated on `classId` alone, so an admin who had narrowed
+           * to one adaptation TYPE and found nothing was told "No adaptations
+           * were made in the last 30 days" - a flat statement about their
+           * school, produced by a control they had set two rows above - and
+           * was offered no way back from it. The type filter arrived after
+           * this branch was written and nothing here noticed.
+           */
           <div className={cn(CARD, "mt-5 px-[26px] py-8 text-center")}>
             <h3 className="text-[17px] font-semibold text-nevo-near-black">
-              {classId
-                ? "Nothing to show for this class and range"
-                : "Nothing to show for this range"}
+              {classId && types.length > 0
+                ? "Nothing to show for these filters"
+                : types.length > 0
+                  ? "Nothing to show for this kind and range"
+                  : classId
+                    ? "Nothing to show for this class and range"
+                    : "Nothing to show for this range"}
             </h3>
             <p className="mx-auto mt-2 max-w-[46ch] text-sm leading-[1.55] text-nevo-near-black/62">
-              {classId
-                ? `No adaptations were made${scope} in the last ${range.days} days. Try a wider range, or show all classes.`
-                : `No adaptations were made in the last ${range.days} days. Try a wider range, or check back once lessons are running.`}
+              {types.length > 0
+                ? `No adaptations of that kind were made${scope} in the last ${range.days} days. Try a wider range, or show every kind.`
+                : classId
+                  ? `No adaptations were made${scope} in the last ${range.days} days. Try a wider range, or show all classes.`
+                  : `No adaptations were made in the last ${range.days} days. Try a wider range, or check back once lessons are running.`}
             </p>
-            {classId && (
-              <button
-                type="button"
-                onClick={() => pickClass("")}
-                className="mt-5 h-[42px] cursor-pointer rounded-[10px] border-[1.5px] border-nevo-navy/30 px-4 text-[13.5px] font-semibold text-nevo-navy transition-colors hover:bg-nevo-navy/6"
-              >
-                Show all classes
-              </button>
-            )}
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+              {classId && (
+                <button
+                  type="button"
+                  onClick={() => pickClass("")}
+                  className="h-[42px] cursor-pointer rounded-[10px] border-[1.5px] border-nevo-navy/30 px-4 text-[13.5px] font-semibold text-nevo-navy transition-colors hover:bg-nevo-navy/6"
+                >
+                  Show all classes
+                </button>
+              )}
+              {types.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearTypes}
+                  className="h-[42px] cursor-pointer rounded-[10px] border-[1.5px] border-nevo-navy/30 px-4 text-[13.5px] font-semibold text-nevo-navy transition-colors hover:bg-nevo-navy/6"
+                >
+                  Show every kind
+                </button>
+              )}
+            </div>
           </div>
         )}
 
