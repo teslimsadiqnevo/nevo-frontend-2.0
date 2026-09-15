@@ -91,7 +91,15 @@ export function AdminSignOutModal({ onStay }: { onStay: () => void }) {
           type="button"
           onClick={signOut}
           disabled={busy}
-          className="mt-6 h-[50px] w-full cursor-pointer rounded-[10px] bg-nevo-navy text-[15px] font-semibold text-nevo-cream transition-[filter] hover:brightness-93 disabled:cursor-wait disabled:opacity-70"
+          /*
+            * HOVER LIFTS, PRESS DARKENS - and this had them the wrong way
+            * round, darkening on hover and offering no pressed state at all.
+            * D14 fixes both: brightness(1.1) on hover, brightness(0.93) on
+            * press. A navy primary that darkens as the pointer arrives reads
+            * as already-pressed, which is the one impression a sign-out
+            * confirm should not give.
+            */
+          className="mt-6 h-[50px] w-full cursor-pointer rounded-[10px] bg-nevo-navy text-[15px] font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93 disabled:cursor-wait disabled:opacity-70"
         >
           {busy ? "Signing out…" : "Sign out"}
         </button>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useHasSession } from "@/hooks/useHasSession";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { notificationsApi } from "@/lib/api/notifications";
 import { cn } from "@/lib/utils";
@@ -144,6 +145,7 @@ function IconWrap({ on, children }: { on: boolean; children: React.ReactNode }) 
 export function AdminSidebar() {
   const pathname = usePathname();
   const { scopes, resolved, status, refresh } = usePermissions();
+  const identity = useCurrentUser();
   const signedIn = useHasSession();
   /*
    * Desktop opens expanded, tablet collapsed - which `AdminShell`'s docblock
@@ -205,7 +207,16 @@ export function AdminSidebar() {
     <aside
       aria-label="Admin"
       className={cn(
-        "flex h-full shrink-0 flex-col overflow-y-auto border-r border-nevo-near-black/6 bg-nevo-cream-elevated py-[22px] transition-[width] duration-200 ease-in-out",
+        /*
+         * THE LIST SCROLLS, NOT THE RAIL - which is the frame's split and was
+         * the wrong way round. With `overflow-y-auto` on the aside, a rail
+         * shorter than its contents scrolled as a whole, so at 1024x768 the
+         * Notifications row, the Collapse chevron and the account and sign-out
+         * block all fell below the fold: every persistent control in the
+         * console, reachable only by scrolling a sidebar nobody expects to
+         * scroll. The nav below owns the overflow instead.
+         */
+        "flex h-full shrink-0 flex-col overflow-hidden border-r border-nevo-near-black/6 bg-nevo-cream-elevated py-[22px] transition-[width] duration-200 ease-in-out",
         expanded ? "w-[248px] px-3.5" : "w-16 px-3",
       )}
     >
@@ -226,13 +237,22 @@ export function AdminSidebar() {
         )}
       >
         {expanded ? (
-          <span className="relative block h-[17px] w-[58px] overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/brand/logo-wordmark-purple.png"
-              alt="Nevo"
-              className="absolute block h-[169px] w-[169px] max-w-none -translate-x-[61px] -translate-y-[81px]"
-            />
+          <span className="flex items-center gap-2">
+            <span className="relative block h-[17px] w-[58px] overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/brand/logo-wordmark-purple.png"
+                alt="Nevo"
+                className="absolute block h-[169px] w-[169px] max-w-none -translate-x-[61px] -translate-y-[81px]"
+              />
+            </span>
+            {/* The frame's badge, which says which console this is. Three
+                consoles share one wordmark and only this one is drawn with
+                it; without the badge an admin and a teacher see the same
+                mark over different products. */}
+            <span className="rounded-[5px] bg-nevo-navy/10 px-[7px] py-[3px] text-[10.5px] font-semibold tracking-[0.04em] text-nevo-navy uppercase">
+              Admin
+            </span>
           </span>
         ) : (
           <span className="relative block size-[22px] overflow-hidden">
@@ -246,7 +266,7 @@ export function AdminSidebar() {
         )}
       </div>
 
-      <nav className="mt-7 flex flex-1 flex-col">
+      <nav className="mt-7 flex min-h-0 flex-1 flex-col overflow-y-auto">
         {items.map((item, i) => {
           const on = item.label === active;
           const startsGroup = i > 0 && item.group !== items[i - 1].group;
@@ -387,7 +407,10 @@ export function AdminSidebar() {
         )}
       >
         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-nevo-navy text-[13px] font-semibold text-nevo-cream">
-          {signedIn ? (
+          {signedIn && identity?.initials ? (
+            identity.initials
+          ) : signedIn ? (
+            // No name means no initials; a neutral glyph beats a blank disc.
             <svg {...GLYPH} width={17} height={17} strokeWidth={1.9} aria-hidden>
               <circle cx="12" cy="8" r="4" />
               <path d="M4 20a8 8 0 0 1 16 0" />
@@ -398,11 +421,33 @@ export function AdminSidebar() {
         </span>
         {expanded &&
           (signedIn ? (
+            /*
+              * THE ADMIN'S OWN NAME, WHICH THIS BLOCK NEVER SHOWED.
+              *
+              * It rendered a generic person glyph over a scope summary, so the
+              * one place in the console that says who you are said only what
+              * you may do - while the teacher console, using the same hook,
+              * has shown a name and initials since 1 Sep. The justification
+              * recorded in this file for not doing it had already been
+              * corrected elsewhere and was out of date.
+              *
+              * The scope line stays underneath: it is the second thing an
+              * admin checks here, not the first, and it is what distinguishes
+              * two admins at the same school.
+              */
             <span className="flex min-w-0 flex-col text-left">
+              {identity?.name ? (
+                <span className="truncate text-sm font-semibold text-nevo-near-black">
+                  {identity.name}
+                </span>
+              ) : null}
               <span
-                className={
-                  "truncate text-sm font-semibold text-nevo-near-black"
-                }
+                className={cn(
+                  "truncate",
+                  identity?.name
+                    ? "text-xs text-nevo-near-black/55"
+                    : "text-sm font-semibold text-nevo-near-black",
+                )}
               >
                 {scopesFailed ? "Couldn't load your access" : scopeSummary(scopes)}
               </span>

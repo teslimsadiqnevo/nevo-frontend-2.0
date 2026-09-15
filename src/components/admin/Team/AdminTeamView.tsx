@@ -152,7 +152,7 @@ export function AdminTeamView() {
               <button
                 type="button"
                 onClick={retry}
-                className="mt-5 h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
+                className="mt-5 h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93"
               >
                 Try again
               </button>
@@ -209,7 +209,7 @@ function InviteButton({
     <button
       type="button"
       onClick={onClick}
-      className="h-[46px] shrink-0 cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
+      className="h-[46px] shrink-0 cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93"
     >
       {label}
     </button>
@@ -303,7 +303,7 @@ function TeamList({
             {/* TODO(api): no endpoint requests an extra account. */}
             <button
               type="button"
-              className="h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
+              className="h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93"
             >
               Request another account
             </button>
@@ -511,7 +511,7 @@ function InvitePanel({
             className={cn(
               "flex h-[50px] items-center justify-center rounded-[10px] bg-nevo-navy px-6 text-[15px] font-semibold text-nevo-cream transition-[filter]",
               valid && phase === "idle"
-                ? "cursor-pointer hover:brightness-93"
+                ? "cursor-pointer hover:brightness-110 active:brightness-93"
                 : "cursor-default opacity-50",
             )}
           >

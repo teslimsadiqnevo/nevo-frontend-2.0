@@ -276,7 +276,7 @@ export function AdminSignIn() {
         className={cn(
           "mt-6 flex h-[52px] w-full items-center justify-center gap-2.5 rounded-[10px] bg-nevo-navy text-[15px] font-semibold text-nevo-cream transition-[filter]",
           canSubmit && !busy
-            ? "cursor-pointer hover:brightness-93"
+            ? "cursor-pointer hover:brightness-110 active:brightness-93"
             : "cursor-default opacity-50",
         )}
       >

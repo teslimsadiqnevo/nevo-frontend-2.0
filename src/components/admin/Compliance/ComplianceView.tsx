@@ -187,7 +187,7 @@ export function ComplianceView() {
               type="button"
               onClick={exportReport}
               disabled={exporting === "working"}
-              className="h-[46px] shrink-0 cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93 disabled:cursor-wait disabled:opacity-70"
+              className="h-[46px] shrink-0 cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93 disabled:cursor-wait disabled:opacity-70"
             >
               {exporting === "working"
                 ? "Preparing report…"
@@ -220,7 +220,7 @@ export function ComplianceView() {
                 setPhase("loading");
                 load();
               }}
-              className="mt-5 h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
+              className="mt-5 h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93"
             >
               Try again
             </button>

@@ -232,7 +232,7 @@ export function AccountSettings() {
               type="button"
               onClick={saveName}
               disabled={savingName || !nameChanged}
-              className="h-[42px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-[14px] font-semibold text-nevo-cream transition-[filter] hover:brightness-93 disabled:cursor-not-allowed disabled:opacity-55"
+              className="h-[42px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-[14px] font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93 disabled:cursor-not-allowed disabled:opacity-55"
             >
               {savingName ? "Saving…" : "Save changes"}
             </button>

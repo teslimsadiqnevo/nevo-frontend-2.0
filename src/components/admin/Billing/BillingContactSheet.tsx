@@ -183,7 +183,7 @@ export function BillingContactSheet({
             type="button"
             onClick={save}
             disabled={!complete || saving}
-            className="h-11 flex-1 cursor-pointer rounded-[10px] bg-nevo-navy text-[15px] font-semibold text-nevo-cream transition-[filter] hover:brightness-93 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-11 flex-1 cursor-pointer rounded-[10px] bg-nevo-navy text-[15px] font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? "Saving…" : "Save"}
           </button>

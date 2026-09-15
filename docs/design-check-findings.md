@@ -274,6 +274,31 @@ and then enumerate sixteen. The code follows the list, and says so.
 
 New, tested: `academicCalendar.ts`, `taxonomy.ts`.
 
+### Shell — 28, 29, 52, 70
+
+- **28, the identity block never said who you are.** It rendered a generic
+  person glyph over a scope summary, so the one place in the console that
+  answers "who am I signed in as" answered only "what may I do" — on a
+  justification recorded in that very file which had already been corrected
+  elsewhere: the teacher console reads the same hook and has shown a name and
+  initials since 1 September. The scope line stays underneath, because it is
+  what tells two admins at the same school apart.
+- **70, the rail scrolled instead of the list.** With `overflow-y-auto` on the
+  aside, a rail taller than the viewport scrolled as a whole — so at 1024×768
+  the Notifications row, the Collapse chevron and the account and sign-out
+  block all fell below the fold. That is every persistent control in the
+  console, reachable only by scrolling a sidebar nobody expects to scroll.
+- **52.** The "Admin" badge beside the wordmark. Three consoles share one mark
+  and only this one is drawn with a badge; without it an admin and a teacher
+  see the same wordmark over different products.
+- **29, and its fifteen siblings.** The sign-out primary darkened on hover,
+  which is D14's **pressed** treatment — a navy button that darkens as the
+  pointer arrives reads as already-pressed, which is the one impression a
+  sign-out confirm should not give. The check raised it here and (as 64) on
+  five onboarding primaries; `hover:brightness-93` appeared **16 times across
+  10 files**. All are now `hover:brightness-110 active:brightness-93`, which
+  also closes 64.
+
 **Still carrying `max-lg:`, same defect, not raised by the check:**
 `Reports/ReportsView`, `Senco/IepExporterView`, `Settings/SchoolSettings`,
 `Students/StudentDetailView`, `Teachers/TeacherDetailView`,
