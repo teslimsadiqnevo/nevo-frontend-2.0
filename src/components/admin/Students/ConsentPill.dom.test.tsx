@@ -3,6 +3,7 @@ import { render } from "@testing-library/react";
 import {
   ConsentPill,
   consentDetailLine,
+  mayRequestConsent,
   withdrawnCount,
   withoutRecordedConsent,
 } from "./ConsentPill";
@@ -101,3 +102,36 @@ describe("consentDetailLine", () => {
     expect(consentDetailLine(at("withdrawn"))).toMatch(/withdrawn/i);
   });
 });
+
+/**
+ * A parent who has withdrawn must never be asked again.
+ *
+ * Both student screens gated the action on "anything but confirmed", which
+ * includes WITHDRAWN — so an admin could send a fresh consent request to a
+ * family who had explicitly refused, by pressing a button beside their child's
+ * name. SCRUM-40 forbids it outright.
+ *
+ * It matters more since backend began enforcing withdrawal on 15 Sep: the child
+ * is genuinely stopped now, so asking the parent who stopped them is both
+ * futile and pointed.
+ */
+describe("mayRequestConsent", () => {
+  it("offers a request only where one can honestly be made", () => {
+    expect(mayRequestConsent(at("not_sent"))).toBe(true);
+    expect(mayRequestConsent(at("pending"))).toBe(true);
+  });
+
+  it("NEVER offers one after a withdrawal", () => {
+    expect(mayRequestConsent(at("withdrawn"))).toBe(false);
+  });
+
+  it("does not offer one that is already confirmed", () => {
+    expect(mayRequestConsent(at("confirmed"))).toBe(false);
+  });
+
+  it("offers nothing when the read carried no consent at all", () => {
+    expect(mayRequestConsent(null)).toBe(false);
+    expect(mayRequestConsent(undefined)).toBe(false);
+  });
+});
+

@@ -215,8 +215,14 @@ export function BulkImportModal({
              all, so this had even less behind it than the single-invite claim.
              See `deliveryCopy.ts` - nothing in the product requests consent. */
           <p className="mt-4 text-center text-[14.5px] leading-[1.6] text-nevo-near-black/72">
-            Each student&rsquo;s parent contact was recorded. None can begin
-            lessons until consent is confirmed.
+            {/* The SIBLING of the branch above, and it kept the claim that
+                branch was corrected for. SCRUM-80: an unconfirmed consent is
+                the school's paperwork and the learner proceeds - only a
+                withdrawal stops anything. Fixing one branch and not the one
+                three lines below it is the pattern this console keeps
+                repeating. */}
+            Each student&rsquo;s parent contact was recorded; your school still
+            needs to record consent for them.
           </p>
         ) : null}
 

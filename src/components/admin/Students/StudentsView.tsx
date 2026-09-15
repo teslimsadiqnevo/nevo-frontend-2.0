@@ -8,7 +8,11 @@ import { classesApi, type AdminClass } from "@/lib/api/classes";
 import { studentsApi, type AdminStudentRow } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
-import { ConsentPill, withoutRecordedConsent } from "./ConsentPill";
+import {
+  ConsentPill,
+  mayRequestConsent,
+  withoutRecordedConsent,
+} from "./ConsentPill";
 import { consentRequestLine, useConsentRequests } from "./useConsentRequests";
 import { statusLabel, studentStatus } from "./status";
 import { NoAccess, failureKind } from "../NoAccess";
@@ -360,7 +364,7 @@ export function StudentsView() {
                         </span>
                       </button>
                       <span className="flex justify-end pr-6">
-                        {s.consent && s.consent.status !== "confirmed" ? (
+                        {mayRequestConsent(s.consent) ? (
                           <button
                             type="button"
                             onClick={() => sendConsent(s.id)}

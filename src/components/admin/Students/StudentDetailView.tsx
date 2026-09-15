@@ -12,7 +12,11 @@ import {
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import { ReadFailed } from "../ReadFailed";
-import { ConsentPill, consentDetailLine } from "./ConsentPill";
+import {
+  ConsentPill,
+  consentDetailLine,
+  mayRequestConsent,
+} from "./ConsentPill";
 import {
   consentRequestLine,
   useConsentRequests,
@@ -308,7 +312,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
           * own words for the two cases, and it never claims delivery it has
           * not been told about - the receipt's `delivery_status` decides.
           */}
-        {student.consent && student.consent.status !== "confirmed" ? (
+        {mayRequestConsent(student.consent) ? (
           <div className="mt-4 border-t border-nevo-near-black/8 pt-4">
             <button
               type="button"
@@ -318,7 +322,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
             >
               {consentState.kind === "sending"
                 ? "Sending…"
-                : student.consent.status === "pending"
+                : student.consent?.status === "pending"
                   ? "Send a gentle reminder"
                   : "Send the consent request"}
             </button>

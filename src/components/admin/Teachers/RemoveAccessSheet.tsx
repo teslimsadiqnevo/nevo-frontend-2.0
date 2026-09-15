@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { classesApi, type AssignedClass } from "@/lib/api/classes";
 import { teachersApi, type TeacherDetail, type TeacherSummary } from "@/lib/api/teachers";
 import { cn } from "@/lib/utils";
+import { isActive } from "./status";
 import {
   FailureLine,
   GHOST_BTN,
@@ -69,9 +70,18 @@ export function RemoveAccessSheet({
   const [applied, setApplied] = useState(0);
 
   useEffect(() => {
+    /*
+     * ACTIVE STAFF ONLY. This filtered on identity alone, so the select
+     * offered every teacher in the school including deactivated and invited
+     * ones - and handing a class to someone who cannot sign in produces
+     * exactly the orphaned class this sheet exists to prevent. `isActive` was
+     * already written and unit-tested next door; it simply was not called.
+     */
     teachersApi
       .list()
-      .then((rows) => setStaff(rows.filter((t) => t.id !== teacher.id)))
+      .then((rows) =>
+        setStaff(rows.filter((t) => t.id !== teacher.id && isActive(t.status))),
+      )
       .catch(() => setStaff([]));
   }, [teacher.id]);
 

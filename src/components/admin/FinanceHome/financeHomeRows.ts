@@ -1,6 +1,5 @@
 import type {
   Invoice,
-  PaymentMethod,
   Subscription,
   UpcomingCharge,
 } from "@/lib/api/billing";
@@ -42,13 +41,6 @@ export function overdueCount(invoices: Invoice[] | null): number | null {
   return invoices.filter((i) => i.status === "overdue").length;
 }
 
-function cardLine(pm: PaymentMethod): string {
-  // `cardBrand` is nullable and there is no processor field on the READ at all
-  // (only on the write), so neither is asserted. `displayName` and `lastFour`
-  // are required, which is why they carry the sentence.
-  const brand = pm.cardBrand ? `${pm.cardBrand} ` : "";
-  return `${brand}ending ${pm.lastFour}. You can update it in Billing whenever you need to.`;
-}
 
 export function financeHomeRows(
   subscription: Subscription | null,
@@ -91,16 +83,18 @@ export function financeHomeRows(
     });
   }
 
-  if (subscription.paymentMethod) {
-    rows.push({
-      key: "payment-method",
-      kind: "neutral",
-      title: `A payment method is on file: ${subscription.paymentMethod.displayName}`,
-      sub: cardLine(subscription.paymentMethod),
-      action: "Manage",
-      href: BILLING,
-    });
-  }
+  /*
+   * NO PAYMENT METHOD ROW. There was one, and it was a design-law breach I
+   * introduced: it rendered the brand and last four of a saved card with a
+   * "Manage" route. SCRUM-98 and D11 are explicit - "no cards, no in-app
+   * checkout" - and `PaymentMethod` in `lib/api/billing.ts` is annotated
+   * "Read, never rendered" on the very type I read it from.
+   *
+   * Nevo is not a card-on-file product: schools pay by transfer and the
+   * arrangement, not the instrument, is what a finance administrator needs to
+   * see. If a payment surface is wanted here it is the arrangement - who
+   * confirms it and how - and that is design's to draw.
+   */
 
   const locked = longDate(subscription.pricing.rateLockedUntil);
   if (locked) {

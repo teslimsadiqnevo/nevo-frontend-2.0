@@ -34,6 +34,11 @@ import { financeHomeRows, overdueCount } from "./financeHomeRows";
  *
  * NO RED. Overdue billing never gates access, so the loudest state here is
  * violet and the copy says access continues.
+ *
+ * AND NO CARD. SCRUM-98 and D11 forbid showing a saved payment instrument in
+ * every state - "no cards, no in-app checkout". The first version of this
+ * screen printed a brand and last four anyway, against a rule written on the
+ * type it read them from.
  */
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
@@ -199,15 +204,16 @@ export function FinanceHomeView() {
                     : "students billed"
                 }
               />
-              {subscription.paymentMethod ? (
-                <Tile
-                  label="Payment"
-                  value={subscription.paymentMethod.displayName}
-                  sub={`ending ${subscription.paymentMethod.lastFour}`}
-                />
-              ) : (
-                <Tile label="Payment" value="Not set up" sub="Add one in Billing" />
-              )}
+              {/* NO CARD ON SCREEN. This tile printed a brand and last four,
+                  which SCRUM-98 and D11 forbid in every state - "no cards, no
+                  in-app checkout" - and `PaymentMethod` is annotated "Read,
+                  never rendered" on the type itself. Schools pay by transfer;
+                  the tile names the ARRANGEMENT instead of the instrument. */}
+              <Tile
+                label="Payment"
+                value="Bank transfer"
+                sub="Details are in Billing"
+              />
             </div>
 
             {rows.length > 0 && (

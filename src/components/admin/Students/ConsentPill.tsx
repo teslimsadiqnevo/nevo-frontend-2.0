@@ -91,6 +91,25 @@ export function ConsentPill({
  * deliberately a second function rather than a flag: conflating the two is the
  * exact mistake this pair exists to prevent.
  */
+/**
+ * Whether a consent request may be offered for this learner.
+ *
+ * NOT "anything but confirmed", which is what both screens asked. That
+ * included WITHDRAWN - so a parent who had explicitly refused could be sent a
+ * fresh request by an admin pressing a button next to their child's name.
+ * SCRUM-40 forbids it outright, and it reads as nagging a family who have
+ * already said no.
+ *
+ * It matters more since 15 Sep, when backend began enforcing withdrawal on the
+ * four processing endpoints: the child is genuinely stopped now, so a request
+ * to the parent who stopped them is both futile and pointed.
+ */
+export function mayRequestConsent(
+  consent: { status: StudentConsent["status"] } | null | undefined,
+): boolean {
+  return consent?.status === "pending" || consent?.status === "not_sent";
+}
+
 export function withoutRecordedConsent(
   rows: { consent?: StudentConsent | null }[],
 ): number {

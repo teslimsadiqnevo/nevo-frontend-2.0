@@ -433,7 +433,18 @@ export function AdaptationLogView() {
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col">
                         <span className="text-[15px] font-semibold text-nevo-near-black">
-                          {r.eventType}
+                          {/* THE LABEL, NOT THE KEY. This printed
+                              `simplify_trigger` as the row's headline - the
+                              engine's own vocabulary, in front of a head
+                              teacher. The labels were written for the filter an
+                              hour before this was caught and simply not used
+                              here, which is the same fix-one-miss-the-sibling
+                              this console keeps repeating.
+
+                              A key we have no label for falls back to a
+                              neutral word rather than the raw value: an
+                              unreadable row is better than a leaked internal. */}
+                          {eventTypeLabel(r.eventType) ?? "Adaptation"}
                         </span>
                         <span className="mt-0.5 text-[13.5px] leading-[1.5] text-nevo-near-black/66">
                           {r.adaptation}
