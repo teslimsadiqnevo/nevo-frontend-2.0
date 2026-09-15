@@ -119,6 +119,39 @@ New, tested: `ssoState.ts`.
 
 New, tested: `inviteFilters.ts`.
 
+### Notifications — 11, 12, 13, 58, 59
+
+- **11, archive in the panel.** `NotificationRow` already took the handler and
+  the page already passed one; the panel passed nothing, so the same row had
+  the action in one of the two places it renders. A refused write puts the row
+  back rather than leaving the panel showing what the server declined.
+- **12, hover.** SCRUM-100 has one sentence per surface — panel "revealed on
+  row hover only", page "always visible rather than hover-only" — and one rule
+  was applied to both, honouring neither: hidden on the page at both drawn
+  widths, revealed in the panel only above 1024. It keys on `compact` now.
+- **13, the failure state.** The spec's copy verbatim ("We couldn't pull these
+  in just now. We're on it.") with the **Try again** it asks for. What it
+  replaced told the reader to close the panel they were reading and open it
+  again.
+- **59, the bell mark.** SCRUM-100 keeps it by name and the done-criterion
+  says so; it had been dropped, leaving two lines of text in an empty panel.
+- **58, the breakpoint — and the console-wide rule behind it.** `AdminSidebar`
+  collapses its rail at `(min-width: 1280px)`, so **1280 is this console's
+  tablet boundary**. A `max-lg:` variant fires below 1024 and therefore never
+  fires at 1024×768, the size the frames are drawn at — so the stacked form
+  was written, shipped, and unreachable at either drawn width. Re-keyed to
+  `max-xl:`, with the reasoning recorded in the file.
+
+**Also fixed here, not in the register:** the panel capped at six rows where
+SCRUM-100 says eight ("Panel caps at eight with a route to the full page").
+
+**Still carrying `max-lg:`, same defect, not raised by the check:**
+`Reports/ReportsView`, `Senco/IepExporterView`, `Settings/SchoolSettings`,
+`Students/StudentDetailView`, `Teachers/TeacherDetailView`,
+`Onboarding/DpaStep`, `Invitations/InvitationsView`. Left alone rather than
+swept, because each needs looking at against its own frame — but they are the
+same bug and should go in one pass.
+
 | # | sev | lane | finding | fix |
 |---|---|---|---|---|
 | 1 | law | intelligence | The adaptation log prints the engine's raw event key as each row's headline instead of the plain-language label the codebase already defines. | In src/components/admin/Adaptations/AdaptationLogView.tsx line 436, render the mapped label with a neutral fallback instead of the raw key: {eventTypeLabel(r.eventType) ?? "Nevo made an adju |

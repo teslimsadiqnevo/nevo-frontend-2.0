@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { notificationsApi, type Notification } from "@/lib/api/notifications";
 import { cn } from "@/lib/utils";
 import { ROW_DIVIDER } from "../Roster/primitives";
@@ -25,7 +25,37 @@ import { NotificationRow } from "./NotificationRow";
  * it.
  */
 
-const MAX_ROWS = 6;
+/** SCRUM-100: "Panel caps at eight with a route to the full page." */
+const MAX_ROWS = 8;
+
+/**
+ * SCRUM-100 keeps this mark by name: "a 52px circle on rgba(154,156,203,0.2)
+ * with a navy 26px bell glyph", and the done-criterion is "Empty state keeps
+ * its bell circle, heading and body line verbatim". It had been dropped,
+ * leaving two lines of text floating in an otherwise empty panel.
+ */
+function BellMark() {
+  return (
+    <span
+      aria-hidden="true"
+      className="mx-auto mb-4 flex size-[52px] items-center justify-center rounded-full bg-nevo-violet/20 text-nevo-navy"
+    >
+      <svg
+        width="26"
+        height="26"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </svg>
+    </span>
+  );
+}
 
 export function NotificationsPanel({
   onClose,
@@ -41,7 +71,13 @@ export function NotificationsPanel({
   const [now, setNow] = useState(0);
   const panel = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  /*
+   * Its own callback so the failure state can offer a retry. It used to live
+   * inside the mount effect, so "Reopen the panel to try again" was the only
+   * recovery on offer - an instruction to close the thing you are reading and
+   * open it again, where the spec asks plainly for a button.
+   */
+  const load = useCallback(() => {
     notificationsApi
       .list({ limit: MAX_ROWS, offset: 0 })
       .then((feed) => {
@@ -55,6 +91,22 @@ export function NotificationsPanel({
         setFailed(true);
       });
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  /*
+   * The retry clears back to the loading state BEFORE re-reading; `load` does
+   * not, because it also runs from the mount effect and a synchronous setState
+   * there is `react-hooks/set-state-in-effect` - which this file has tripped
+   * before. The first render already holds exactly these values.
+   */
+  const retry = () => {
+    setRows(null);
+    setFailed(false);
+    load();
+  };
 
   // Escape and an outside press both close it; the rail's own button is
   // excluded by `data-notification-toggle` so clicking it does not close and
@@ -93,6 +145,25 @@ export function NotificationsPanel({
     notificationsApi.markRead(id).then(onReadStateChanged).catch(() => undefined);
   };
 
+  /*
+   * Per-row archive, which SCRUM-100 adds to BOTH surfaces and which the panel
+   * simply did not have - the row component already took the handler, and the
+   * page passed one while the panel passed nothing, so the action existed on
+   * one of the two places the same row is rendered.
+   *
+   * Mirrors `NotificationsView.onArchive`: the row leaves the list, because
+   * the list is defined by the flag just changed. A failed write puts it back,
+   * rather than leaving the panel showing something the server did not accept.
+   */
+  const onArchive = (id: string) => {
+    const before = rows;
+    setRows((prev) => prev?.filter((n) => n.notificationId !== id) ?? prev);
+    notificationsApi
+      .archive(id)
+      .then(onReadStateChanged)
+      .catch(() => setRows(before));
+  };
+
   return (
     <div
       ref={panel}
@@ -126,18 +197,26 @@ export function NotificationsPanel({
             <div className="h-12 animate-pulse rounded-lg bg-nevo-near-black/[0.06]" />
           </div>
         ) : failed ? (
+          /* SCRUM-100's fixed copy, verbatim, and its retry: "Violet line
+             inside the panel, system owns it, 'Try again'." The line this
+             replaced paraphrased it and offered no button - it told the
+             reader to close the panel they were reading and open it again. */
           <div className="px-5 py-10 text-center">
-            <p className="m-0 text-[15px] font-semibold text-nevo-near-black">
-              We couldn&rsquo;t load your notifications
+            <p className="m-0 text-[13.5px] leading-[1.55] text-nevo-violet-text">
+              We couldn&rsquo;t pull these in just now. We&rsquo;re on it.
             </p>
-            <p className="m-0 mt-2 text-[13.5px] leading-[1.55] text-nevo-near-black/62">
-              This isn&rsquo;t a record that there are none - it just
-              didn&rsquo;t answer. Reopen the panel to try again.
-            </p>
+            <button
+              type="button"
+              onClick={retry}
+              className="mt-3 cursor-pointer text-[13px] font-semibold text-nevo-navy hover:opacity-75"
+            >
+              Try again
+            </button>
           </div>
         ) : rows.length === 0 ? (
-          <div className="px-5 py-10 text-center">
-            <p className="m-0 text-[15px] font-semibold text-nevo-near-black">
+          <div className="px-[30px] py-11 text-center">
+            <BellMark />
+            <p className="m-0 text-base font-semibold text-nevo-near-black">
               You&rsquo;re all caught up
             </p>
             <p className="m-0 mt-2 text-[13.5px] leading-[1.55] text-nevo-near-black/62">
@@ -155,6 +234,7 @@ export function NotificationsPanel({
               now={now}
               className={cn(i < rows.length - 1 && ROW_DIVIDER)}
               onRead={onRead}
+              onArchive={onArchive}
             />
           ))
         )}

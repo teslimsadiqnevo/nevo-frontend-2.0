@@ -35,6 +35,16 @@ import { categoriesForScopes, preferencesIntro, type CategoryMeta } from "./cate
  *
  * See `categories.ts` for the larger problem: three of SCRUM-100's six
  * categories have no value in the backend enum and so cannot appear at all.
+ *
+ * THE TABLET VARIANTS ARE KEYED `max-xl:`, NOT `max-lg:`, AND THAT IS THE
+ * CONSOLE'S RULE RATHER THAN THIS FILE'S TASTE. The admin shell collapses its
+ * rail at `(min-width: 1280px)` - `AdminSidebar` reads exactly that media
+ * query - so 1280 is where this console becomes a tablet, and the frames are
+ * drawn at 1440 and 1024. A `max-lg:` variant fires below 1024 and so never
+ * fires at the tablet size anything here is designed for: the stacked form
+ * below was written, shipped, and could not be reached at either drawn width.
+ * Tailwind's `lg` is a general-purpose default; this product's boundary is one
+ * step up, and the same re-key is owed by every `max-lg:` still in this tree.
  */
 
 type Phase = "loading" | "ready" | "failed";
@@ -173,7 +183,7 @@ export function NotificationPreferences({ scopes }: { scopes: PermissionScope[] 
       </p>
 
       <div className={cn(CARD, "mt-6")}>
-        <div className="flex items-center gap-12 border-b border-nevo-near-black/8 bg-nevo-near-black/[0.03] px-[22px] py-3 max-lg:hidden">
+        <div className="flex items-center gap-12 border-b border-nevo-near-black/8 bg-nevo-near-black/[0.03] px-[22px] py-3 max-xl:hidden">
           <span className="flex-1" />
           <span className="w-[46px] text-center text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50">
             In Nevo
@@ -190,7 +200,7 @@ export function NotificationPreferences({ scopes }: { scopes: PermissionScope[] 
               key={c.key}
               className={cn("px-[22px] py-[18px]", i < visible.length - 1 && ROW_DIVIDER)}
             >
-              <div className="flex items-center gap-12 max-lg:flex-col max-lg:items-start max-lg:gap-3">
+              <div className="flex items-center gap-12 max-xl:flex-col max-xl:items-start max-xl:gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2.5">
                     <span className="text-[15px] font-semibold text-nevo-near-black">
@@ -207,9 +217,9 @@ export function NotificationPreferences({ scopes }: { scopes: PermissionScope[] 
                   </p>
                 </div>
 
-                <div className="flex items-center gap-12 max-lg:gap-8">
+                <div className="flex items-center gap-12 max-xl:gap-8">
                   <span className="flex flex-col items-center gap-1.5">
-                    <span className="hidden text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50 max-lg:block">
+                    <span className="hidden text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50 max-xl:block">
                       In Nevo
                     </span>
                     <Toggle
@@ -219,7 +229,7 @@ export function NotificationPreferences({ scopes }: { scopes: PermissionScope[] 
                     />
                   </span>
                   <span className="flex flex-col items-center gap-1.5">
-                    <span className="hidden text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50 max-lg:block">
+                    <span className="hidden text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50 max-xl:block">
                       Email
                     </span>
                     <Toggle
