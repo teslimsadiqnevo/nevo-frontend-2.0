@@ -135,7 +135,22 @@ export function useStudentLesson(
   // Where they got to last time. Home already promises "About halfway in" off
   // this same row, so the player has to honour it - a Continue button that
   // restarts from the beginning is worse than no Continue button.
-  const { data: dashboard } = useStudentDashboard();
+  /*
+   * `loading` TOO, NOT JUST `data`.
+   *
+   * A child's saved place lives on the dashboard read, and the lesson read is a
+   * SEPARATE request racing it. This used to take only `data`, so whenever the
+   * lesson won - which is often, it is the smaller payload - the player mounted
+   * with `resumeAt: null`, opened at segment 0, and the position effect
+   * immediately wrote `in_progress, segment 0` over the place the child had
+   * actually reached.
+   *
+   * So resuming was a coin toss, and LOSING IT DESTROYED THE EVIDENCE: the
+   * saved position was not merely ignored, it was overwritten by the act of
+   * ignoring it. A child who stopped at segment seven yesterday could open the
+   * lesson today, see segment one, and have their real place gone.
+   */
+  const { data: dashboard, loading: dashboardLoading } = useStudentDashboard();
 
   // One piece of state, STAMPED WITH THE ID IT DESCRIBES. Resetting four
   // separate flags at the top of the effect would clear them a render late -
@@ -251,7 +266,20 @@ export function useStudentLesson(
       : mock
         ? (getMockAdaptation(lessonId) ?? null)
         : null,
-    loading: signedIn && !lesson && !missing && !failed && !empty,
+    /*
+     * Waiting for the dashboard as well as the lesson. Both feed the first
+     * frame the player draws - the lesson is what it shows, the dashboard is
+     * WHERE it opens - so rendering on the first of them to arrive is what made
+     * the resume a race. The cost is `max(a, b)` rather than the faster of the
+     * two; both fire on the same tick, so it is not `a + b`.
+     *
+     * Only for a live lesson: the authored walkthrough has no saved place to
+     * wait for, and a signed-out visitor never reads the dashboard at all.
+     */
+    loading:
+      signedIn &&
+      ((!lesson && !missing && !failed && !empty) ||
+        (Boolean(live) && dashboardLoading)),
     // `!mock` still stands, but it can now only be true for a signed-out
     // visitor - who makes no read at all, so none of these are ever set for
     // them anyway. For a signed-in child these are simply the truth.

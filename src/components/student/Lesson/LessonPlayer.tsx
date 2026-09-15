@@ -245,13 +245,32 @@ export function LessonPlayer({
   // Position, on every move - including the ones that go through a module
   // boundary or a break, which is why this watches `index` rather than
   // hooking each call site.
+  /*
+   * A REVIEW SESSION MUST NOT DEMOTE THE LESSON IT IS REVIEWING.
+   *
+   * This wrote `in_progress` at the current segment on every move, with no
+   * regard for whether it was a review. A review is spaced retrieval on a
+   * lesson the child has already FINISHED (37d) - so opening one rewrote a
+   * completed lesson as `in_progress, segment 0` on the very first frame.
+   *
+   * Finishing the review put the completion back. Leaving it partway did not:
+   * the lesson stayed demoted, reappeared on Home under "Pick back up" as
+   * though it were unfinished, and the child was invited to redo work they had
+   * done. The record of having completed it was simply gone.
+   *
+   * The review's own outcome belongs to the scheduler
+   * (`POST /api/scheduler/record-review`), which nothing calls yet. Until it
+   * does, the honest behaviour is to leave the lesson's progress alone rather
+   * than overwrite it with something false.
+   */
   useEffect(() => {
+    if (review) return;
     const pos = modulePositionFor(lesson, index);
     reportProgress(LESSON_STATUS.IN_PROGRESS, {
       segment: index,
       ...(pos ? { module: pos.moduleIndex } : {}),
     });
-  }, [lesson, index, reportProgress]);
+  }, [lesson, index, review, reportProgress]);
 
   // Completion. Reported once, however the child leaves the finished lesson.
   //
@@ -1045,7 +1064,12 @@ export function LessonPlayer({
           // Leaving deliberately is not the same fact as drifting off mid
           // segment, and the engine is entitled to tell them apart - the
           // position is identical either way, the intent is not.
-          reportProgress(LESSON_STATUS.EXITED, { segment: index });
+          // Same reason as the position write above: leaving a REVIEW part way
+          // says nothing about the lesson, which was finished before the review
+          // began. Writing `exited` here would demote it on the way out.
+          if (!review) {
+            reportProgress(LESSON_STATUS.EXITED, { segment: index });
+          }
           router.push(LESSONS_HREF);
         }}
       />
