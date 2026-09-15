@@ -1571,6 +1571,36 @@ Both guards on the new copy were then mutation-verified: reinstating the promise
 the audit killed fails "never offers to send one", and making the fallback
 assert contact fails two more.
 
+## The admin design check — 74 confirmed, 15 Sep
+
+Every built admin screen compared frame-by-frame against its frame and SCRUM
+spec, each finding then adversarially verified against the code by a second
+agent. **79 raw, 74 confirmed, 5 rejected.** The full register with a proposed
+fix per row is `docs/design-check-findings.md`.
+
+**Six were design-law breaches and all six are fixed.** Two of the six were
+mine, both introduced in the previous 48 hours, and both against rules written
+down in the files I was editing:
+
+| | |
+|---|---|
+| A withdrawn parent could be asked again | Both student screens gated the action on "anything but confirmed", which includes `withdrawn`. SCRUM-40 forbids it outright — and it matters more since 15 Sep, when backend began enforcing withdrawal: the child is genuinely stopped, so the request goes to the parent who stopped them. |
+| A class could go to a deactivated teacher | `RemoveAccessSheet` filtered on identity alone. `isActive()` was written and unit-tested next door and simply never called — producing the orphaned class the sheet exists to prevent. |
+| Zero-Tag, learner profile | Accommodations rendered as pills reading "Reading", "Attention", "Numerical" beside a named child. A category noun next to a learner's name is a label about that learner however neutral the word looks alone. |
+| Zero-Tag, adaptation log | The row headline printed `simplify_trigger`. The labels had been written for the type filter **one hour earlier** and not used in the rows. |
+| A card on the finance home (MINE) | Rendered brand and last four with a "Manage" route. SCRUM-98 and D11 forbid it in every state, and `PaymentMethod` is annotated **"Read, never rendered"** on the very type it was read from. |
+| The bulk-import lesson claim (MINE) | The `skipped > 0` branch was corrected and its sibling three lines below was not. |
+
+**The pattern, and it is the one already named in this file:** four of the six
+are a rule stated in a comment while the code a few lines away breaks it, or a
+fix applied to one branch and not its neighbour. Docblocks are not a control.
+
+**The remaining 68** are 39 states the frames draw that do not exist, 19 layout
+divergences (many at 1024x768, which is the breakpoint that gets forgotten), and
+14 copy differences. None is a correctness or safety defect. They are the
+backlog of "built to the frame, not quite" — worth working through before the
+design review, and now enumerated rather than guessed at.
+
 ### Still buildable, not built — NONE
 
 The list is empty. Everything remaining on the admin console is blocked on an
