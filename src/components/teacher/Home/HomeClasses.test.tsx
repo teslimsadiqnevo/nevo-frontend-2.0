@@ -100,10 +100,10 @@ describe("HomeClasses - when the read failed", () => {
 
 describe("HomeClasses - with the teacher's real assignments", () => {
   const assignment = {
-    assignment_id: "a1",
-    class_id: "c9",
-    class_name: "Year 7 Maths",
-    class_code: "MAP4KZ",
+    assignmentId: "a1",
+    classId: "c9",
+    className: "Year 7 Maths",
+    classCode: "MAP4KZ",
   };
 
   it("renders each assignment, linked to that class", () => {
@@ -126,7 +126,7 @@ describe("HomeClasses - with the teacher's real assignments", () => {
       state({
         live: true,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        liveClasses: [{ ...assignment, class_code: null }] as any,
+        liveClasses: [{ ...assignment, classCode: null }] as any,
       }),
     );
     render(<HomeClasses />);

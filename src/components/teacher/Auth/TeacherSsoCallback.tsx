@@ -89,16 +89,16 @@ export function TeacherSsoCallback() {
       .then((res) => {
         const role = res.role as UserRole;
         setSession({
-          token: res.access_token,
-          expiresAt: res.expires_at,
-          userId: res.user_id,
+          token: res.accessToken,
+          expiresAt: res.expiresAt,
+          userId: res.userId,
           role,
         });
         // The callback carries no school, and `AuthUser.schoolId` is not
         // optional - so it is left to `users/me`, which returns the real one
         // once the session exists. Seeding a placeholder here would put an
         // invented school into the signed-in user.
-        signIn({ id: res.user_id, role, schoolId: "", method: "sso" });
+        signIn({ id: res.userId, role, schoolId: "", method: "sso" });
         setPhase("success");
         timers.current.push(
           setTimeout(

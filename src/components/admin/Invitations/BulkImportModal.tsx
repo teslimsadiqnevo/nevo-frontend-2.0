@@ -474,7 +474,7 @@ export function BulkImportModal({
         <span className="text-[12.5px] text-nevo-near-black/55">
           Columns:{" "}
           {isStudent
-            ? "name, class, student_email, parent_contact"
+            ? "name, class, student_email, parentContact"
             : "name, email, class"}
         </span>
       </div>

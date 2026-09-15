@@ -52,9 +52,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 const SESSION = {
-  access_token: "tok",
-  expires_at: new Date(Date.now() + 3600_000).toISOString(),
-  user_id: "student-1",
+  accessToken: "tok",
+  expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+  userId: "student-1",
   role: "student",
 };
 
@@ -101,8 +101,8 @@ describe("ReturningSignInScreen — signing back in", () => {
     await signInNow();
 
     expect(loginPin).toHaveBeenCalledWith({
-      school_code: "751A1136",
-      login_identifier: "amara.k",
+      schoolCode: "751A1136",
+      loginIdentifier: "amara.k",
       pin: "123456",
     });
   });

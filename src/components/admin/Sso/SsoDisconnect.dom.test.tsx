@@ -25,20 +25,20 @@ vi.mock("@/lib/api/sso", async (importOriginal) => {
       status: async (): Promise<SsoStatus> => ({
         provider: "microsoft",
         status: "connected",
-        school_url_slug: "brightgate",
-        school_entry_url: "https://nevolearning.com/s/brightgate",
-        last_connection_error: null,
-        connection_checked_at: null,
-        reauthorised_at: null,
-        last_successful_sync_at: "2026-09-08T06:00:00Z",
-        next_scheduled_sync_at: null,
-        disconnected_at: null,
-        data_flow: [],
+        schoolUrlSlug: "brightgate",
+        schoolEntryUrl: "https://nevolearning.com/s/brightgate",
+        lastConnectionError: null,
+        connectionCheckedAt: null,
+        reauthorisedAt: null,
+        lastSuccessfulSyncAt: "2026-09-08T06:00:00Z",
+        nextScheduledSyncAt: null,
+        disconnectedAt: null,
+        dataFlow: [],
       }),
       syncHistory: async () => ({
-        window_days: 30,
-        successful_runs: 4,
-        failed_runs: 0,
+        windowDays: 30,
+        successfulRuns: 4,
+        failedRuns: 0,
         runs: [],
       }),
       disconnect: () => disconnect(),
@@ -108,8 +108,8 @@ describe("SsoView disconnect", () => {
   it("closes and reports the retained accounts when it succeeds", async () => {
     disconnect.mockResolvedValue({
       provider: "microsoft",
-      disconnected_at: "2026-09-08T10:00:00Z",
-      retained_user_count: 412,
+      disconnectedAt: "2026-09-08T10:00:00Z",
+      retainedUserCount: 412,
     });
 
     const { container } = render(<SsoView />);

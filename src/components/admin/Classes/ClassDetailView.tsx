@@ -67,7 +67,7 @@ import { WriteFailed } from "../WriteFailed";
  *
  * TODO(api): the two fields that really are missing - WHO CHANGED IT (no actor
  * on any assignment schema) and ENDED assignments (the DELETE returns no body
- * and nothing carries an `ended_at`). Those are what would make it a history.
+ * and nothing carries an `endedAt`). Those are what would make it a history.
  */
 
 type Phase = "loading" | "ready" | "failed" | "denied";
@@ -281,13 +281,13 @@ export function ClassDetailView({ classId }: { classId: string }) {
         ) : (
           teachers.map((t, i) => {
             const name =
-              [t.first_name, t.last_name].filter(Boolean).join(" ").trim() ||
+              [t.firstName, t.lastName].filter(Boolean).join(" ").trim() ||
               t.email ||
               "Assigned teacher";
-            const confirming = removing === t.assignment_id;
+            const confirming = removing === t.assignmentId;
             return (
               <div
-                key={t.assignment_id}
+                key={t.assignmentId}
                 className={cn(
                   "px-[22px] py-4",
                   i < teachers.length - 1 && ROW_DIVIDER,
@@ -304,9 +304,9 @@ export function ClassDetailView({ classId }: { classId: string }) {
                         {t.email}
                       </div>
                     ) : null}
-                    {longDate(t.assigned_at) ? (
+                    {longDate(t.assignedAt) ? (
                       <div className="truncate text-[12.5px] text-nevo-near-black/45">
-                        {`Assigned ${longDate(t.assigned_at)}`}
+                        {`Assigned ${longDate(t.assignedAt)}`}
                       </div>
                     ) : null}
                   </div>
@@ -316,7 +316,7 @@ export function ClassDetailView({ classId }: { classId: string }) {
                       type="button"
                       onClick={() => {
                         setRemoveFailed(false);
-                        setRemoving(confirming ? null : t.assignment_id);
+                        setRemoving(confirming ? null : t.assignmentId);
                       }}
                       aria-label={`Remove ${name} from this class`}
                       className="flex size-[30px] flex-none cursor-pointer items-center justify-center rounded-lg text-nevo-near-black/40 transition-colors hover:bg-nevo-near-black/[0.06] hover:text-nevo-near-black/70"
@@ -343,7 +343,7 @@ export function ClassDetailView({ classId }: { classId: string }) {
                         type="button"
                         onClick={() =>
                           classesApi
-                            .removeAssignment(t.assignment_id)
+                            .removeAssignment(t.assignmentId)
                             .then(() => {
                               setRemoving(null);
                               reload();

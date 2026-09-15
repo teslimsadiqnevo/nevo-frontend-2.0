@@ -12,26 +12,26 @@ import { clearSession, setSession } from "@/lib/auth/session";
 
 /** 200 body of both login endpoints. */
 export interface LoginResponse {
-  access_token: string;
-  token_type: string;
-  expires_at: string;
-  user_id: string;
+  accessToken: string;
+  tokenType: string;
+  expiresAt: string;
+  userId: string;
   role: string;
-  replaced_session: boolean;
+  replacedSession: boolean;
 }
 
 /** GET /auth/session - the authenticated principal. */
 export interface SessionInfo {
-  user_id: string;
+  userId: string;
   role: string;
-  session_id: string;
+  sessionId: string;
 }
 
 function store(login: LoginResponse): LoginResponse {
   setSession({
-    token: login.access_token,
-    expiresAt: login.expires_at,
-    userId: login.user_id,
+    token: login.accessToken,
+    expiresAt: login.expiresAt,
+    userId: login.userId,
     role: login.role,
   });
   return login;
@@ -54,10 +54,10 @@ export interface AccountCompletion {
   /** The only identifier the next sign-in will recognise. Null is possible. */
   loginIdentifier: string | null;
   session: {
-    access_token: string;
-    token_type: string;
-    expires_at: string;
-    user_id: string;
+    accessToken: string;
+    tokenType: string;
+    expiresAt: string;
+    userId: string;
     role: string;
   } | null;
 }
@@ -140,9 +140,9 @@ export const authApi = {
     const res = await api.post<AccountCompletion>("/api/v1/auth/pin", payload);
     if (res.session) {
       setSession({
-        token: res.session.access_token,
-        expiresAt: res.session.expires_at,
-        userId: res.session.user_id,
+        token: res.session.accessToken,
+        expiresAt: res.session.expiresAt,
+        userId: res.session.userId,
         role: res.session.role,
       });
     }
@@ -189,8 +189,8 @@ export const authApi = {
   /** Student sign-in - school code + identifier from the remembered device
    *  profile, plus the PIN they just entered (frame 00). */
   loginPin: (payload: {
-    school_code: string;
-    login_identifier: string;
+    schoolCode: string;
+    loginIdentifier: string;
     pin: string;
   }) => api.post<LoginResponse>("/api/v1/auth/login/pin", payload).then(store),
 
@@ -256,12 +256,12 @@ export const authApi = {
    */
   ssoCallback: (query: { provider: string; code: string; state: string }) =>
     api.get<{
-      access_token: string;
-      token_type: string;
-      expires_at: string;
+      accessToken: string;
+      tokenType: string;
+      expiresAt: string;
       role: string;
-      user_id: string;
+      userId: string;
       destination?: string | null;
-      replaced_session?: boolean | null;
+      replacedSession?: boolean | null;
     }>("/api/v1/auth/sso/callback", { params: query }),
 };

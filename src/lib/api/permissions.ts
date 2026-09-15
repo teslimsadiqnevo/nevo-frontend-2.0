@@ -8,8 +8,8 @@ import type { PermissionScope } from "@/lib/constants";
  */
 
 export interface PermissionsMe {
-  user_id: string;
-  school_id: string | null;
+  userId: string;
+  schoolId: string | null;
   role: string;
   scopes: PermissionScope[];
   /** Nav items the backend says this admin should see (D.3 dynamic nav). */

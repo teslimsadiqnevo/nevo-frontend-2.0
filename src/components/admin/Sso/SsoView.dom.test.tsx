@@ -9,7 +9,7 @@ import { SsoView } from "./SsoView";
  * The worst of the five failed-read claims: a school whose sync history did not
  * answer was told its roster sync was "Healthy".
  *
- * The mechanism was `history?.failed_runs ?? 0` - a failed read coalesces to 0
+ * The mechanism was `history?.failedRuns ?? 0` - a failed read coalesces to 0
  * and falls straight into the healthy branch, so absence of evidence rendered
  * as evidence of health, on the one operation that creates, matches and
  * deactivates real student and staff records. Fixed in #269; pinned here.
@@ -22,7 +22,7 @@ import { SsoView } from "./SsoView";
  * The fixtures below were copied from the CLIENT INTERFACE rather than from
  * the spec, and the interface was wrong - so "names real failures when the
  * history reports them" passed here while, against the real API,
- * `failed_runs` was `undefined`, `?? 0` made it zero, and the screen said
+ * `failedRuns` was `undefined`, `?? 0` made it zero, and the screen said
  * "Healthy" no matter how many syncs had failed.
  *
  * A fixture copied from the type under test can only ever prove the code
@@ -59,15 +59,15 @@ vi.mock("@/lib/api/school", async (importOriginal) => {
 const CONNECTED: SsoStatus = {
   provider: "microsoft",
   status: "connected",
-  school_url_slug: "brightgate",
-  school_entry_url: "https://nevolearning.com/s/brightgate",
-  last_connection_error: null,
-  connection_checked_at: null,
-  reauthorised_at: null,
-  last_successful_sync_at: "2026-09-08T06:00:00Z",
-  next_scheduled_sync_at: null,
-  disconnected_at: null,
-  data_flow: [],
+  schoolUrlSlug: "brightgate",
+  schoolEntryUrl: "https://nevolearning.com/s/brightgate",
+  lastConnectionError: null,
+  connectionCheckedAt: null,
+  reauthorisedAt: null,
+  lastSuccessfulSyncAt: "2026-09-08T06:00:00Z",
+  nextScheduledSyncAt: null,
+  disconnectedAt: null,
+  dataFlow: [],
 };
 
 

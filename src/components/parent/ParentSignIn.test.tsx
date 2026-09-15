@@ -37,12 +37,12 @@ import { ParentSignIn } from "./ParentSignIn";
  */
 
 const SESSION = {
-  access_token: "parent-tok",
-  token_type: "bearer",
-  expires_at: "2026-12-01T00:00:00Z",
-  user_id: "p-1",
+  accessToken: "parent-tok",
+  tokenType: "bearer",
+  expiresAt: "2026-12-01T00:00:00Z",
+  userId: "p-1",
   role: "parent_guardian",
-  replaced_session: false,
+  replacedSession: false,
 };
 
 const typeContact = (v: string) => {

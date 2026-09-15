@@ -29,8 +29,8 @@ export type InquiryRole = (typeof INQUIRY_ROLES)[InquiryRoleLabel];
 
 /** Request body per the backend's PartnerInquiryRequest schema. */
 export interface PartnerInquiry {
-  full_name: string;
-  school_name: string;
+  fullName: string;
+  schoolName: string;
   role: InquiryRole;
   contact: string;
   message?: string | null;
@@ -39,13 +39,13 @@ export interface PartnerInquiry {
 /** 201 response per PartnerInquiryResponse. */
 export interface PartnerInquiryReceipt {
   id: string;
-  full_name: string;
-  school_name: string;
+  fullName: string;
+  schoolName: string;
   role: InquiryRole;
   contact: string;
-  contact_method: string;
+  contactMethod: string;
   message: string | null;
-  created_at: string;
+  createdAt: string;
 }
 
 export const partnerInquiriesApi = {

@@ -43,7 +43,7 @@ import { ClassQrDialog, ClassQrScreen } from "./ClassQr";
 export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
   const [qr, setQr] = useState<"none" | "dialog" | "screen">("none");
   const role = klass.role === "co_teacher" ? "Co-teacher" : "Primary teacher";
-  const { students, loading, failed } = useClassRoster(klass.class_id);
+  const { students, loading, failed } = useClassRoster(klass.classId);
   const observed = students.filter((s) => s.profileStatus === "observed").length;
   /*
    * C16b's two markers. The attention flags are already read on Home; here they
@@ -70,7 +70,7 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
         <div className="mt-4 flex flex-wrap items-end justify-between gap-5">
           <div>
             <h2 className="text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
-              {klass.class_name}
+              {klass.className}
             </h2>
             <span className="mt-[5px] block text-[14.5px] text-nevo-near-black/60">
               {students.length > 0
@@ -78,7 +78,7 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
                 : `${role} · Synced from your school`}
             </span>
           </div>
-          {klass.class_code && (
+          {klass.classCode && (
             <button
               type="button"
               onClick={() => setQr("dialog")}
@@ -132,7 +132,7 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
               {students.map((student) => (
                 <Link
                   key={student.studentId}
-                  href={`/teacher/students/${student.studentId}?class=${klass.class_id}`}
+                  href={`/teacher/students/${student.studentId}?class=${klass.classId}`}
                   className={cn(
                     "cursor-pointer transition-[filter] hover:brightness-[0.985]",
                     "flex flex-col rounded-[12px] bg-nevo-cream-elevated px-[18px] py-4 shadow-elevation-1 xl:flex-row xl:items-center xl:gap-4 xl:p-5",
@@ -259,7 +259,7 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
               <p className="mt-1.5 text-sm leading-[1.55] text-nevo-near-black/68 xl:text-[14.5px]">
                 {failed
                   ? "Nothing has changed for your students. Try again in a moment."
-                  : klass.class_code
+                  : klass.classCode
                     ? "Share the class code and your students will appear here as they join."
                     : "Your students will appear here as your school adds them."}
               </p>
@@ -268,18 +268,18 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
         )}
       </div>
 
-      {qr === "dialog" && klass.class_code && (
+      {qr === "dialog" && klass.classCode && (
         <ClassQrDialog
-          className={klass.class_name}
-          code={klass.class_code}
+          className={klass.className}
+          code={klass.classCode}
           onClose={() => setQr("none")}
           onProject={() => setQr("screen")}
         />
       )}
-      {qr === "screen" && klass.class_code && (
+      {qr === "screen" && klass.classCode && (
         <ClassQrScreen
-          className={klass.class_name}
-          code={klass.class_code}
+          className={klass.className}
+          code={klass.classCode}
           onClose={() => setQr("none")}
         />
       )}

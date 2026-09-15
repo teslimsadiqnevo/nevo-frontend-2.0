@@ -1,7 +1,7 @@
 /**
  * How far this device's clock is from the server's.
  *
- * `expires_at` is a SERVER timestamp and `Date.now()` is a DEVICE one, so a
+ * `expiresAt` is a SERVER timestamp and `Date.now()` is a DEVICE one, so a
  * tablet with a wrong clock cannot hold a session at all unless the two are
  * reconciled - see `hasExpired` in `lib/auth/session.ts`.
  *

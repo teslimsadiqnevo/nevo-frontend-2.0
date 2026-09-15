@@ -108,8 +108,8 @@ export function ReturningSignInScreen({ next }: { next?: string }) {
     setError(null);
     try {
       const session = await authApi.loginPin({
-        school_code: school,
-        login_identifier: identifier,
+        schoolCode: school,
+        loginIdentifier: identifier,
         pin: digits,
       });
       /*
@@ -129,7 +129,7 @@ export function ReturningSignInScreen({ next }: { next?: string }) {
         initials: initialsFromUsername(identifier),
       });
       signIn({
-        id: session.user_id,
+        id: session.userId,
         role: session.role as UserRole,
         schoolId: school,
         name: identifier,

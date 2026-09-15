@@ -128,7 +128,7 @@ describe("AuthProvider — when the server says no", () => {
 describe("AuthProvider — the ordinary path", () => {
   it("authenticates when the server confirms the session", async () => {
     storeSession();
-    session.mockResolvedValue({ user_id: "student-1", role: "student" });
+    session.mockResolvedValue({ userId: "student-1", role: "student" });
 
     renderAuth();
 

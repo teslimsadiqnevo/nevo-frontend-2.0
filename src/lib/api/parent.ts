@@ -79,17 +79,17 @@ export interface ParentInvitation {
 /**
  * 200 of POST /api/v1/consents/parent/complete — the moment consent is given.
  *
- * `confirmed_types` is what was ACTUALLY recorded, which need not be every type
+ * `confirmedTypes` is what was ACTUALLY recorded, which need not be every type
  * the invitation asked for. Snake_case here and camelCase on the invitation
  * read: the two endpoints disagree and the wire is the wire.
  */
 export interface ParentConsentCompletion {
-  invitation_id: string;
-  parent_link_id: string;
-  parent_id: string;
-  student_id: string;
-  confirmed_types: ConsentType[];
-  completed_at: string;
+  invitationId: string;
+  parentLinkId: string;
+  parentId: string;
+  studentId: string;
+  confirmedTypes: ConsentType[];
+  completedAt: string;
   /**
    * Where a copy of the decision was actually sent, or null if none was.
    *
@@ -99,7 +99,7 @@ export interface ParentConsentCompletion {
    * the line safe to render: it says whether there IS a copy, and by which
    * route, so the screen never guesses.
    */
-  receipt_sent_to: ParentContactMethod | null;
+  receiptSentTo: ParentContactMethod | null;
 }
 
 /** How a receipt actually reached the parent. */

@@ -99,8 +99,8 @@ export function AccountSettings() {
     Promise.all([usersApi.me(), permissionsApi.me()])
       .then(([u, p]) => {
         setMe(u);
-        setFirstName(u.first_name ?? "");
-        setLastName(u.last_name ?? "");
+        setFirstName(u.firstName ?? "");
+        setLastName(u.lastName ?? "");
         setScopes(p.scopes);
         setLoad("ready");
         loadSessions();
@@ -152,8 +152,8 @@ export function AccountSettings() {
   const others = sessions.filter((s) => !s.current);
 
   const nameChanged =
-    firstName.trim() !== (me?.first_name ?? "") ||
-    lastName.trim() !== (me?.last_name ?? "");
+    firstName.trim() !== (me?.firstName ?? "") ||
+    lastName.trim() !== (me?.lastName ?? "");
 
   const saveName = () => {
     if (savingName || !nameChanged) return;
@@ -166,8 +166,8 @@ export function AccountSettings() {
         // Read the record BACK rather than trusting what we sent - the
         // response is the authority on what was stored.
         setMe(updated);
-        setFirstName(updated.first_name ?? "");
-        setLastName(updated.last_name ?? "");
+        setFirstName(updated.firstName ?? "");
+        setLastName(updated.lastName ?? "");
         setNameSaved(true);
       })
       .catch(() => setNameFailed(true))
@@ -179,10 +179,10 @@ export function AccountSettings() {
       {/* ------------------------------------------------------------ PROFILE */}
       <SettingsSection title="Your profile">
         <div className="flex items-center gap-4">
-          <Avatar name={me.display_name} email={me.email} size={56} />
+          <Avatar name={me.displayName} email={me.email} size={56} />
           <div className="min-w-0">
             <div className="text-[17px] font-semibold text-nevo-near-black">
-              {me.display_name}
+              {me.displayName}
             </div>
             {me.email ? (
               <div className="truncate text-sm text-nevo-near-black/62">{me.email}</div>

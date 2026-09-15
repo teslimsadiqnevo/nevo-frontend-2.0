@@ -42,7 +42,7 @@ export function ClassRoute({
 
   // A real class is only ever itself. This is checked before the fixtures so
   // that a live class can never be answered with a fixture of the same name.
-  const assigned = liveClasses.find((c) => c.class_id === classId);
+  const assigned = liveClasses.find((c) => c.classId === classId);
   if (assigned) return <LiveClassDetail klass={assigned} />;
 
   // Fixtures back the designed screens only while there is no live data -

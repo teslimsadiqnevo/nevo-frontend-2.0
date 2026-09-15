@@ -28,9 +28,9 @@ vi.mock("@/lib/api/consents", async (importOriginal) => {
 });
 
 const gate = (status: string) => ({
-  student_id: "student-1",
+  studentId: "student-1",
   granted: status === "granted",
-  required_type: "learning_data",
+  requiredType: "learning_data",
   status,
 });
 

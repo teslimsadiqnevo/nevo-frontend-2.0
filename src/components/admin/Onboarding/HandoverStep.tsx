@@ -69,7 +69,7 @@ export function HandoverStep({ state }: { state: WizardState }) {
     schoolApi
       .ssoStart(school.slug, state.authMethod)
       .then((res) => {
-        window.location.assign(res.authorization_url);
+        window.location.assign(res.authorizationUrl);
       })
       .catch(() => {
         setConnecting(false);

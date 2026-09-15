@@ -530,27 +530,27 @@ export function IepExporterView() {
                       key={g.id}
                       className="flex items-center gap-3.5 rounded-xl border-[1.5px] border-nevo-near-black/14 px-4 py-3.5"
                     >
-                      <Avatar name={g.parent_name} size={44} />
+                      <Avatar name={g.parentName} size={44} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[15px] font-semibold text-nevo-near-black">
-                          {g.parent_name}
+                          {g.parentName}
                         </div>
                         <div className="truncate text-[13px] text-nevo-near-black/62">
                           Guardian ·{" "}
-                          {g.account_created ? "account active" : "no account yet"}
+                          {g.accountCreated ? "account active" : "no account yet"}
                         </div>
                       </div>
                       <button
                         type="button"
-                        disabled={!g.parent_id || phase === "sharing"}
-                        onClick={() => g.parent_id && share(g.parent_id)}
+                        disabled={!g.parentId || phase === "sharing"}
+                        onClick={() => g.parentId && share(g.parentId)}
                         className={PRIMARY_BTN}
                       >
                         {phase === "sharing" ? "Sending…" : "Share"}
                       </button>
                     </div>
                   ))}
-                  {guardians.some((g) => !g.parent_id) ? (
+                  {guardians.some((g) => !g.parentId) ? (
                     <p className="m-0 text-[13px] leading-[1.5] text-nevo-near-black/55">
                       A guardian without an account can&rsquo;t receive this
                       yet. It becomes available once they confirm consent and

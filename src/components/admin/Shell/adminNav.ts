@@ -83,7 +83,7 @@ export function activeNavLabel(pathname: string): string | null {
 }
 
 /**
- * The role line under the admin's name. The session gives a `user_id` and a
+ * The role line under the admin's name. The session gives a `userId` and a
  * role and no name, so the job title half of the frame's "Proprietor · General
  * oversight" is not ours to write - but the scope half is real, and comes
  * straight from `permissions/me`.

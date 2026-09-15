@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks";
  *
  * The admin console shipped without any way to end a session. The Bearer token
  * is mirrored to localStorage and survives a tab close until the backend's
- * `expires_at`, so on a shared school machine the next person to open the
+ * `expiresAt`, so on a shared school machine the next person to open the
  * browser was signed in as the proprietor. Waiting for expiry or clearing site
  * data were the only exits.
  *

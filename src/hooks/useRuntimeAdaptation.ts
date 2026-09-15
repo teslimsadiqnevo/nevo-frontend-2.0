@@ -145,8 +145,8 @@ export function useRuntimeAdaptation(
       .then((res) => {
         if (!active) return;
         setResult({
-          offeredBreak: asBreakType(res.break_suggestion?.break_type),
-          reason: res.break_suggestion?.reason ?? null,
+          offeredBreak: asBreakType(res.breakSuggestion?.breakType),
+          reason: res.breakSuggestion?.reason ?? null,
         });
       })
       .catch(() => {

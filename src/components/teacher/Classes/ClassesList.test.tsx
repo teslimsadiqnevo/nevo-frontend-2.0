@@ -87,7 +87,7 @@ describe("the school line", () => {
       state({
         classes: [],
         liveClasses: [
-          { class_id: "c-1", class_name: "E2E Probe Class", class_code: "ABC123" },
+          { classId: "c-1", className: "E2E Probe Class", classCode: "ABC123" },
         ] as TeacherClasses["liveClasses"],
         live: true,
       }),

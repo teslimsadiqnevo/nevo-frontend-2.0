@@ -3,7 +3,7 @@
  *
  * The FastAPI backend issues a Bearer access token on login (no cookie); the
  * token lives here - module state, mirrored to localStorage so a reload keeps
- * the session until `expires_at`. The api client reads it per request.
+ * the session until `expiresAt`. The api client reads it per request.
  *
  * Separately, the device remembers WHO signs in here (`RememberedProfile`) -
  * the login screen is a returning-student PIN unlock (frame 00: avatar +
@@ -49,7 +49,7 @@ function deleteRoleCookie(): void {
 
 export interface StoredSession {
   token: string;
-  /** ISO timestamp from the backend's `expires_at`. */
+  /** ISO timestamp from the backend's `expiresAt`. */
   expiresAt: string;
   userId: string;
   role: string;

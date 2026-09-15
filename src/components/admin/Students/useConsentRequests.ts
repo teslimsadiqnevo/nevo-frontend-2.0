@@ -16,8 +16,8 @@ import { studentsApi } from "@/lib/api/students";
  * ============================================================================
  *
  * THE PARENT'S DETAILS COME FROM THE RECORD, NOT A FORM. `POST
- * /students/{id}/parent-consent-requests` needs `{parent_name, parent_contact,
- * contact_method}`, and `ParentLink` carries all three - so the admin presses
+ * /students/{id}/parent-consent-requests` needs `{parentName, parentContact,
+ * contactMethod}`, and `ParentLink` carries all three - so the admin presses
  * one thing, as D07 draws it ("Sending a request is deliberate and
  * per-student"), rather than retyping a contact the school already gave us.
  * The roster row does not carry the link, so it is fetched on the press.
@@ -27,7 +27,7 @@ import { studentsApi } from "@/lib/api/students";
  * outcome rather than a failure - "never a dead end", and no red.
  *
  * THE RECEIPT IS READ, NOT ASSUMED. The endpoint answers 202 with a
- * `delivery_status` of `queued | processing | sent | failed`, and only `sent`
+ * `deliveryStatus` of `queued | processing | sent | failed`, and only `sent`
  * means a parent was actually written to. This is the same defect the invite
  * surfaces carried until 8 Sep - "N invites sent" over a response that said
  * nobody was emailed - and it is not being repeated here.
@@ -45,14 +45,14 @@ export type ConsentRequestState =
 const IDLE: ConsentRequestState = { kind: "idle" };
 
 /**
- * `ParentLink.contact_method` is a bare `string` on our side while the endpoint
+ * `ParentLink.contactMethod` is a bare `string` on our side while the endpoint
  * takes the `email | sms` enum, so an unrecognised value is decided by the
  * contact itself rather than passed through and 422'd.
  */
-function methodFor(link: { contact_method: string; parent_contact: string }) {
-  const declared = link.contact_method?.toLowerCase();
+function methodFor(link: { contactMethod: string; parentContact: string }) {
+  const declared = link.contactMethod?.toLowerCase();
   if (declared === "email" || declared === "sms") return declared;
-  return link.parent_contact.includes("@") ? "email" : "sms";
+  return link.parentContact.includes("@") ? "email" : "sms";
 }
 
 export function useConsentRequests() {
@@ -75,22 +75,22 @@ export function useConsentRequests() {
       studentsApi
         .parentLinks(studentId)
         .then((links) => {
-          const link = links.find((l) => l.parent_contact && l.parent_name);
+          const link = links.find((l) => l.parentContact && l.parentName);
           if (!link) {
             set(studentId, { kind: "noContact" });
             return;
           }
           return consentsApi
             .requestParentConsent(studentId, {
-              parent_name: link.parent_name,
-              parent_contact: link.parent_contact,
-              contact_method: methodFor(link),
+              parentName: link.parentName,
+              parentContact: link.parentContact,
+              contactMethod: methodFor(link),
             })
             .then((receipt) =>
               set(studentId, {
                 kind: "done",
-                parentName: link.parent_name,
-                delivery: receipt.delivery_status,
+                parentName: link.parentName,
+                delivery: receipt.deliveryStatus,
               }),
             );
         })

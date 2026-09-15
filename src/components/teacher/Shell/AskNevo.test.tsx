@@ -56,9 +56,9 @@ const SERVER_THREAD = "6f1b2c3d-4e5a-4b6c-8d9e-0a1b2c3d4e5f";
 
 const answer = (over: Record<string, unknown> = {}) => ({
   answer: ANSWER,
-  question_category: "class_planning",
-  interaction_id: "11111111-2222-4333-8444-555555555555",
-  ai_gateway_call_id: "99999999-8888-4777-8666-555555555555",
+  questionCategory: "class_planning",
+  interactionId: "11111111-2222-4333-8444-555555555555",
+  aiGatewayCallId: "99999999-8888-4777-8666-555555555555",
   threadId: SERVER_THREAD,
   ...over,
 });

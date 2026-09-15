@@ -6,8 +6,8 @@ import { api } from "./client";
  * ============================================================================
  * THREE ONBOARDING DECISIONS HAVE NO FIELD OF THEIR OWN, AND LIVE IN `profile`.
  *
- * SCRUM-39 asks for `PATCH school.auth_method`, `PATCH school.band`, and a
- * DPA acceptance carrying `{school_id, admin_id, dpa_version, accepted_at}`.
+ * SCRUM-39 asks for `PATCH school.authMethod`, `PATCH school.band`, and a
+ * DPA acceptance carrying `{schoolId, adminId, dpa_version, acceptedAt}`.
  * None of the three exists: `PATCH /api/v1/school` accepts only
  * `{name, profile, academicConfig, retentionPolicy}`, and `profile` is an
  * untyped `object`.
@@ -310,7 +310,7 @@ export const schoolApi = {
 
   /** Where the provider consent screen lives, for the SSO handover. */
   ssoStart: (schoolSlug: string, provider: string) =>
-    api.get<{ authorization_url: string; school_entry_url: string }>(
+    api.get<{ authorizationUrl: string; schoolEntryUrl: string }>(
       `/api/v1/schools/${schoolSlug}/sso/${provider}/start`,
     ),
 };

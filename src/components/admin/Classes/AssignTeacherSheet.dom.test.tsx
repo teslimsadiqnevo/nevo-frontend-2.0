@@ -31,7 +31,7 @@ const teacher = (i: number): TeacherSummary => ({
   status: "active",
 });
 
-function sheet(assigned: { teacher_id: string }[] = []) {
+function sheet(assigned: { teacherId: string }[] = []) {
   return render(
     <AssignTeacherSheet
       classId="c1"
@@ -71,7 +71,7 @@ describe("AssignTeacherSheet staff list", () => {
   it("still says it when everyone genuinely does teach the class", async () => {
     list.mockResolvedValue([teacher(1), teacher(2)]);
 
-    const { container } = sheet([{ teacher_id: "t1" }, { teacher_id: "t2" }]);
+    const { container } = sheet([{ teacherId: "t1" }, { teacherId: "t2" }]);
     await waitFor(() =>
       expect(visibleText(container)).toMatch(/Everyone on staff already teaches/i),
     );
@@ -82,7 +82,7 @@ describe("AssignTeacherSheet staff list", () => {
   it("says none of the three when there is somebody to assign", async () => {
     list.mockResolvedValue([teacher(1), teacher(2)]);
 
-    const { container } = sheet([{ teacher_id: "t1" }]);
+    const { container } = sheet([{ teacherId: "t1" }]);
     await waitFor(() =>
       expect(visibleText(container)).toMatch(/Folake Adeyemi 2/),
     );

@@ -129,12 +129,12 @@ export default function LoginPage() {
       setError(null);
       try {
         const session = await authApi.loginPin({
-          school_code: remembered.schoolCode,
-          login_identifier: remembered.loginIdentifier,
+          schoolCode: remembered.schoolCode,
+          loginIdentifier: remembered.loginIdentifier,
           pin,
         });
         signIn({
-          id: session.user_id,
+          id: session.userId,
           role: session.role as UserRole,
           schoolId: remembered.schoolCode,
           name: remembered.displayName,

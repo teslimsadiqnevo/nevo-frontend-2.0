@@ -34,7 +34,7 @@ export interface ParsedRow {
 export const TEMPLATE: Record<InviteRole, string> = {
   teacher: "name,email,class\nFolake Adeyemi,adeyemi.f@school.edu.ng,JSS 2A\n",
   student:
-    "name,class,student_email,parent_contact\nChisom Eze,JSS 2A,chisom.e@school.edu.ng,mrs.eze@email.com\n",
+    "name,class,student_email,parentContact\nChisom Eze,JSS 2A,chisom.e@school.edu.ng,mrs.eze@email.com\n",
 };
 
 /**
@@ -92,7 +92,7 @@ function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim().length > 0));
 }
 
-/** Tolerant header matching - "Parent Email", "parent_contact" and "parent" all land. */
+/** Tolerant header matching - "Parent Email", "parentContact" and "parent" all land. */
 function headerIndex(header: string[], ...names: string[]): number {
   const norm = header.map((h) => h.trim().toLowerCase().replace(/[\s_-]+/g, ""));
   for (const n of names) {

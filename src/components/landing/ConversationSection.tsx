@@ -86,8 +86,8 @@ export function ConversationSection() {
     const data = new FormData(e.currentTarget);
     const roleLabel = String(data.get("role") ?? "") as InquiryRoleLabel;
     const inquiry = {
-      full_name: String(data.get("name") ?? ""),
-      school_name: String(data.get("school") ?? ""),
+      fullName: String(data.get("name") ?? ""),
+      schoolName: String(data.get("school") ?? ""),
       role: INQUIRY_ROLES[roleLabel] ?? "other",
       contact: String(data.get("contact") ?? ""),
       message: String(data.get("message") ?? "") || undefined,

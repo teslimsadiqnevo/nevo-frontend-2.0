@@ -52,22 +52,22 @@ export interface SsoDataFlowCategory {
 export interface SsoStatus {
   provider: SsoProvider;
   status: SsoConnectionStatus;
-  school_url_slug: string;
-  school_entry_url: string;
-  last_connection_error: string | null;
-  connection_checked_at: string | null;
-  reauthorised_at: string | null;
-  last_successful_sync_at: string | null;
-  next_scheduled_sync_at: string | null;
-  disconnected_at: string | null;
-  data_flow: SsoDataFlowCategory[];
+  schoolUrlSlug: string;
+  schoolEntryUrl: string;
+  lastConnectionError: string | null;
+  connectionCheckedAt: string | null;
+  reauthorisedAt: string | null;
+  lastSuccessfulSyncAt: string | null;
+  nextScheduledSyncAt: string | null;
+  disconnectedAt: string | null;
+  dataFlow: SsoDataFlowCategory[];
 }
 
 /**
  * THE CASING HERE IS THE API'S, NOT A CONVENTION.
  *
  * This resource is mixed and the mix is real: `SsoConnectionHealthResponse` is
- * snake_case (`school_entry_url`, `last_successful_sync_at`) and
+ * snake_case (`schoolEntryUrl`, `lastSuccessfulSyncAt`) and
  * `RosterSyncRunResponse` is camelCase. Both are copied from the deployed
  * document rather than normalised, because a type that disagrees with the wire
  * is a cast that lies - see the note on `RosterSyncHistory`.
@@ -112,9 +112,9 @@ export interface RosterSyncIssue {
  * THIS WAS snake_case AND THE ENDPOINT ANSWERS camelCase.
  *
  * `RosterSyncHistoryResponse` is `{windowDays, successfulRuns, failedRuns,
- * runs}`, all required. The client declared `window_days`, `successful_runs`
- * and `failed_runs`, so every one of them read `undefined` at runtime - and
- * `SsoView` asks `(history?.failed_runs ?? 0) > 0`, which coalesced to 0 and
+ * runs}`, all required. The client declared `windowDays`, `successfulRuns`
+ * and `failedRuns`, so every one of them read `undefined` at runtime - and
+ * `SsoView` asks `(history?.failedRuns ?? 0) > 0`, which coalesced to 0 and
  * fell straight into the HEALTHY branch.
  *
  * So the defect PR #269 was written to fix - a school being told its roster
@@ -139,8 +139,8 @@ export interface RosterSyncHistory {
  *
  * `POST /admin/sso/roster-sync` answers **202 Accepted** with
  * `{runId, status, pollUrl}` - it QUEUES a run. The client typed it as a
- * finished result carrying `imported_students`, `imported_teachers` and
- * `missing_teacher_class_mappings`, and `SsoView` built its confirmation out
+ * finished result carrying `importedStudents`, `importedTeachers` and
+ * `missingTeacherClassMappings`, and `SsoView` built its confirmation out
  * of them, so pressing "Sync now" rendered "Synced. undefined students and
  * undefined staff imported."
  *
@@ -162,14 +162,14 @@ export interface RosterSyncAccepted {
 
 export interface SsoDisconnected {
   provider: SsoProvider;
-  disconnected_at: string;
-  retained_user_count: number;
+  disconnectedAt: string;
+  retainedUserCount: number;
 }
 
 export interface SsoReauthorisation {
   provider: SsoProvider;
-  authorization_url: string;
-  school_entry_url: string;
+  authorizationUrl: string;
+  schoolEntryUrl: string;
 }
 
 export const ssoApi = {
@@ -179,7 +179,7 @@ export const ssoApi = {
   /** GET /api/v1/admin/sso/roster-sync-history */
   syncHistory: (windowDays?: number) =>
     api.get<RosterSyncHistory>("/api/v1/admin/sso/roster-sync-history", {
-      params: windowDays ? { window_days: windowDays } : undefined,
+      params: windowDays ? { windowDays: windowDays } : undefined,
     }),
 
   /** POST /api/v1/admin/sso/roster-sync - queues a run, 202 Accepted. */

@@ -104,7 +104,7 @@ export function rememberOnboardedStudent(
   const schoolCode = draft.schoolCode?.trim();
   /*
    * THE SCHOOL CODE IS PART OF THE CREDENTIAL, not decoration.
-   * `POST /auth/login/pin` takes `school_code + login_identifier + pin`, and
+   * `POST /auth/login/pin` takes `schoolCode + loginIdentifier + pin`, and
    * this used to store `draft.schoolCode ?? ""` - so a child whose class-code
    * join came back with a null `schoolCode` (the field is nullable on
    * `ConnectionResponse`) was remembered against an empty one, greeted by name
