@@ -11,6 +11,7 @@ import {
   normaliseCode,
 } from "@/components/student/Onboarding/CodeInput";
 import { authApi } from "@/lib/api";
+import { usersApi } from "@/lib/api/users";
 import {
   classifyLoginFailure,
   type LoginFailure,
@@ -117,24 +118,64 @@ export function ReturningSignInScreen({ next }: { next?: string }) {
        * rather than this form again. That is the whole point of the screen: a
        * child signs in the hard way once, and never again on this device.
        *
-       * The display name is the one thing this flow does not learn - a PIN
-       * login returns a session, not a profile - so the username stands in
-       * until something reads `users/me`. It is theirs either way, and better
-       * than the device calling them nothing.
+       * REMEMBERED WITHOUT A NAME, because this flow does not know one yet. A
+       * PIN login returns a session, not a profile. The previous version filled
+       * the gap with the LOGIN IDENTIFIER, which put `amara.k` on the lock
+       * screen permanently - a string that is half a credential, sitting on a
+       * pre-authentication screen, beside a school code every child in the
+       * building already knows - and greeted the child by their username on
+       * every screen that reads this profile.
        */
       rememberProfile({
         schoolCode: school,
         loginIdentifier: identifier,
-        displayName: identifier,
+        // Two letters, not an identifier. Better than a blank circle, and it
+        // is replaced the moment the real name lands below.
         initials: initialsFromUsername(identifier),
       });
       signIn({
         id: session.userId,
+        // `name` is optional on AuthUser, and absent beats the username.
         role: session.role as UserRole,
         schoolId: school,
-        name: identifier,
         method: "manual",
       });
+      /*
+       * Then go and learn their name, WITHOUT the child waiting on it.
+       *
+       * `users/me` is callable now that `loginPin` has stored the session. The
+       * first version of this awaited it before remembering anything, which
+       * made a profile read stand between a child and the door they had just
+       * unlocked - on a slow connection they would sit on a form they had
+       * already passed. Two of this screen's own tests caught it.
+       *
+       * So the door opens first and the name catches up. It lands inside the
+       * 1.2s "Welcome back" hold in the ordinary case, and when it does not,
+       * the child is already in their lessons and the lock screen simply
+       * learns their name before the next one.
+       *
+       * Not cancelled on unmount on purpose: this writes to the device store,
+       * not to React state, and the whole point is that it outlives this
+       * screen.
+       */
+      void usersApi
+        .me()
+        .then((me) => {
+          const first =
+            (me.firstName ?? me.displayName ?? "").trim().split(/\s+/)[0] || "";
+          if (!first) return;
+          rememberProfile({
+            schoolCode: school,
+            loginIdentifier: identifier,
+            displayName: first,
+            initials: first.slice(0, 2).toUpperCase(),
+          });
+        })
+        .catch(() => {
+          // Not knowing their name is not a reason to undo a sign-in they have
+          // already passed. The device remembers them namelessly instead, and
+          // "Welcome back" alone is a better greeting than their username.
+        });
       setDone(true);
       doneTimer.current = setTimeout(
         () => router.push(next || "/student/dashboard"),
