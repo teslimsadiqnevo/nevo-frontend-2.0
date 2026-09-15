@@ -199,4 +199,113 @@ describe("useStudentLesson", () => {
     await waitFor(() => expect(result.current.lesson).not.toBeNull());
     expect(adaptation.mock.calls.at(-1)?.[0]).toBe(FIRST_LESSON_ID);
   });
+  it("does not open a lesson before the child's saved place has arrived", async () => {
+    /*
+     * THE RESUME RACE, and the reason losing it was worse than it sounds.
+     *
+     * The saved position lives on the DASHBOARD read; the lesson is a separate
+     * request racing it. Rendering on the lesson alone opened the player at
+     * segment 0 - and the player's position effect then wrote
+     * `in_progress, segment 0` over the place the child had actually reached.
+     * The saved position was not merely ignored; it was destroyed by the act of
+     * ignoring it.
+     *
+     * So the hook must report `loading` until BOTH have answered.
+     */
+    signIn();
+    detail.mockResolvedValue(LIVE_LESSON);
+    modules.mockResolvedValue([]);
+    // The lesson has landed; the dashboard has not.
+    dashboard.mockReturnValue({ data: null, loading: true, failed: false });
+
+    const { result } = renderHook(() => useStudentLesson(FIRST_LESSON_ID));
+
+    await waitFor(() => expect(result.current.lesson).not.toBeNull());
+    expect(result.current.loading).toBe(true);
+  });
+
+  it("opens it once both reads have answered", async () => {
+    signIn();
+    detail.mockResolvedValue(LIVE_LESSON);
+    modules.mockResolvedValue([]);
+    dashboard.mockReturnValue({
+      data: { recentProgress: [] },
+      loading: false,
+      failed: false,
+    });
+
+    const { result } = renderHook(() => useStudentLesson(FIRST_LESSON_ID));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.lesson).not.toBeNull();
+  });
+
+  it("hands back the saved place once it has it", async () => {
+    signIn();
+    // Five segments, because `resumeAt` is CLAMPED to the lesson's length - a
+    // one-segment fixture pins every saved position to 0 and the assertion
+    // below would pass against a hook that ignored the saved place entirely.
+    const seg = LIVE_LESSON.segments[0];
+    detail.mockResolvedValue({
+      ...LIVE_LESSON,
+      segments: [0, 1, 2, 3, 4].map((i) => ({
+        ...seg,
+        id: `seg-${i}`,
+        segmentKey: `s${i}`,
+        sequenceOrder: i + 1,
+      })),
+    });
+    modules.mockResolvedValue([]);
+    dashboard.mockReturnValue({
+      data: {
+        recentProgress: [
+          {
+            lessonId: FIRST_LESSON_ID,
+            status: "in_progress",
+            segmentPosition: 3,
+            updatedAt: "2026-09-14T10:00:00Z",
+          },
+        ],
+      },
+      loading: false,
+      failed: false,
+    });
+
+    const { result } = renderHook(() => useStudentLesson(FIRST_LESSON_ID));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.resumeAt).toBe(3);
+  });
+
+  it("does not wait on the dashboard for the authored walkthrough", async () => {
+    // A signed-out visitor never reads the dashboard, and the walkthrough has
+    // no saved place to wait for. Blocking on it would hang that screen.
+    dashboard.mockReturnValue({ data: null, loading: true, failed: false });
+
+    const { result } = renderHook(() => useStudentLesson(FIRST_LESSON_ID));
+
+    await waitFor(() => expect(result.current.lesson).not.toBeNull());
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("shows a failed read as failed, rather than waiting on the dashboard", () => {
+    /*
+     * The `live &&` in the loading gate. Without it, a child whose LESSON read
+     * failed would sit on a skeleton for as long as the dashboard took - and if
+     * the dashboard never answered either, forever. A failure hidden behind a
+     * spinner is the quietest way of never telling someone something went
+     * wrong, which is the exact shape this file exists to prevent.
+     */
+    signIn();
+    detail.mockRejectedValue(new Error("network"));
+    modules.mockResolvedValue([]);
+    dashboard.mockReturnValue({ data: null, loading: true, failed: false });
+
+    const { result } = renderHook(() => useStudentLesson(FIRST_LESSON_ID));
+
+    return waitFor(() => {
+      expect(result.current.failed).toBe(true);
+      expect(result.current.loading).toBe(false);
+    });
+  });
 });
