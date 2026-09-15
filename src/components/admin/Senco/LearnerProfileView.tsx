@@ -20,6 +20,7 @@ import {
 } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
+import { accommodationCopy } from "@/lib/constants/accommodations";
 import { Avatar, CARD, GHOST_BTN, PRIMARY_BTN, ROW_DIVIDER } from "../Roster/primitives";
 import { NoAccess, failureKind } from "../NoAccess";
 
@@ -308,15 +309,37 @@ export function LearnerProfileView({ studentId }: { studentId: string }) {
             Nevo isn&rsquo;t adjusting anything for {firstName} at the moment.
           </p>
         ) : (
-          <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
-            {active.map((a) => (
-              <li
-                key={a}
-                className="rounded-full bg-nevo-navy/12 px-3.5 py-1.5 text-[13.5px] font-semibold text-nevo-navy"
-              >
-                {humanise(a)}
-              </li>
-            ))}
+          /*
+           * SENTENCES, NOT CATEGORY PILLS. These rendered as "Reading",
+           * "Attention", "Numerical" beside a named child - the exact shape
+           * Zero-Tag forbids. A category noun next to a learner's name is a
+           * label about the learner however neutral the word looks alone:
+           * "Attention" beside Amara Okafor reads as a finding about Amara.
+           *
+           * The subject of every sentence is Nevo. See
+           * `lib/constants/accommodations.ts`, which carries the reasoning per
+           * value, the same way `observations.ts` does for the roster patterns
+           * on this same screen.
+           */
+          <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+            {active.map((a) => {
+              const copy = accommodationCopy(a);
+              // A value the enum gains later is skipped rather than shown as
+              // its raw key - a bare enum word is the thing being fixed here.
+              if (!copy) return null;
+              return (
+                <li
+                  key={a}
+                  className="flex items-start gap-2.5 text-sm leading-[1.55] text-nevo-near-black/78"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="mt-[7px] size-[6px] flex-none rounded-full bg-nevo-violet"
+                  />
+                  {copy}
+                </li>
+              );
+            })}
           </ul>
         )}
         <p className="m-0 mt-4 border-t border-nevo-near-black/8 pt-3.5 text-[13px] leading-[1.55] text-nevo-near-black/60">
