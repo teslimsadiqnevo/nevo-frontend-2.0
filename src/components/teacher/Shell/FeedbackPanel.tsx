@@ -222,10 +222,10 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
           {failed && (
             <p className="mt-3 rounded-[10px] bg-nevo-violet/14 px-3.5 py-3 text-[13px] leading-[1.5] text-nevo-near-black/78">
               {failure === "unreachable"
-                ? "That didn’t reach us – your note is still here, so you can try again in a moment."
+                ? "That didn’t reach us. Your note is still here, so you can try again in a moment."
                 : failure === "refused"
-                  ? "Nevo couldn’t accept that note – it may be too long. Your note is still here; shortening it should do it."
-                  : "It reached us, but something broke on our end. Your note is still here – try again in a moment."}
+                  ? "Nevo couldn’t accept that note. It’s still here, so you can edit it and send again."
+                  : "It reached us, but something broke on our end. Your note is still here. Try again in a moment."}
             </p>
           )}
 

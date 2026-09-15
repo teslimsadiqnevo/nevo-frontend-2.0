@@ -44,11 +44,12 @@ largest category of undone work here.*
 | Connect threads | LIVE | — | NONE | — |
 | Feedback panel | LIVE | — (no test on the write) | NONE | — |
 | Upload scope + file | LIVE | — | NONE | — |
-| Teacher activation | LIVE | Error states unsigned-off | DESIGN | S |
+| Teacher activation | LIVE | — (copy signed off 14 Sep) | NONE | — |
 | Password reset | LIVE | Error states unsigned-off | DESIGN | S |
 | Session expired door | LIVE | Only the "expired" variant. Backend now sends four codes (`session_expired`, `session_revoked`, `session_replaced`, `account_paused`); **none is consumed anywhere**, and `ConsoleSessionExpired` takes only `signInHref`. Carrying a reason means changing `client.ts`, which all three consoles route through | FRONTEND | **M** |
 | Lesson library | LIVE | Subject pills hidden — upload cannot set a subject | BACKEND | S |
 | Notifications panel | LIVE | — | NONE | — |
+| Feedback panel copy | LIVE | — (counter already present at the last 200 chars; design to confirm the threshold) | NONE | — |
 | Class code / QR | LIVE | No standalone route; dialog only | DESIGN | S |
 | Sign-in | PARTIAL | A paused or rate-limited teacher is told their password is wrong | FRONTEND | S |
 | Console shell + nav rail | PARTIAL | Role label is `MOCK_TEACHER.role` unconditionally; Help & support has no destination | FRONTEND; DESIGN | S |
@@ -64,7 +65,7 @@ largest category of undone work here.*
 | Parse fallback | PARTIAL | 2 of 4 states live; `partial`/`noBoundary` unreachable signed in | BACKEND | M |
 | Teacher onboarding | PARTIAL | Redirect covers password only; join-confirm + profile-setup unbuilt | FRONTEND | M |
 | Profile & settings | PARTIAL | "Change photo" is a `<button>` with no `onClick` | BACKEND | S |
-| Parse progress ladder | FIXTURE-ONLY | Live path shows a plain spinner; 3 stages against 4 drawn rungs | FRONTEND; DESIGN | S |
+| Parse progress ladder | LIVE | — (three rungs keyed to `UploadStage`, driven by the live stage; design ruling 14 Sep) | NONE | — |
 | Upload module / section review | FIXTURE-ONLY | Hardcoded Photosynthesis six; every control writes nothing | FRONTEND | M |
 | Structure preview (standalone) | FIXTURE-ONLY | Orphaned duplicate; no session gate | FRONTEND | S |
 | Student observations (C16b) | NOT BUILT | Fully drawn. Data, enum and copy all exist; nothing renders them | FRONTEND | M |
@@ -128,7 +129,14 @@ undocumented expiry on it.
     three places across two components, and the profile link sends no query at all, so
     this is a preset-resolution change rather than a one-line href.
 11. **Delete or re-point `/teacher/lessons/upload/structure`.** **S**
-12. **Parent polish** — name the recipient in D01c, school attribution on D15d, link
+12. **Calculation variant tab (SCRUM-136).** Ruled 14 Sep. The fifth form a student can
+    receive, which a teacher currently cannot preview at all. **M**
+13. **D02 SMS and email copy**, to design's exact strings, plus "Send it again". **S**
+14. **Teacher-side active/inactive indicator.** The dependency the no-consent-column
+    ruling now rests on. **M**
+15. **Help & support screen** — email, WhatsApp, response time. **S**
+16. **Standalone class-code route**, and the assign-wizard class selector. **M**
+17. **Parent polish** — name the recipient in D01c, school attribution on D15d, link
     `/parent-portal` from somewhere. **S**
 
 ## B. Blocked on backend — the exact ask
@@ -156,13 +164,42 @@ undocumented expiry on it.
     them for the class." No approval endpoint exists. Either a write, or a ruling that
     review is read-only and C07b's copy is stale.
 
-## C. Blocked on design — the exact ask
+## C. Blocked on design
 
-1. A tab, label and layout for the fifth (calculation) variant.
-2. Pulse band cutoffs — the thresholds are a frontend invention.
-3. A Help & support destination — the menu row is drawn, no screen exists.
-4. Consent state on the teacher roster.
-5. Which `UploadStage` value maps to which drawn ladder rung.
+**All ten were ruled on 14 Sep.** What remains from those rulings is BUILD work, not
+waiting, so it has moved to list A. Kept here as the record of what was decided:
+
+1. ~~Fifth variant tab~~ → **build it**, labelled "Calculation", same shape as the others,
+   worked steps in sequence and the completion statement beneath. **SCRUM-136.**
+2. ~~Pulse band cutoffs~~ → hardcoded is fine for launch since the labels derive from the
+   cutoffs. Design is asking backend to serve the threshold so it does not live in the
+   console permanently.
+3. ~~Help & support~~ → **one screen, not a knowledge base**: support email, WhatsApp
+   number, response time.
+4. ~~Consent on the teacher roster~~ → **no consent column, ever**. But the ruling rested
+   on the Deactivated pill already telling a teacher why a child cannot get in, and that
+   pill is on the ADMIN roster, not the teacher one. So the ruling now carries a
+   dependency: a teacher-side active/inactive indicator. No consent, no reason, just
+   whether the child is active.
+5. ~~`UploadStage` → rung mapping~~ → **done 14 Sep**, three rungs, labels below.
+6. ~~D02 editable contact~~ → **drop the edit.** Read-only stays; the binding is the
+   security property, and a parent who has not proven who they are should not choose
+   where the code goes. A different address is a change the school makes on the record.
+7. ~~SMS copy for D02~~ → **write both paths properly**, SMS is the path to get right and
+   not the fallback. Email: "Check your email. If that address has an account, we've sent
+   a code." SMS: "Check your phone. If that number has an account, we've sent a code."
+   Resend reads "Send it again" in both.
+8. ~~Error states~~ → **ship what we have**; copy revised 14 Sep, see the house rule below.
+9. ~~Class selector~~ → **build it.** Defaults to the class navigated from, alphabetical
+   first if arrived at directly.
+10. ~~Class-code screen~~ → **standalone route.** Teachers project it, read it aloud and
+    return to it; a route links and reopens cleanly.
+
+### House rule, applied 14 Sep
+
+**No dashes in Nevo copy, anywhere.** Full stops or commas. 23 instances across the
+teacher and parent consoles were corrected. **60 remain in the student and admin
+consoles**, which other sessions own.
 6. **D02's editable contact field** — the frame draws it editable; the backend binds the
    code to the school's contact, so editable would let a link-holder redirect it.
 7. **SMS copy for D02** — the frame is email-only; Nigeria is SMS-first.

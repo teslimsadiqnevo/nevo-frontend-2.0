@@ -231,7 +231,7 @@ export function SetPasswordForm({
     } catch {
       setPhase("form");
       setError(
-        "We couldn't activate your account with this link. It may have expired - your school admin can send a new one.",
+        "We couldn't activate your account with this link. It may have expired, and your school admin can send a new one.",
       );
       return;
     }

@@ -139,7 +139,7 @@ export function ParentConsent({
             </svg>
           </span>
           <h1 className="mt-6 text-[23px] font-semibold leading-[1.3] tracking-[-0.01em] text-nevo-near-black">
-            Thank you &mdash; that&rsquo;s all we needed.
+            Thank you. That&rsquo;s all we needed.
           </h1>
           <p className="mt-3 max-w-[320px] text-[15px] leading-[1.6] text-nevo-near-black/68">
             {childLead} can start learning with their class. Set up an account
@@ -173,7 +173,7 @@ export function ParentConsent({
       <Shell>
         <div className="flex min-h-[70dvh] flex-col items-center justify-center text-center">
           <h1 className="text-[23px] font-semibold leading-[1.3] tracking-[-0.01em] text-nevo-near-black">
-            All done &mdash; thank you.
+            All done. Thank you.
           </h1>
           <p className="mt-3 max-w-[320px] text-[15px] leading-[1.6] text-nevo-near-black/68">
             {childLead} can start learning with their class. You can set up an
@@ -214,7 +214,7 @@ export function ParentConsent({
         </div>
 
         <h1 className="mt-6 text-[22px] font-semibold leading-[1.3] tracking-[-0.01em] text-nevo-near-black">
-          Any question is welcome &mdash; {child}&rsquo;s school can help.
+          Any question is welcome, and {child}&rsquo;s school can help.
         </h1>
         <p className={BODY}>
           Nothing happens until you&rsquo;re ready, and consent is never assumed.
@@ -259,7 +259,7 @@ export function ParentConsent({
             </div>
           ) : (
             <p className="mt-2 text-[14.5px] leading-[1.55] text-nevo-near-black/68">
-              Contact the school the way you normally would &mdash; they sent you
+              Contact the school the way you normally would. They sent you
               this request and can explain it.
             </p>
           )}
@@ -304,7 +304,7 @@ export function ParentConsent({
           on Nevo.
         </h1>
         <p className={BODY}>
-          Nevo is the school&rsquo;s learning platform &mdash; personalised
+          Nevo is the school&rsquo;s learning platform, personalised
           learning for every student. As {child}&rsquo;s parent or guardian, your
           consent is all we need before they begin.
         </p>
@@ -358,7 +358,7 @@ export function ParentConsent({
           role="alert"
           className="mt-3.5 rounded-[10px] bg-nevo-violet/14 px-4 py-3 text-[14px] leading-[1.5] text-nevo-near-black/80"
         >
-          We couldn&rsquo;t record that just now. Nothing has changed &mdash;
+          We couldn&rsquo;t record that just now. Nothing has changed.
           please try again in a moment.
         </p>
       )}

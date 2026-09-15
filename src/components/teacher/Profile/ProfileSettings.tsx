@@ -109,7 +109,7 @@ export function ProfileSettings() {
     if (!dirty || notifications.saveState === "saving") return;
     void notifications.save().then((ok) => {
       if (ok) setDirty(false);
-      setToast(ok ? "Settings saved" : "We couldn’t save that – try again");
+      setToast(ok ? "Settings saved" : "We couldn’t save that. Try again");
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setToast(""), TOAST_MS);
     });
@@ -202,7 +202,7 @@ export function ProfileSettings() {
                 )}
                 {!identity?.name && (
                   <div className="mt-[3px] max-w-[420px] text-sm leading-[1.5] text-nevo-near-black/60">
-                    Your details aren’t connected yet – your name and contact
+                    Your details aren’t connected yet. Your name and contact
                     details come from your school.
                   </div>
                 )}
@@ -250,7 +250,7 @@ export function ProfileSettings() {
               </p>
               <p className="mt-1.5 text-sm leading-[1.5] text-nevo-near-black/62">
                 We&rsquo;re not showing them rather than guessing. Nothing has
-                changed &ndash; try again in a moment.
+                changed. Try again in a moment.
               </p>
               <button
                 type="button"
