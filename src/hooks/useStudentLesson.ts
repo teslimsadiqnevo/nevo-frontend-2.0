@@ -9,6 +9,7 @@ import { adaptSegmentsFor } from "@/lib/lessons/adaptation";
 import { lessonFromContent } from "@/lib/lessons/fromContent";
 import { getMockAdaptation, getMockLesson } from "@/lib/mocks";
 import type { AdaptationPlan, Lesson } from "@/lib/types";
+import { useAccommodations } from "./useAccommodations";
 import { useAdaptation } from "./useAdaptation";
 import { useHasSession } from "./useHasSession";
 import { useHydrated } from "./useHydrated";
@@ -229,6 +230,11 @@ export function useStudentLesson(
     live ?? null,
   );
 
+  // Cross-session and slow-moving, so it does not belong on the per-lesson
+  // adapt call - and could not ride on it anyway, since that route carries no
+  // accommodation field.
+  const accommodations = useAccommodations();
+
   // `segmentPosition` is the 0-based index we wrote ourselves, so it round
   // trips - but it is clamped anyway, because a position past the end would
   // open an empty spine, and a lesson re-parsed with fewer segments is exactly
@@ -261,8 +267,17 @@ export function useStudentLesson(
     // must not borrow another lesson's authored one.
     // Never crossed, and never invented: an authored plan belongs to an
     // authored lesson, which only a signed-out visitor now sees.
+    //
+    // The child's accommodations ride on the LIVE plan only, and only once the
+    // read has answered. The adapt route carries no accommodation field, so
+    // without this the field was undefined for every signed-in child while the
+    // teacher's screen listed the same accommodations as active. A mock keeps
+    // the authored flags it was written with - the walkthrough is a designed
+    // demonstration, not a claim about anybody.
     plan: live
-      ? adaptation.plan
+      ? adaptation.plan && accommodations
+        ? { ...adaptation.plan, accommodations }
+        : adaptation.plan
       : mock
         ? (getMockAdaptation(lessonId) ?? null)
         : null,

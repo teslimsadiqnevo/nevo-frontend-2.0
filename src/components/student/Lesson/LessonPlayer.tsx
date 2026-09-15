@@ -366,6 +366,28 @@ export function LessonPlayer({
   const scrollMarks = useRef<Set<number>>(new Set());
   /** The scrolling reading column, so a segment can be measured, not guessed. */
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * How much of a CHUNKED body has been shown, reported by the body itself.
+   *
+   * The attention accommodation deliberately holds most of the body back, so
+   * the layout measurement below - "no room to scroll, therefore they saw all
+   * of it" - becomes false exactly when it is on. The body is the only thing
+   * that knows which part is showing, so it says.
+   *
+   * STAMPED WITH THE SEGMENT ID RATHER THAN CLEARED ON SEGMENT CHANGE, and
+   * that is deliberate. React runs child effects before parent ones, so a new
+   * segment's body reports BEFORE any reset here could run, and a reset would
+   * wipe the fresh value rather than the stale one. Comparing ids cannot lose
+   * that race because it does not race: a report either belongs to the
+   * segment being asked about or it does not.
+   */
+  const chunkRead = useRef<{ segmentId: string; pct: number } | null>(null);
+  const noteReadProgress = useCallback(
+    (pct: number) => {
+      chunkRead.current = { segmentId: lesson.segments[index].id, pct };
+    },
+    [lesson.segments, index],
+  );
 
   /**
    * Put focus on the new segment when the content changes underneath it.
@@ -404,10 +426,23 @@ export function LessonPlayer({
     scrollDepth.current = 0;
     scrollMarks.current = new Set();
     return () => {
+      /*
+       * A chunked body's own count outranks the layout measurement, and only
+       * ever for the segment it was reported against.
+       *
+       * THIS IS THE WHOLE FIX, and it is deliberately the only place that
+       * knows. An earlier version also guarded the measurement effect above so
+       * it would not write 100 for a chunked segment; a mutation proved that
+       * guard changed nothing, because a chunked segment never reads
+       * `scrollDepth` anyway. Two half-defences that look load-bearing are
+       * worse than one that is.
+       */
+      const chunked =
+        chunkRead.current?.segmentId === segId ? chunkRead.current.pct : null;
       trackEvent(SIGNAL_EVENT_TYPES.TIME_ON_SEGMENT, {
         segmentId: segId,
         durationMs: Date.now() - enteredAt,
-        scrollDepthPct: Math.round(scrollDepth.current),
+        scrollDepthPct: chunked ?? Math.round(scrollDepth.current),
       });
     };
   }, [index, lesson.segments, trackEvent]);
@@ -452,6 +487,14 @@ export function LessonPlayer({
     const room = el.scrollHeight - el.clientHeight;
     const pct = room <= 0 ? 100 : (el.scrollTop / room) * 100;
     scrollDepth.current = Math.max(scrollDepth.current, pct);
+    /*
+     * A milestone describes the SEGMENT, so a chunked body cannot raise one.
+     * Scrolling to the foot of Part 1 of 3 is the bottom of a third, and
+     * emitting `depthPct: 100` for it would tell the engine the child had read
+     * the whole segment. The honest depth for a chunked segment travels on
+     * `time_on_segment` above; this stays quiet rather than overstating.
+     */
+    if (chunkRead.current?.segmentId === segment.id) return;
     for (const mark of SCROLL_MILESTONES) {
       if (pct >= mark && !scrollMarks.current.has(mark)) {
         scrollMarks.current.add(mark);
@@ -1033,6 +1076,7 @@ export function LessonPlayer({
               density={effectiveDensity}
               reading={readingOn}
               attention={attentionOn}
+              onReadProgress={noteReadProgress}
               onReplay={() =>
                 trackEvent(SIGNAL_EVENT_TYPES.REPLAY, { segmentId: segment.id })
               }
@@ -1150,6 +1194,7 @@ function SegmentBody({
   density,
   reading,
   attention,
+  onReadProgress,
   onReplay,
   onAudioBusy,
   onCalcSolved,
@@ -1161,6 +1206,7 @@ function SegmentBody({
   density: Density | null;
   reading: boolean;
   attention: boolean;
+  onReadProgress: (pct: number) => void;
   onReplay: () => void;
   onAudioBusy: (phase: BusyPhase) => void;
   onCalcSolved: () => void;
@@ -1174,6 +1220,7 @@ function SegmentBody({
         density={density}
         reading={reading}
         attention={attention}
+        onReadProgress={onReadProgress}
       />
     );
   if (modality === MODALITY.VISUAL && segment.visual)
