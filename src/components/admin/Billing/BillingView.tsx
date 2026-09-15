@@ -12,6 +12,12 @@ import {
   type UpcomingCharge,
 } from "@/lib/api/billing";
 import { formatMoney } from "@/lib/money";
+import {
+  daysPastDue,
+  overdueHeadline,
+  overduePanel,
+  overdueLine,
+} from "./overdue";
 import { cn } from "@/lib/utils";
 import { ReadFailed } from "../ReadFailed";
 import { BillingContactSheet } from "./BillingContactSheet";
@@ -98,6 +104,13 @@ export function BillingView() {
   const [invoicesFailed, setInvoicesFailed] = useState(false);
   const [upcoming, setUpcoming] = useState<UpcomingCharge | null>(null);
   const [upcomingFailed, setUpcomingFailed] = useState(false);
+  /**
+   * The instant every due date is judged against, captured once when the read
+   * lands. Not `Date.now()` during render - React purity, and the better
+   * reason underneath it: every row on this page should be measured against
+   * the same moment, not against whenever each happened to be evaluated.
+   */
+  const [now, setNow] = useState(0);
   const [contact, setContact] = useState<BillingContact | null>(null);
   const [editing, setEditing] = useState(false);
   const [account, setAccount] = useState<ReceivingAccount | null>(null);
@@ -118,6 +131,7 @@ export function BillingView() {
       .then((s) => {
         setSubscription(s);
         setContact(s.billingContact);
+        setNow(Date.now());
         setPhase("ready");
 
         setInvoicesFailed(false);
@@ -242,6 +256,58 @@ export function BillingView() {
             )}
           </div>
 
+          {/*
+            * D11.8's page-level panel, past 60 days only. Everything about its
+            * treatment is fixed by the spec and none of it is decoration:
+            * violet tint, not alarm; the bank details inline "so paying needs
+            * no navigation"; and NOTHING about access, ever - "no red, no
+            * warning glyph, no 'account at risk', no countdown to suspension,
+            * and no automated dunning tone". Several overdue invoices
+            * aggregate into ONE panel rather than repeating it per invoice.
+            */}
+          {(() => {
+            const panel = overduePanel(invoices, now);
+            if (!panel) return null;
+            return (
+              <div className="mt-8 rounded-xl bg-nevo-violet/[0.18] px-6 py-5">
+                <p className="m-0 text-sm leading-[1.6] text-nevo-navy">
+                  {overdueHeadline(
+                    panel,
+                    (amount) =>
+                      formatMoney(amount, subscription.pricing.currency),
+                    longDate,
+                  )}{" "}
+                  Our bank details are below, and your relationship manager can
+                  help if something needs sorting out.
+                </p>
+                {account ? (
+                  <dl className="m-0 mt-4 grid grid-cols-[auto_1fr] gap-x-5 gap-y-1.5 text-[13.5px]">
+                    <dt className="text-nevo-near-black/60">Bank</dt>
+                    <dd className="m-0 font-medium text-nevo-near-black">
+                      {account.bankName}
+                    </dd>
+                    <dt className="text-nevo-near-black/60">Account name</dt>
+                    <dd className="m-0 font-medium text-nevo-near-black">
+                      {account.accountName}
+                    </dd>
+                    <dt className="text-nevo-near-black/60">Account number</dt>
+                    <dd className="m-0 font-mono font-medium text-nevo-near-black">
+                      {account.accountNumber}
+                    </dd>
+                  </dl>
+                ) : (
+                  /* The account read is its own absence. An account number we
+                     do not have must never be approximated on the one panel a
+                     school would pay against. */
+                  <p className="m-0 mt-3 text-[13px] leading-[1.5] text-nevo-near-black/62">
+                    We couldn&rsquo;t load our bank details just now &ndash;
+                    your relationship manager has them.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+
           <h2 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
             Invoices
           </h2>
@@ -258,12 +324,25 @@ export function BillingView() {
                 aria-hidden
               />
             ) : invoices.length === 0 ? (
+              /* SCRUM-98's done-criterion: "Empty state names the first
+                 invoice date rather than saying nothing is here." The date is
+                 `upcoming.dueAt`, which this screen already reads and renders
+                 forty lines above - so the one thing a bursar opens this
+                 section to find out was on the page and not in the state that
+                 exists to answer it. Conditional: a school with nothing
+                 scheduled keeps the old sentence rather than inventing one. */
               <div className="px-6 py-[22px]">
                 <p className="m-0 text-[15px] font-semibold text-nevo-near-black">
                   No invoices yet
                 </p>
                 <p className="m-0 mt-1.5 text-[13.5px] leading-[1.55] text-nevo-near-black/62">
-                  Your first one appears here once your school is billed.
+                  {upcoming?.dueAt
+                    ? `Your first one is due ${longDate(upcoming.dueAt)}.`
+                    : "Your first one appears here once your school is billed."}
+                </p>
+                <p className="m-0 mt-2 text-[12.5px] leading-[1.5] text-nevo-near-black/50">
+                  Need to add a PO number to your invoices? Your relationship
+                  manager can set that up.
                 </p>
               </div>
             ) : (
@@ -288,6 +367,17 @@ export function BillingView() {
                         : `due ${longDate(inv.dueAt)}`}
                     </span>
                   </span>
+                  {inv.status === "overdue" && daysPastDue(inv.dueAt, now) ? (
+                    /* D11.8's row line, and the whole of it. "How many days,
+                       and that nothing has changed for the school's students.
+                       No consequence threats, because there are none at this
+                       stage." The spec is emphatic that no access is ever
+                       affected by non-payment, at any number of days - so
+                       there is deliberately nothing further to say. */
+                    <span className="order-last w-full text-[13px] leading-[1.5] text-nevo-near-black/66">
+                      {overdueLine(daysPastDue(inv.dueAt, now)!)}
+                    </span>
+                  ) : null}
                   {recorded[inv.invoiceNumber] && inv.status !== "paid" ? (
                     <span className="shrink-0 rounded-full bg-nevo-violet/25 px-3 py-1 text-[12.5px] font-semibold text-nevo-navy">
                       Pending verification

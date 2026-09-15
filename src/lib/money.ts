@@ -125,3 +125,111 @@ export function formatVatRate(rate: string | null | undefined): string | null {
   return `${tidy}%`;
 }
 
+
+/**
+ * Add decimal strings exactly, or return null.
+ *
+ * THE FILE'S OWN RULE, HONOURED: "Money, from the API's decimal STRINGS -
+ * never through a float." D11.8 needs one total - "Two invoices are
+ * outstanding, totalling ₦161,250,000" - and `Number(a) + Number(b)` on
+ * figures of that size is how a bursar reconciling against their own ledger
+ * finds a penny that is not there.
+ *
+ * Scaled to the longest fraction present and summed as BigInt, so the result
+ * is exact whatever the server's decimal places. One unreadable amount makes
+ * the whole total null: a sum that silently skipped a row would understate
+ * what a school owes, which is worse than showing no total at all.
+ */
+export function sumMoney(
+  amounts: (string | null | undefined)[],
+): string | null {
+  const parts: { negative: boolean; digits: string }[] = [];
+  let scale = 0;
+  const parsed: { negative: boolean; whole: string; frac: string }[] = [];
+
+  for (const raw of amounts) {
+    if (raw == null || raw === "") return null;
+    const m = /^\s*([+-]?)(\d*)(?:\.(\d*))?\s*$/.exec(raw);
+    if (!m) return null;
+    const [, sign, whole = "", frac = ""] = m;
+    if (whole === "" && frac === "") return null;
+    parsed.push({ negative: sign === "-", whole: whole || "0", frac });
+    if (frac.length > scale) scale = frac.length;
+  }
+  if (parsed.length === 0) return null;
+
+  for (const p of parsed) {
+    parts.push({
+      negative: p.negative,
+      digits: p.whole + p.frac + "0".repeat(scale - p.frac.length),
+    });
+  }
+
+  let total = parts[0];
+  for (let i = 1; i < parts.length; i++) {
+    total =
+      total.negative === parts[i].negative
+        ? { negative: total.negative, digits: addDigits(total.digits, parts[i].digits) }
+        : subtractSigned(total, parts[i]);
+  }
+
+  const digits = total.digits.padStart(scale + 1, "0");
+  const whole = trimLeadingZeros(digits.slice(0, digits.length - scale));
+  const frac = scale > 0 ? digits.slice(digits.length - scale) : "";
+  const zero = /^0*$/.test(whole) && /^0*$/.test(frac);
+  return `${total.negative && !zero ? "-" : ""}${whole}${frac ? `.${frac}` : ""}`;
+}
+
+function trimLeadingZeros(d: string): string {
+  return d.replace(/^0+(?=\d)/, "") || "0";
+}
+
+/** a + b, both non-negative digit strings of any length. */
+function addDigits(a: string, b: string): string {
+  const len = Math.max(a.length, b.length);
+  const x = a.padStart(len, "0");
+  const y = b.padStart(len, "0");
+  let carried = 0;
+  let out = "";
+  for (let i = len - 1; i >= 0; i--) {
+    const sum = Number(x[i]) + Number(y[i]) + carried;
+    out = String(sum % 10) + out;
+    carried = sum >= 10 ? 1 : 0;
+  }
+  return carried ? `1${out}` : out;
+}
+
+/** a - b where a >= b, both non-negative digit strings. */
+function subDigits(a: string, b: string): string {
+  const len = Math.max(a.length, b.length);
+  const x = a.padStart(len, "0").split("");
+  const y = b.padStart(len, "0");
+  let out = "";
+  let borrow = 0;
+  for (let i = len - 1; i >= 0; i--) {
+    let d = Number(x[i]) - Number(y[i]) - borrow;
+    borrow = d < 0 ? 1 : 0;
+    if (d < 0) d += 10;
+    out = String(d) + out;
+  }
+  return out;
+}
+
+/** Which of two non-negative digit strings is larger. */
+function cmpDigits(a: string, b: string): number {
+  const len = Math.max(a.length, b.length);
+  const x = a.padStart(len, "0");
+  const y = b.padStart(len, "0");
+  return x < y ? -1 : x > y ? 1 : 0;
+}
+
+function subtractSigned(
+  total: { negative: boolean; digits: string },
+  next: { negative: boolean; digits: string },
+): { negative: boolean; digits: string } {
+  const order = cmpDigits(total.digits, next.digits);
+  if (order === 0) return { negative: false, digits: "0" };
+  return order > 0
+    ? { negative: total.negative, digits: subDigits(total.digits, next.digits) }
+    : { negative: next.negative, digits: subDigits(next.digits, total.digits) };
+}

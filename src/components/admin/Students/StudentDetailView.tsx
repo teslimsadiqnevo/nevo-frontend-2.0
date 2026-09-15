@@ -202,6 +202,11 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                 Deactivated
               </span>
             ) : null}
+            {/* The consent state at the top, where the frame puts it. It was
+                readable only by scrolling to the card further down - on the
+                record whose header is the one thing an admin reads before
+                deciding anything about this child. */}
+            {student.consent ? <ConsentPill consent={student.consent} /> : null}
           </div>
           <div className="mt-[3px] truncate text-[14.5px] text-nevo-near-black/62">
             {currentClass
@@ -279,6 +284,29 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                   ? `A parent has withdrawn consent for ${firstName}`
                   : `No consent is recorded for ${firstName} yet`}
             </p>
+            {student.consent?.status === "withdrawn" ? (
+              /*
+               * WHAT WITHDRAWN ACTUALLY MEANS, which this card never said.
+               *
+               * It named the fact and stopped. Since 15 September the backend
+               * enforces withdrawal on the four processing endpoints with a
+               * 403 `consent_withdrawn`, so the child genuinely cannot start a
+               * lesson - and this is the screen an admin opens when a parent
+               * rings to ask why. Saying only "a parent has withdrawn consent"
+               * leaves them with no answer and no route.
+               *
+               * It states the three things the reader needs: that access is
+               * paused, that nothing of the child's is lost, and that only the
+               * parent can lift it - because SCRUM-80 makes withdrawal the
+               * parent's decision and nothing in this console may override it.
+               */
+              <p className="m-0 mt-1.5 max-w-[62ch] text-[13.5px] leading-[1.55] text-nevo-near-black/70">
+                {firstName}&rsquo;s lessons are paused while this stands, and
+                everything they have done is kept. Only the parent who
+                withdrew can restore it &ndash; there is nothing to change
+                here.
+              </p>
+            ) : null}
             {student.consent ? (
               (() => {
                 const line = consentDetailLine(student.consent);
@@ -568,7 +596,15 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
           studentId={student.id}
           studentName={name}
           onClose={() => setErasing(false)}
-          onErased={() => router.push("/admin/students")}
+          /* THE ERASURE SAID NOTHING. Permanently deleting a child's record
+             returned to the roster in silence, so the one irreversible action
+             on this screen was also the only one that never confirmed it had
+             happened. The roster reads this and renders a single plain line. */
+          onErased={() =>
+            router.push(
+              `/admin/students?erased=${encodeURIComponent(firstName)}`,
+            )
+          }
         />
       ) : null}
     </Wrapper>

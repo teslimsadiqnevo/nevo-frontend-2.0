@@ -281,7 +281,7 @@ export function HowToPayPanel({
                   type="button"
                   onClick={record}
                   disabled={!validRef || saving || !invoiceId}
-                  className="h-11 cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-[14.5px] font-semibold text-nevo-cream transition-[filter] hover:brightness-93 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-11 cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-[14.5px] font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving ? "Recording…" : "Record transfer"}
                 </button>

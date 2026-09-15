@@ -1,5 +1,10 @@
 # Admin design check — 74 confirmed findings, 15 September 2026
 
+**All 74 are closed as of 16 September.** Rows 1 and 2 were fixed with the
+original six law breaches; the remaining 72 were worked lane by lane and are
+recorded below, each with the reasoning where the fix shipped differs from the
+proposal in the table.
+
 Every built admin screen compared frame-by-frame against its design frame
 and SCRUM spec, then each finding adversarially verified against the code
 by a second agent. **79 raw, 74 confirmed, 5 rejected.**
@@ -14,7 +19,426 @@ visual or breakpoint divergence.
 **Fixed already (all law-severity):** the withdrawn-consent action, the
 deactivated-teacher reassignment, the accommodation pills, the payment card
 on the finance home, the bulk-import lesson claim, and the adaptation log's
-raw event key. Everything below is open.
+raw event key. Rows 1 and 2 record two of those six and are closed.
+
+## Closed
+
+Worked by lane. Where the fix shipped differs from the proposal in the table,
+the reason is given — those are the rows worth reading.
+
+### Overview — 15, 16, 17, 18, 19, 49, 65, 66
+
+- **17, per-card failure.** `complianceAudit()` was settled rather than left
+  bare, so a 500 on it costs its card and not the board summary, the roster
+  counts and the roll-up with it. A **403 still denies the whole page**: that
+  is not a card failing, it is an admin without `oversight`.
+- **A second defect this exposed.** `early` was `(adaptationTotal ?? 0) === 0`.
+  Unreachable while the audit gated the page, and live the moment it stopped —
+  a school of 287 whose reads failed would have been greeted with "Welcome to
+  Nevo — there's nothing to report on learning just yet". Not knowing is not
+  zero; it now renders the ordinary dashboard.
+- **16, the period pill — built smaller than drawn, deliberately.** The frame
+  draws a control (caret, pointer) and SCRUM-39's data line sources it from a
+  period-scoped `GET overview` that is not deployed. The pill states the scope
+  the figures actually have ("Since setup") and is not a switcher. The term
+  prefix on the date line is **not** built: there is nothing to derive
+  "Half-term 2" from, and inventing it is the same lie as 49. `TODO(api)`.
+- **49, the snapshot heading — period-neutral, against the spec's own copy
+  line.** SCRUM-39 fixes it as "Activity this week" and the adaptation
+  descriptor as "this half-term". Not one of the five figures beneath is
+  scoped to a period — `studentsProfiled`, `adaptationEventsLogged` and every
+  `SchoolRosterCounts` field are all-time or point-in-time, with no date
+  filter between them. "Activity so far" is the honest heading. Same TODO.
+- **19, denominators.** Band-sourced, per SCRUM-39 ("from the band seat
+  ceiling, not from a count of rows"). **Enterprise gets none** — "801+" is a
+  floor, not a ceiling, so there is no honest number to put after "of".
+- **18, muting.** Early-life zeros only. The compliance zero stays navy at
+  full weight for ever, which SCRUM-39 calls out as the deliberate difference;
+  it is not built from `snapshotTiles.ts` for that reason, and a test pins it.
+- **15, board pack.** Carries the compliance line and the adaptation count per
+  spec, in `labelHero`'s words rather than a second copy of that claim. A
+  figure we failed to read is **omitted, never zeroed** — nothing puts
+  "Diagnostic labels stored: 0" on a governor's desk off a read that did not
+  return. A refused clipboard says so instead of claiming success.
+
+New, tested: `snapshotTiles.ts`, `boardPack.ts`.
+
+### IT & SSO — 30, 31, 32, 33, 34, 35, 53
+
+- **32, the disconnected school.** `SsoConnectionStatus` has three members and
+  the page branched on two, so "we hold a status record" was read as "a
+  provider is live". A school that had turned Microsoft 365 off got the full
+  connected page — a "Healthy" roster sync with a Sync now button, a sign-in
+  URL nobody can use, and an offer to disconnect what is already disconnected.
+  `isLive` now draws that line once, and the school gets its **code** instead,
+  with a line saying when the provider went and that nothing of theirs was
+  lost.
+- **34, never synced.** "Healthy · Last synced never" was what a school in its
+  first hour saw. The ladder is now ordered and tested in `ssoState.ts`, and
+  `next_scheduled_sync_at` — fetched and never rendered anywhere — is what the
+  waiting state says.
+- **30, the mapping gap.** Banner and the degraded sync word, both to D10's
+  copy. The **action is scope-gated**: assigning a teacher to a class is
+  `roster`, this screen is `it_sso`, and `it_sso` can be held alone — so an
+  admin who cannot open Classes is told the fact without being sent to a
+  refusal. That follows the rule `itHomeRows` already keeps.
+- **31, the disclosure.** Both groups, both headings and the route out. "What
+  we never touch" is a **product guarantee held in the client**, because no
+  endpoint can enumerate an absence. It renders for a disconnected school too,
+  in the past tense — that reader is the one most likely to be asking.
+- **33, copy.** Local to the button, clears after 2.2s, and a clipboard the
+  browser refuses says so rather than going silent. It used to write "Copied"
+  into the page-wide notice several sections above, overwriting whatever the
+  last sync or disconnect had said, and never clearing.
+- **35, provenance — not built, by design.** D10b prints "Connected by Mr.
+  Idris Bello on 12 March 2026" and nothing in the contract carries an actor
+  or a connected-at. `reauthorised_at` is a different event; dating the line
+  from it would print the wrong year under the words "Connected by".
+  `TODO(api)` on `SsoStatus` naming the two fields wanted.
+- **53, "Not in use."** Back to being a description of one provider rather
+  than a pill on every card — a school with nothing connected met two cards
+  each stamped with it, on the page inviting them to connect one.
+
+New, tested: `ssoState.ts`.
+
+### Invitations — 8, 9, 10, 57
+
+- **8, the counters.** D19 draws them as the screen's primary filter and they
+  were three numbers nobody could press. The first counted the whole tab — a
+  total is not a subset any filter can select, so pressing it could only ever
+  mean "clear". The set is now the frame's own Pending / Joined / Expired, and
+  pressing the active one clears.
+- **10, the consent filter.** Its own value, **not a fourth status**. D19's
+  fixture folds "Consent Withdrawn" into the status badge; the contract does
+  not, and a withdrawn child's invitation is very often `joined` — so a
+  status-only filter could never have surfaced them, which is the point of
+  the filter. Student tab only, and it clears itself when the admin switches
+  to Teachers rather than hiding every row behind a control no longer on
+  screen.
+- **9, pagination.** Twenty a page, the frame's size, with its "Showing 1-20
+  of 47" line. The window is **clamped**, so narrowing a filter while on page
+  four lands on page one instead of an empty table.
+- **57, the join landing.** The wordmark, above the panel and outside every
+  branch — including expired and invalid, which is exactly when someone wants
+  to know whether the link they were sent was real. Same crop as the sidebar.
+
+New, tested: `inviteFilters.ts`.
+
+### Notifications — 11, 12, 13, 58, 59
+
+- **11, archive in the panel.** `NotificationRow` already took the handler and
+  the page already passed one; the panel passed nothing, so the same row had
+  the action in one of the two places it renders. A refused write puts the row
+  back rather than leaving the panel showing what the server declined.
+- **12, hover.** SCRUM-100 has one sentence per surface — panel "revealed on
+  row hover only", page "always visible rather than hover-only" — and one rule
+  was applied to both, honouring neither: hidden on the page at both drawn
+  widths, revealed in the panel only above 1024. It keys on `compact` now.
+- **13, the failure state.** The spec's copy verbatim ("We couldn't pull these
+  in just now. We're on it.") with the **Try again** it asks for. What it
+  replaced told the reader to close the panel they were reading and open it
+  again.
+- **59, the bell mark.** SCRUM-100 keeps it by name and the done-criterion
+  says so; it had been dropped, leaving two lines of text in an empty panel.
+- **58, the breakpoint — and the console-wide rule behind it.** `AdminSidebar`
+  collapses its rail at `(min-width: 1280px)`, so **1280 is this console's
+  tablet boundary**. A `max-lg:` variant fires below 1024 and therefore never
+  fires at 1024×768, the size the frames are drawn at — so the stacked form
+  was written, shipped, and unreachable at either drawn width. Re-keyed to
+  `max-xl:`, with the reasoning recorded in the file.
+
+**Also fixed here, not in the register:** the panel capped at six rows where
+SCRUM-100 says eight ("Panel caps at eight with a route to the full page").
+
+### Classes — 4, 5, 44, 45, 46, 56
+
+- **4, the Created state.** SCRUM-40: "Sheet closes, new row enters, nevoPop
+  check badge on the row for one shot, then rest." It navigated away to the
+  new class's detail page instead — so an admin creating three classes in a
+  row was taken off the list every time, and never once saw the list they had
+  just changed.
+- **44, the source line — and a TODO that was already corrected.** The note in
+  this file's docblock first said no endpoint reported the last sync, was then
+  corrected to say the gap was ours, and **sat there, corrected and unacted**,
+  while the line went on saying "your school's connected roster". It now reads
+  as SCRUM-40 writes it. Every clause is conditional on having been told: a
+  status we could not read keeps the generic sentence rather than inventing a
+  provider, and a school that has never synced gets no clause rather than the
+  word "never".
+- **45, the remove confirm.** SCRUM-40: "His notes on these students stay with
+  the school." It said "Nothing about the students changes" — a different and
+  weaker claim that answers a question nobody asked while leaving the one they
+  did ask, about their colleague's work, unanswered.
+- **46, the primary conflict.** The dropped clause was "she keeps the class and
+  her notes" — the half that matters, since what an admin hesitates over here
+  is whether they are taking something off a colleague.
+- **5, the secondary Close.** Both failure footers offered only Try again. A
+  failure with one way out holds the sheet open until it succeeds.
+- **56, the breakpoint** — same re-key as 58, plus the tablet side padding the
+  header was missing, so the column labels track their columns again.
+
+### Teachers — 40, 41, 72, 73, 74
+
+- **40, the dead end.** `staff: []` was the value on first render, after a
+  failed read, and for a school with nobody else active — and all three
+  rendered the same uncompletable sheet: selects showing only a placeholder, a
+  commit that could never enable, nothing on screen to act on. Three states
+  now, each saying which. `AssignTeacherSheet` had already learned this
+  lesson; the same hole was left open next door.
+- **41, no confirmation.** The sheet closed onto a list where the teacher was
+  still present — the reload happens in the parent, afterwards — so an admin
+  who had just handed over four classes saw a screen identical to the one they
+  started from. It holds for its confirmation, then closes.
+- **72 and 73, the tablet row.** Re-keyed like 56/58; and the Classes cell was
+  hidden at tablet with **nothing in its place**, so how much a teacher is
+  teaching — this screen's whole subject — vanished at 1024. It rides under
+  the name now, as the year group does on the classes list.
+- **74, the empty state.** `flex-1` was inert: both wrappers above it are
+  plain blocks, so the panel centred inside its own content box and rendered
+  directly beneath the heading. A definite height fixes it.
+
+**Also fixed, same defect, sibling files:** the identical inert empty state on
+`Classes/ClassesView` and `Students/StudentsView`. The check raised it on
+Teachers only; it is one fix in three files, and leaving two behind is exactly
+the shape this register keeps finding.
+
+### Billing — 3, 42, 43
+
+- **3, overdue.** The row line and the 60-day page panel, both to D11.8. Every
+  constraint on them is the spec's and none is stylistic: "no red, no warning
+  glyph, no 'account at risk', no countdown to suspension", because
+  "non-payment never affects a student's or a teacher's access. Not at 60
+  days, not at 200, not ever." The row line therefore says how long it has
+  been and that nothing has changed for the children, and stops. Several
+  overdue invoices aggregate into **one** panel, with the bank details inline
+  so paying needs no navigation.
+- **A rule this turned up.** The aggregate total needed adding decimal
+  strings, and `money.ts` opens with "never through a float". `sumMoney` was
+  added there rather than a `Number()` sum written at the call site — on the
+  one figure a bursar reconciles against their own ledger. It is hand-written
+  string arithmetic because the project targets ES2017, matching the `carry()`
+  helper already in that file.
+- **42, the empty state.** SCRUM-98's done-criterion is "names the first
+  invoice date rather than saying nothing is here" — and the date is
+  `upcoming.dueAt`, which this screen already reads and renders forty lines
+  above. The one thing a bursar opens that section to find out was on the page
+  and not in the state that exists to answer it.
+- **43, a promise Billing cannot keep.** The finance home said "the full
+  schedule is in Billing" and offered "See schedule". SCRUM-98 draws that
+  six-year table off `GET rate_schedule`; no such endpoint is deployed and the
+  word "schedule" does not appear in `lib/api/billing.ts` at all. The row now
+  names what Billing does hold — this year's cost in full — with a `TODO(api)`
+  for the schedule itself.
+
+New, tested: `Billing/overdue.ts`, `money.sumMoney`.
+
+### Settings — 21, 22, 23, 24, 25, 26, 27, 51
+
+- **25, the preset maps were shifted a level.** British had `kg1` as
+  "Reception" and `p1` as "Year 2", where D12b's own `presetMaps` put them at
+  "Reception 1" and "Year 1" — and SCRUM-99 states it outright in its example
+  copy, "P1 shows as Year 1". This is not cosmetic: **a Year 1 class was
+  labelled Year 2 on every screen in the product, including the ones a parent
+  sees.** Both maps are now the frame's, copied in enum order.
+- **24 and 23.** IB added (PYP/MYP/DP). Custom is a real card, and the preset
+  is **derived from the labels** rather than read from a stored string — so a
+  school that renames one level can no longer be described as "British" over
+  labels that are not. The cards show mappings ("P1 shows as Year 1") instead
+  of four bare names.
+- **26, validation.** Overlaps, reversed terms and half-term breaks outside
+  their own term, each as a plain navy line under its row, with Save gated and
+  the live count SCRUM-99 asks for. **Gaps are deliberately not flagged** — a
+  Nigerian year has a real month between terms, and treating that as something
+  to resolve would disable Save on every correct calendar.
+- **27, half-term dates.** `halfTermBreak?: boolean` was dead — nothing wrote
+  it, nothing read it, and it could say a break existed but never when, on the
+  screen whose whole job is to say when. Replaced with the spec's pair.
+- **51.** SCRUM-99's VS ERASURE line, verbatim; it is a done-when.
+- **21 and 22.** Signing a device out fired on the first press and named no
+  consequence — and every row reads "Another device", because the contract
+  carries no device name at all. One misread row ends the session someone is
+  working in. And a single session rendered as a one-row list with nothing to
+  do on it, where the answer wanted is that nowhere else is signed in.
+
+**Not from the register, and larger than any row in it.** `saveCalendar` wrote
+`yearStart`, `yearEnd` and `terms` — all three of which are **ours**, client
+inventions kept in a blob the backend passes through untouched. The deployed
+`AcademicConfig` types exactly one property, `termStartDates`, whose own
+description says what happens without it: *"fewer means Nevo falls back to
+splitting the contract year evenly."* So a school that carefully set three term
+dates in Settings had told Nevo nothing, and every "this half-term" figure in
+the product went on dividing their year into equal thirds. The save now derives
+and writes it.
+
+`maxItems: 3` on that field cannot express the four-term year this screen's own
+"Add a term" action offers; a `TODO(api)` records it rather than guessing which
+half is wrong.
+
+Also corrected: both SCRUM-40 and SCRUM-99 say "17 canonical levels" in prose
+and then enumerate sixteen. The code follows the list, and says so.
+
+New, tested: `academicCalendar.ts`, `taxonomy.ts`.
+
+### Shell — 28, 29, 52, 70
+
+- **28, the identity block never said who you are.** It rendered a generic
+  person glyph over a scope summary, so the one place in the console that
+  answers "who am I signed in as" answered only "what may I do" — on a
+  justification recorded in that very file which had already been corrected
+  elsewhere: the teacher console reads the same hook and has shown a name and
+  initials since 1 September. The scope line stays underneath, because it is
+  what tells two admins at the same school apart.
+- **70, the rail scrolled instead of the list.** With `overflow-y-auto` on the
+  aside, a rail taller than the viewport scrolled as a whole — so at 1024×768
+  the Notifications row, the Collapse chevron and the account and sign-out
+  block all fell below the fold. That is every persistent control in the
+  console, reachable only by scrolling a sidebar nobody expects to scroll.
+- **52.** The "Admin" badge beside the wordmark. Three consoles share one mark
+  and only this one is drawn with a badge; without it an admin and a teacher
+  see the same wordmark over different products.
+- **29, and its fifteen siblings.** The sign-out primary darkened on hover,
+  which is D14's **pressed** treatment — a navy button that darkens as the
+  pointer arrives reads as already-pressed, which is the one impression a
+  sign-out confirm should not give. The check raised it here and (as 64) on
+  five onboarding primaries; `hover:brightness-93` appeared **16 times across
+  10 files**. All are now `hover:brightness-110 active:brightness-93`, which
+  also closes 64.
+
+### Intelligence — 6, 7
+
+- **6, the filtered-empty state.** It discriminated on the class filter alone,
+  so an admin who had narrowed to one KIND of adaptation and found nothing was
+  told "No adaptations were made in the last 30 days" — a flat statement about
+  their school, produced by a control they had set two rows above — with no way
+  back. The kind filter arrived after that branch was written and nothing in it
+  noticed.
+- **7, documentation rather than a build.** Cohort analytics ships with no
+  cohort selector, no time range and no previous-period comparison — three
+  controls SCRUM-65 locks as decided — and the docblock, exhaustive about
+  everything else on that screen, never said so. Each needs a parameter no
+  deployed endpoint accepts, and the responses are already aggregated, so there
+  is nothing to narrow client-side either. Recorded with the reason, because a
+  proprietor looking for "how is JSS 2 doing" should not have to infer from an
+  empty toolbar that nobody thought of it.
+
+### Learning Support — 20, 50, 67, 68, 69
+
+- **50, the attestation the screen exists to produce, naming nobody.** A
+  finalised IEP is a member of staff putting their name to a report about a
+  child, and it read "Finalised 14 September" — that something happened, not
+  who stands behind it. **Guarded on identity:** the contract gives
+  `reviewedByUserId`, an id and not a name, so the only reviewer this console
+  can honestly name is the person reading it. Anyone else's report keeps the
+  date alone rather than an id nobody recognises. `TODO(api)` for
+  `reviewedByName`, which every comparable surface already has.
+- **20, the review note.** `POST /exports/iep/{id}/review` has always accepted
+  `reviewNote` and `IepExport.reviewNote` has always carried it back — the
+  field existed on both ends of the call and no screen ever wrote it. An empty
+  note is sent as null, not `""`.
+- **68, the open-flag dot.** Built from flags already in the same component's
+  state. Without it the two halves of the screen did not join up: a SENCo
+  reading the profiles list had no way to see which learners the Learning
+  Support tab is about. **Open flags only** — a permanent mark on a learner
+  whose flag was handled weeks ago is the kind of lingering label this console
+  does not keep.
+- **67, the year-group filter.** Offered only for the year groups this
+  school's own classes use, never the full canonical list.
+- **69, the empty state's mark.** The calmest screen in the console was also
+  the barest, on the tab a SENCo opens hoping to find exactly that state.
+
+### Students — 36, 37, 38, 39, 54, 55, 71
+
+- **36, what withdrawn actually means.** The card named the fact and stopped.
+  Since 15 September the backend enforces withdrawal on the four processing
+  endpoints with a 403 `consent_withdrawn`, so the child genuinely cannot start
+  a lesson — and this is the screen an admin opens when a parent rings to ask
+  why. It now states the three things the reader needs: lessons are paused,
+  nothing of the child's is lost, and **only the parent who withdrew can lift
+  it**, because SCRUM-80 makes that their decision and nothing in this console
+  may override it.
+- **55, the move sheet answered a question nobody asked.** It said the old
+  class's teachers would lose sight of the child — true, and colder. SCRUM-40's
+  line is about what is kept: notes belong to the class, not the teacher, and
+  an admin hesitating over a mid-term move is asking whether the work written
+  about this learner survives it.
+- **37 and 38, two silent endings.** A completed move closed onto a roster that
+  looked unchanged; an **erasure** — the one irreversible action on the screen
+  — returned in silence. Both confirm now, the erasure by carrying the name
+  through the navigation so the roster can state it.
+- **39, the consent filter.** Its five states, plus **"No record at all"** as
+  its own option: a row that came back with no consent object is not the same
+  as `not_sent`, and folding them would report a read gap as a school's own
+  decision not to ask.
+- **54, the footer line** SCRUM-40 says to keep by name — "it is where admins
+  learn how parent accounts come into being". It counts what is on screen, so
+  it stays true under every filter above it.
+- **71, the consent pill in the header,** where the frame puts it. It was
+  readable only by scrolling, on the record whose header is the one thing an
+  admin reads before deciding anything about a child.
+
+### Onboarding and team — 14, 47, 48, 60, 61, 62, 63 (64 closed with 29)
+
+- **14, a school at its allowance had no path to add anyone.** The invite
+  action was removed outright, where SCRUM-39 says the opposite in as many
+  words: "At zero remaining the invite action stays visible and routes to
+  Billing." The card explaining the allowance is the explanation, not a
+  replacement for the affordance — a control that vanishes teaches nothing.
+- **61, the invite replaced the page.** Pressing Invite returned the panel
+  *instead of* the whole screen, so the team being looked at — and the seats
+  line that decides whether to invite at all — disappeared at the moment of
+  deciding. It is a docked sheet over the list now, which is what SCRUM-40
+  reserves sheets for.
+- **47, the failure blamed the admin.** "Check the address and try again" is a
+  correction, on a failure the response gives us no reason to attribute to
+  them — and it left the real question unanswered: whether the four scopes they
+  had just ticked survived. They do, and it now says so.
+- **48, one sentence for two providers.** Both SSO cards read "the school
+  account they already have", so the choice between Microsoft and Google was
+  made from the title alone. D01's three descriptions, verbatim.
+- **60, the one moment of warmth.** A head teacher has just given Nevo their
+  school's name, band, DPA acceptance and sign-in method; the last screen read
+  like another form. The confirmation mark is on **both** branches.
+- **63, the wordmark.** The two places a school meets Nevo before there is a
+  console around them were the only two carrying nothing that says whose
+  product this is.
+- **62, the wizard's breakpoint** — the same `lg:` → `xl:` re-key as 56, 58
+  and 72: keyed at `lg` it applied its desktop centring from 1024 up, so the
+  tablet treatment the frame draws at 1024×768 could never be reached.
+
+**Still carrying `max-lg:`, same defect, not raised by the check:**
+`Reports/ReportsView`, `Senco/IepExporterView`, `Settings/SchoolSettings`,
+`Students/StudentDetailView`, `Teachers/TeacherDetailView`,
+`Onboarding/DpaStep`, `Invitations/InvitationsView`. Left alone rather than
+swept, because each needs looking at against its own frame — but they are the
+same bug and should go in one pass.
+
+## The suite cannot be run in parallel on this machine
+
+Worth recording, because it cost most of an afternoon and will cost the next
+person the same.
+
+`npx vitest run` reported 11 failures on one pass and 20 on the next, in
+different files each time, across the student, teacher, parent and admin
+lanes. None of them was real. Running the failing set together produced the
+actual explanation: **seven of eight files failed to start a worker at all** -
+`[vitest-pool]: Failed to start forks worker ... Timeout waiting for worker to
+respond`. The "failures" underneath are `waitFor` calls running out while
+their worker is starved, which is why they cluster on tests that await a
+mocked rejection.
+
+`npx vitest run --no-file-parallelism`, with nothing else competing for the
+machine, is **147 files / 1110 tests, all passing**.
+
+Two corrections to things this document said earlier, both from the same
+mistake - I ran other suites in the foreground while a full run was going, and
+then read its output as if it meant something:
+
+- It claimed three student-lane suites fail on `main`. They do not. They pass
+  in the clean serial run, and the earlier evidence was contaminated.
+- The per-lane runs quoted above were each re-verified serially and alone.
+
+The practical rule: a parallel run proves nothing here, in either direction.
+Gate on `--no-file-parallelism`, and do not run anything else while it goes.
 
 | # | sev | lane | finding | fix |
 |---|---|---|---|---|

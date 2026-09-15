@@ -52,7 +52,13 @@ const OPTIONS: {
   {
     value: "microsoft",
     title: "Microsoft 365",
-    desc: "Everyone signs in with the school account they already have.",
+    /*
+     * D01, VERBATIM, AND DIFFERENT PER PROVIDER. Both cards carried one
+     * shared sentence - "the school account they already have" - so a head
+     * teacher choosing between Microsoft and Google was choosing from the
+     * title alone, with the line beneath saying the same thing twice.
+     */
+    desc: "Everyone signs in with their existing school Microsoft account.",
     glyph: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <rect x="3" y="3" width="8" height="8" fill="currentColor" />
@@ -65,7 +71,7 @@ const OPTIONS: {
   {
     value: "google",
     title: "Google Workspace",
-    desc: "Everyone signs in with the school account they already have.",
+    desc: "Everyone signs in with their existing school Google account.",
     glyph: (
       <svg
         width="20"
@@ -84,7 +90,7 @@ const OPTIONS: {
   {
     value: "manual",
     title: "I'll manage accounts manually",
-    desc: "We give you a school code, and you build your roster yourself.",
+    desc: "Nevo gives you a school code and you add staff and students yourself.",
     glyph: (
       <svg
         width="20"

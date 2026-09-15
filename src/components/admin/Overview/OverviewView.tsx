@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   schoolIntelligenceApi,
   type ComplianceAudit,
@@ -15,10 +15,23 @@ import {
   gettingStartedSteps,
   teachersOnRoster,
 } from "./overviewGettingStarted";
-import { schoolApi, type SchoolNarrative, type SchoolRosterCounts } from "@/lib/api/school";
+import {
+  readOnboarding,
+  schoolApi,
+  type EnrolmentBand,
+  type SchoolNarrative,
+  type SchoolRosterCounts,
+} from "@/lib/api/school";
 import { SampleRegion } from "@/components/shared/SampleRegion";
 import { WORTH_A_GLANCE } from "./overviewSample";
 import { glanceRows } from "./overviewGlance";
+import { boardPackText } from "./boardPack";
+import {
+  SNAPSHOT_HEADING,
+  SNAPSHOT_HEADING_EARLY,
+  snapshotColumns,
+  snapshotTiles,
+} from "./snapshotTiles";
 import { intelligenceApi, type AttentionFlag } from "@/lib/api/intelligence";
 import { studentsApi, type AdminStudentRow } from "@/lib/api/students";
 import { NoAccess, failureKind } from "../NoAccess";
@@ -63,6 +76,15 @@ import { NoAccess, failureKind } from "../NoAccess";
  * checklist. See `overviewGettingStarted.ts` for what a tick is allowed to
  * claim.
  *
+ * PER-CARD FAILURE, NOT PER-PAGE. SCRUM-39 is explicit - "Couldn't load:
+ * per-card, not whole-screen ... the rest of the dashboard still renders" -
+ * and this screen did the opposite: `complianceAudit()` was the one uncaught
+ * read in the `Promise.all`, so a 500 on it blanked the board summary, the
+ * roster counts and the roll-up along with it. It is settled rather than
+ * rejected now, and the only failure still owed the whole page is a 403, which
+ * is not a failure at all: it is this admin not holding `oversight`, and a
+ * dashboard of empty cards would be a worse answer than saying so.
+ *
  * TODO(api): a roll-up of things needing a decision, and per-class or
  * per-teacher ACTIVITY. (This asked for a narrative endpoint as well, which
  * had already landed, and for "activity counts", which conflated headcounts
@@ -70,17 +92,71 @@ import { NoAccess, failureKind } from "../NoAccess";
  * two-thirds buildable client-side - see `overviewSample.ts`.
  * Both cards open their drill-down: the compliance card to D22, and the
  * adaptations figure to D21.
+ *
+ * TODO(api): A PERIOD. SCRUM-39's data line asks for
+ * `GET overview { period, classes_active/total, teachers_active/total,
+ * students_active/total, adaptations_count, ... }` and the frame draws the
+ * period pill as a control - "This half-term" with a caret. Nothing deployed
+ * carries a period or accepts a date filter for these figures, so the pill
+ * here states the scope the data actually has and is not a switcher: offering
+ * a control that cannot change anything is worse than not drawing it, and
+ * labelling the figures "this half-term" would be false of every one of them.
+ * See `snapshotTiles.ts` for the same reasoning about the section heading.
  */
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
 
-type Phase = "loading" | "ready" | "failed" | "denied";
+/**
+ * No "failed". A read that fails costs its own card now, and the page renders
+ * around it - so the only thing that can still stop the whole screen is a
+ * scope this admin does not hold.
+ */
+type Phase = "loading" | "ready" | "denied";
+
+/** A card that loads, and fails, on its own. */
+type CardPhase = "loading" | "ready" | "failed";
 
 function SampleNote({ children }: { children: React.ReactNode }) {
   return (
     <p className="mt-2 text-[13px] leading-[1.5] text-nevo-near-black/55 italic">
       {children}
     </p>
+  );
+}
+
+/** D04's two board-pack glyphs, traced from the frame. */
+function CopyGlyph() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="9" y="9" width="11" height="11" rx="2.2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function CheckGlyph() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
   );
 }
 
@@ -93,10 +169,21 @@ function todayLine(): string {
   });
 }
 
+/** "15 September", or null for a date string we cannot read. */
+function onDay(iso: string): string | null {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? null
+    : d.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+}
+
 export function OverviewView() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [audit, setAudit] = useState<ComplianceAudit | null>(null);
+  const [auditPhase, setAuditPhase] = useState<CardPhase>("loading");
   const [adaptationTotal, setAdaptationTotal] = useState<number | null>(null);
+  /** The commercial band, for the one denominator that has a source. */
+  const [band, setBand] = useState<EnrolmentBand | undefined>(undefined);
   const [narrative, setNarrative] = useState<SchoolNarrative | null>(null);
   const [narrativeFailed, setNarrativeFailed] = useState(false);
   const [counts, setCounts] = useState<SchoolRosterCounts | null>(null);
@@ -111,22 +198,53 @@ export function OverviewView() {
 
   const load = useCallback(() => {
     Promise.all([
-      schoolIntelligenceApi.complianceAudit(),
+      /*
+       * SETTLED, NOT REJECTED. This read used to be the only bare one here, so
+       * a 500 on the compliance audit took the board summary, the roster
+       * counts and the roll-up down with it - on a dashboard whose spec says
+       * in as many words that a card which cannot load must not cost the page.
+       *
+       * The error survives the catch because ONE of its outcomes is still the
+       * page's: a 403 means this admin does not hold `oversight`, and a
+       * dashboard of blank cards would be a worse answer than telling them.
+       */
+      schoolIntelligenceApi
+        .complianceAudit()
+        .then((a) => ({ ok: true as const, a }))
+        .catch((err: unknown) => ({ ok: false as const, err })),
       schoolIntelligenceApi.adaptationLog({ limit: 1 }).catch(() => null),
       // The board narrative and the roster counts are their own cards and
       // their own failures - neither should take the page down.
       schoolApi.narrative().catch(() => null),
       schoolApi.overview().catch(() => null),
-    ])
-      .then(([a, log, n, ov]) => {
-        setAudit(a);
-        setNarrative(n);
-        setNarrativeFailed(n === null);
-        setCounts(ov ? ov.counts : null);
-        setAdaptationTotal(log?.total ?? a.adaptationEventsLogged);
-        setPhase("ready");
-      })
-      .catch((err: unknown) => setPhase(failureKind(err)));
+    ]).then(([res, log, n, ov]) => {
+      if (!res.ok && failureKind(res.err) === "denied") {
+        setPhase("denied");
+        return;
+      }
+      const a = res.ok ? res.a : null;
+      setAudit(a);
+      setAuditPhase(res.ok ? "ready" : "failed");
+      setNarrative(n);
+      setNarrativeFailed(n === null);
+      setCounts(ov ? ov.counts : null);
+      /*
+       * NULL WHEN WE DID NOT READ IT, and it used to be `?? 0`. That mattered
+       * only once the audit stopped gating the page: a zero here is the signal
+       * that picks the EARLY-LIFE variant, so coalescing an unread total to
+       * zero would greet a school of three hundred with "Welcome to Nevo -
+       * there's nothing to report on learning just yet".
+       */
+      setAdaptationTotal(log?.total ?? a?.adaptationEventsLogged ?? null);
+      setPhase("ready");
+    });
+
+    // The band is a fact on the school record rather than a dashboard read,
+    // and feeds one denominator. Its own call, so it can never hold the page.
+    schoolApi
+      .get()
+      .then((sc) => setBand(readOnboarding(sc).band))
+      .catch(() => setBand(undefined));
 
     /*
      * THE ROLL-UP READS DO NOT GATE THE PAGE, and they used to.
@@ -166,50 +284,117 @@ export function OverviewView() {
     load();
   }, [load]);
 
-  const retry = () => {
-    setPhase("loading");
-    load();
+  /*
+   * "Copy for board pack". Three states, because the browser gets a vote:
+   * `navigator.clipboard` is absent on an insecure origin and rejects when the
+   * page is not focused or the permission is refused, and the frame's handler
+   * swallows both - which tells an admin their pack is on the clipboard when
+   * nothing is. `failed` says so instead.
+   */
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+    },
+    [],
+  );
+
+  const copyPack = (text: string) => {
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    const done = () => {
+      setCopyState("copied");
+      copyTimer.current = setTimeout(() => setCopyState("idle"), 2200);
+    };
+    try {
+      const write = navigator.clipboard?.writeText(text);
+      if (!write) {
+        setCopyState("failed");
+        return;
+      }
+      write.then(done, () => setCopyState("failed"));
+    } catch {
+      setCopyState("failed");
+    }
   };
 
-  // A school with nothing in the adaptation log has not started teaching yet.
-  const early = (adaptationTotal ?? 0) === 0;
+  /** The compliance card's own retry. It reloads its card, not the page. */
+  const retryAudit = useCallback(() => {
+    setAuditPhase("loading");
+    schoolIntelligenceApi
+      .complianceAudit()
+      .then((a) => {
+        setAudit(a);
+        setAuditPhase("ready");
+        // Only as a fallback: a real log total already read is the better
+        // figure and must not be overwritten by the audit's lifetime count.
+        setAdaptationTotal((t) => t ?? a.adaptationEventsLogged);
+      })
+      .catch(() => setAuditPhase("failed"));
+  }, []);
+
+  /*
+   * A school with nothing in the adaptation log has not started teaching yet.
+   *
+   * NOT KNOWING IS NOT THE SAME AS ZERO. `null` means the read did not return,
+   * and the early variant tells a school in so many words that it has not
+   * begun - so an unread total renders the ordinary dashboard, where every
+   * figure is free to be absent, rather than a welcome message that could be
+   * flatly untrue of a school in its third term.
+   */
+  const early = adaptationTotal === 0;
   const school = audit?.schoolName ?? "your school";
+
+  const pack = boardPackText({
+    school,
+    narrative,
+    // Null, not zero: the pack must not put a compliance figure on a
+    // governor's desk on the strength of a read that did not return.
+    labels: audit ? audit.diagnosticLabelsStored : null,
+    adaptations: adaptationTotal,
+  });
+
+  const tiles = snapshotTiles({
+    studentsProfiled: audit ? audit.studentsProfiled : null,
+    adaptations: adaptationTotal,
+    counts,
+    band,
+    early,
+  });
 
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
       <div className="mx-auto max-w-[860px]">
-        <span className="text-[13px] text-nevo-near-black/55 xl:text-[13.5px]">
-          {todayLine()}
-        </span>
-        <h2 className="mt-1 text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
-          {phase === "ready" ? school : "Overview"}
-        </h2>
+        <div className="flex items-start justify-between gap-5">
+          <div className="min-w-0">
+            <span className="text-[13px] text-nevo-near-black/55 xl:text-[13.5px]">
+              {todayLine()}
+            </span>
+            <h2 className="mt-1 text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
+              {phase === "ready" ? school : "Overview"}
+            </h2>
+          </div>
+          {/* The period pill, STATING a scope rather than offering to change
+              one. The frame draws a caret and D04's own handler does nothing
+              with it; there is no period-scoped read to put behind it, and
+              "This half-term" would be untrue of every figure below. This is
+              the scope the figures genuinely have. See the TODO(api) above. */}
+          {phase === "ready" && (
+            <span className="mt-1 hidden shrink-0 rounded-full border-[1.5px] border-nevo-near-black/16 px-3.5 py-2 text-[13.5px] font-medium text-nevo-near-black/60 sm:block">
+              Since setup
+            </span>
+          )}
+        </div>
 
         {phase === "loading" && (
           <div className={cn(CARD, "mt-6 h-[300px] animate-pulse")} />
         )}
 
         {phase === "denied" && <NoAccess what="the school overview" />}
-        {phase === "failed" && (
-          <div className={cn(CARD, "mt-6 px-[26px] py-7")}>
-            <h3 className="text-[17px] font-semibold text-nevo-near-black">
-              We couldn&rsquo;t load your school&rsquo;s overview
-            </h3>
-            <p className="mt-2 max-w-[52ch] text-sm leading-[1.55] text-nevo-near-black/62">
-              Nothing has changed for your teachers or students. Try again in a
-              moment.
-            </p>
-            <button
-              type="button"
-              onClick={retry}
-              className="mt-5 h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
-            >
-              Try again
-            </button>
-          </div>
-        )}
 
-        {phase === "ready" && audit && (
+        {phase === "ready" && (
           <>
             {/* Narrative. Real only in the early case, where the frame's copy
                 happens to be true of a school that has not started. */}
@@ -235,8 +420,13 @@ export function OverviewView() {
                 </>
               ) : (
                 <>
+                  {/* WAS "This half-term", which this console cannot know. The
+                      summary is written server-side over a window it does not
+                      report; `generatedAt` is the one fact about it we hold. */}
                   <p className="mt-1 text-[13.5px] text-nevo-near-black/55">
-                    This half-term
+                    {narrative && onDay(narrative.generatedAt)
+                      ? `Updated ${onDay(narrative.generatedAt)}`
+                      : "Your board summary"}
                   </p>
                   {narrative ? (
                     /* The school's OWN summary. `source` is a const
@@ -267,6 +457,40 @@ export function OverviewView() {
                       className="mt-4 h-16 animate-pulse rounded-lg bg-nevo-near-black/[0.06]"
                     />
                   )}
+
+                  {/* The board-pack export. Absent, rather than disabled, when
+                      there is no summary to build one around - see
+                      `boardPack.ts`. The frame does not draw it on the welcome
+                      variant either, which is why it sits in this branch. */}
+                  {pack && (
+                    <div className="mt-[22px] flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-nevo-near-black/10 pt-[18px]">
+                      <span className="text-[12.5px] text-nevo-near-black/50">
+                        Written in plain language for governors &ndash; no
+                        scores, no jargon.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyPack(pack)}
+                        className="flex shrink-0 cursor-pointer items-center gap-[7px] text-sm font-semibold text-nevo-navy transition-opacity hover:opacity-[0.72]"
+                      >
+                        <span aria-hidden="true" className="flex">
+                          {copyState === "copied" ? <CheckGlyph /> : <CopyGlyph />}
+                        </span>
+                        <span aria-live="polite">
+                          {copyState === "copied"
+                            ? "Copied for board pack"
+                            : "Copy for board pack"}
+                        </span>
+                      </button>
+                      {copyState === "failed" && (
+                        <p className="w-full text-[12.5px] text-nevo-violet-text">
+                          Your browser wouldn&rsquo;t let us reach the
+                          clipboard. Nothing was copied &ndash; you can select
+                          the summary above instead.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -278,117 +502,119 @@ export function OverviewView() {
                 count that can come back non-zero. One source now, so they
                 cannot drift apart again. */}
             <div className={cn(CARD, "mt-4 px-[26px] py-7")}>
-              <div className="flex items-baseline gap-3">
-                <span className="text-[38px] leading-none font-semibold text-nevo-navy">
-                  {audit.diagnosticLabelsStored}
-                </span>
-                <span className="text-[15px] font-semibold text-nevo-near-black">
-                  {labelHero(audit.diagnosticLabelsStored, "overview").unit}
-                </span>
-              </div>
-              <p className="mt-3 max-w-[62ch] text-sm leading-[1.6] text-nevo-near-black/66">
-                {labelHero(audit.diagnosticLabelsStored, "overview").body}
-              </p>
-              <p className="mt-3 text-[13px] text-nevo-near-black/50">
-                {`Checked ${new Date(audit.generatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`}
-                {audit.findings.length > 0
-                  ? ` · ${audit.findings.length} finding${audit.findings.length === 1 ? "" : "s"} to review`
-                  : ""}
-              </p>
-              <Link
-                href="/admin/compliance"
-                className="mt-4 inline-block text-[13.5px] font-semibold text-nevo-navy hover:underline"
-              >
-                What we store &rarr;
-              </Link>
+              {audit ? (
+                <>
+                  <div className="flex items-baseline gap-3">
+                    {/* NAVY AT ZERO, ALWAYS. SCRUM-39 is explicit that the
+                        compliance zero is "the expected reading forever" and
+                        "must not look like missing data" - the muting the
+                        snapshot tiles do in the early state is deliberately
+                        wrong here, and this numeral is not built from
+                        `snapshotTiles.ts` for that reason. */}
+                    <span className="text-[38px] leading-none font-semibold text-nevo-navy">
+                      {audit.diagnosticLabelsStored}
+                    </span>
+                    <span className="text-[15px] font-semibold text-nevo-near-black">
+                      {labelHero(audit.diagnosticLabelsStored, "overview").unit}
+                    </span>
+                  </div>
+                  <p className="mt-3 max-w-[62ch] text-sm leading-[1.6] text-nevo-near-black/66">
+                    {labelHero(audit.diagnosticLabelsStored, "overview").body}
+                  </p>
+                  <p className="mt-3 text-[13px] text-nevo-near-black/50">
+                    {onDay(audit.generatedAt)
+                      ? `Checked ${onDay(audit.generatedAt)}`
+                      : "Checked"}
+                    {audit.findings.length > 0
+                      ? ` · ${audit.findings.length} finding${audit.findings.length === 1 ? "" : "s"} to review`
+                      : ""}
+                  </p>
+                  <Link
+                    href="/admin/compliance"
+                    className="mt-4 inline-block text-[13.5px] font-semibold text-nevo-navy hover:underline"
+                  >
+                    What we store &rarr;
+                  </Link>
+                </>
+              ) : auditPhase === "failed" ? (
+                /* SCRUM-39's per-card failure, in its own words. It must not
+                   read as a compliance finding: nothing about this school's
+                   store has changed, we simply could not read it. */
+                <>
+                  <h3 className="text-[15px] font-semibold text-nevo-near-black">
+                    Diagnostic labels stored
+                  </h3>
+                  <p className="mt-2 max-w-[52ch] text-sm leading-[1.6] text-nevo-violet-text">
+                    We couldn&rsquo;t pull this in just now. We&rsquo;re on it.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={retryAudit}
+                    className="mt-4 cursor-pointer text-[13.5px] font-semibold text-nevo-navy hover:underline"
+                  >
+                    Try again
+                  </button>
+                </>
+              ) : (
+                <div
+                  aria-hidden
+                  className="h-20 animate-pulse rounded-lg bg-nevo-near-black/[0.06]"
+                />
+              )}
             </div>
 
             <h3 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
-              {early ? "Where things stand" : "Activity this half-term"}
+              {early ? SNAPSHOT_HEADING_EARLY : SNAPSHOT_HEADING}
             </h3>
-            {/* The frame's classes and teachers tiles had no source until the
-                roster counts were typed (7 Sep). They render only when the
-                count is actually present - every field on `SchoolRosterCounts`
-                is optional, and a missing count is unknown, not zero.
-
-                ACTIVE AND INVITED ARE NOT SUMMED. They are separate
-                populations and backend was explicit that adding them is not a
-                seat count. */}
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className={cn(CARD, "px-[22px] py-5")}>
-                <span className="text-[30px] leading-none font-semibold text-nevo-near-black">
-                  {audit.studentsProfiled}
-                </span>
-                <p className="mt-2 text-[14.5px] font-semibold text-nevo-near-black">
-                  Students learning
-                </p>
-                <p className="mt-px text-[13px] text-nevo-near-black/58">
-                  have a live learning profile
-                </p>
+            {/* Which tiles exist, what each may claim and when a zero is
+                greyed all live in `snapshotTiles.ts`, tested. The frame lays
+                these out as one flex row; the grid steps to the tile count at
+                `xl` so 1440 is a single row and 1024 keeps the spec's 2 x 2. */}
+            {tiles.length > 0 && (
+              <div
+                className={cn(
+                  "mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2",
+                  snapshotColumns(tiles.length),
+                )}
+              >
+                {tiles.map((t) => (
+                  <div key={t.key} className={cn(CARD, "px-[22px] py-5")}>
+                    <div className="flex items-baseline gap-[7px]">
+                      <span
+                        className={cn(
+                          "text-[30px] leading-none font-semibold",
+                          // Navy, per the frame and SCRUM-39. Muted only for an
+                          // early-life zero, which reads as "not yet" rather
+                          // than as a figure that should be higher.
+                          t.muted ? "text-nevo-near-black/32" : "text-nevo-navy",
+                        )}
+                      >
+                        {t.value.toLocaleString("en-GB")}
+                      </span>
+                      {t.of && (
+                        <span className="text-[15px] font-medium text-nevo-near-black/40">
+                          {t.of}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-2 text-[14.5px] font-semibold text-nevo-near-black">
+                      {t.label}
+                    </p>
+                    <p className="mt-px text-[13px] text-nevo-near-black/58">
+                      {t.desc}
+                    </p>
+                    {t.href && t.cta && (
+                      <Link
+                        href={t.href}
+                        className="mt-3 inline-block text-[13.5px] font-semibold text-nevo-navy hover:underline"
+                      >
+                        {t.cta} &rarr;
+                      </Link>
+                    )}
+                  </div>
+                ))}
               </div>
-              <div className={cn(CARD, "px-[22px] py-5")}>
-                <span className="text-[30px] leading-none font-semibold text-nevo-near-black">
-                  {(adaptationTotal ?? audit.adaptationEventsLogged).toLocaleString("en-GB")}
-                </span>
-                <p className="mt-2 text-[14.5px] font-semibold text-nevo-near-black">
-                  Adaptations made
-                </p>
-                <p className="mt-px text-[13px] text-nevo-near-black/58">
-                  across all students so far
-                </p>
-                <Link
-                  href="/admin/adaptations"
-                  className="mt-3 inline-block text-[13.5px] font-semibold text-nevo-navy hover:underline"
-                >
-                  See the log &rarr;
-                </Link>
-              </div>
-
-              {typeof counts?.classes === "number" ? (
-                <div className={cn(CARD, "px-[22px] py-5")}>
-                  <span className="text-[30px] leading-none font-semibold text-nevo-near-black">
-                    {counts.classes}
-                  </span>
-                  <p className="mt-2 text-[14.5px] font-semibold text-nevo-near-black">
-                    Classes
-                  </p>
-                  <p className="mt-px text-[13px] text-nevo-near-black/58">
-                    on your roster
-                  </p>
-                </div>
-              ) : null}
-
-              {typeof counts?.teachers === "number" ? (
-                <div className={cn(CARD, "px-[22px] py-5")}>
-                  <span className="text-[30px] leading-none font-semibold text-nevo-near-black">
-                    {counts.teachers}
-                  </span>
-                  <p className="mt-2 text-[14.5px] font-semibold text-nevo-near-black">
-                    Teachers
-                  </p>
-                  <p className="mt-px text-[13px] text-nevo-near-black/58">
-                    with a Nevo account
-                  </p>
-                </div>
-              ) : null}
-
-              {typeof counts?.activeStudents === "number" ? (
-                <div className={cn(CARD, "px-[22px] py-5")}>
-                  <span className="text-[30px] leading-none font-semibold text-nevo-near-black">
-                    {counts.activeStudents}
-                  </span>
-                  <p className="mt-2 text-[14.5px] font-semibold text-nevo-near-black">
-                    Students enrolled
-                  </p>
-                  <p className="mt-px text-[13px] text-nevo-near-black/58">
-                    {typeof counts.invitedStudents === "number" &&
-                    counts.invitedStudents > 0
-                      ? `${counts.invitedStudents} more invited, not yet joined`
-                      : "active on your roster"}
-                  </p>
-                </div>
-              ) : null}
-            </div>
+            )}
 
             <h3 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
               {early ? "Getting started" : "Worth a glance"}
@@ -403,7 +629,7 @@ export function OverviewView() {
                   // done something we cannot see.
                   const done =
                     i === STEP_WORKSPACE ||
-                    (i === STEP_STUDENTS && audit.studentsProfiled > 0) ||
+                    (i === STEP_STUDENTS && (audit?.studentsProfiled ?? 0) > 0) ||
                     (i === STEP_TEACHERS && teachersOnRoster(counts));
                   const row = (
                     <>

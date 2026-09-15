@@ -5,6 +5,26 @@ import type { School } from "@/lib/api/school";
 import type { SsoStatus } from "@/lib/api/sso";
 import { SsoView } from "./SsoView";
 
+/*
+ * `SsoView` reads `roster` scope to decide whether the mapping-gap banner
+ * offers a way to fix it - `it_sso` can be held on its own, and a link to
+ * Classes would then be a link to a refusal. Granted here so the banner's
+ * action renders; the scope-less case has its own test.
+ */
+vi.mock("@/hooks", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks")>();
+  return {
+    ...actual,
+    usePermissions: () => ({
+      scopes: ["it_sso", "roster"],
+      resolved: true,
+      status: "ready" as const,
+      refresh: () => {},
+      hasScope: () => true,
+    }),
+  };
+});
+
 /**
  * The worst of the five failed-read claims: a school whose sync history did not
  * answer was told its roster sync was "Healthy".
