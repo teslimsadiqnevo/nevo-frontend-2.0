@@ -6,6 +6,7 @@ import { studentsApi } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import {
+  CheckIcon,
   FailureLine,
   GHOST_BTN,
   PRIMARY_BTN,
@@ -27,7 +28,7 @@ import {
  * nothing would be worse.
  */
 
-type Phase = "idle" | "moving" | "failed";
+type Phase = "idle" | "moving" | "failed" | "done";
 
 export function MoveStudentSheet({
   studentId,
@@ -58,7 +59,17 @@ export function MoveStudentSheet({
     setPhase("moving");
     studentsApi
       .moveToClass(studentId, destination)
-      .then(onMoved)
+      .then(() => {
+        /*
+         * THE SHEET HOLDS FOR ITS CONFIRMATION. It used to close the moment
+         * the PATCH returned, straight onto a roster the parent screen
+         * reloads afterwards - so an admin who had just moved a child between
+         * classes saw a list that looked exactly as it had, with nothing
+         * naming where the child went.
+         */
+        setPhase("done");
+        setTimeout(onMoved, 1400);
+      })
       .catch(() => setPhase("failed"));
   };
 
@@ -79,6 +90,15 @@ export function MoveStudentSheet({
             <Spinner />
             <span className="text-sm text-nevo-near-black/60">
               Moving {firstName}…
+            </span>
+          </div>
+        ) : phase === "done" ? (
+          <div className="flex flex-1 items-center justify-center gap-2.5 py-3">
+            <span className="flex size-[26px] flex-none items-center justify-center rounded-full bg-nevo-navy text-nevo-cream motion-safe:animate-nevo-pop">
+              <CheckIcon />
+            </span>
+            <span className="text-[14.5px] font-semibold text-nevo-navy">
+              {firstName} is now in {dest?.name ?? "their new class"}
             </span>
           </div>
         ) : phase === "failed" ? (
@@ -148,9 +168,20 @@ export function MoveStudentSheet({
             <li>
               {firstName} joins {dest.name} and their new teachers can see them.
             </li>
+            {/*
+              * SCRUM-40's line is about what is KEPT: "Notes belong to the
+              * class, not the teacher ... Notes and feedback stay attached to
+              * the class and the students."
+              *
+              * This said the old teachers lose sight of the child - true, and
+              * a different and colder fact. An admin hesitating over a move
+              * mid-term is asking whether the work written about this learner
+              * survives it, and the sheet answered a question they had not
+              * asked while leaving theirs open.
+              */}
             <li>
               {currentClass
-                ? `Their ${currentClass.name} teachers no longer will.`
+                ? `What ${currentClass.name}'s teachers wrote about ${firstName} stays with the school.`
                 : null}
             </li>
             <li className="font-semibold text-nevo-navy">

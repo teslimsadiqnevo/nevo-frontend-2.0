@@ -341,6 +341,36 @@ New, tested: `academicCalendar.ts`, `taxonomy.ts`.
 - **69, the empty state's mark.** The calmest screen in the console was also
   the barest, on the tab a SENCo opens hoping to find exactly that state.
 
+### Students — 36, 37, 38, 39, 54, 55, 71
+
+- **36, what withdrawn actually means.** The card named the fact and stopped.
+  Since 15 September the backend enforces withdrawal on the four processing
+  endpoints with a 403 `consent_withdrawn`, so the child genuinely cannot start
+  a lesson — and this is the screen an admin opens when a parent rings to ask
+  why. It now states the three things the reader needs: lessons are paused,
+  nothing of the child's is lost, and **only the parent who withdrew can lift
+  it**, because SCRUM-80 makes that their decision and nothing in this console
+  may override it.
+- **55, the move sheet answered a question nobody asked.** It said the old
+  class's teachers would lose sight of the child — true, and colder. SCRUM-40's
+  line is about what is kept: notes belong to the class, not the teacher, and
+  an admin hesitating over a mid-term move is asking whether the work written
+  about this learner survives it.
+- **37 and 38, two silent endings.** A completed move closed onto a roster that
+  looked unchanged; an **erasure** — the one irreversible action on the screen
+  — returned in silence. Both confirm now, the erasure by carrying the name
+  through the navigation so the roster can state it.
+- **39, the consent filter.** Its five states, plus **"No record at all"** as
+  its own option: a row that came back with no consent object is not the same
+  as `not_sent`, and folding them would report a read gap as a school's own
+  decision not to ask.
+- **54, the footer line** SCRUM-40 says to keep by name — "it is where admins
+  learn how parent accounts come into being". It counts what is on screen, so
+  it stays true under every filter above it.
+- **71, the consent pill in the header,** where the frame puts it. It was
+  readable only by scrolling, on the record whose header is the one thing an
+  admin reads before deciding anything about a child.
+
 **Still carrying `max-lg:`, same defect, not raised by the check:**
 `Reports/ReportsView`, `Senco/IepExporterView`, `Settings/SchoolSettings`,
 `Students/StudentDetailView`, `Teachers/TeacherDetailView`,
