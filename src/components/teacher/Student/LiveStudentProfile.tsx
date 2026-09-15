@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { LiveRecommendSheet } from "./LiveRecommendSheet";
 import type { StudentProfileState } from "@/hooks/useStudentProfile";
 import {
   ADAPTATIONS_FOOTNOTE_DESKTOP_TAIL,
@@ -75,10 +77,13 @@ function initialsOf(first: string | null, last: string | null): string {
 export function LiveStudentProfile({
   state,
   classHref,
+  recommendOpen = false,
 }: {
   state: StudentProfileState;
   classHref?: string;
+  recommendOpen?: boolean;
 }) {
+  const [recommending, setRecommending] = useState(recommendOpen);
   const {
     profile,
     concepts,
@@ -325,7 +330,29 @@ export function LiveStudentProfile({
           >
             Send them a message
           </Link>
+          {/* THE SECOND ACTION. Until 15 Sep this profile offered exactly one
+              of the four C08 draws, and the other three were mounted only from
+              the fixture profile. */}
+          <button
+            type="button"
+            onClick={() => setRecommending(true)}
+            className="inline-flex h-[50px] cursor-pointer items-center rounded-[10px] bg-nevo-navy px-[22px] text-[15px] font-medium text-nevo-cream transition-[filter] hover:brightness-93"
+          >
+            Recommend a lesson
+          </button>
         </div>
+
+        {recommending && (
+          <LiveRecommendSheet
+            studentId={student.id}
+            firstName={student.firstName ?? name}
+            /* Nevo's own sentence, never invented. `Recommendation` carries
+               prose and no lesson id, so this is context for the teacher's
+               choice rather than a preselection. */
+            suggestion={recommendations[0]?.recommendationText ?? null}
+            onClose={() => setRecommending(false)}
+          />
+        )}
       </div>
     </div>
   );
