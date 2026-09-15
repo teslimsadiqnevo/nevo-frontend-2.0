@@ -14,7 +14,49 @@ visual or breakpoint divergence.
 **Fixed already (all law-severity):** the withdrawn-consent action, the
 deactivated-teacher reassignment, the accommodation pills, the payment card
 on the finance home, the bulk-import lesson claim, and the adaptation log's
-raw event key. Everything below is open.
+raw event key. Rows 1 and 2 record two of those six and are closed.
+
+## Closed
+
+Worked by lane. Where the fix shipped differs from the proposal in the table,
+the reason is given — those are the rows worth reading.
+
+### Overview — 15, 16, 17, 18, 19, 49, 65, 66
+
+- **17, per-card failure.** `complianceAudit()` was settled rather than left
+  bare, so a 500 on it costs its card and not the board summary, the roster
+  counts and the roll-up with it. A **403 still denies the whole page**: that
+  is not a card failing, it is an admin without `oversight`.
+- **A second defect this exposed.** `early` was `(adaptationTotal ?? 0) === 0`.
+  Unreachable while the audit gated the page, and live the moment it stopped —
+  a school of 287 whose reads failed would have been greeted with "Welcome to
+  Nevo — there's nothing to report on learning just yet". Not knowing is not
+  zero; it now renders the ordinary dashboard.
+- **16, the period pill — built smaller than drawn, deliberately.** The frame
+  draws a control (caret, pointer) and SCRUM-39's data line sources it from a
+  period-scoped `GET overview` that is not deployed. The pill states the scope
+  the figures actually have ("Since setup") and is not a switcher. The term
+  prefix on the date line is **not** built: there is nothing to derive
+  "Half-term 2" from, and inventing it is the same lie as 49. `TODO(api)`.
+- **49, the snapshot heading — period-neutral, against the spec's own copy
+  line.** SCRUM-39 fixes it as "Activity this week" and the adaptation
+  descriptor as "this half-term". Not one of the five figures beneath is
+  scoped to a period — `studentsProfiled`, `adaptationEventsLogged` and every
+  `SchoolRosterCounts` field are all-time or point-in-time, with no date
+  filter between them. "Activity so far" is the honest heading. Same TODO.
+- **19, denominators.** Band-sourced, per SCRUM-39 ("from the band seat
+  ceiling, not from a count of rows"). **Enterprise gets none** — "801+" is a
+  floor, not a ceiling, so there is no honest number to put after "of".
+- **18, muting.** Early-life zeros only. The compliance zero stays navy at
+  full weight for ever, which SCRUM-39 calls out as the deliberate difference;
+  it is not built from `snapshotTiles.ts` for that reason, and a test pins it.
+- **15, board pack.** Carries the compliance line and the adaptation count per
+  spec, in `labelHero`'s words rather than a second copy of that claim. A
+  figure we failed to read is **omitted, never zeroed** — nothing puts
+  "Diagnostic labels stored: 0" on a governor's desk off a read that did not
+  return. A refused clipboard says so instead of claiming success.
+
+New, tested: `snapshotTiles.ts`, `boardPack.ts`.
 
 | # | sev | lane | finding | fix |
 |---|---|---|---|---|
