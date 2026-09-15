@@ -11,6 +11,8 @@
  * never typed at the PIN screen.
  */
 
+import { deviceClockSkewMs } from "@/lib/api/serverClock";
+
 const SESSION_KEY = "nevo.auth.session";
 const PROFILE_KEY = "nevo.auth.profile";
 /** Set when the student renames themselves and no remembered profile exists. */
@@ -53,6 +55,40 @@ export interface StoredSession {
   role: string;
 }
 
+/**
+ * Is this session past its expiry, as the SERVER would judge it?
+ *
+ * `expiresAt` is a server timestamp; `Date.now()` is a device one. Comparing
+ * them directly meant a tablet with a wrong clock did not get a degraded
+ * session - it got none:
+ *
+ *   - CLOCK AHEAD by more than a session's length: every session is expired the
+ *     instant it is issued. A child types the correct PIN, receives a real
+ *     token, and this discards it before the next read. Back to the PIN screen
+ *     forever, with nothing on screen to explain it. A school tablet that lost
+ *     its battery and came back on a default date is exactly this.
+ *   - CLOCK BEHIND: quieter. The session looks alive long after it died, so the
+ *     child is thrown out mid-lesson by a 401 instead, and
+ *     `useLessonProgress.report()` silently drops everything after that moment.
+ *
+ * The correction is the server's own clock, which every HTTP response gives us
+ * for nothing in its `Date` header - see `lib/api/serverClock`. Subtracting the
+ * skew turns the device's "now" into the server's, so the comparison is once
+ * again between two server timestamps.
+ *
+ * NOTHING IS WEAKENED BY THIS. A session the server considers expired is still
+ * expired: correcting for skew does not extend a life, it locates "now"
+ * correctly. Before any response has been seen the skew is 0 and this is
+ * exactly the comparison that shipped.
+ */
+function hasExpired(s: StoredSession, deviceNow: number): boolean {
+  const expiresAt = Date.parse(s.expiresAt);
+  // An unreadable expiry is our problem or the server's, not the child's, and
+  // signing them out for it would be the wrong way to be safe.
+  if (Number.isNaN(expiresAt)) return false;
+  return expiresAt <= deviceNow - deviceClockSkewMs();
+}
+
 /** The device's remembered student - seeded at onboarding/PIN creation. */
 export interface RememberedProfile {
   schoolCode: string;
@@ -78,7 +114,7 @@ function hydrate(): void {
 
 export function getSession(): StoredSession | null {
   hydrate();
-  if (session && Date.parse(session.expiresAt) <= Date.now()) clearSession();
+  if (session && hasExpired(session, Date.now())) clearSession();
   return session;
 }
 
