@@ -316,6 +316,31 @@ New, tested: `academicCalendar.ts`, `taxonomy.ts`.
   proprietor looking for "how is JSS 2 doing" should not have to infer from an
   empty toolbar that nobody thought of it.
 
+### Learning Support — 20, 50, 67, 68, 69
+
+- **50, the attestation the screen exists to produce, naming nobody.** A
+  finalised IEP is a member of staff putting their name to a report about a
+  child, and it read "Finalised 14 September" — that something happened, not
+  who stands behind it. **Guarded on identity:** the contract gives
+  `reviewedByUserId`, an id and not a name, so the only reviewer this console
+  can honestly name is the person reading it. Anyone else's report keeps the
+  date alone rather than an id nobody recognises. `TODO(api)` for
+  `reviewedByName`, which every comparable surface already has.
+- **20, the review note.** `POST /exports/iep/{id}/review` has always accepted
+  `reviewNote` and `IepExport.reviewNote` has always carried it back — the
+  field existed on both ends of the call and no screen ever wrote it. An empty
+  note is sent as null, not `""`.
+- **68, the open-flag dot.** Built from flags already in the same component's
+  state. Without it the two halves of the screen did not join up: a SENCo
+  reading the profiles list had no way to see which learners the Learning
+  Support tab is about. **Open flags only** — a permanent mark on a learner
+  whose flag was handled weeks ago is the kind of lingering label this console
+  does not keep.
+- **67, the year-group filter.** Offered only for the year groups this
+  school's own classes use, never the full canonical list.
+- **69, the empty state's mark.** The calmest screen in the console was also
+  the barest, on the tab a SENCo opens hoping to find exactly that state.
+
 **Still carrying `max-lg:`, same defect, not raised by the check:**
 `Reports/ReportsView`, `Senco/IepExporterView`, `Settings/SchoolSettings`,
 `Students/StudentDetailView`, `Teachers/TeacherDetailView`,
