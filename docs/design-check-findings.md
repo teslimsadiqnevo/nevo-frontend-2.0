@@ -1,5 +1,10 @@
 # Admin design check — 74 confirmed findings, 15 September 2026
 
+**All 74 are closed as of 16 September.** Rows 1 and 2 were fixed with the
+original six law breaches; the remaining 72 were worked lane by lane and are
+recorded below, each with the reasoning where the fix shipped differs from the
+proposal in the table.
+
 Every built admin screen compared frame-by-frame against its design frame
 and SCRUM spec, then each finding adversarially verified against the code
 by a second agent. **79 raw, 74 confirmed, 5 rejected.**
@@ -370,6 +375,35 @@ New, tested: `academicCalendar.ts`, `taxonomy.ts`.
 - **71, the consent pill in the header,** where the frame puts it. It was
   readable only by scrolling, on the record whose header is the one thing an
   admin reads before deciding anything about a child.
+
+### Onboarding and team — 14, 47, 48, 60, 61, 62, 63 (64 closed with 29)
+
+- **14, a school at its allowance had no path to add anyone.** The invite
+  action was removed outright, where SCRUM-39 says the opposite in as many
+  words: "At zero remaining the invite action stays visible and routes to
+  Billing." The card explaining the allowance is the explanation, not a
+  replacement for the affordance — a control that vanishes teaches nothing.
+- **61, the invite replaced the page.** Pressing Invite returned the panel
+  *instead of* the whole screen, so the team being looked at — and the seats
+  line that decides whether to invite at all — disappeared at the moment of
+  deciding. It is a docked sheet over the list now, which is what SCRUM-40
+  reserves sheets for.
+- **47, the failure blamed the admin.** "Check the address and try again" is a
+  correction, on a failure the response gives us no reason to attribute to
+  them — and it left the real question unanswered: whether the four scopes they
+  had just ticked survived. They do, and it now says so.
+- **48, one sentence for two providers.** Both SSO cards read "the school
+  account they already have", so the choice between Microsoft and Google was
+  made from the title alone. D01's three descriptions, verbatim.
+- **60, the one moment of warmth.** A head teacher has just given Nevo their
+  school's name, band, DPA acceptance and sign-in method; the last screen read
+  like another form. The confirmation mark is on **both** branches.
+- **63, the wordmark.** The two places a school meets Nevo before there is a
+  console around them were the only two carrying nothing that says whose
+  product this is.
+- **62, the wizard's breakpoint** — the same `lg:` → `xl:` re-key as 56, 58
+  and 72: keyed at `lg` it applied its desktop centring from 1024 up, so the
+  tablet treatment the frame draws at 1024×768 could never be reached.
 
 **Still carrying `max-lg:`, same defect, not raised by the check:**
 `Reports/ReportsView`, `Senco/IepExporterView`, `Settings/SchoolSettings`,

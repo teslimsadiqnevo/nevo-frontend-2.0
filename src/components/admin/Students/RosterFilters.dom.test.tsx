@@ -1,7 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { visibleText } from "@/test/visibleText";
-import type { AdminStudentRow } from "@/lib/api/students";
+import type {
+  AdminStudentRow,
+  ConsentState,
+  StudentConsent,
+} from "@/lib/api/students";
 import { StudentsView } from "./StudentsView";
 
 /**
@@ -32,18 +36,22 @@ vi.mock("@/lib/api/classes", () => ({ classesApi: { list: async () => [] } }));
 const row = (
   name: string,
   consent: AdminStudentRow["consent"],
-): AdminStudentRow =>
-  ({
-    id: name,
-    name,
-    firstName: name.split(" ")[0],
-    status: "active",
-    loginIdentifier: null,
-    consent,
-  }) as AdminStudentRow;
+): AdminStudentRow => ({
+  id: name,
+  name,
+  status: "active",
+  ageBand: null,
+  loginIdentifier: null,
+  consent,
+});
 
-const withStatus = (status: string) =>
-  ({ status, recordedAt: null }) as AdminStudentRow["consent"];
+const withStatus = (status: ConsentState): StudentConsent => ({
+  status,
+  actorId: null,
+  actorName: null,
+  timestamp: null,
+  channel: null,
+});
 
 beforeEach(() => {
   list.mockReset();

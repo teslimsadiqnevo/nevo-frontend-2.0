@@ -114,18 +114,6 @@ export function AdminTeamView() {
     fetchTeam();
   };
 
-  if (inviting) {
-    return (
-      <InvitePanel
-        onCancel={() => setInviting(false)}
-        onSent={() => {
-          setInviting(false);
-          retry();
-        }}
-      />
-    );
-  }
-
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
       <div className="mx-auto max-w-[820px]">
@@ -168,6 +156,26 @@ export function AdminTeamView() {
           <TeamList team={team} seats={seats} onInvite={() => setInviting(true)} />
         )}
       </div>
+
+      {/*
+        * A DOCKED SHEET OVER THE LIST, not a page in its place.
+        *
+        * Inviting used to return the InvitePanel INSTEAD of this whole screen,
+        * so the team an admin was looking at vanished the moment they pressed
+        * Invite - and the seats line, which is the thing that decides whether
+        * to invite at all, went with it. SCRUM-40's rule for the console is
+        * that "sheets are reserved for a single focused action: assign,
+        * invite, enrol, move", and an invite is exactly that.
+        */}
+      {inviting && (
+        <InvitePanel
+          onCancel={() => setInviting(false)}
+          onSent={() => {
+            setInviting(false);
+            retry();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -279,7 +287,15 @@ function TeamList({
         <div className="min-w-0">
           <Heading count={team.length} />
         </div>
-        {!atAllowance && <InviteButton onClick={onInvite} />}
+        {/*
+          * THE ACTION STAYS, ALWAYS. At the seat allowance this button was
+          * removed outright, so a school that had filled its seats had no path
+          * to add anyone at all - and SCRUM-39 is explicit the other way: "At
+          * zero remaining the invite action stays visible and routes to
+          * Billing." The card below is the explanation, not a replacement for
+          * the affordance; a control that vanishes teaches nothing.
+          */}
+        <InviteButton onClick={onInvite} />
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-4">
@@ -403,15 +419,31 @@ function InvitePanel({
       })
       .catch(() => {
         setPhase("idle");
+        /*
+         * THE SYSTEM OWNS THE FAULT. "Check the address and try again" reads
+         * as a correction to the admin, on a failure we have no reason to
+         * attribute to them - the response that produced it says nothing about
+         * the address. And it left the real question unanswered: whether the
+         * four scopes they had just ticked are still there. They are.
+         */
         setError(
-          "We couldn't send that invitation. Check the address and try again.",
+          "That didn't send, and we're on it. What you typed and the access you chose are still here - try again in a moment.",
         );
       });
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
-      <div className="mx-auto max-w-[560px]">
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-nevo-near-black/28 backdrop-blur-[0.4px] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200"
+      onClick={onCancel}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Invite a new admin"
+        onClick={(e) => e.stopPropagation()}
+        className="h-full w-full max-w-[560px] overflow-y-auto bg-nevo-cream px-[38px] py-[34px] shadow-[0_0_48px_rgba(0,0,0,0.22)] motion-safe:animate-in motion-safe:slide-in-from-right motion-safe:duration-200"
+      >
         <h2 className="text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
           Invite a new admin
         </h2>
