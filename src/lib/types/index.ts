@@ -13,6 +13,7 @@ export type {
   LessonSegment,
   AssessmentQuestion,
   Assessment,
+  CompletionSummary,
   LessonModule,
   Lesson,
   SegmentAdaptation,

@@ -36,6 +36,32 @@ vi.mock("@/lib/api/lessons", async (orig) => ({
 vi.mock("./useStudentDashboard", () => ({ useStudentDashboard: dashboard }));
 vi.mock("./useAdaptation", () => ({ useAdaptation: adaptation }));
 
+/** The shape the live-read test already proves `lessonFromContent` accepts. */
+const LIVE_LESSON = {
+  id: FIRST_LESSON_ID,
+  title: "Fractions Lesson 3",
+  confirmationSummary: null,
+  segments: [
+    {
+      id: "seg-1",
+      segmentKey: "s1",
+      contentType: "explanatory_text",
+      sequenceOrder: 1,
+      title: "Numerators",
+      body: "The number on top.",
+      availableModalities: ["text"],
+      comprehensionCheckpoints: [],
+      textVariant: null,
+      visualVariant: null,
+      audioVariant: null,
+      interactiveVariant: null,
+      calculationVariant: null,
+      needsReview: false,
+      reviewReasons: [],
+    },
+  ],
+};
+
 const signIn = () =>
   setSession({
     token: "tok-test",
@@ -135,5 +161,42 @@ describe("useStudentLesson", () => {
     await waitFor(() => expect(result.current.lesson).not.toBeNull());
     expect(result.current.live).toBe(true);
     expect(result.current.lesson?.title).toBe("Fractions Lesson 3");
+  });
+  it("does not ask the engine to adapt when the caller says not to", async () => {
+    /*
+     * `useAdaptation` posts `mode: "lesson_load"`. The after-lesson screens read
+     * the same lesson, and firing it from `/summary` would tell the engine a
+     * child has just STARTED a lesson they have just finished - a fabricated
+     * signal about a child's learning, which is the one kind this product must
+     * never send.
+     *
+     * Gating on `live` is not enough: a real lesson's summary IS live. The
+     * lesson id reaching `useAdaptation` as undefined is the whole mechanism,
+     * so that is what this asserts.
+     */
+    signIn();
+    detail.mockResolvedValue(LIVE_LESSON);
+    modules.mockResolvedValue([]);
+    dashboard.mockReturnValue({ data: null, loading: false, failed: false });
+
+    const { result } = renderHook(() =>
+      useStudentLesson(FIRST_LESSON_ID, { adapt: false }),
+    );
+
+    await waitFor(() => expect(result.current.lesson).not.toBeNull());
+    expect(adaptation).toHaveBeenCalled();
+    expect(adaptation.mock.calls.at(-1)?.[0]).toBeUndefined();
+  });
+
+  it("adapts by default, so the player is untouched", async () => {
+    signIn();
+    detail.mockResolvedValue(LIVE_LESSON);
+    modules.mockResolvedValue([]);
+    dashboard.mockReturnValue({ data: null, loading: false, failed: false });
+
+    const { result } = renderHook(() => useStudentLesson(FIRST_LESSON_ID));
+
+    await waitFor(() => expect(result.current.lesson).not.toBeNull());
+    expect(adaptation.mock.calls.at(-1)?.[0]).toBe(FIRST_LESSON_ID);
   });
 });
