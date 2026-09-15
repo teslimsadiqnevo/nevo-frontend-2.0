@@ -234,14 +234,33 @@ New, tested: `Billing/overdue.ts`, `money.sumMoney`.
 swept, because each needs looking at against its own frame — but they are the
 same bug and should go in one pass.
 
-## Not from this register
+## The suite cannot be run in parallel on this machine
 
-Three student-lane suites fail on `main` as of 15 September, in files this
-work never touched: `shared/NevoKeyboard.dom.test.tsx`,
-`student/Onboarding/PinCreationScreen.dom.test.tsx` and
-`student/Profiling/WarmUpRun.dom.test.tsx` (8 tests). Confirmed pre-existing
-by running them on a clean `origin/main` rather than assumed. That lane is
-another session's.
+Worth recording, because it cost most of an afternoon and will cost the next
+person the same.
+
+`npx vitest run` reported 11 failures on one pass and 20 on the next, in
+different files each time, across the student, teacher, parent and admin
+lanes. None of them was real. Running the failing set together produced the
+actual explanation: **seven of eight files failed to start a worker at all** -
+`[vitest-pool]: Failed to start forks worker ... Timeout waiting for worker to
+respond`. The "failures" underneath are `waitFor` calls running out while
+their worker is starved, which is why they cluster on tests that await a
+mocked rejection.
+
+`npx vitest run --no-file-parallelism`, with nothing else competing for the
+machine, is **147 files / 1110 tests, all passing**.
+
+Two corrections to things this document said earlier, both from the same
+mistake - I ran other suites in the foreground while a full run was going, and
+then read its output as if it meant something:
+
+- It claimed three student-lane suites fail on `main`. They do not. They pass
+  in the clean serial run, and the earlier evidence was contaminated.
+- The per-lane runs quoted above were each re-verified serially and alone.
+
+The practical rule: a parallel run proves nothing here, in either direction.
+Gate on `--no-file-parallelism`, and do not run anything else while it goes.
 
 | # | sev | lane | finding | fix |
 |---|---|---|---|---|
