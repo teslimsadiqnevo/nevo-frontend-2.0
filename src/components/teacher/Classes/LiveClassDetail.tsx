@@ -1,6 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import {
+  OBSERVATION_COPY,
+  observationCount,
+} from "@/lib/constants/observations";
+import { useTeacherFlags } from "@/hooks/useTeacherFlags";
 import { useState } from "react";
 import type { AssignedClass } from "@/lib/api";
 import {
@@ -40,6 +45,14 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
   const role = klass.role === "co_teacher" ? "Co-teacher" : "Primary teacher";
   const { students, loading, failed } = useClassRoster(klass.class_id);
   const observed = students.filter((s) => s.profileStatus === "observed").length;
+  /*
+   * C16b's two markers. The attention flags are already read on Home; here they
+   * are keyed by student so a roster row can say "Worth a glance" without a
+   * second call. A flag the teacher has for a student in ANOTHER class simply
+   * does not match, which is the behaviour we want.
+   */
+  const { flags } = useTeacherFlags();
+  const flagFor = new Map(flags.map((f) => [f.studentId, f]));
 
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
@@ -96,11 +109,23 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
         {!loading && students.length > 0 && (
           <>
             <h3 className="mt-7 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase xl:mt-8 xl:text-sm">
-              Roster
+              Student observations
             </h3>
+            {/*
+             * C16b's own line, leading the existing profile count rather than
+             * stacked above it.
+             *
+             * WITHOUT "THIS WEEK", which the frame has. `lib/constants/
+             * observations.ts` states the rule and the reason: "the roster
+             * route declares no window and no cap, so 'this week' and 'in the
+             * last 30 days' are claims the API has not made." Dating a set of
+             * observations the contract does not date would be the console
+             * inventing a fact about a named child. Raised with design.
+             */}
             <p className="mt-2 max-w-[560px] text-[13px] leading-[1.5] text-nevo-near-black/60">
+              {"What Nevo has noticed about each student. "}
               {observed === 0
-                ? "Nevo hasn’t watched anyone here long enough to build a profile. That starts with their first lesson."
+                ? "Nobody here has been watched long enough for a learning profile yet. That starts with their first lesson."
                 : `Nevo has a learning profile for ${observed} of ${students.length}. The rest build as they work.`}
             </p>
             <div className="mt-3.5 flex flex-col gap-2 xl:mt-4">
@@ -119,18 +144,91 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
                     <span className="truncate text-[15px] font-semibold text-nevo-near-black">
                       {studentName(student)}
                     </span>
-                    {student.loginIdentifier && (
+                    {/* `seatContext` is a plain string from the roster read -
+                        "Seat 12" in C16b's own sample - and was also arriving
+                        unused. Preferred over the login identifier here, which
+                        is an account detail rather than something a teacher
+                        looking at a class needs. */}
+                    {(student.seatContext || student.loginIdentifier) && (
                       <span className="shrink-0 text-[12px] text-nevo-near-black/55 xl:mt-0.5">
                         <span className="xl:hidden">{"· "}</span>
-                        {student.loginIdentifier}
+                        {student.seatContext || student.loginIdentifier}
                       </span>
                     )}
                   </div>
-                  <span className="mt-1.5 text-[13px] text-nevo-near-black/60 xl:mt-0 xl:flex-1">
-                    {student.profileStatus === "observed"
-                      ? "Learning profile building"
-                      : "No profile yet"}
-                  </span>
+                  <div className="mt-1.5 min-w-0 xl:mt-0 xl:flex-1">
+                    {/*
+                     * C16b, "What Nevo has noticed about each student this
+                     * week." The payload has been arriving on every roster row
+                     * since 3 Sep and was thrown away: `observations` is
+                     * `{pattern, count}` over a closed five-value enum, and
+                     * `seatContext` alongside it. The frame has been drawn the
+                     * whole time.
+                     *
+                     * WORDING COMES FROM `lib/constants/observations.ts`, which
+                     * says so itself: it is the only copy of these five strings,
+                     * Zero-Tag governed, and guarded by a test that fails on
+                     * trait vocabulary. A second set written here is how two
+                     * wordings drift, and this screen is read by teachers about
+                     * named children.
+                     */}
+                    {student.observations && student.observations.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {student.observations.map((o) => {
+                          const copy = OBSERVATION_COPY[o.pattern];
+                          if (!copy) return null;
+                          const times = observationCount(o.count);
+                          return (
+                            <span
+                              key={o.pattern}
+                              title={copy.body(student.firstName ?? "They")}
+                              className="rounded-full bg-nevo-navy/8 px-2.5 py-1 text-[12.5px] whitespace-nowrap text-nevo-near-black/72"
+                            >
+                              {times ? `${copy.title} · ${times}` : copy.title}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-[13px] text-nevo-near-black/60">
+                        {student.profileStatus === "observed"
+                          ? "Learning profile building"
+                          : "No profile yet"}
+                      </span>
+                    )}
+                  </div>
+                  {/*
+                   * C16b's two markers, LABELLED rather than coloured.
+                   *
+                   * The frame carries "Worth a glance" as a soft-violet marker
+                   * and "Sudden change" as a navy accent with a glyph. Violet
+                   * is already spoken for on this row - the left border means
+                   * "Nevo has a learning profile for this student", and the
+                   * legend below the list says so. Two meanings on one colour
+                   * on one row is the kind of thing nobody notices until a
+                   * teacher acts on the wrong one, so these say their words.
+                   * Colour-only status also fails anyone who cannot separate
+                   * the two. Flagged to design.
+                   *
+                   * A flag for a student in ANOTHER of this teacher's classes
+                   * simply does not match, which is what we want.
+                   */}
+                  {(() => {
+                    const flag = flagFor.get(student.studentId);
+                    if (!flag) return null;
+                    return (
+                      <span
+                        className={cn(
+                          "mt-1.5 shrink-0 rounded-full px-2.5 py-1 text-[12px] font-medium whitespace-nowrap xl:mt-0",
+                          flag.isSudden
+                            ? "bg-nevo-navy text-nevo-cream"
+                            : "bg-nevo-violet/22 text-nevo-navy",
+                        )}
+                      >
+                        {flag.isSudden ? "Sudden change" : "Worth a glance"}
+                      </span>
+                    );
+                  })()}
                   <span className="mt-1 shrink-0 text-[13px] whitespace-nowrap text-nevo-near-black/55 xl:mt-0">
                     {lastSeenLine(student)}
                   </span>
