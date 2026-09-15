@@ -14,7 +14,7 @@ import type { AdaptationPlan, Lesson, SegmentAdaptation } from "@/lib/types";
  * These are two different vocabularies that happen to describe the same
  * lesson, and the previous code cast one to the other
  * (`setPlan(res as AdaptationPlan)`). That could never have worked: the wire
- * is snake_case with `segment_id`, the player is camelCase with `segmentId`,
+ * is snake_case with `segmentId`, the player is camelCase with `segmentId`,
  * so every per-segment lookup would have missed and every field read
  * undefined. Nothing consumed it, so nothing surfaced it.
  */
@@ -96,7 +96,7 @@ export function adaptSegmentsFor(segments: ContentSegment[]): AdaptSegment[] {
  *   reshapes, so translating one into the other would ask the player to render
  *   a variant that does not exist - and the player already refuses to offer a
  *   density a segment cannot actually reshape into.
- * - `breakAfter`. `break_suggestion` is one suggestion for the whole lesson,
+ * - `breakAfter`. `breakSuggestion` is one suggestion for the whole lesson,
  *   not per segment, and on `lesson_load` with no runtime signals it is always
  *   `severity: "none"` with a null type. It belongs to the `in_lesson` pass.
  * - `affect`, `affectHint`, `socraticPrompts`. No field on this route carries
@@ -107,10 +107,10 @@ export function toAdaptationPlan(
   lesson: Lesson,
 ): AdaptationPlan {
   const offered = new Map(lesson.segments.map((s) => [s.id, s.modalities]));
-  const suggested = asModality(res.modality_suggestion?.suggested);
+  const suggested = asModality(res.modalitySuggestion?.suggested);
 
   const segments: SegmentAdaptation[] = res.segments.flatMap((row) => {
-    const modalities = offered.get(row.segment_id);
+    const modalities = offered.get(row.segmentId);
     // A plan row for a segment the player does not have is dropped rather than
     // carried: the player looks its plan up by segment id, so an orphan row is
     // dead weight at best.
@@ -129,7 +129,7 @@ export function toAdaptationPlan(
 
     return [
       {
-        segmentId: row.segment_id,
+        segmentId: row.segmentId,
         startModality,
         scaffold: SCAFFOLD[row.scaffolding] ?? SCAFFOLD_LEVELS.LIGHT,
         // Same clamp: a suggestion the segment cannot render is not offered.
@@ -141,5 +141,5 @@ export function toAdaptationPlan(
     ];
   });
 
-  return { lessonId: res.lesson_id, segments };
+  return { lessonId: res.lessonId, segments };
 }

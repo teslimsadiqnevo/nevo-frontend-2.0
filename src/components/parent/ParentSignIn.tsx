@@ -111,9 +111,9 @@ export function ParentSignIn() {
     try {
       const session = await parentApi.verifyCode(sent, code);
       setSession({
-        token: session.access_token,
-        expiresAt: session.expires_at,
-        userId: session.user_id,
+        token: session.accessToken,
+        expiresAt: session.expiresAt,
+        userId: session.userId,
         role: session.role,
       });
       // A hard navigation: the session and its mirror cookie must have settled

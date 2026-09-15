@@ -44,7 +44,7 @@ import { NoAccess, failureKind } from "../NoAccess";
  * deletes this entire mechanism.
  *
  * TODO(api): WRONG - `GET /api/v1/admin/sso/status` carries
- * `last_successful_sync_at` (required), it is declared in `lib/api/sso.ts`,
+ * `lastSuccessfulSyncAt` (required), it is declared in `lib/api/sso.ts`,
  * and `SsoView` already renders it. What is missing is only that THIS
  * screen does not make that call. Formerly: "no endpoint reports when the
  * SSO roster last synced", so the
@@ -87,7 +87,7 @@ function teacherLabel(teachers: AssignedTeacher[]): string {
   );
   const first = named[0];
   const name =
-    [first.first_name, first.last_name].filter(Boolean).join(" ").trim() ||
+    [first.firstName, first.lastName].filter(Boolean).join(" ").trim() ||
     first.email ||
     "Assigned teacher";
   return named.length > 1 ? `${name} +${named.length - 1}` : name;

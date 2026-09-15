@@ -55,9 +55,9 @@ export type AskNevoCategory =
 
 export interface AskNevoAnswer {
   answer: string;
-  question_category: AskNevoCategory;
-  interaction_id: string;
-  ai_gateway_call_id: string;
+  questionCategory: AskNevoCategory;
+  interactionId: string;
+  aiGatewayCallId: string;
   /**
    * THE THREAD THE SERVER ACTUALLY OPENED, and the field this client used to
    * throw away.

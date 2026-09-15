@@ -40,9 +40,9 @@ export type ConsentStatus = "not_sent" | "pending" | "confirmed" | "withdrawn";
  * `processingWithdrawn`.
  */
 export interface ConsentGateStatus {
-  student_id: string;
+  studentId: string;
   granted: boolean;
-  required_type: ConsentType;
+  requiredType: ConsentType;
   status: ConsentStatus;
 }
 
@@ -61,12 +61,12 @@ export function processingWithdrawn(
 
 export interface ConsentConfirmation {
   id: string;
-  student_id: string;
-  consent_type: ConsentType;
+  studentId: string;
+  consentType: ConsentType;
   status: ConsentStatus;
-  confirmation_source: "school" | "parent" | null;
-  confirmed_via: "written" | "verbal" | "email" | "digital" | null;
-  confirmed_at: string | null;
+  confirmationSource: "school" | "parent" | null;
+  confirmedVia: "written" | "verbal" | "email" | "digital" | null;
+  confirmedAt: string | null;
 }
 
 /**
@@ -85,23 +85,23 @@ export type ConsentDeliveryStatus =
   | "failed";
 
 export interface ParentConsentRequestReceipt {
-  invitation_id: string;
-  parent_link_id: string;
-  student_id: string;
-  consent_types: ConsentType[];
-  delivery_status: ConsentDeliveryStatus;
-  expires_at: string;
+  invitationId: string;
+  parentLinkId: string;
+  studentId: string;
+  consentTypes: ConsentType[];
+  deliveryStatus: ConsentDeliveryStatus;
+  expiresAt: string;
 }
 
 export interface ParentLink {
   id: string;
-  school_id: string;
-  student_id: string;
-  parent_id: string | null;
-  parent_name: string;
-  parent_contact: string;
-  contact_method: "email" | "sms";
-  account_created: boolean;
+  schoolId: string;
+  studentId: string;
+  parentId: string | null;
+  parentName: string;
+  parentContact: string;
+  contactMethod: "email" | "sms";
+  accountCreated: boolean;
 }
 
 export const consentsApi = {
@@ -115,9 +115,9 @@ export const consentsApi = {
 
   /** Admin surface: record school-collected consent (DSA warranty). */
   confirmBySchool: (payload: {
-    student_id: string;
-    consent_types: ConsentType[];
-    confirmed_via: "written" | "verbal" | "email" | "digital";
+    studentId: string;
+    consentTypes: ConsentType[];
+    confirmedVia: "written" | "verbal" | "email" | "digital";
   }) =>
     api.post<ConsentConfirmation[]>(
       "/api/v1/consents/school-confirmations",
@@ -128,10 +128,10 @@ export const consentsApi = {
   requestParentConsent: (
     studentId: string,
     payload: {
-      parent_name: string;
-      parent_contact: string;
-      contact_method: "email" | "sms";
-      consent_types?: ConsentType[];
+      parentName: string;
+      parentContact: string;
+      contactMethod: "email" | "sms";
+      consentTypes?: ConsentType[];
     },
   ) =>
     api.post<ParentConsentRequestReceipt>(

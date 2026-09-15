@@ -70,9 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .then((s) => {
           if (cancelled) return;
           // TODO(api): session carries no school id yet - flagged to backend.
-          setUser({ id: s.user_id, role: s.role as UserRole, schoolId: "" });
+          setUser({ id: s.userId, role: s.role as UserRole, schoolId: "" });
           setStatus("authenticated");
-          setEphemeralStudent(s.user_id);
+          setEphemeralStudent(s.userId);
         })
         .catch((cause: unknown) => {
           if (cancelled) return;

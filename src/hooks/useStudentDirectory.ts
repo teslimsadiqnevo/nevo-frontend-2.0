@@ -78,8 +78,8 @@ export function useStudentDirectory(): StudentDirectory {
             .slice(0, MAX_CLASSES)
             .map((c) =>
               classesApi
-                .classStudents(c.class_id)
-                .then((roster) => toDirectory(c.class_name, roster)),
+                .classStudents(c.classId)
+                .then((roster) => toDirectory(c.className, roster)),
             ),
         );
         if (cancelled) return;

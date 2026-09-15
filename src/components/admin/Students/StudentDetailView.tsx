@@ -57,7 +57,7 @@ import { WriteFailed } from "../WriteFailed";
  * (the `Consent` section, with `ConsentPill` and `consentDetailLine`).
  * Formerly: "the CONSENT card is not built." `GET /api/v1/students/{id}`
  * carries no consent state, no giver, no date and no channel, and
- * `parent-links` carries `account_created`, which answers a different
+ * `parent-links` carries `accountCreated`, which answers a different
  * question. The card is a record a school may have to stand behind, so it is
  * absent rather than assembled from the nearest-looking fields. This also
  * removes the header's consent pill and the "View record" link.
@@ -310,7 +310,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
           *
           * Offered only where consent is not already confirmed. The frame's
           * own words for the two cases, and it never claims delivery it has
-          * not been told about - the receipt's `delivery_status` decides.
+          * not been told about - the receipt's `deliveryStatus` decides.
           */}
         {mayRequestConsent(student.consent) ? (
           <div className="mt-4 border-t border-nevo-near-black/8 pt-4">
@@ -365,27 +365,27 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                 i < guardians.length - 1 && ROW_DIVIDER,
               )}
             >
-              <Avatar name={g.parent_name} size={44} />
+              <Avatar name={g.parentName} size={44} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-base font-semibold text-nevo-near-black">
-                  {g.parent_name}
+                  {g.parentName}
                 </div>
                 <div className="truncate text-[13.5px] text-nevo-near-black/62">
-                  {g.parent_contact}
+                  {g.parentContact}
                 </div>
               </div>
               <span
                 className={cn(
                   "inline-flex flex-none items-center gap-2 rounded-full px-3 py-1 text-[12.5px] font-semibold",
-                  g.account_created
+                  g.accountCreated
                     ? "bg-nevo-navy/12 text-nevo-navy"
                     : "bg-nevo-near-black/[0.07] text-nevo-near-black/60",
                 )}
               >
-                {g.account_created ? (
+                {g.accountCreated ? (
                   <span aria-hidden="true" className="size-[7px] rounded-full bg-nevo-navy" />
                 ) : null}
-                {g.account_created ? "Account active" : "No account yet"}
+                {g.accountCreated ? "Account active" : "No account yet"}
               </span>
             </div>
           ))

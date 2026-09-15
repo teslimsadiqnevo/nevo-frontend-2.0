@@ -261,7 +261,7 @@ export function AskNevo() {
               text: res.answer,
               // Kept so the vote below has something to post against; a
               // canned answer has no interaction and gets no vote.
-              interactionId: res.interaction_id,
+              interactionId: res.interactionId,
             }
           : { ...cannedFor(question), sample: Boolean(getToken()) },
       ]);
@@ -694,7 +694,7 @@ function HistoryList({
  * draws, which is the faithful reading: the frame specifies a bubble per
  * author, and its sample simply happens to be one exchange.
  *
- * No vote controls here. A vote posts against an `interaction_id`, which the
+ * No vote controls here. A vote posts against an `interactionId`, which the
  * transcript does not carry, so offering thumbs would be offering a control
  * that could not record anything.
  */

@@ -50,12 +50,12 @@ vi.mock("next/navigation", () => ({
 }));
 
 const held = (id: string): AssignedClass => ({
-  assignment_id: `a-${id}`,
-  class_id: id,
-  class_name: `Class ${id}`,
-  class_code: null,
+  assignmentId: `a-${id}`,
+  classId: id,
+  className: `Class ${id}`,
+  classCode: null,
   role: "primary",
-  assigned_at: "2026-01-01T00:00:00Z",
+  assignedAt: "2026-01-01T00:00:00Z",
 });
 
 const klass = (id: string, studentCount: number, archivedAt: string | null = null): AdminClass => ({

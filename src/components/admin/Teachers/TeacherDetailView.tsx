@@ -51,7 +51,7 @@ import { NoAccess, failureKind } from "../NoAccess";
  *
  * THE DATES ARE ON THE ROWS NOW. A third bullet here used to read "ASSIGNMENT
  * HISTORY, which has no endpoint at all", and `GET /api/v1/teachers/{id}
- * /classes` had been returning `assigned_at` and `role` per row into `held`
+ * /classes` had been returning `assignedAt` and `role` per row into `held`
  * all along, where they were discarded.
  *
  * There is deliberately NO history SECTION - see the note under the class card
@@ -152,18 +152,18 @@ export function TeacherDetailView({ teacherId }: { teacherId: string }) {
    * out of both the headcount and the year-group line - and SAID, rather than
    * quietly subtracted.
    */
-  const activeHeld = held.filter((h) => !byId.get(h.class_id)?.archivedAt);
+  const activeHeld = held.filter((h) => !byId.get(h.classId)?.archivedAt);
   const archivedCount = held.length - activeHeld.length;
   /** A class we still cannot see at all: the total is a floor, not a total. */
-  const unknown = activeHeld.some((h) => !byId.has(h.class_id));
+  const unknown = activeHeld.some((h) => !byId.has(h.classId));
   const headcount = activeHeld.reduce(
-    (sum, h) => sum + (byId.get(h.class_id)?.studentCount ?? 0),
+    (sum, h) => sum + (byId.get(h.classId)?.studentCount ?? 0),
     0,
   );
   const years = Array.from(
     new Set(
       activeHeld
-        .map((h) => yearGroupLabel(byId.get(h.class_id)?.yearGroup))
+        .map((h) => yearGroupLabel(byId.get(h.classId)?.yearGroup))
         .filter((v): v is string => Boolean(v)),
     ),
   );
@@ -249,11 +249,11 @@ export function TeacherDetailView({ teacherId }: { teacherId: string }) {
           </div>
         ) : (
           held.map((h, i) => {
-            const info = byId.get(h.class_id);
+            const info = byId.get(h.classId);
             // The card counts ACTIVE classes; without this the list below it
             // shows more rows than the card admits to, and nothing says which
             // of them the card left out.
-            const started = longDate(h.assigned_at);
+            const started = longDate(h.assignedAt);
             const meta = [
               info?.archivedAt ? "Archived" : null,
               yearGroupLabel(info?.yearGroup),
@@ -264,15 +264,15 @@ export function TeacherDetailView({ teacherId }: { teacherId: string }) {
               .join(" · ");
             return (
               <Link
-                key={h.assignment_id}
-                href={`/admin/classes/${h.class_id}`}
+                key={h.assignmentId}
+                href={`/admin/classes/${h.classId}`}
                 className={cn(
                   "flex items-center gap-3.5 px-[22px] py-[15px] transition-colors hover:bg-nevo-navy/[0.03]",
                   i < held.length - 1 && ROW_DIVIDER,
                 )}
               >
                 <span className="flex-1 truncate text-[15px] font-semibold text-nevo-near-black">
-                  {h.class_name}
+                  {h.className}
                 </span>
                 {meta ? (
                   <span className="text-[13.5px] text-nevo-near-black/60">{meta}</span>
@@ -288,7 +288,7 @@ export function TeacherDetailView({ teacherId }: { teacherId: string }) {
           role, and who made the change - and its "done when" requires the log
           to be append-only. Two of those five have no contract: no schema
           carries an actor, and an ended assignment leaves no record at all
-          (the DELETE returns no body, and nothing has an `ended_at`). A
+          (the DELETE returns no body, and nothing has an `endedAt`). A
           collapsed second list of the SAME rows differing only by a date would
           be a duplicate under the one heading we cannot honestly use, so the
           date sits on the row and this states the limit instead. */}

@@ -54,7 +54,7 @@ beforeEach(() => {
   // no mock.
   useTeacherClasses.mockReturnValue({
     classes: [],
-    liveClasses: [{ class_id: "c-1", class_name: "JSS 2A", class_code: "2A" }],
+    liveClasses: [{ classId: "c-1", className: "JSS 2A", classCode: "2A" }],
     options: [{ id: "c-1", name: "JSS 2A", joinCode: "2A" }],
     live: true,
     sample: false,
@@ -74,7 +74,7 @@ describe("what a teacher sees", () => {
     // signed-in teachers can reach.
     useTeacherClasses.mockReturnValue({
       classes: [],
-      liveClasses: [{ class_id: "c-1", class_name: "JSS 2A", class_code: "2A" }],
+      liveClasses: [{ classId: "c-1", className: "JSS 2A", classCode: "2A" }],
       options: [{ id: "c-1", name: "JSS 2A", joinCode: "2A" }],
       live: true,
       sample: false,

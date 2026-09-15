@@ -87,9 +87,9 @@ export function useTeacherClasses(): TeacherClasses {
     classes: [],
     liveClasses: data,
     options: data.map((c) => ({
-      id: c.class_id,
-      name: c.class_name,
-      joinCode: c.class_code,
+      id: c.classId,
+      name: c.className,
+      joinCode: c.classCode,
     })),
     live: true,
     sample: false,

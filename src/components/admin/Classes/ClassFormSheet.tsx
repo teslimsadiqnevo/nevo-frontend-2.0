@@ -90,8 +90,8 @@ export function ClassFormSheet({
         return (
           classesApi
             .createAssignment({
-              teacher_id: teacherId,
-              class_id: created.id,
+              teacherId: teacherId,
+              classId: created.id,
               role: "primary",
             })
             .then(() => onSaved(created.id))

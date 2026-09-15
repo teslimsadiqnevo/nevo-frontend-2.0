@@ -34,13 +34,13 @@ const klass = (over: Partial<AdminClass> = {}): AdminClass => ({
 let current = klass();
 
 const teacher = {
-  assignment_id: "as1",
-  teacher_id: "t1",
-  first_name: "Folake",
-  last_name: "Adeyemi",
+  assignmentId: "as1",
+  teacherId: "t1",
+  firstName: "Folake",
+  lastName: "Adeyemi",
   email: "f@school.edu.ng",
   role: "primary" as const,
-  assigned_at: "2026-01-01T00:00:00Z",
+  assignedAt: "2026-01-01T00:00:00Z",
 };
 
 beforeEach(() => {

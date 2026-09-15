@@ -12,7 +12,7 @@ import { StudentsView } from "./StudentsView";
  * reach, because the product could not send anybody a link.
  *
  * The receipt is READ, not assumed. `POST .../parent-consent-requests` answers
- * 202 with `delivery_status: queued | processing | sent | failed`, and only
+ * 202 with `deliveryStatus: queued | processing | sent | failed`, and only
  * `sent` means a parent was written to - the same distinction the invite
  * surfaces got wrong until 8 Sep.
  */
@@ -69,23 +69,23 @@ const student = (over: Partial<AdminStudentRow> = {}): AdminStudentRow => ({
 
 const link = (over: Partial<ParentLink> = {}): ParentLink => ({
   id: "pl1",
-  school_id: "sch1",
-  student_id: "s1",
-  parent_id: null,
-  parent_name: "Mrs. Eze",
-  parent_contact: "mrs.eze@email.com",
-  contact_method: "email",
-  account_created: false,
+  schoolId: "sch1",
+  studentId: "s1",
+  parentId: null,
+  parentName: "Mrs. Eze",
+  parentContact: "mrs.eze@email.com",
+  contactMethod: "email",
+  accountCreated: false,
   ...over,
 });
 
 const receipt = (delivery: string) => ({
-  invitation_id: "i1",
-  parent_link_id: "pl1",
-  student_id: "s1",
-  consent_types: ["data_processing"],
-  delivery_status: delivery,
-  expires_at: "2026-10-01T00:00:00Z",
+  invitationId: "i1",
+  parentLinkId: "pl1",
+  studentId: "s1",
+  consentTypes: ["data_processing"],
+  deliveryStatus: delivery,
+  expiresAt: "2026-10-01T00:00:00Z",
 });
 
 const press = async () =>
@@ -106,9 +106,9 @@ describe("sending a parent the consent request", () => {
     // D07: "Sending a request is deliberate and per-student" - no form, no
     // retyping a contact the school already gave us.
     expect(requestParentConsent).toHaveBeenCalledWith("s1", {
-      parent_name: "Mrs. Eze",
-      parent_contact: "mrs.eze@email.com",
-      contact_method: "email",
+      parentName: "Mrs. Eze",
+      parentContact: "mrs.eze@email.com",
+      contactMethod: "email",
     });
   });
 
@@ -213,13 +213,13 @@ describe("sending a parent the consent request", () => {
   });
   it("infers the channel from the contact when the record's is unusable", async () => {
     /*
-     * `ParentLink.contact_method` is a bare `string` on our side while the
+     * `ParentLink.contactMethod` is a bare `string` on our side while the
      * endpoint takes the `email | sms` enum, so an unrecognised value would be
      * passed straight through and 422'd. A phone number goes by SMS.
      */
     list.mockResolvedValue([student()]);
     parentLinks.mockResolvedValue([
-      link({ contact_method: "whatsapp", parent_contact: "+2348012345678" }),
+      link({ contactMethod: "whatsapp", parentContact: "+2348012345678" }),
     ]);
     requestParentConsent.mockResolvedValue(receipt("sent"));
 
@@ -229,7 +229,7 @@ describe("sending a parent the consent request", () => {
     await waitFor(() => expect(requestParentConsent).toHaveBeenCalled());
     expect(requestParentConsent).toHaveBeenCalledWith(
       "s1",
-      expect.objectContaining({ contact_method: "sms" }),
+      expect.objectContaining({ contactMethod: "sms" }),
     );
   });
 });

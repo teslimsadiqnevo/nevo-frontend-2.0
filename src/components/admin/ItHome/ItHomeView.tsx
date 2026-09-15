@@ -140,7 +140,7 @@ export function ItHomeView() {
           : "Everyone signs in with your school code. Every account, class and piece of work stays exactly as it is.",
       };
     }
-    const synced = `Staff and students sign in with ${provider}, and the directory last synced ${timeAgo(status.last_successful_sync_at)}.`;
+    const synced = `Staff and students sign in with ${provider}, and the directory last synced ${timeAgo(status.lastSuccessfulSyncAt)}.`;
     if (historyFailed) {
       return {
         title: "Connected and syncing",
@@ -237,7 +237,7 @@ export function ItHomeView() {
               />
               <GlanceTile
                 label="Directory sync"
-                value={status ? timeAgo(status.last_successful_sync_at) : "Not syncing"}
+                value={status ? timeAgo(status.lastSuccessfulSyncAt) : "Not syncing"}
                 sub={
                   !status
                     ? "No provider connected"

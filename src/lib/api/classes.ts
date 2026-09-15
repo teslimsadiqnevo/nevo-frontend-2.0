@@ -14,22 +14,22 @@ export type ClassSource = "manual" | "roster_sync";
 export type TeacherAssignmentRole = "primary" | "co_teacher";
 
 export interface AssignedClass {
-  assignment_id: string;
-  class_id: string;
-  class_name: string;
-  class_code: string | null;
+  assignmentId: string;
+  classId: string;
+  className: string;
+  classCode: string | null;
   role: TeacherAssignmentRole;
-  assigned_at: string;
+  assignedAt: string;
 }
 
 export interface AssignedTeacher {
-  assignment_id: string;
-  teacher_id: string;
-  first_name: string | null;
-  last_name: string | null;
+  assignmentId: string;
+  teacherId: string;
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
   role: TeacherAssignmentRole;
-  assigned_at: string;
+  assignedAt: string;
 }
 
 /**
@@ -204,15 +204,15 @@ export const classesApi = {
 
   /** Assign a teacher to a class (admin seam). */
   createAssignment: (payload: {
-    teacher_id: string;
-    class_id: string;
+    teacherId: string;
+    classId: string;
     role: TeacherAssignmentRole;
   }) => api.post("/api/v1/teacher-class-assignments", payload),
 
   /** Hand a class to another teacher (admin seam). */
   reassign: (
     assignmentId: string,
-    payload: { new_teacher_id: string; role?: TeacherAssignmentRole | null },
+    payload: { newTeacherId: string; role?: TeacherAssignmentRole | null },
   ) =>
     api.post(
       `/api/v1/teacher-class-assignments/${assignmentId}/reassign`,

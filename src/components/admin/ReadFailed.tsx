@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
  *
  *   - "No guardian on the record" for a child whose parent list 500'd, on a
  *     screen written to be shown TO a parent
- *   - a healthy SSO sync, because `history?.failed_runs ?? 0` coalesces a
+ *   - a healthy SSO sync, because `history?.failedRuns ?? 0` coalesces a
  *     failed read straight into the healthy branch
  *   - "There aren't enough lessons yet to show a trend" - a claim about how
  *     much a school has taught, produced by a read that did not answer

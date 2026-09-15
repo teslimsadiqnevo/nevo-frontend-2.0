@@ -9,8 +9,8 @@ import { getSession } from "@/lib/auth/session";
  *
  * This replaces the two-hop recovery the console ran before
  * `GET /api/v1/users/me` existed - walk the teacher's classes, read each
- * class's teacher list, find the row whose `teacher_id` matches our
- * `user_id` - which was speculative, cost two round trips, and rested on an
+ * class's teacher list, find the row whose `teacherId` matches our
+ * `userId` - which was speculative, cost two round trips, and rested on an
  * id equivalence nothing confirmed. One call answers it outright.
  *
  * Resolved once per signed-in user and shared, because the sidebar mounts on
@@ -47,12 +47,12 @@ function initialsFrom(name: string): string | null {
 }
 
 function toIdentity(user: CurrentUser): Identity {
-  // Prefer the given/family pair; `display_name` is the backend's own
+  // Prefer the given/family pair; `displayName` is the backend's own
   // fallback and may be an identifier rather than a person's name.
-  const full = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
-  const name = full || user.display_name || "";
+  const full = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+  const name = full || user.displayName || "";
   return {
-    userId: user.user_id,
+    userId: user.userId,
     role: user.role,
     name: name || null,
     initials: name ? initialsFrom(name) : null,

@@ -180,7 +180,7 @@ describe("SignUpStep", () => {
     submit();
 
     const retry = await screen.findByRole("button", { name: "Try signing in" });
-    loginPassword.mockResolvedValueOnce({ access_token: "t" });
+    loginPassword.mockResolvedValueOnce({ accessToken: "t" });
     fireEvent.click(retry);
 
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));

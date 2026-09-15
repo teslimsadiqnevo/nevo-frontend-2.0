@@ -70,7 +70,7 @@ function ScopePill({ label }: { label: string }) {
 }
 
 function displayName(m: TeamMember): string {
-  const full = [m.first_name, m.last_name].filter(Boolean).join(" ").trim();
+  const full = [m.firstName, m.lastName].filter(Boolean).join(" ").trim();
   return full || m.email || "Invited admin";
 }
 
@@ -317,7 +317,7 @@ function TeamList({
 
       <div className={cn(CARD, "mt-3 overflow-hidden")}>
         {team.map((m, i) => (
-          <MemberRow key={m.user_id} m={m} last={i === team.length - 1} />
+          <MemberRow key={m.userId} m={m} last={i === team.length - 1} />
         ))}
       </div>
     </>
@@ -393,7 +393,7 @@ function InvitePanel({
       .then((created) => {
         /*
          * KEEP THE RESPONSE. This was `.then(() => ...)`, discarding a 201
-         * whose `invitation_token` is the ONLY way to build an activation
+         * whose `invitationToken` is the ONLY way to build an activation
          * link - and then navigating away 1.4 seconds later, so the one copy
          * of it was gone before anybody could act on it. The same shape as the
          * bulk import's dropped join tokens, in its sibling surface.
@@ -419,9 +419,9 @@ function InvitePanel({
           {/*
             * WAS: "They'll get an email to set a password and join."
             *
-            * Nothing supported that. The 201 carries `invitation_id`,
-            * `user_id`, `email`, `role`, `scopes`, `invitation_token` and
-            * `expires_at` - and NO delivery state of any kind, unlike the
+            * Nothing supported that. The 201 carries `invitationId`,
+            * `userId`, `email`, `role`, `scopes`, `invitationToken` and
+            * `expiresAt` - and NO delivery state of any kind, unlike the
             * student invites, which have `deliveryStatus` precisely so a
             * screen can tell. So the console can no more promise an email than
             * deny one, and it does neither: it hands over the link.
@@ -564,7 +564,7 @@ function InvitePanel({
               </button>
             </div>
             <p className="m-0 mt-2.5 text-[13px] leading-[1.5]">
-              It expires {longDate(invited.expires_at)}. There is no way to
+              It expires {longDate(invited.expiresAt)}. There is no way to
               resend or cancel an admin invitation yet, so keep this link until
               they have used it.
             </p>

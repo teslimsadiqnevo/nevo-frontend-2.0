@@ -140,7 +140,7 @@ export function AdminSignIn() {
     Promise.race([live, cap])
       .then((session) => {
         signIn({
-          id: session.user_id,
+          id: session.userId,
           role: session.role as UserRole,
           schoolId: "",
           method: "manual",

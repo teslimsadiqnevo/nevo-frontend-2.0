@@ -58,10 +58,10 @@ describe("student SsoCallback", () => {
   it("stores the server's own session for a real handshake", async () => {
     setUrl("provider=microsoft&code=real-code&state=real-state");
     ssoCallback.mockResolvedValue({
-      access_token: "server-token",
-      token_type: "bearer",
-      expires_at: new Date(Date.now() + 3600_000).toISOString(),
-      user_id: "student-77",
+      accessToken: "server-token",
+      tokenType: "bearer",
+      expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+      userId: "student-77",
       role: "student",
       destination: "/student/onboarding/sequence",
     });

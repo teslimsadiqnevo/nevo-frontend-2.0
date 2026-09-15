@@ -44,7 +44,7 @@ import {
  * "ONLY THE BACKEND CAN PREVENT THAT" USED TO CLOSE THIS, and it is not true.
  * There is no PATCH on an assignment, but there is a role-changing seam:
  * `POST /api/v1/teacher-class-assignments/{assignment_id}/reassign` taking
- * `{new_teacher_id, role?}`, already wrapped as `classesApi.reassign` and
+ * `{newTeacherId, role?}`, already wrapped as `classesApi.reassign` and
  * already used by RemoveAccessSheet. Honouring the notice client-side means
  * reassigning the incumbent's row to co_teacher and creating the new primary -
  * TWO CALLS, NOT ONE TRANSACTION, so the open question is what the second
@@ -136,13 +136,13 @@ export function AssignTeacherSheet({
   // Somebody already assigned cannot be assigned again from here; the row's own
   // "Remove from this class" is how a role changes.
   const assignable = teachers.filter(
-    (t) => !assigned.some((a) => a.teacher_id === t.id),
+    (t) => !assigned.some((a) => a.teacherId === t.id),
   );
 
   const currentPrimary = assigned.find((a) => a.role === "primary");
   const primaryConflict = role === "primary" && Boolean(currentPrimary);
   const primaryName = currentPrimary
-    ? [currentPrimary.first_name, currentPrimary.last_name]
+    ? [currentPrimary.firstName, currentPrimary.lastName]
         .filter(Boolean)
         .join(" ")
         .trim() ||
@@ -157,7 +157,7 @@ export function AssignTeacherSheet({
     if (!ready || !role) return;
     setPhase("assigning");
     classesApi
-      .createAssignment({ teacher_id: teacherId, class_id: classId, role })
+      .createAssignment({ teacherId: teacherId, classId: classId, role })
       .then(() => {
         setPhase("assigned");
         // Let the confirmation be read before the sheet goes.

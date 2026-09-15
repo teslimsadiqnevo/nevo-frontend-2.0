@@ -201,8 +201,8 @@ export function SsoView() {
          *
          * `POST /admin/sso/roster-sync` answers `{runId, status, pollUrl}` and
          * carries no counts, because none exist yet. This branch used to read
-         * `imported_students`, `imported_teachers` and
-         * `missing_teacher_class_mappings` off it and render
+         * `importedStudents`, `importedTeachers` and
+         * `missingTeacherClassMappings` off it and render
          * "Synced. undefined students and undefined staff imported." - every
          * one of those was `undefined`, and the type said otherwise because
          * `api.post<T>` is a cast the compiler never checks.
@@ -232,7 +232,7 @@ export function SsoView() {
       .reauthorise()
       .then((r) => {
         // The provider owns the consent screen; hand the browser over.
-        window.location.assign(r.authorization_url);
+        window.location.assign(r.authorizationUrl);
       })
       .catch(() => {
         setNotice(
@@ -251,7 +251,7 @@ export function SsoView() {
       .then((r) => {
         setConfirming(false);
         setNotice(
-          `Disconnected. ${r.retained_user_count} accounts kept exactly as they are.`,
+          `Disconnected. ${r.retainedUserCount} accounts kept exactly as they are.`,
         );
         setStatus(null);
         load();
@@ -429,13 +429,13 @@ export function SsoView() {
                 </h3>
                 <div className={cn(CARD, "mt-3 flex items-center gap-4 px-[22px] py-4")}>
                   <span className="min-w-0 flex-1 truncate font-mono text-[14px] text-nevo-near-black">
-                    {status.school_entry_url}
+                    {status.schoolEntryUrl}
                   </span>
                   <button
                     type="button"
                     onClick={() => {
                       void navigator.clipboard
-                        ?.writeText(status.school_entry_url)
+                        ?.writeText(status.schoolEntryUrl)
                         .then(() => setNotice("Copied"))
                         .catch(() => {});
                     }}
@@ -465,7 +465,7 @@ export function SsoView() {
                               : "Healthy"}
                       </span>
                       <p className="mt-1 text-sm text-nevo-near-black/62">
-                        {`Last synced ${timeAgo(status.last_successful_sync_at)}`}
+                        {`Last synced ${timeAgo(status.lastSuccessfulSyncAt)}`}
                         {historyFailed
                           ? " · we couldn't read the run history just now, so this does not account for failed runs"
                           : history
@@ -552,18 +552,18 @@ export function SsoView() {
                   })()}
                 </div>
 
-                {status.data_flow.length > 0 && (
+                {status.dataFlow.length > 0 && (
                   <>
                     <h3 className="mt-8 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
                       {`What moves between Nevo and ${PROVIDER_LABELS[status.provider]}`}
                     </h3>
                     <div className={cn(CARD, "mt-3 overflow-hidden")}>
-                      {status.data_flow.map((f, i) => (
+                      {status.dataFlow.map((f, i) => (
                         <div
                           key={f.key}
                           className={cn(
                             "flex flex-col px-[22px] py-[14px]",
-                            i < status.data_flow.length - 1 &&
+                            i < status.dataFlow.length - 1 &&
                               "border-b border-nevo-near-black/7",
                           )}
                         >
@@ -637,7 +637,7 @@ export function SsoView() {
               * This panel is the reason D10b routes disconnection through a
               * confirmation at all - sign-in moves to the school code, so the
               * code is shown before anyone commits. It rendered
-              * `status.school_url_slug`, which is the address slug
+              * `status.schoolUrlSlug`, which is the address slug
               * ("brightgate"), never the code ("BGA-4827"), under the words
               * "Staff and students enter this the next time they sign in".
               * An admin who wrote that down and circulated it would have

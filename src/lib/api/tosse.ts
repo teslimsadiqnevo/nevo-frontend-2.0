@@ -122,7 +122,7 @@ export type TosseIntent = (typeof TOSSE_INTENTS)[number]["value"];
  * does not assume this file drifted from it.
  *
  * On optionality specifically, backend's message and the deployed API
- * disagree: the message said everything bar name and schoolName was optional,
+ * disagree: the message said everything bar name and school_name was optional,
  * while `TosseInterestRequest.required` on the live spec lists all seven.
  * The spec wins - it is what rejects the request - so all seven are required
  * here, which also matches SCRUM-117.
