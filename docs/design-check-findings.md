@@ -145,12 +145,48 @@ New, tested: `inviteFilters.ts`.
 **Also fixed here, not in the register:** the panel capped at six rows where
 SCRUM-100 says eight ("Panel caps at eight with a route to the full page").
 
+### Classes — 4, 5, 44, 45, 46, 56
+
+- **4, the Created state.** SCRUM-40: "Sheet closes, new row enters, nevoPop
+  check badge on the row for one shot, then rest." It navigated away to the
+  new class's detail page instead — so an admin creating three classes in a
+  row was taken off the list every time, and never once saw the list they had
+  just changed.
+- **44, the source line — and a TODO that was already corrected.** The note in
+  this file's docblock first said no endpoint reported the last sync, was then
+  corrected to say the gap was ours, and **sat there, corrected and unacted**,
+  while the line went on saying "your school's connected roster". It now reads
+  as SCRUM-40 writes it. Every clause is conditional on having been told: a
+  status we could not read keeps the generic sentence rather than inventing a
+  provider, and a school that has never synced gets no clause rather than the
+  word "never".
+- **45, the remove confirm.** SCRUM-40: "His notes on these students stay with
+  the school." It said "Nothing about the students changes" — a different and
+  weaker claim that answers a question nobody asked while leaving the one they
+  did ask, about their colleague's work, unanswered.
+- **46, the primary conflict.** The dropped clause was "she keeps the class and
+  her notes" — the half that matters, since what an admin hesitates over here
+  is whether they are taking something off a colleague.
+- **5, the secondary Close.** Both failure footers offered only Try again. A
+  failure with one way out holds the sheet open until it succeeds.
+- **56, the breakpoint** — same re-key as 58, plus the tablet side padding the
+  header was missing, so the column labels track their columns again.
+
 **Still carrying `max-lg:`, same defect, not raised by the check:**
 `Reports/ReportsView`, `Senco/IepExporterView`, `Settings/SchoolSettings`,
 `Students/StudentDetailView`, `Teachers/TeacherDetailView`,
 `Onboarding/DpaStep`, `Invitations/InvitationsView`. Left alone rather than
 swept, because each needs looking at against its own frame — but they are the
 same bug and should go in one pass.
+
+## Not from this register
+
+Three student-lane suites fail on `main` as of 15 September, in files this
+work never touched: `shared/NevoKeyboard.dom.test.tsx`,
+`student/Onboarding/PinCreationScreen.dom.test.tsx` and
+`student/Profiling/WarmUpRun.dom.test.tsx` (8 tests). Confirmed pre-existing
+by running them on a clean `origin/main` rather than assumed. That lane is
+another session's.
 
 | # | sev | lane | finding | fix |
 |---|---|---|---|---|

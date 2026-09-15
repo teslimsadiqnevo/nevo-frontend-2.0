@@ -332,11 +332,19 @@ export function ClassDetailView({ classId }: { classId: string }) {
                 {confirming ? (
                   <div className="mt-3 rounded-[10px] bg-nevo-violet/[0.18] px-4 py-3">
                     <p className="m-0 text-[13.5px] leading-[1.5] text-nevo-navy">
-                      {name} will lose access to {klass.name}
+                      {name} will no longer see {klass.name} in their console
                       {teachers.length === 1
                         ? ", and the class will have no teacher until you assign one"
                         : ""}
-                      . Nothing about the students changes.
+                      {/* SCRUM-40: "His notes on these students stay with the
+                          school." This read "Nothing about the students
+                          changes", which is a different and weaker claim - it
+                          answers a question nobody asked while leaving the one
+                          they did ask, about the work their colleague wrote,
+                          unanswered. SCRUM-40 is explicit elsewhere that
+                          "removing a teacher does not remove or hide what they
+                          wrote", so the fact exists and was simply not said. */}
+                      . Their notes on these students stay with the school.
                     </p>
                     <div className="mt-3 flex gap-2.5">
                       <button

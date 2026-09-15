@@ -198,6 +198,12 @@ export function AssignTeacherSheet({
             <button type="button" onClick={submit} className={PRIMARY_BTN}>
               Try again
             </button>
+            {/* SCRUM-40 names both: "Primary 'Try again', secondary
+                'Close'." A failure with one way out is a failure that holds
+                the sheet open until it succeeds. */}
+            <button type="button" onClick={onClose} className={GHOST_BTN}>
+              Close
+            </button>
           </>
         ) : (
           <>
@@ -308,10 +314,20 @@ export function AssignTeacherSheet({
       </fieldset>
 
       {primaryConflict ? (
+        /*
+         * SCRUM-40's line, whole: "Ms. Adeyemi is Primary for JSS 2A right
+         * now. Making Mr. Bello Primary moves her to Co-teacher; SHE KEEPS THE
+         * CLASS AND HER NOTES."
+         *
+         * That last clause was dropped, and it is the half that matters. What
+         * an admin hesitates over here is whether they are about to take
+         * something off a colleague; the notice stated the demotion and then
+         * stopped, leaving the answer to be guessed.
+         */
         <p className="m-0 rounded-[10px] bg-nevo-violet/24 px-4 py-3 text-[13.5px] leading-[1.5] text-nevo-navy">
           {primaryName} is the primary teacher for {className}. Making{" "}
           {chosen?.name ?? "this teacher"} primary moves {primaryName} to
-          co-teacher.
+          co-teacher; they keep the class and their notes.
         </p>
       ) : null}
     </Sheet>

@@ -126,6 +126,12 @@ export function ClassFormSheet({
             <button type="button" onClick={submit} className={PRIMARY_BTN}>
               Try again
             </button>
+            {/* SCRUM-40 names both: "Primary 'Try again', secondary
+                'Close'." A failure with one way out is a failure that holds
+                the sheet open until it succeeds. */}
+            <button type="button" onClick={onClose} className={GHOST_BTN}>
+              Close
+            </button>
           </>
         ) : phase === "assign-failed" ? (
           <>

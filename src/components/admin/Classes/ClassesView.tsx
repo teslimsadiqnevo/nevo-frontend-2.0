@@ -9,6 +9,8 @@ import {
   type AdminClass,
   type AssignedTeacher,
 } from "@/lib/api/classes";
+import { PROVIDER_LABELS, ssoApi, type SsoStatus } from "@/lib/api/sso";
+import { timeAgo } from "@/lib/relativeTime";
 import { yearGroupLabel, yearGroupOptions, yearGroupOrder } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import {
@@ -43,13 +45,17 @@ import { NoAccess, failureKind } from "../NoAccess";
  * classes, wrong at four hundred. Folding teachers into the list response
  * deletes this entire mechanism.
  *
- * TODO(api): WRONG - `GET /api/v1/admin/sso/status` carries
- * `lastSuccessfulSyncAt` (required), it is declared in `lib/api/sso.ts`,
- * and `SsoView` already renders it. What is missing is only that THIS
- * screen does not make that call. Formerly: "no endpoint reports when the
- * SSO roster last synced", so the
- * SSO-sourced source line names the provider without the spec's "Last synced
- * 20 minutes ago" clause.
+ * DONE, AND IT WAS NEVER BACKEND'S. This note read "no endpoint reports when
+ * the SSO roster last synced", then was corrected to "the gap is only that
+ * THIS screen does not make that call" - and then sat there, corrected and
+ * unacted, while the source line went on saying "your school's connected
+ * roster" and naming neither the provider nor the sync.
+ *
+ * `GET /api/v1/admin/sso/status` carries `provider` and
+ * `lastSuccessfulSyncAt`, both required, both declared in `lib/api/sso.ts`.
+ * The call is made below, in its own effect, and SCRUM-40's line reads as
+ * written: "These classes come from your school's Microsoft 365 roster. Last
+ * synced 20 minutes ago."
  */
 
 type Phase = "loading" | "ready" | "failed" | "denied";
@@ -102,6 +108,16 @@ export function ClassesView() {
   const [year, setYear] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [creating, setCreating] = useState(false);
+  /** The row that just arrived, so it can be marked for one shot. */
+  const [justCreated, setJustCreated] = useState<string | null>(null);
+  /**
+   * The provider and its last sync, for the SSO source line.
+   *
+   * Its own read, deliberately late and deliberately optional: the line above
+   * the table is a nicety, and `sso/status` 404s for a school with no provider
+   * - which is most of them. It must never hold the list.
+   */
+  const [sso, setSso] = useState<SsoStatus | null>(null);
 
   const load = useCallback((includeArchived: boolean) => {
     classesApi
@@ -126,6 +142,20 @@ export function ClassesView() {
   useEffect(() => {
     load(showArchived);
   }, [load, showArchived]);
+
+  useEffect(() => {
+    ssoApi
+      .status()
+      .then(setSso)
+      .catch(() => setSso(null));
+  }, []);
+
+  /** The check badge is a one-shot, per SCRUM-40's "then rest". */
+  useEffect(() => {
+    if (!justCreated) return;
+    const t = setTimeout(() => setJustCreated(null), 2600);
+    return () => clearTimeout(t);
+  }, [justCreated]);
 
   const retry = () => {
     setPhase("loading");
@@ -243,8 +273,30 @@ export function ClassesView() {
         {phase === "ready" && (classes.length > 0 || showArchived) ? (
           <>
             {ssoSourced ? (
+              /*
+               * SCRUM-40's line, verbatim where we can be: "These classes come
+               * from your school's Microsoft 365 roster. Last synced 20 minutes
+               * ago."
+               *
+               * It said "connected roster" and named nothing, on the strength
+               * of a TODO(api) in this file's own docblock claiming no endpoint
+               * reported the last sync. That was wrong when it was written:
+               * `GET /api/v1/admin/sso/status` carries both the provider and
+               * `lastSuccessfulSyncAt`, `lib/api/sso.ts` declares them, and
+               * SsoView renders them. This screen simply never made the call.
+               *
+               * Both halves are still conditional on having been told: a status
+               * we could not read leaves the generic sentence rather than
+               * inventing a provider, and a school that has never completed a
+               * sync gets no "last synced" clause rather than "never".
+               */
               <p className="mt-[18px] text-[13.5px] leading-[1.55] text-nevo-near-black/62">
-                These classes come from your school&rsquo;s connected roster.{" "}
+                {sso
+                  ? `These classes come from your school's ${PROVIDER_LABELS[sso.provider]} roster.`
+                  : "These classes come from your school's connected roster."}
+                {sso?.lastSuccessfulSyncAt
+                  ? ` Last synced ${timeAgo(sso.lastSuccessfulSyncAt)}.`
+                  : ""}{" "}
                 <Link href="/admin/sso" className="font-semibold text-nevo-navy hover:opacity-75">
                   IT &amp; SSO
                 </Link>
@@ -294,9 +346,9 @@ export function ClassesView() {
             </div>
 
             <div className={cn(CARD, "mt-[18px]")}>
-              <div className="grid grid-cols-[1.4fr_90px_90px_1.2fr] gap-4 border-b border-nevo-near-black/8 bg-nevo-near-black/[0.03] px-6 py-[13px] text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50 max-lg:grid-cols-[1.3fr_70px_1fr]">
+              <div className="grid grid-cols-[1.4fr_90px_90px_1.2fr] gap-4 border-b border-nevo-near-black/8 bg-nevo-near-black/[0.03] px-6 py-[13px] text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50 max-xl:grid-cols-[1.3fr_70px_1fr] max-xl:px-[18px]">
                 <span>Class</span>
-                <span className="max-lg:hidden">Year</span>
+                <span className="max-xl:hidden">Year</span>
                 <span>Students</span>
                 <span>Teachers</span>
               </div>
@@ -328,7 +380,7 @@ export function ClassesView() {
                       type="button"
                       onClick={() => router.push(`/admin/classes/${c.id}`)}
                       className={cn(
-                        "grid w-full cursor-pointer grid-cols-[1.4fr_90px_90px_1.2fr] items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-nevo-navy/[0.03] max-lg:grid-cols-[1.3fr_70px_1fr] max-lg:px-[18px] max-lg:py-[13px]",
+                        "grid w-full cursor-pointer grid-cols-[1.4fr_90px_90px_1.2fr] items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-nevo-navy/[0.03] max-xl:grid-cols-[1.3fr_70px_1fr] max-xl:px-[18px] max-xl:py-[13px]",
                         i < visible.length - 1 && ROW_DIVIDER,
                       )}
                     >
@@ -338,7 +390,7 @@ export function ClassesView() {
                         </span>
                         {/* The Year column drops on tablet, so the year group
                             rides under the name there instead of vanishing. */}
-                        <span className="mt-0.5 hidden text-[12.5px] text-nevo-near-black/55 max-lg:block">
+                        <span className="mt-0.5 hidden text-[12.5px] text-nevo-near-black/55 max-xl:block">
                           {yearGroupLabel(c.yearGroup) ?? "No year group"}
                         </span>
                         {c.archivedAt ? (
@@ -347,11 +399,19 @@ export function ClassesView() {
                           </span>
                         ) : null}
                       </span>
-                      <span className="text-sm text-nevo-near-black/66 max-lg:hidden">
+                      <span className="text-sm text-nevo-near-black/66 max-xl:hidden">
                         {yearGroupLabel(c.yearGroup) ?? "—"}
                       </span>
                       <span className="text-sm text-nevo-near-black/66">{c.studentCount}</span>
-                      <span className="flex min-w-0 items-center">
+                      <span className="flex min-w-0 items-center gap-2">
+                        {justCreated === c.id ? (
+                          <span
+                            aria-label="Just created"
+                            className="flex size-[18px] flex-none items-center justify-center rounded-full bg-nevo-navy text-[11px] font-bold text-nevo-cream motion-safe:animate-nevo-pop"
+                          >
+                            ✓
+                          </span>
+                        ) : null}
                         {assigned === undefined ? (
                           <span
                             aria-hidden="true"
@@ -377,9 +437,19 @@ export function ClassesView() {
       {creating ? (
         <ClassFormSheet
           onClose={() => setCreating(false)}
+          /*
+           * SCRUM-40's Created state: "Sheet closes, new row enters, nevoPop
+           * check badge on the row for one shot, then rest. No toast pile-up."
+           *
+           * This navigated away to the new class's detail page instead, which
+           * is a different thing entirely: an admin creating three classes in
+           * a row was taken off the list every time and had to find their way
+           * back, and never once saw the list they had just changed.
+           */
           onSaved={(id) => {
             setCreating(false);
-            router.push(`/admin/classes/${id}`);
+            setJustCreated(id);
+            load(showArchived);
           }}
         />
       ) : null}
