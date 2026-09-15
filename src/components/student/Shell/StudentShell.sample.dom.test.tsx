@@ -20,13 +20,25 @@ import { SAMPLE_ATTR } from "@/lib/sampleData";
  */
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/student/dashboard" }));
-vi.mock("@/hooks", () => ({ useBehaviouralCapture: vi.fn() }));
+const { useBehaviouralCapture } = vi.hoisted(() => ({
+  useBehaviouralCapture: vi.fn(),
+}));
+vi.mock("@/hooks", () => ({ useBehaviouralCapture }));
+
+const { useConsentGate } = vi.hoisted(() => ({ useConsentGate: vi.fn() }));
+vi.mock("@/hooks/useConsentGate", () => ({ useConsentGate }));
 vi.mock("@/hooks/useSessionRefresh", () => ({ useSessionRefresh: vi.fn() }));
 vi.mock("@/hooks/useSessionLapse", () => ({ useSessionLapse: vi.fn() }));
 vi.mock("@/lib/lessons/pendingProgress", () => ({
   flushPendingProgress: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("./NotificationBell", () => ({ NotificationBell: () => null }));
+
+const { useOnline } = vi.hoisted(() => ({ useOnline: vi.fn(() => true) }));
+vi.mock("./OfflineTakeover", () => ({
+  useOnline,
+  OfflineTakeover: () => <p>offline takeover</p>,
+}));
 vi.mock("@/components/student/AskNevo/AskNevo", () => ({
   AskNevo: () => null,
 }));
@@ -58,6 +70,9 @@ const signIn = () =>
   });
 
 beforeEach(() => {
+  useBehaviouralCapture.mockClear();
+  useOnline.mockReturnValue(true);
+  useConsentGate.mockReturnValue({ withdrawn: false, known: true });
   clearSession();
   window.localStorage.clear();
 });
@@ -102,5 +117,95 @@ describe("StudentShell — the sample mark", () => {
     for (const el of document.querySelectorAll(`[${SAMPLE_ATTR}]`)) {
       expect((el as HTMLElement).style.display).toBe("contents");
     }
+  });
+});
+
+/**
+ * The gate is only worth anything if the shell acts on it. The hook's own tests
+ * prove it reads the answer; these prove the capture stops.
+ */
+describe("StudentShell — behavioural capture and consent", () => {
+  it("captures for a child whose guardian has consented", async () => {
+    useConsentGate.mockReturnValue({ withdrawn: false, known: true });
+    renderShell();
+
+    await screen.findByText("content");
+    expect(useBehaviouralCapture).toHaveBeenCalledWith(true);
+  });
+
+  it("stops capturing when consent has been withdrawn", async () => {
+    // The compliance failure: every tap and keystroke kept being written for a
+    // child whose guardian had said no.
+    useConsentGate.mockReturnValue({ withdrawn: true, known: true });
+    renderShell();
+
+    await screen.findByText("content");
+    expect(useBehaviouralCapture).toHaveBeenCalledWith(false);
+  });
+
+  it("keeps capturing while the answer is still unknown", async () => {
+    // A read in flight is not a refusal. Stopping here would silently stop
+    // measuring consented children on every slow network.
+    useConsentGate.mockReturnValue({ withdrawn: false, known: false });
+    renderShell();
+
+    await screen.findByText("content");
+    expect(useBehaviouralCapture).toHaveBeenCalledWith(true);
+  });
+});
+
+/**
+ * Going offline used to unmount the whole tab.
+ *
+ * `offlineTakeover ? <OfflineTakeover /> : children` throws the tab away the
+ * instant `navigator.onLine` flips — so a child part-way through typing a
+ * message to their teacher lost every word of it on a 3G blip, and was then
+ * shown a screen telling them nothing was lost. A failed message waiting on
+ * "tap to try again" went the same way.
+ */
+describe("StudentShell — going offline", () => {
+  it("shows the takeover when the connection drops", async () => {
+    useOnline.mockReturnValue(false);
+    renderShell();
+
+    expect(await screen.findByText("offline takeover")).toBeVisible();
+  });
+
+  it("keeps the tab mounted, so an unsent message survives", async () => {
+    // THE BUG. The child's words live in the tab's own React state; unmounting
+    // it destroys them, and no amount of reassuring copy brings them back.
+    useOnline.mockReturnValue(false);
+    renderShell();
+
+    await screen.findByText("offline takeover");
+    expect(screen.getByText("content")).toBeInTheDocument();
+  });
+
+  it("hides the tab rather than leaving it readable underneath", async () => {
+    // Mounted, but not presented: a screen reader should not be reading a form
+    // its user cannot see or reach.
+    useOnline.mockReturnValue(false);
+    renderShell();
+
+    await screen.findByText("offline takeover");
+    expect(screen.getByText("content")).not.toBeVisible();
+  });
+
+  it("shows the tab again, with its state, when the signal returns", async () => {
+    useOnline.mockReturnValue(false);
+    const { rerender } = renderShell();
+    await screen.findByText("offline takeover");
+
+    useOnline.mockReturnValue(true);
+    rerender(
+      <AccessibilityProvider>
+        <StudentShell>
+          <p>content</p>
+        </StudentShell>
+      </AccessibilityProvider>,
+    );
+
+    expect(screen.getByText("content")).toBeVisible();
+    expect(screen.queryByText("offline takeover")).toBeNull();
   });
 });
