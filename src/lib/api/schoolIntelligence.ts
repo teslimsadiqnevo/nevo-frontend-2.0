@@ -75,10 +75,36 @@ export interface AdaptationLog {
   offset: number;
 }
 
+/**
+ * The eight kinds of adaptation the log reports, as the contract enumerates
+ * them (15 Sep). Until then `eventType` came back on every row as a bare
+ * string with no enum, so there was nothing to populate a filter from and the
+ * screen carried a TODO saying so.
+ *
+ * They are the ENGINE'S vocabulary, not a reader's - `simplify_trigger` is not
+ * a sentence to put in front of an administrator. The screen maps them to
+ * plain language; this type just names what may arrive.
+ */
+export type AdaptationEventType =
+  | "simplify_trigger"
+  | "expand_trigger"
+  | "slower_trigger"
+  | "break_suggested"
+  | "modality_suggestion_shown"
+  | "modality_suggestion_accepted"
+  | "modality_switch_outcome"
+  | "modality_manual_switch";
+
 export interface AdaptationLogQuery {
   classId?: string;
   studentId?: string;
   lessonId?: string;
+  /**
+   * Repeat the parameter to pass more than one; omit it for all of them. The
+   * client sends an ARRAY and `buildUrl` repeats the key, which is what the
+   * endpoint documents.
+   */
+  eventType?: AdaptationEventType[];
   dateFrom?: string;
   dateTo?: string;
   limit?: number;
@@ -127,6 +153,7 @@ export const schoolIntelligenceApi = {
         classId: query.classId,
         studentId: query.studentId,
         lessonId: query.lessonId,
+        eventType: query.eventType,
         dateFrom: query.dateFrom,
         dateTo: query.dateTo,
         limit: query.limit,

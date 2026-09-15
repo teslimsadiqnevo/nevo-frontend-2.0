@@ -97,3 +97,31 @@ export function formatMoney(
 export function isAmount(amount: string | null | undefined): boolean {
   return formatMoney(amount, "NGN") !== NO_AMOUNT;
 }
+
+/**
+ * "7.5%" from the decimal string the contract sends, or null when there isn't one.
+ *
+ * SETTLED 15 SEP, after the question came round twice. `vatRate` is a
+ * PERCENTAGE, not a fraction: Nigeria's 7.5% arrives as "7.50". The schema now
+ * documents it with an example, so nobody has to ask again - and this function
+ * exists so that the answer lives in ONE place rather than at each render site.
+ *
+ * NO ARITHMETIC. Trailing zeros are trimmed as text, never by parsing to a
+ * float and formatting back: "7.50" -> "7.5", "7.00" -> "7". A rate is a
+ * figure on a school's invoice and this file does not do sums on those.
+ *
+ * Null for absent, null, or anything that is not a number - `vatRate` is
+ * nullable AND omissible on `InvoiceResponse`, because invoices issued before
+ * the field existed genuinely have no rate recorded. Those show the amount
+ * with no rate rather than borrowing today's.
+ */
+export function formatVatRate(rate: string | null | undefined): string | null {
+  if (typeof rate !== "string") return null;
+  const trimmed = rate.trim();
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return null;
+  const tidy = trimmed.includes(".")
+    ? trimmed.replace(/0+$/, "").replace(/\.$/, "")
+    : trimmed;
+  return `${tidy}%`;
+}
+

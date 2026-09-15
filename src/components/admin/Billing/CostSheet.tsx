@@ -1,7 +1,7 @@
 "use client";
 
 import type { Pricing } from "@/lib/api/billing";
-import { formatMoney, isAmount } from "@/lib/money";
+import { formatVatRate, formatMoney, isAmount } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 /**
@@ -33,10 +33,14 @@ import { cn } from "@/lib/utils";
  * wording.
  * ============================================================================
  *
- * The VAT RATE is deliberately not printed. The contract types it as `string`,
- * and "7.5" and "0.075" are the same rate a hundredfold apart on screen - see
- * the TODO(api) on `Pricing`. The AMOUNT is unambiguous, and the amount is what
- * a school pays.
+ * THE VAT RATE IS PRINTED NOW, and for two releases it was not. The contract
+ * typed it as a bare `string`, so "7.5" and "0.075" were the same rate a
+ * hundredfold apart on screen and the line showed only the amount. Backend
+ * settled it on 15 Sep - a percentage, documented with an example - and
+ * `formatVatRate` is the one place that knows.
+ *
+ * Still no arithmetic: the rate is FORMATTED, never multiplied, and a rate we
+ * cannot read renders as no rate rather than a guess.
  */
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
@@ -76,6 +80,7 @@ export function CostSheet({ pricing }: { pricing: Pricing }) {
     perStudentRate,
     totalBeforeVat,
     vatAmount,
+    vatRate,
     totalWithVat,
     pricingPlan,
     accessWindow,
@@ -114,9 +119,10 @@ export function CostSheet({ pricing }: { pricing: Pricing }) {
                   {formatMoney(totalBeforeVat, currency)}
                 </span>
               </div>
-              {/* The rate is not printed - only the amount. See the header. */}
               <div className={ROW}>
-                <span className="text-[14px] text-nevo-near-black/72">VAT</span>
+                <span className="text-[14px] text-nevo-near-black/72">
+                  {formatVatRate(vatRate) ? `VAT at ${formatVatRate(vatRate)}` : "VAT"}
+                </span>
                 <span className="text-[14px] font-semibold text-nevo-near-black tabular-nums">
                   {formatMoney(vatAmount, currency)}
                 </span>

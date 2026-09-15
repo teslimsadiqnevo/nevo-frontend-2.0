@@ -83,16 +83,37 @@ describe("CostSheet", () => {
     expect(t).not.toMatch(/₦/);
   });
 
-  it("states the VAT amount and never a rate of its own", () => {
-    // "7.5" and "0.075" are the same rate and differ a hundredfold on screen,
-    // and the contract types the field as a bare string - so the rate is not
-    // printed at all until that is settled. The amount is unambiguous.
+  it("labels the VAT line with its rate, now that the units are settled", () => {
+    // The rate went unprinted for two releases because the contract typed it as
+    // a bare string and "7.5" and "0.075" differ a hundredfold on screen.
+    // Backend settled it on 15 Sep: a PERCENTAGE, documented with an example.
+    const t = visibleText(
+      render(<CostSheet pricing={pricing({ vatRate: "7.50" })} />).container,
+    );
+    expect(t).toMatch(/VAT at 7\.5%/);
+    expect(t).toMatch(/₦3,825,000/);
+  });
+
+  it("renders the figure it was sent, and never multiplies it", () => {
+    // If a fraction ever renders as "7.5%", someone has started doing
+    // arithmetic on a school's tax rate on the strength of a guess about units.
     const t = visibleText(
       render(<CostSheet pricing={pricing({ vatRate: "0.075" })} />).container,
     );
-    expect(t).toMatch(/VAT ₦3,825,000/);
+    expect(t).toMatch(/VAT at 0\.075%/);
     expect(t).not.toMatch(/7\.5%/);
-    expect(t).not.toMatch(/0\.075/);
+  });
+
+  it("shows the amount with no rate when the invoice carries none", () => {
+    // Nullable and omissible: invoices issued before the field existed have no
+    // rate recorded, and must not borrow today's.
+    const t = visibleText(
+      render(
+        <CostSheet pricing={pricing({ vatRate: "" as unknown as string })} />,
+      ).container,
+    );
+    expect(t).toMatch(/₦3,825,000/);
+    expect(t).not.toMatch(/VAT at/);
   });
 
   it("does not call a per-term fee annual", () => {

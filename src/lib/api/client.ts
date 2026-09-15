@@ -137,7 +137,14 @@ function handleAuthFailure(path: string, sentToken: boolean): void {
   window.location.assign(sessionExpiredDoor(role));
 }
 
-type QueryValue = string | number | boolean | null | undefined;
+/** An array repeats the key - see `buildUrl`. */
+type QueryValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | readonly (string | number)[];
 
 export interface RequestOptions extends Omit<RequestInit, "body"> {
   /** JSON-serializable request body. */
@@ -164,9 +171,27 @@ function buildUrl(
   const url = new URL(joined, origin);
   if (params) {
     for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== null) {
-        url.searchParams.set(key, String(value));
+      if (value === undefined || value === null) continue;
+      /*
+       * AN ARRAY REPEATS THE KEY. `String(["a","b"])` is "a,b", so a list used
+       * to leave as ONE comma-joined value - which is not what any endpoint
+       * here asks for. `GET /api/admin/adaptation-log?eventType=` documents
+       * "repeat the parameter to pass more than one", and FastAPI reads
+       * repeats, never a joined string.
+       *
+       * An EMPTY array sends nothing at all, rather than an empty value: "no
+       * filter" and "filter on nothing" are different requests, and the second
+       * one would return nothing on a screen that meant to show everything.
+       */
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (item !== undefined && item !== null) {
+            url.searchParams.append(key, String(item));
+          }
+        }
+        continue;
       }
+      url.searchParams.set(key, String(value));
     }
   }
   return url.toString();

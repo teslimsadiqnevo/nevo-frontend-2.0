@@ -4,8 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { classesApi, type AdminClass } from "@/lib/api/classes";
 import {
+  EVENT_TYPE_OPTIONS,
+  eventTypeLabel,
+} from "./eventTypes";
+import {
   schoolIntelligenceApi,
   type AdaptationEventRow,
+  type AdaptationEventType,
 } from "@/lib/api/schoolIntelligence";
 import { cn } from "@/lib/utils";
 import { NoAccess, failureKind } from "../NoAccess";
@@ -51,8 +56,14 @@ import { NoAccess, failureKind } from "../NoAccess";
  * guarantee, and nobody should later treat them as pseudonyms that earn one.
  * Do not "improve" this by adding `studentFirstName` or a per-row class name.
  *
- * TODO(api): a before/after pair on the event, and an eventType filter (or at
- * least an enum for the field) so the frame's type filter can exist.
+ * THE TYPE FILTER EXISTS NOW. It was recorded here as genuinely blocked -
+ * `eventType` came back on every row as a bare string with no enum, so there
+ * was nothing to populate a filter from. Backend enumerated the eight values
+ * and made it a repeatable query parameter on 15 Sep. The engine's vocabulary
+ * is mapped to readable labels in `eventTypes.ts`, once.
+ *
+ * TODO(api): a before/after pair on the event - the one thing D21 draws that
+ * still has no source.
  */
 
 const CARD = "rounded-xl bg-nevo-cream-elevated shadow-[0_2px_8px_rgba(0,0,0,0.06)]";
@@ -114,6 +125,12 @@ export function AdaptationLogView() {
   const [shown, setShown] = useState(PAGE);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [classId, setClassId] = useState("");
+  /*
+   * MULTI-SELECT, because the parameter repeats. An empty array means "all of
+   * them" and sends nothing at all - `buildUrl` drops an empty array rather
+   * than sending an empty value, which would be a filter on nothing.
+   */
+  const [types, setTypes] = useState<AdaptationEventType[]>([]);
   const [classes, setClasses] = useState<AdminClass[]>([]);
   const [classPhase, setClassPhase] = useState<"loading" | "ready" | "failed">(
     "loading",
@@ -156,7 +173,12 @@ export function AdaptationLogView() {
   const range = RANGES[rangeIdx];
 
   const load = useCallback(
-    (days: number, limit: number, cls: string) => {
+    (
+      days: number,
+      limit: number,
+      cls: string,
+      kinds: AdaptationEventType[],
+    ) => {
       const from = new Date(Date.now() - days * 864e5).toISOString();
       // OMITTED, not empty: `classId` is a uuid on the contract and "" is a 422.
       schoolIntelligenceApi
@@ -164,6 +186,7 @@ export function AdaptationLogView() {
           dateFrom: from,
           limit,
           ...(cls ? { classId: cls } : {}),
+          ...(kinds.length ? { eventType: kinds } : {}),
         })
         .then((log) => {
           setRows(log.events);
@@ -176,8 +199,8 @@ export function AdaptationLogView() {
   );
 
   useEffect(() => {
-    load(range.days, shown, classId);
-  }, [load, range.days, shown, classId]);
+    load(range.days, shown, classId, types);
+  }, [load, range.days, shown, classId, types]);
 
   // Order of first appearance decides the letters, so they read A, B, C down
   // the page rather than jumping about.
@@ -194,6 +217,19 @@ export function AdaptationLogView() {
 
   const pickClass = (next: string) => {
     setClassId(next);
+    setShown(PAGE);
+    setExpanded(null);
+  };
+
+  /*
+   * Toggling a kind resets to the first page, for the same reason changing the
+   * class does: the pagination here is a GROWING LIMIT, so asking for 20 rows
+   * of a filter that matches three is a request for a page that is not there.
+   */
+  const toggleType = (kind: AdaptationEventType) => {
+    setTypes((prev) =>
+      prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind],
+    );
     setShown(PAGE);
     setExpanded(null);
   };
@@ -291,6 +327,39 @@ export function AdaptationLogView() {
           )}
         </div>
 
+        {/* D21's type filter. A second row rather than more chips on the
+            first: eight options beside three ranges and a class select would
+            wrap unpredictably at 1024, where this console is desktop-only. */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          {EVENT_TYPE_OPTIONS.map((kind) => {
+            const on = types.includes(kind);
+            return (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => toggleType(kind)}
+                aria-pressed={on}
+                className={cn(CHIP, on ? CHIP_ON : CHIP_OFF)}
+              >
+                {eventTypeLabel(kind)}
+              </button>
+            );
+          })}
+          {types.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setTypes([]);
+                setShown(PAGE);
+                setExpanded(null);
+              }}
+              className="cursor-pointer px-1 text-[12.5px] font-semibold text-nevo-navy hover:opacity-75"
+            >
+              Show all kinds
+            </button>
+          )}
+        </div>
+
         {phase === "loading" && (
           <div className={cn(CARD, "mt-5 h-[280px] animate-pulse")} />
         )}
@@ -308,7 +377,7 @@ export function AdaptationLogView() {
               type="button"
               onClick={() => {
                 setPhase("loading");
-                load(range.days, shown, classId);
+                load(range.days, shown, classId, types);
               }}
               className="mt-5 h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
             >
