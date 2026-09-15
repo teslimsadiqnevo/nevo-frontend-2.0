@@ -40,14 +40,18 @@ describe("the five observation phrasings", () => {
   it("dates nothing, because the route declares no window", () => {
     for (const p of PATTERNS) {
       const text = `${OBSERVATION_COPY[p].title} ${OBSERVATION_COPY[p].body("Amara")}`;
-      expect(text, p).not.toMatch(/this week|last week|30 days|this month|recently/i);
+      expect(text, p).not.toMatch(
+        /this week|last week|30 days|this month|recently/i,
+      );
     }
   });
 
   it("names no modality for a format switch", () => {
     // The response says a switch happened, never in which direction.
     const text = OBSERVATION_COPY.tried_another_format.body("Amara");
-    expect(text).not.toMatch(/\b(audio|video|visual|text|reading|listening)\b/i);
+    expect(text).not.toMatch(
+      /\b(audio|video|visual|text|reading|listening)\b/i,
+    );
   });
 
   it("frames revisiting as the product working, not a memory problem", () => {
@@ -65,16 +69,50 @@ describe("the five observation phrasings", () => {
 describe("observationCount", () => {
   it("says nothing when the count was not given", () => {
     // Required is `pattern` alone; count is integer|null. Absent is not zero.
-    expect(observationCount(undefined)).toBeNull();
-    expect(observationCount(null)).toBeNull();
+    expect(observationCount("completed_lessons", undefined)).toBeNull();
+    expect(observationCount("completed_lessons", null)).toBeNull();
   });
 
   it("reads naturally at one and above", () => {
-    expect(observationCount(1)).toBe("Once");
-    expect(observationCount(4)).toBe("4 times");
+    expect(observationCount("completed_lessons", 1)).toBe("Once");
+    expect(observationCount("completed_lessons", 4)).toBe("4 times");
   });
 
   it("renders a zero it was actually given", () => {
-    expect(observationCount(0)).toBe("0 times");
+    expect(observationCount("completed_lessons", 0)).toBe("0 times");
+  });
+
+  it("refuses to count how often a child went back over something", () => {
+    /*
+     * Design's ruling, and the sharpest one they made. The sentence for
+     * `revisited_content` is carefully built to stop "revisited" reading as
+     * "struggles with retention" - and a number beside it undoes that work
+     * regardless of how the sentence is phrased. "Went back over something ·
+     * 7 times" is a finding about a child.
+     */
+    expect(observationCount("revisited_content", 7)).toBeNull();
+  });
+
+  it("counts nothing but finished lessons", () => {
+    // The other three tell a teacher nothing they can act on, so the count
+    // appears exactly once, where it is unambiguous and is good news.
+    expect(observationCount("steadier_pace", 3)).toBeNull();
+    expect(observationCount("tried_another_format", 3)).toBeNull();
+    expect(observationCount("no_recent_pattern", 3)).toBeNull();
+  });
+});
+
+describe("no observation guesses a child's pronoun", () => {
+  it("never says he or she about a named learner", () => {
+    /*
+     * Design's copy arrived reading "the lessons she starts" and "material she
+     * had already covered", written around the example child. Nevo stores no
+     * pronoun for anybody, so shipping that would have been wrong for some
+     * children on a SEND record that names them - the one screen where being
+     * wrong about a child matters most. Singular they throughout.
+     */
+    for (const copy of Object.values(OBSERVATION_COPY)) {
+      expect(copy.body("Amara")).not.toMatch(/\b(he|she|him|her|his|hers)\b/i);
+    }
   });
 });

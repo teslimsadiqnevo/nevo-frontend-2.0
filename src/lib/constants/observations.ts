@@ -24,12 +24,20 @@ export interface ObservationCopy {
   body: (firstName: string) => string;
 }
 
+/*
+ * The sentences below are DESIGN'S FINAL WORDING (15 Sep), with one change I
+ * made and flagged back: theirs read "the lessons she starts" and "material she
+ * had already covered". Nevo stores no pronoun for any child, and this renders
+ * beside a named learner on a SEND record, so a guessed pronoun would be wrong
+ * for some children on the one screen that must not get a child wrong. Singular
+ * they is used instead, and it is the only edit to their copy.
+ */
 export const OBSERVATION_COPY: Record<ObservationPattern, ObservationCopy> = {
   // An event, stated as an event. Deliberately not a rate: a rate is a score
   // about a child, and this screen already refuses scores elsewhere.
   completed_lessons: {
     title: "Lessons finished",
-    body: () => "Worked a lesson all the way through to the end.",
+    body: (first) => `${first} has been finishing the lessons they start.`,
   },
   // THE TRAP ONE. "Revisited" converts to "struggles with retention" in one
   // careless reading. The second sentence exists only to block that: it states
@@ -37,14 +45,14 @@ export const OBSERVATION_COPY: Record<ObservationPattern, ObservationCopy> = {
   revisited_content: {
     title: "Went back over something",
     body: (first) =>
-      `Opened material ${first} had already covered and went through it again. Nevo's lessons are built to be re-entered, so this is the material being used the way it was designed to be used.`,
+      `${first} went back to material they had already covered. Nevo's lessons are built to be re-entered, so returning to one is part of how they work.`,
   },
   // Short on purpose. "Steadier" is the backend's comparative and the basis it
   // compared against is not in the response - so no "than last week" (no window
   // in the contract) and no "fewer long pauses" (a mechanism we were not told).
   steadier_pace: {
     title: "Pace",
-    body: () => "Nevo has seen the pace even out.",
+    body: (first) => `Nevo has seen ${first}'s pace even out.`,
   },
   // Names no modality. The response says a switch happened, never which way,
   // and "prefers audio" or "needs visuals" is exactly the learning-style label
@@ -52,24 +60,41 @@ export const OBSERVATION_COPY: Record<ObservationPattern, ObservationCopy> = {
   tried_another_format: {
     title: "Tried another format",
     body: (first) =>
-      `Took the same material in a different way. Nevo offers each part of a lesson more than one route in, and ${first} used one of the others.`,
+      `${first} has worked through lessons in more than one way.`,
   },
   // An ordinary reading, said plainly. "No pattern" must not land as idleness.
   no_recent_pattern: {
     title: "Nothing standing out",
-    body: () =>
-      "Nothing consistent enough to name this time. That is an ordinary reading, not a finding about how much work has been done.",
+    body: (first) =>
+      `Nothing consistent enough to name this time. That is an ordinary reading rather than a finding about how much ${first} has done.`,
   },
 };
 
 /**
- * The count line, when there is a count.
+ * The count, when it may be shown at all.
  *
- * `count` is OPTIONAL AND NULLABLE on the contract - `LearnerObservationResponse`
- * requires `pattern` alone. A card that interpolated it unconditionally printed
- * "null times". Absent means we were not told how many, which is not zero.
+ * TWO RULINGS FROM DESIGN (15 Sep), and the second is the interesting one.
+ *
+ * 1. No sentence ever interpolates the count. It renders as its own chip
+ *    beside the row, and there is simply no chip when there is none. `count`
+ *    is OPTIONAL AND NULLABLE on the contract - `LearnerObservationResponse`
+ *    requires `pattern` alone - and a card that interpolated it printed "null
+ *    times". This kills that by shape rather than by defensive coding.
+ *
+ * 2. ONLY `completed_lessons` may carry one. On `revisited_content` a number
+ *    is precisely the thing that converts the careful sentence above back into
+ *    "struggles with retention" - "went back over it 7 times" is a finding
+ *    about a child however it is phrased. On the other three it tells a
+ *    teacher nothing they can act on. So the count appears once, where it is
+ *    unambiguous and is good news.
+ *
+ * Absent still means we were not told how many, which is not zero.
  */
-export function observationCount(count?: number | null): string | null {
+export function observationCount(
+  pattern: ObservationPattern,
+  count?: number | null,
+): string | null {
+  if (pattern !== "completed_lessons") return null;
   if (typeof count !== "number") return null;
   return count === 1 ? "Once" : `${count} times`;
 }

@@ -44,7 +44,9 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
   const [qr, setQr] = useState<"none" | "dialog" | "screen">("none");
   const role = klass.role === "co_teacher" ? "Co-teacher" : "Primary teacher";
   const { students, loading, failed } = useClassRoster(klass.classId);
-  const observed = students.filter((s) => s.profileStatus === "observed").length;
+  const observed = students.filter(
+    (s) => s.profileStatus === "observed",
+  ).length;
   /*
    * C16b's two markers. The attention flags are already read on Home; here they
    * are keyed by student so a roster row can say "Worth a glance" without a
@@ -61,7 +63,17 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
           href="/teacher/classes"
           className="inline-flex cursor-pointer items-center gap-[7px] text-sm text-nevo-near-black/60 transition-transform active:scale-[0.99]"
         >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
             <path d="M15 6l-6 6 6 6" />
           </svg>
           My Classes
@@ -84,7 +96,17 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
               onClick={() => setQr("dialog")}
               className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-[10px] border-[1.5px] border-nevo-navy/35 px-4 text-sm font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6"
             >
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
                 <rect x="3" y="3" width="7" height="7" rx="1.5" />
                 <rect x="14" y="3" width="7" height="7" rx="1.5" />
                 <rect x="3" y="14" width="7" height="7" rx="1.5" />
@@ -177,14 +199,29 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
                         {student.observations.map((o) => {
                           const copy = OBSERVATION_COPY[o.pattern];
                           if (!copy) return null;
-                          const times = observationCount(o.count);
+                          const times = observationCount(o.pattern, o.count);
                           return (
-                            <span
-                              key={o.pattern}
-                              title={copy.body(student.firstName ?? "They")}
-                              className="rounded-full bg-nevo-navy/8 px-2.5 py-1 text-[12.5px] whitespace-nowrap text-nevo-near-black/72"
-                            >
-                              {times ? `${copy.title} · ${times}` : copy.title}
+                            /*
+                             * The count is its own chip BESIDE the observation,
+                             * never folded into its label. Design's ruling, and
+                             * the reason is that "Went back over something · 7
+                             * times" reads as a finding about the child even
+                             * though neither half says so. `observationCount`
+                             * now only answers for `completed_lessons`, so the
+                             * second chip is good news or nothing.
+                             */
+                            <span key={o.pattern} className="contents">
+                              <span
+                                title={copy.body(student.firstName ?? "They")}
+                                className="rounded-full bg-nevo-navy/8 px-2.5 py-1 text-[12.5px] whitespace-nowrap text-nevo-near-black/72"
+                              >
+                                {copy.title}
+                              </span>
+                              {times && (
+                                <span className="rounded-full bg-nevo-navy/8 px-2.5 py-1 text-[12.5px] whitespace-nowrap text-nevo-near-black/55">
+                                  {times}
+                                </span>
+                              )}
                             </span>
                           );
                         })}
@@ -245,7 +282,17 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
         {!loading && students.length === 0 && (
           <div className="mt-6 flex max-w-[620px] items-start gap-3.5 rounded-[12px] bg-nevo-cream-elevated px-[22px] py-5 shadow-elevation-1">
             <span className="mt-px shrink-0 text-nevo-navy">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
                 <circle cx="12" cy="12" r="9" />
                 <path d="M12 8h.01M11 12h1v4h1" />
               </svg>
