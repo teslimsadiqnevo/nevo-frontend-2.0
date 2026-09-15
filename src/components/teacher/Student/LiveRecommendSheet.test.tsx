@@ -118,18 +118,73 @@ describe("sending", () => {
   });
 });
 
-describe("what it does not promise", () => {
-  it("offers no note field, because no endpoint carries one", () => {
-    // C08c draws "Add a note for Amara (optional)" and promises "She'll see
-    // your note when she opens it". Neither `AssignmentCreate` nor
-    // `LessonAssignmentRequest` has a note field. A box that silently discarded
-    // what a teacher wrote about a named child is worse than no box.
-    show();
+describe("the note", () => {
+  // Built 15 Sep, when `note` landed on both creation contracts. Until then
+  // this sheet deliberately had no box, because one that discarded what a
+  // teacher wrote about a named child is worse than none.
+  const write = (text: string) =>
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: text } });
 
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  it("sends what the teacher wrote, to this child", () => {
+    show();
+    pick("Fractions 3");
+    write("I picked this because you liked the last one.");
+    sendIt();
+
+    expect(create).toHaveBeenCalledWith({
+      lessonIds: ["l-1"],
+      studentIds: ["s-1"],
+      note: "I picked this because you liked the last one.",
+    });
   });
 
-  it("does not mention a note in the confirmation", async () => {
+  it("sends NO note key when the box was never touched", () => {
+    // Optional means absent, not "". An empty note would render as an empty
+    // bubble on her dashboard, saying her teacher wrote to her when they
+    // did not.
+    show();
+    pick("Fractions 3");
+    sendIt();
+
+    expect(create).toHaveBeenCalledWith({
+      lessonIds: ["l-1"],
+      studentIds: ["s-1"],
+    });
+  });
+
+  it("treats whitespace as no note", () => {
+    show();
+    pick("Fractions 3");
+    write("   \n  ");
+    sendIt();
+
+    expect(create).toHaveBeenCalledWith(
+      expect.not.objectContaining({ note: expect.anything() }),
+    );
+  });
+
+  it("trims it", () => {
+    show();
+    pick("Fractions 3");
+    write("  Have a go at this one.  ");
+    sendIt();
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ note: "Have a go at this one." }),
+    );
+  });
+
+  it("says the note went with the lesson, when there was one", async () => {
+    show();
+    pick("Fractions 3");
+    write("Have a go at this one.");
+    sendIt();
+
+    const done = await screen.findByText(/That’s sent to Amara/);
+    expect(done.parentElement?.textContent).toMatch(/with your note/i);
+  });
+
+  it("does not mention a note when none was written", async () => {
     show();
     pick("Fractions 3");
     sendIt();
@@ -138,6 +193,22 @@ describe("what it does not promise", () => {
     expect(done.parentElement?.textContent).not.toMatch(/note/i);
   });
 
+  it("never promises she will SEE it, because no student screen shows it yet", async () => {
+    // C08c's line is "She'll see your note when she opens it". The note does
+    // reach her - it rides on `students/me/dashboard` - but nothing renders it,
+    // so that sentence is a promise about a surface that does not show it.
+    // This guards the wording until the student console catches up.
+    show();
+    pick("Fractions 3");
+    write("Have a go at this one.");
+    sendIt();
+
+    const done = await screen.findByText(/That’s sent to Amara/);
+    expect(done.parentElement?.textContent).not.toMatch(/see your note|when she opens/i);
+  });
+});
+
+describe("what it does not promise", () => {
   it("marks nothing as Nevo's suggestion", () => {
     // `Recommendation` is prose with no lesson id, so nothing connects Nevo's
     // sentence to a row in the library. A badge would be a guess.

@@ -34,6 +34,8 @@ const row = (over: Partial<Assignment> = {}): Assignment => ({
   status: "assigned",
   availableFrom: "2026-10-03T00:00:00.000Z",
   dueAt: "2026-10-10T00:00:00.000Z",
+  /** Landed 15 Sep. Null here: these rows are about dates, not messages. */
+  note: null,
   assignedAt: "2026-09-01T00:00:00.000Z",
   ...over,
 });
