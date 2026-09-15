@@ -87,6 +87,8 @@ export function AccountSettings() {
   const [reveal, setReveal] = useState(false);
   const [pw, setPw] = useState<PwPhase>("idle");
   const [ended, setEnded] = useState(0);
+  /** Which session's sign-out is being confirmed. "" for none. */
+  const [asking, setAsking] = useState("");
 
   const loadSessions = useCallback(() => {
     authApi
@@ -391,34 +393,85 @@ export function AccountSettings() {
           <p className="m-0 text-sm text-nevo-near-black/62">
             We couldn&rsquo;t list your sessions just now.
           </p>
+        ) : others.length === 0 ? (
+          /*
+           * THE SINGLE-SESSION STATE, which rendered as a one-row list with
+           * nothing to do on it. An admin signed in on one device does not
+           * need a list; they need the answer, which is that there is nowhere
+           * else signed in as them. This is the reassuring reading of this
+           * section and it looked like an unfinished table.
+           */
+          <p className="m-0 max-w-[58ch] text-sm leading-[1.6] text-nevo-near-black/70">
+            This is the only device signed in as you
+            {sessions[0] ? `, last active ${when(sessions[0].lastSeenAt)}` : ""}.
+            If you sign in somewhere else, it will appear here.
+          </p>
         ) : (
           <div className="flex flex-col gap-3">
             {sessions.map((s) => (
               <div
                 key={s.id}
-                className="flex items-center gap-3 rounded-[10px] border border-nevo-near-black/12 px-4 py-3.5"
+                className="rounded-[10px] border border-nevo-near-black/12 px-4 py-3.5"
               >
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-nevo-near-black">
-                    {s.current ? "This device" : "Another device"}
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-nevo-near-black">
+                      {s.current ? "This device" : "Another device"}
+                    </div>
+                    <div className="text-[12.5px] text-nevo-near-black/58">
+                      Last active {when(s.lastSeenAt)}
+                    </div>
                   </div>
-                  <div className="text-[12.5px] text-nevo-near-black/58">
-                    Last active {when(s.lastSeenAt)}
-                  </div>
+                  {!s.current ? (
+                    <button
+                      type="button"
+                      onClick={() => setAsking(asking === s.id ? "" : s.id)}
+                      aria-expanded={asking === s.id}
+                      className="flex-none cursor-pointer text-[13px] font-semibold text-nevo-navy hover:opacity-75"
+                    >
+                      End it
+                    </button>
+                  ) : null}
                 </div>
-                {!s.current ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      authApi
-                        .endSession(s.id)
-                        .then(loadSessions)
-                        .catch(() => undefined)
-                    }
-                    className="flex-none cursor-pointer text-[13px] font-semibold text-nevo-navy hover:opacity-75"
-                  >
-                    End it
-                  </button>
+
+                {/*
+                  * INLINE CONFIRM, WITH THE CONSEQUENCE SAID OUT LOUD.
+                  *
+                  * Signing a device out fired on the first press and named
+                  * nothing - and every row here reads "Another device",
+                  * because the contract carries no device name at all. One
+                  * misread row and an admin ends the session they are working
+                  * in on another machine, mid-task, with no undo.
+                  */}
+                {asking === s.id ? (
+                  <div className="mt-3 rounded-[10px] bg-nevo-violet/[0.18] px-4 py-3">
+                    <p className="m-0 text-[13.5px] leading-[1.5] text-nevo-navy">
+                      Whoever is using that device will be signed out and will
+                      need to sign in again. Nothing of theirs is lost.
+                    </p>
+                    <div className="mt-3 flex gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAsking("");
+                          authApi
+                            .endSession(s.id)
+                            .then(loadSessions)
+                            .catch(() => undefined);
+                        }}
+                        className="cursor-pointer rounded-[8px] bg-nevo-navy px-3.5 py-2 text-[13px] font-semibold text-nevo-cream transition-[filter] hover:brightness-110"
+                      >
+                        Sign it out
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAsking("")}
+                        className="cursor-pointer px-2 text-[13px] font-semibold text-nevo-navy hover:opacity-75"
+                      >
+                        Keep it
+                      </button>
+                    </div>
+                  </div>
                 ) : null}
               </div>
             ))}

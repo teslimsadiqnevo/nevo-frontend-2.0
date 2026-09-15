@@ -227,6 +227,53 @@ the shape this register keeps finding.
 
 New, tested: `Billing/overdue.ts`, `money.sumMoney`.
 
+### Settings — 21, 22, 23, 24, 25, 26, 27, 51
+
+- **25, the preset maps were shifted a level.** British had `kg1` as
+  "Reception" and `p1` as "Year 2", where D12b's own `presetMaps` put them at
+  "Reception 1" and "Year 1" — and SCRUM-99 states it outright in its example
+  copy, "P1 shows as Year 1". This is not cosmetic: **a Year 1 class was
+  labelled Year 2 on every screen in the product, including the ones a parent
+  sees.** Both maps are now the frame's, copied in enum order.
+- **24 and 23.** IB added (PYP/MYP/DP). Custom is a real card, and the preset
+  is **derived from the labels** rather than read from a stored string — so a
+  school that renames one level can no longer be described as "British" over
+  labels that are not. The cards show mappings ("P1 shows as Year 1") instead
+  of four bare names.
+- **26, validation.** Overlaps, reversed terms and half-term breaks outside
+  their own term, each as a plain navy line under its row, with Save gated and
+  the live count SCRUM-99 asks for. **Gaps are deliberately not flagged** — a
+  Nigerian year has a real month between terms, and treating that as something
+  to resolve would disable Save on every correct calendar.
+- **27, half-term dates.** `halfTermBreak?: boolean` was dead — nothing wrote
+  it, nothing read it, and it could say a break existed but never when, on the
+  screen whose whole job is to say when. Replaced with the spec's pair.
+- **51.** SCRUM-99's VS ERASURE line, verbatim; it is a done-when.
+- **21 and 22.** Signing a device out fired on the first press and named no
+  consequence — and every row reads "Another device", because the contract
+  carries no device name at all. One misread row ends the session someone is
+  working in. And a single session rendered as a one-row list with nothing to
+  do on it, where the answer wanted is that nowhere else is signed in.
+
+**Not from the register, and larger than any row in it.** `saveCalendar` wrote
+`yearStart`, `yearEnd` and `terms` — all three of which are **ours**, client
+inventions kept in a blob the backend passes through untouched. The deployed
+`AcademicConfig` types exactly one property, `termStartDates`, whose own
+description says what happens without it: *"fewer means Nevo falls back to
+splitting the contract year evenly."* So a school that carefully set three term
+dates in Settings had told Nevo nothing, and every "this half-term" figure in
+the product went on dividing their year into equal thirds. The save now derives
+and writes it.
+
+`maxItems: 3` on that field cannot express the four-term year this screen's own
+"Add a term" action offers; a `TODO(api)` records it rather than guessing which
+half is wrong.
+
+Also corrected: both SCRUM-40 and SCRUM-99 say "17 canonical levels" in prose
+and then enumerate sixteen. The code follows the list, and says so.
+
+New, tested: `academicCalendar.ts`, `taxonomy.ts`.
+
 **Still carrying `max-lg:`, same defect, not raised by the check:**
 `Reports/ReportsView`, `Senco/IepExporterView`, `Settings/SchoolSettings`,
 `Students/StudentDetailView`, `Teachers/TeacherDetailView`,

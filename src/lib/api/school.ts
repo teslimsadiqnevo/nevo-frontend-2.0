@@ -167,7 +167,23 @@ export interface SchoolTerm {
   name: string;
   start: string;
   end: string;
-  halfTermBreak?: boolean;
+  /**
+   * The optional half-term break, as the spec's own pair.
+   *
+   * WAS `halfTermBreak?: boolean`, which nothing wrote and nothing read - a
+   * flag saying a break exists, with no way to say when, on the screen whose
+   * whole job is to say when. SCRUM-99's data line is
+   * `terms:[{name,start,end,half_term_start?,half_term_end?}]`.
+   *
+   * CAMEL CASE BECAUSE THIS FIELD IS OURS. The deployed `AcademicConfig`
+   * types `termStartDates` and nothing else, with `additionalProperties: true`
+   * and a description saying so outright: "Only the field the backend actually
+   * reads is named. Anything else a school has stored is passed through
+   * untouched." Every other key on this interface is a client invention stored
+   * in that blob, and they are camelCase; these two match them.
+   */
+  halfTermStart?: string;
+  halfTermEnd?: string;
 }
 
 /**
