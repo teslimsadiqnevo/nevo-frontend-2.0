@@ -60,7 +60,33 @@ export class BaselineCapture {
     if (!db) return;
     try {
       const tx = db.transaction(STORE, "readwrite");
-      tx.objectStore(STORE).put(this.events, this.sessionId);
+      const store = tx.objectStore(STORE);
+      store.put(this.events, this.sessionId);
+      /*
+       * SWEEP EVERY OTHER RUN'S RECORD WHILE WE ARE HERE.
+       *
+       * `purge()` deletes only its OWN session, and it is called when a run
+       * finishes. A run that was ABANDONED - a child who closed the tab part
+       * way through profiling, or whose tablet was taken - never reaches it, so
+       * its raw behavioural stream stayed in IndexedDB indefinitely.
+       *
+       * That is not a tidiness problem. The docblock at the top of this file
+       * promises raw streams are held EPHEMERALLY and purged after
+       * transmission, and an orphaned record is a child's raw interaction data
+       * living on a shared classroom tablet with nothing left that knows it is
+       * there or would ever remove it.
+       *
+       * Only one run is ever in flight, so anything under another key belongs
+       * to a run that ended - completed and purged, or abandoned. Sweeping on
+       * write keeps the promise self-maintaining rather than depending on a
+       * cleanup call some future path forgets to make.
+       */
+      const keys = store.getAllKeys();
+      keys.onsuccess = () => {
+        for (const key of keys.result) {
+          if (key !== this.sessionId) store.delete(key);
+        }
+      };
     } catch {
       // Storage is best-effort; the in-memory stream remains authoritative.
     }

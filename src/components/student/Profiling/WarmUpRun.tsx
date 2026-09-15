@@ -7,6 +7,7 @@ import { useNextLessonHref } from "@/hooks/useNextLessonHref";
 import { ArrowRight, Check } from "lucide-react";
 import { cn, randomId } from "@/lib/utils";
 import { baselineApi } from "@/lib/api";
+import { holdBaseline } from "@/lib/profiling/pendingBaseline";
 import {
   BASELINE_DIMENSIONS,
   type BaselineDimension,
@@ -98,14 +99,36 @@ export function WarmUpRun({
         dimension === "wmc"
           ? reduceGridSpan(capture)
           : reduceTrialModule(capture, "warmup");
-      baselineApi
-        .submit(capture.sessionId, [
-          { ...measured, module: "warmup", dimension, durationMs },
-        ])
-        .then(() => setSaved(true))
-        .catch(() => setSaved(false))
-        // The raw stream is purged either way - only the reduced vector ever
-        // travels, and it must not linger on the device.
+      const features = [
+        { ...measured, module: "warmup", dimension, durationMs },
+      ];
+      /*
+       * A FAILED WRITE PARKS THE MEASUREMENT; IT DOES NOT DESTROY IT.
+       *
+       * This used a bare `submit` and threw the day's work away on the first
+       * refusal - a blip, a cold backend, a 3G stutter - while the IDENTICAL
+       * onboarding write already retried and parked. Same data, same endpoint,
+       * two different answers to the same failure, and the quieter one lost a
+       * child's warm-up.
+       *
+       * `submitWithRetry` handles the transient cases; `holdBaseline` keeps
+       * what it still cannot send, and `flushPendingBaseline` - already called
+       * on every student screen - delivers it later against a session provably
+       * this child's.
+       */
+      void baselineApi
+        .submitWithRetry(capture.sessionId, features)
+        .then((ok) => {
+          setSaved(ok);
+          if (!ok) holdBaseline(capture.sessionId, features);
+        })
+        .catch(() => {
+          setSaved(false);
+          holdBaseline(capture.sessionId, features);
+        })
+        // The RAW stream is purged either way - only the reduced vector ever
+        // travels, and it must not linger on the device. What is parked above
+        // is the vector, not the raw capture.
         .finally(() => void capture.purge());
     }
     setDone(true);
