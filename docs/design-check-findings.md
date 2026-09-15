@@ -172,6 +172,31 @@ SCRUM-100 says eight ("Panel caps at eight with a route to the full page").
 - **56, the breakpoint** — same re-key as 58, plus the tablet side padding the
   header was missing, so the column labels track their columns again.
 
+### Teachers — 40, 41, 72, 73, 74
+
+- **40, the dead end.** `staff: []` was the value on first render, after a
+  failed read, and for a school with nobody else active — and all three
+  rendered the same uncompletable sheet: selects showing only a placeholder, a
+  commit that could never enable, nothing on screen to act on. Three states
+  now, each saying which. `AssignTeacherSheet` had already learned this
+  lesson; the same hole was left open next door.
+- **41, no confirmation.** The sheet closed onto a list where the teacher was
+  still present — the reload happens in the parent, afterwards — so an admin
+  who had just handed over four classes saw a screen identical to the one they
+  started from. It holds for its confirmation, then closes.
+- **72 and 73, the tablet row.** Re-keyed like 56/58; and the Classes cell was
+  hidden at tablet with **nothing in its place**, so how much a teacher is
+  teaching — this screen's whole subject — vanished at 1024. It rides under
+  the name now, as the year group does on the classes list.
+- **74, the empty state.** `flex-1` was inert: both wrappers above it are
+  plain blocks, so the panel centred inside its own content box and rendered
+  directly beneath the heading. A definite height fixes it.
+
+**Also fixed, same defect, sibling files:** the identical inert empty state on
+`Classes/ClassesView` and `Students/StudentsView`. The check raised it on
+Teachers only; it is one fix in three files, and leaving two behind is exactly
+the shape this register keeps finding.
+
 **Still carrying `max-lg:`, same defect, not raised by the check:**
 `Reports/ReportsView`, `Senco/IepExporterView`, `Settings/SchoolSettings`,
 `Students/StudentDetailView`, `Teachers/TeacherDetailView`,

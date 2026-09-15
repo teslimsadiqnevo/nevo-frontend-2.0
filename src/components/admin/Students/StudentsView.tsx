@@ -402,7 +402,12 @@ export function StudentsView() {
 
 function EmptyState() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
+    /*
+     * Same definite height as the Classes and Teachers empty states: `flex-1`
+     * is inert here too, so this centred inside its own content box and sat
+     * directly under the heading. Three files, one defect.
+     */
+    <div className="flex min-h-[52vh] flex-1 flex-col items-center justify-center py-16 text-center">
       <div className="max-w-[440px]">
         <Image
           src="/illustrations/empty-admin-students.png"

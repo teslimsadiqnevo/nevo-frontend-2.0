@@ -463,7 +463,14 @@ export function ClassesView() {
  */
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
+    /*
+     * The same definite height as `Teachers/TeachersView`'s empty state, and
+     * for the same reason: `flex-1` is inert here - the two wrappers above are
+     * plain blocks - so this panel centred inside its own content box and
+     * rendered directly under the heading. The design check raised it on
+     * Teachers only; it is one file's fix in two files.
+     */
+    <div className="flex min-h-[52vh] flex-1 flex-col items-center justify-center py-16 text-center">
       <div className="max-w-[420px]">
         <Image
           src="/illustrations/empty-admin-classes.png"
