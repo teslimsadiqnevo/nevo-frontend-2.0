@@ -15,12 +15,14 @@ import { WarmUpRun } from "./WarmUpRun";
  * reduce would have had nothing to score - and the working-memory task recorded
  * neither `posInSeq` nor `round_complete`, the two things its reducer reads.
  *
- * These tests assert on what `baselineApi.submit` was handed, because that is
+ * These tests assert on what `baselineApi.submitWithRetry` was handed, because that is
  * the only part that leaves the device.
  */
 
 const { submit } = vi.hoisted(() => ({ submit: vi.fn() }));
-vi.mock("@/lib/api", () => ({ baselineApi: { submit } }));
+vi.mock("@/lib/api", () => ({ baselineApi: { submitWithRetry: submit } }));
+const { holdBaseline } = vi.hoisted(() => ({ holdBaseline: vi.fn() }));
+vi.mock("@/lib/profiling/pendingBaseline", () => ({ holdBaseline }));
 vi.mock("@/hooks/useWarmUpDimension", () => ({
   useWarmUpDimension: (fallback: string) => fallback,
 }));
@@ -68,7 +70,8 @@ const settle = async () => {
 beforeEach(() => {
   vi.useFakeTimers();
   submit.mockReset();
-  submit.mockResolvedValue(undefined);
+  submit.mockResolvedValue(true);
+  holdBaseline.mockReset();
 });
 
 afterEach(() => {
@@ -166,5 +169,42 @@ describe("WarmUpRun — the dot arrays are not always side by side", () => {
 
     expect(screen.getByText("Left")).toBeInTheDocument();
     expect(screen.getByText("Right")).toBeInTheDocument();
+  });
+
+  it("parks the day's measurement when the write is refused", async () => {
+    /*
+     * It used a bare `submit` and threw the day's work away on the FIRST
+     * refusal - a blip, a cold backend, a 3G stutter - while the identical
+     * onboarding write already retried and parked. Same data, same endpoint,
+     * two different answers to the same failure, and the quieter one lost a
+     * child's warm-up.
+     */
+    submit.mockResolvedValue(false);
+    render(<WarmUpRun dimension="attention" />);
+
+    fireEvent.click(screen.getByText("Right"));
+    await settle();
+
+    expect(holdBaseline).toHaveBeenCalled();
+  });
+
+  it("parks it when the write throws outright", async () => {
+    submit.mockRejectedValue(new Error("network"));
+    render(<WarmUpRun dimension="attention" />);
+
+    fireEvent.click(screen.getByText("Right"));
+    await settle();
+
+    expect(holdBaseline).toHaveBeenCalled();
+  });
+
+  it("does not park what it has already delivered", async () => {
+    submit.mockResolvedValue(true);
+    render(<WarmUpRun dimension="attention" />);
+
+    fireEvent.click(screen.getByText("Right"));
+    await settle();
+
+    expect(holdBaseline).not.toHaveBeenCalled();
   });
 });

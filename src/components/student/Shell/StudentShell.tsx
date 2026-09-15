@@ -8,6 +8,7 @@ import { SampleRegion } from "@/components/shared/SampleRegion";
 import { AskNevo } from "@/components/student/AskNevo/AskNevo";
 import { TEXT_ZOOM, useAccessibility } from "@/context/AccessibilityContext";
 import { useBehaviouralCapture } from "@/hooks";
+import { useConsentGate } from "@/hooks/useConsentGate";
 import { NotificationBell } from "./NotificationBell";
 import { OfflineTakeover, useOnline } from "./OfflineTakeover";
 import { useHasSession } from "@/hooks/useHasSession";
@@ -62,9 +63,21 @@ function MaybeSample({
 
 export function StudentShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
-  // SCRUM-76: on-device behavioural timing capture for the affective engine -
-  // ephemeral IndexedDB only, purged at session end, never transmitted.
-  useBehaviouralCapture(true);
+  /*
+   * SCRUM-76: on-device behavioural timing capture for the affective engine -
+   * ephemeral IndexedDB only, purged at session end, never transmitted.
+   *
+   * GATED ON CONSENT, which it was not. `GET /students/me/consent-gate` has
+   * been deployed for some time and `myConsentGate` had zero callers, so a
+   * child whose guardian had WITHDRAWN consent kept being profiled - every tap
+   * and keystroke still written - and nothing in the student app ever asked.
+   *
+   * `withdrawn` is false until the read answers and false if it fails, so a
+   * flaky network never silently stops measuring a child whose guardian did
+   * consent. Only an answer that says withdrawn stops anything.
+   */
+  const { withdrawn } = useConsentGate();
+  useBehaviouralCapture(!withdrawn);
   // Renews the session before it expires. Mounted here rather than on a tab,
   // so it covers the full-screen routes below too - a child mid-lesson is the
   // case that matters, and the one the old behaviour handled worst.
@@ -213,7 +226,22 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           className="min-h-0 flex-1 overflow-y-auto pb-[68px] md:pb-[76px]"
           style={{ zoom: TEXT_ZOOM[textSize] }}
         >
-          {offlineTakeover ? <OfflineTakeover /> : children}
+          {/*
+            THE TAB STAYS MOUNTED. This was
+            `offlineTakeover ? <OfflineTakeover /> : children`, which unmounts
+            the whole tab the instant `navigator.onLine` flips - so a child
+            part-way through typing a message to their teacher lost every word
+            of it on a 3G blip, and was then shown a screen telling them nothing
+            was lost. A failed message waiting on "tap to try again" went the
+            same way.
+
+            Hidden rather than replaced, so React keeps the component and its
+            state alive and the words are still there when the signal returns.
+            `hidden` also takes it out of the accessibility tree, so a screen
+            reader is not reading a form its user cannot see or reach.
+          */}
+          <div hidden={offlineTakeover}>{children}</div>
+          {offlineTakeover && <OfflineTakeover />}
         </main>
 
         {/* Bottom nav — mobile only */}
