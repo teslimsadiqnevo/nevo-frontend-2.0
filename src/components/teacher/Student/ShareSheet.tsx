@@ -7,9 +7,12 @@ import { useEffect, useState } from "react";
  * A note goes to the SENCo with the student's recent picture; the tone stays
  * plain and non-clinical, and nothing here is scored or coloured as an alarm.
  *
- * Post-send behaviour follows C14 Teacher State Patterns B5 (sheet dismisses,
- * toast confirms, a quiet note settles under the student's name) rather than
- * the older component frame's in-sheet success panel - flagged to design.
+ * THIS IS THE SAMPLE SHEET. The one that sends is `LiveShareSheet`, built
+ * 15 Sep against `POST /api/v1/escalations`; it follows C14 Teacher State
+ * Patterns B5 (sheet dismisses, toast confirms, a quiet note settles under the
+ * student's name) rather than the older component frame's in-sheet success
+ * panel - flagged to design. This one keeps the layout and sends nothing,
+ * because it is mounted only for a signed-out visitor looking at a fixture.
  *
  * Cancel discards the draft, so reopening always starts empty (the component
  * frame's `closeShare` clears the note).
@@ -68,21 +71,24 @@ export function ShareSheet({
             Close
           </button>
           <p className="mb-3 w-full text-[13px] leading-[1.5] text-nevo-near-black/62">
-            Sending to Learning Support isn&rsquo;t connected yet, so nothing
-            here reaches your SENCo. Please raise it with them directly.
+            This is a sample student, so nothing is sent. Sign in to share a
+            child in your own classes with your SENCo.
           </p>
-          {/* NO SEND. There is no transport for a teacher-to-SENCo note in
-              the contract - `POST /api/messages` constrains recipientType to
-              ^(student|class)$, the IEP share takes a parentId, and the flags
-              read is GET-only - so this button used to close the sheet and
-              assert the referral had happened. A safeguarding disclosure
-              reported as delivered when nothing left the browser is the worst
-              thing on this screen, so the claim is gone and the reason is
-              here instead. */}
+          {/* STILL NO SEND HERE, FOR A DIFFERENT REASON NOW.
+              Until 15 Sep there was no teacher-to-SENCo transport at all:
+              `POST /api/messages` constrains recipientType to ^(student|class)$,
+              the IEP share takes a parentId, and the flags read is GET-only.
+              `POST /api/v1/escalations` closed that gap, and the real sheet is
+              `LiveShareSheet`, mounted by `LiveStudentProfile`.
+              This component backs the SAMPLE profile, which `StudentRoute`
+              renders only when there is no token. Posting a fixture student's
+              id would raise a genuine safeguarding escalation, in front of a
+              real SENCo, about a child who does not exist - so the sample
+              screen stays inert and says why. */}
           <button
             type="button"
             disabled
-            title="Escalations can't be sent from Nevo yet"
+            title="This is a sample student"
             className="flex h-[50px] flex-1 cursor-not-allowed items-center justify-center rounded-[10px] bg-nevo-navy/18 text-[14.5px] font-semibold text-nevo-near-black/40 xl:h-[52px] xl:text-[15px]"
           >
             Send to Learning Support

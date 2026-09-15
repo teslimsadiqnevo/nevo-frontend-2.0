@@ -36,15 +36,14 @@ import { ShareSheet } from "./ShareSheet";
  * pill in place of the kebab, and drops Recent sessions entirely. Both
  * divergences are flagged to design rather than smoothed over.
  *
- * THE ESCALATION SHEET NO LONGER CONFIRMS ANYTHING. C14 B5 draws a toast and
- * a quiet "Shared with Learning Support - today" note, and both were built
- * over a handler that posted nothing - a safeguarding referral reported as
- * delivered. There is no teacher-to-SENCo transport in the contract, so the
- * sheet explains that and closes. The confirmation ritual returns with the
- * endpoint, not before it.
- *
- * The frame's original resolution, for whoever wires it: it dismisses, a toast confirms,
- * and a quiet note settles under the student's name.
+ * THE ESCALATION SHEET STILL CONFIRMS NOTHING HERE, AND THAT IS NOW CORRECT.
+ * C14 B5 draws a toast and a quiet "Shared with Learning Support" note, and
+ * both were once built over a handler that posted nothing - a safeguarding
+ * referral reported as delivered. The transport arrived on 15 Sep as
+ * `POST /api/v1/escalations`, and the confirmation ritual arrived with it, on
+ * `LiveStudentProfile`. It is not repeated here: this component renders a
+ * FIXTURE student for a signed-out visitor, and a referral about a child who
+ * does not exist should neither be sent nor claimed.
  */
 
 

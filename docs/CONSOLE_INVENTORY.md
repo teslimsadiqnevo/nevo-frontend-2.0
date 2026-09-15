@@ -65,7 +65,7 @@ meaningfully waiting on backend; it is waiting on us, and in a few places on des
 | Compose message | PARTIAL | Deep link resolves against fixtures in **three** places (`ConnectView:108`, `ComposeModal:69` and `:108`) and the profile link carries no query at all; cannot address a class | FRONTEND | **M** |
 | Home dashboard | PARTIAL | **Emits no sample marks at all**; class trio subject/status; activity counts (`completedCount`/`totalCount` landed 15 Sep, both nullable); "Good to know" | FRONTEND; DESIGN (cutoffs) | M |
 | Insights | PARTIAL | Written summary and "Looking ahead" both landed 15 Sep at `/classes/{class_id}/insights`; per-student recommendations still fan out | FRONTEND | M |
-| Student profile | PARTIAL | 2 of 4 drawn actions now (recommend added 15 Sep); share with Learning Support and session detail both unblocked 15 Sep; no noticing banner | FRONTEND | M |
+| Student profile | PARTIAL | 3 of 4 drawn actions now (recommend and share both added 15 Sep); session detail remains, now unblocked; no noticing banner | FRONTEND | M |
 | Lesson detail | PARTIAL | No entry point to variant review; multi-class reports first class only | FRONTEND; DESIGN | S |
 | Lesson assignment wizard | PARTIAL | "Specific students" refused by a guard whose stated reason is false | FRONTEND | M |
 | Variant review | PARTIAL | Live and correct but **no entry point**; no 5th-variant tab; no audio player | FRONTEND; DESIGN; CONTENT | S |
@@ -77,7 +77,7 @@ meaningfully waiting on backend; it is waiting on us, and in a few places on des
 | Structure preview (standalone) | FIXTURE-ONLY | Orphaned duplicate; no session gate | FRONTEND | S |
 | Student observations (C16b) | LIVE | — (built 15 Sep: chips, seat, and the two markers) | NONE | — |
 | Recommend a lesson | PARTIAL | Built and live 15 Sep. The note field is now buildable (`note` landed on both creation contracts that afternoon); the "Suggested" badge stays blocked — `Recommendation` is prose with no lesson id | FRONTEND (note); BACKEND (badge) | S |
-| Share with Learning Support | NOT BUILT | Button correctly disabled. `POST /api/v1/escalations` landed 15 Sep, so the transport now exists | FRONTEND | M |
+| Share with Learning Support | LIVE | — (built 15 Sep on `POST /api/v1/escalations`: `LiveShareSheet`, confirmed per C14 B5. The SENCo cannot yet SEE what arrives — see below) | NONE | — |
 | Session detail | NOT BUILT | The per-student session read landed 15 Sep with `sittings`, `narrative` and unscored `sections` | FRONTEND | M/L |
 | SSO callback | NOT BUILT | Component complete and live-wired; `slug` landed on `SchoolCodeResponse` 15 Sep, so the signed-out door can now reach it | FRONTEND | M |
 | Notifications page | NOT BUILT | Deliberate redirect — C13 is a popover | NONE | — |
@@ -164,7 +164,12 @@ Ten items; the eleventh delivery (gender-neutral growth statements) needs no fro
 work at all.
 
 18. **Teacher→SENCo escalation.** `POST /api/v1/escalations`. The most-asked-for missing
-    action on the teacher console, and the one with a child's welfare behind it. **M**
+    action on the teacher console, and the one with a child's welfare behind it.
+    ~~**M**~~ **DONE 15 Sep.** `LiveShareSheet` posts the escalation; C14 B5's dismiss,
+    toast and quiet note all wait on a stored one. `attentionFlagId` is deliberately not
+    sent — flags carry ids and this console already reads them, but C.8b never asks the
+    teacher which flag they mean, and guessing would tell the SENCo the wrong thing.
+    **The receiving half is not built** — see item 0 in list B.
 19. **Assignment note.** The confirmation already promises "She'll see your note when she
     opens it". `note` now exists on both creation contracts, so the promise can be kept —
     and the note field deliberately left out of recommend-a-lesson can go in. **S**
@@ -208,7 +213,13 @@ Note the path parameters above: they are `{student_id}` and `{class_id}`, still
 snake_case, while every property those endpoints return is now camelCase. That is the
 wire, not a typo.
 
-**Two remain.**
+**Three remain** — two from this morning, and one created by shipping the teacher half of escalations.
+
+0. **Nothing acknowledges an escalation.** `EscalationResponse.acknowledged` is a boolean
+   on the read, but no endpoint sets it — `POST /api/intelligence/flags/{flag_id}/acknowledge`
+   covers Nevo's own flags, not teacher escalations. A SENCo can therefore read a concern
+   and has no way to mark it handled, and the teacher is never told it was seen. Ask for
+   an acknowledge write, or a ruling that the field is informational.
 
 10. **`category` on `NotificationResponse` — declined.** Backend confirmed on 15 Sep this
     will not be implemented. Re-checked the same day: `NotificationResponse` is

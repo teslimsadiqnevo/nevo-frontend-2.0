@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LiveRecommendSheet } from "./LiveRecommendSheet";
+import { LiveShareSheet } from "./LiveShareSheet";
 import type { StudentProfileState } from "@/hooks/useStudentProfile";
 import {
   ADAPTATIONS_FOOTNOTE_DESKTOP_TAIL,
@@ -54,6 +55,9 @@ import { MasteryDualTrack } from "./MasteryDualTrack";
 const SECTION_H =
   "text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase xl:text-sm";
 
+/** Matches ConnectView, which is the console's other C14 toast. */
+const TOAST_MS = 3000;
+
 /** The support Nevo turned on, named the way the console talks about it. */
 const ACCOMMODATION_LABEL: Record<string, string> = {
   reading: "Reading support",
@@ -84,6 +88,28 @@ export function LiveStudentProfile({
   recommendOpen?: boolean;
 }) {
   const [recommending, setRecommending] = useState(recommendOpen);
+  const [sharing, setSharing] = useState(false);
+  /**
+   * C14 B5's two halves, both driven only by a stored escalation.
+   *
+   * `shared` is session-local on purpose. The obvious alternative - reading
+   * `GET /api/v1/escalations` on mount to show "already shared" - is a worse
+   * answer than none: that read is documented as the SENCo/admin view, a
+   * teacher's access to it is untested, and a 403 would render as "not shared
+   * yet" for a child who has been escalated twice already. So this reports
+   * what THIS teacher just did, which it knows for certain, and claims
+   * nothing about history.
+   */
+  const [shared, setShared] = useState(false);
+  const [toast, setToast] = useState(false);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    },
+    [],
+  );
   const {
     profile,
     concepts,
@@ -131,6 +157,14 @@ export function LiveStudentProfile({
                 .filter(Boolean)
                 .join(" · ")}
             </span>
+            {/* C14 B5's quiet note. The frame writes it with a dash; design
+                ruled on 15 Sep that Nevo copy carries no dashes anywhere, so
+                it reads straight. It appears only after a stored escalation. */}
+            {shared && (
+              <span className="mt-[3px] block text-[14.5px] text-nevo-near-black/60">
+                Shared with Learning Support today
+              </span>
+            )}
           </div>
         </div>
 
@@ -323,7 +357,10 @@ export function LiveStudentProfile({
           </p>
         )}
 
-        <div className="mt-8">
+        {/* `flex flex-wrap gap-3` replaced a bare block on 15 Sep. Two
+            inline-flex children were separated only by a whitespace text node,
+            which a third action turns into a row that runs off a tablet. */}
+        <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href="/teacher/connect"
             className="inline-flex h-[50px] cursor-pointer items-center rounded-[10px] border-[1.5px] border-nevo-navy/35 px-[22px] text-[15px] font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6"
@@ -340,6 +377,16 @@ export function LiveStudentProfile({
           >
             Recommend a lesson
           </button>
+          {/* THE THIRD. `POST /api/v1/escalations` landed 15 Sep; before it
+              this action existed only on the fixture profile, behind a
+              disabled button explaining there was nowhere to send it. */}
+          <button
+            type="button"
+            onClick={() => setSharing(true)}
+            className="inline-flex h-[50px] cursor-pointer items-center rounded-[10px] border-[1.5px] border-nevo-navy/35 px-[22px] text-[15px] font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6"
+          >
+            Share with Learning Support
+          </button>
         </div>
 
         {recommending && (
@@ -352,6 +399,32 @@ export function LiveStudentProfile({
             suggestion={recommendations[0]?.recommendationText ?? null}
             onClose={() => setRecommending(false)}
           />
+        )}
+
+        {sharing && (
+          <LiveShareSheet
+            studentId={student.id}
+            firstName={student.firstName ?? name}
+            onCancel={() => setSharing(false)}
+            /* C14 B5, and every part of it waits on a stored escalation: the
+               sheet dismisses, the toast confirms, the quiet note settles. */
+            onSent={() => {
+              setSharing(false);
+              setShared(true);
+              setToast(true);
+              if (toastTimer.current) clearTimeout(toastTimer.current);
+              toastTimer.current = setTimeout(() => setToast(false), TOAST_MS);
+            }}
+          />
+        )}
+
+        {toast && (
+          <div
+            role="status"
+            className="fixed bottom-7 left-1/2 z-50 -translate-x-1/2 rounded-[10px] bg-nevo-near-black px-[18px] py-3 text-[14.5px] font-medium text-nevo-cream shadow-[0_6px_24px_rgba(0,0,0,0.22)]"
+          >
+            {`Sent to Learning Support. They${"’"}ll take it from here.`}
+          </div>
         )}
       </div>
     </div>
