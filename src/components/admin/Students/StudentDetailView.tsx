@@ -33,6 +33,7 @@ import {
   TEXT_ACTION,
 } from "../Roster/primitives";
 import { EraseRecordModal } from "./EraseRecordModal";
+import { IssuePinSheet } from "./IssuePinSheet";
 import { MoveStudentSheet } from "./MoveStudentSheet";
 import { NoAccess, failureKind } from "../NoAccess";
 import { WriteFailed } from "../WriteFailed";
@@ -78,6 +79,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
   const [guardiansFailed, setGuardiansFailed] = useState(false);
   const { stateFor: consentStateFor, send: sendConsent } = useConsentRequests();
   const [moving, setMoving] = useState(false);
+  const [issuingPin, setIssuingPin] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [erasing, setErasing] = useState(false);
   const [working, setWorking] = useState(false);
@@ -486,6 +488,26 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                 Nothing about their learning changes.
               </p>
             </div>
+            {/*
+              * THE OTHER END OF "ASK YOUR TEACHER". The child's Forgot-PIN
+              * screen is informational by design and sends them to an adult;
+              * until now no adult in any console had a control to press, and
+              * `pin_reset_requested` notifications arrived nowhere. Active
+              * students only: an invited child has not joined, and a
+              * deactivated one cannot sign in whatever PIN they hold.
+              */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setIssuingPin(true)}
+                className={TEXT_ACTION}
+              >
+                Give {firstName} a new PIN
+              </button>
+              <p className="mt-1.5 max-w-[420px] text-[13px] leading-[1.5] text-nevo-near-black/55">
+                For when they can&rsquo;t get in. You hand it over in person.
+              </p>
+            </div>
             <div>
               <button
                 type="button"
@@ -513,6 +535,19 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
             setMoving(false);
             load();
           }}
+        />
+      ) : null}
+
+      {/*
+        * NO `load()` ON CLOSE, unlike the sheets around it. A new PIN changes
+        * nothing this screen renders, and a reload here would replace the
+        * record underneath an admin who is still copying the number down.
+        */}
+      {issuingPin ? (
+        <IssuePinSheet
+          studentId={student.id}
+          studentName={name}
+          onClose={() => setIssuingPin(false)}
         />
       ) : null}
 
