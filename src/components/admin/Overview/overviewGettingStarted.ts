@@ -1,4 +1,6 @@
 import type { SchoolRosterCounts } from "@/lib/api/school";
+import type { SsoStatus } from "@/lib/api/sso";
+import type { AdminStudentRow } from "@/lib/api/students";
 
 /**
  * D04's Getting-started checklist - the "Just onboarded, honest early state"
@@ -23,27 +25,27 @@ import type { SchoolRosterCounts } from "@/lib/api/school";
  *     `GET /api/v1/school/overview`, which the screen already fetches for its
  *     snapshot tiles.
  *
- * TWO render as OPEN steps, and this is the honest limit of the screen rather
- * than a considered position. It used to be three: the teachers row is settled
- * now, from a count the screen was already holding. An open circle beside the
- * remaining two is a checklist affordance, not a verified "you have not done
- * this" - it will still read as one to some admins, and the only real fix is a
- * signal for each.
+ * ALL FIVE ARE SIGNAL-BACKED NOW - 16 Sep. Every row either ticks from
+ * something this school actually did, or stays open because nothing can see
+ * it. Each predicate lives beside this block with its own reasoning:
+ * `teachersOnRoster`, `signInChosen`, `consentRequestsSent`, plus WORKSPACE
+ * (true by construction - the admin is signed into a school that exists) and
+ * STUDENTS (`audit.studentsProfiled > 0`, read in OverviewView).
  *
- * TODO (client, not api): settle the remaining three from data rather than
- * leaving them open. This used to end "consent once any endpoint reports it
- * for a school" and "each is one call" - the first was retired by this file's
- * own correction block below, and the second stopped being true when
- * OverviewView put `counts` in state. What is actually left:
+ * THE TODO THAT USED TO SIT HERE SAID "settle the remaining THREE", and by
+ * then it was two: the teachers row had settled and the sentence had not
+ * followed it. That is this file's own warning happening inside the comment
+ * that states the warning, and it is why the count is no longer written down
+ * anywhere - the predicates are the record.
  *
- *   - TEACHERS ticks today from `counts.teachers > 0`, no new call at all.
- *   - SIGN-IN needs `ssoApi.status()` added to the existing `Promise.all` with
- *     a `.catch(() => null)` like its two neighbours, and settles only the
- *     "connect a provider" half - "share your school code" stays unverifiable
- *     and MUST stay open.
- *   - CONSENT ticks from `studentsApi.list()` when no row is `not_sent`.
- *
- * Whichever lands, export its index beside STEP_WORKSPACE and STEP_STUDENTS.
+ * ONE HALF STAYS UNVERIFIABLE BY DESIGN, and it is not a gap to close.
+ * "Choose how everyone signs in" offers "connect a provider, OR share your
+ * school code". A connected provider ticks it. A school that instead told
+ * every child its code has done the step, and nothing in the contract records
+ * that it did - `SchoolCodeResponse` is a lookup, not a register of who was
+ * told. So that row can go open on a school that is finished, and an open
+ * circle here has always meant "we cannot see it", never "you have not done
+ * it". Do not invent a signal for it.
  *
  * THAT WAS TRUE AND IS NOT ANY MORE. This used to read: "The consent row's
  * action is 'When ready' rather than a link... No endpoint reads consent for a
@@ -108,6 +110,8 @@ export function gettingStartedSteps(school: string): StartStep[] {
 export const STEP_WORKSPACE = 0;
 export const STEP_TEACHERS = 1;
 export const STEP_STUDENTS = 2;
+export const STEP_SIGNIN = 3;
+export const STEP_CONSENT = 4;
 
 /**
  * Whether "Invite your teachers" may be ticked.
@@ -139,4 +143,60 @@ export function teachersOnRoster(
   counts: SchoolRosterCounts | null | undefined,
 ): boolean {
   return typeof counts?.teachers === "number" && counts.teachers > 0;
+}
+
+/**
+ * Whether "Choose how everyone signs in" may be ticked.
+ *
+ * THE STEP'S OWN SUB-COPY IS AN OR: "Connect Microsoft or Google, **or** share
+ * your school code." So a connected provider satisfies it outright - the code
+ * is an alternative route, not a second requirement.
+ *
+ * Which is also why the reverse does not hold. A school with no provider may
+ * well have shared its code with every child, and nothing in the contract can
+ * see that: `SchoolCodeResponse` is a lookup, not a record of who was told.
+ * So no provider means UNKNOWN, and unknown leaves the row open. That is the
+ * absence of a claim, never the claim that this school has not chosen.
+ *
+ * `needs_attention` TICKS, and the distinction is worth stating. It means a
+ * connection exists and is unhealthy - the school HAS chosen how everyone
+ * signs in, which is the only question this row asks. The unhealthiness is
+ * D15's to report and the IT home already surfaces it; a getting-started row
+ * that un-ticked itself because a certificate wobbled would be telling a
+ * school it had not done something it did.
+ *
+ * `null` is the read having failed (`ssoApi.status().catch(() => null)`), and
+ * follows `teachersOnRoster`: unknown returns false.
+ */
+export function signInChosen(sso: SsoStatus | null | undefined): boolean {
+  return sso?.status === "connected" || sso?.status === "needs_attention";
+}
+
+/**
+ * Whether "Send parent consent requests" may be ticked.
+ *
+ * Ticks only on a POSITIVE reading of the roster: at least one student, and
+ * not one of them still sitting at `not_sent`. `AdminStudentRow.consent` is
+ * required and non-null on the deployed spec, so a child with no record comes
+ * back `not_sent` rather than absent - there is no "we were not told" state to
+ * handle here.
+ *
+ * AN EMPTY ROSTER DOES NOT TICK, and that is the whole reason this is a
+ * function rather than an `.every()` at the call site. `[].every(...)` is
+ * `true`, so a school that has enrolled nobody would be congratulated for
+ * having sent every request it owes - a vacuous truth presented as an
+ * achievement, on the exact screen a brand-new school sees first.
+ *
+ * `withdrawn` and `pending` both COUNT AS SENT, because the row asks whether
+ * the requests went out, not how parents answered. Per SCRUM-80 the school is
+ * not gating anything on the reply: `not_sent` is the only value meaning this
+ * school still has work to do here.
+ *
+ * `null` is the read having failed, and leaves the row open like its siblings.
+ */
+export function consentRequestsSent(
+  roster: AdminStudentRow[] | null | undefined,
+): boolean {
+  if (!Array.isArray(roster) || roster.length === 0) return false;
+  return roster.every((s) => s.consent.status !== "not_sent");
 }

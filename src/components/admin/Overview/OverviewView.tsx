@@ -8,11 +8,16 @@ import {
 } from "@/lib/api/schoolIntelligence";
 import { cn } from "@/lib/utils";
 import { labelHero } from "../Compliance/ndpaClaims";
+import { ssoApi, type SsoStatus } from "@/lib/api/sso";
 import {
+  STEP_CONSENT,
+  STEP_SIGNIN,
   STEP_STUDENTS,
   STEP_TEACHERS,
   STEP_WORKSPACE,
+  consentRequestsSent,
   gettingStartedSteps,
+  signInChosen,
   teachersOnRoster,
 } from "./overviewGettingStarted";
 import {
@@ -194,6 +199,8 @@ export function OverviewView() {
    * which is correct here: we have not asked yet, so we have nothing to say.
    */
   const [roster, setRoster] = useState<AdminStudentRow[] | null>(null);
+  /** Read for the getting-started sign-in row only. Null means unread. */
+  const [sso, setSso] = useState<SsoStatus | null>(null);
   const [flags, setFlags] = useState<AttentionFlag[] | null>(null);
 
   const load = useCallback(() => {
@@ -217,7 +224,15 @@ export function OverviewView() {
       // their own failures - neither should take the page down.
       schoolApi.narrative().catch(() => null),
       schoolApi.overview().catch(() => null),
-    ]).then(([res, log, n, ov]) => {
+      /*
+       * FOR THE GETTING-STARTED CHECKLIST'S SIGN-IN ROW, and nothing else on
+       * this screen. Settled like its two neighbours above: a school with no
+       * SSO at all is a 404 here as readily as a 500 is, and neither is worth
+       * a blank dashboard. `signInChosen` treats null as unknown, so the row
+       * simply stays open.
+       */
+      ssoApi.status().catch(() => null),
+    ]).then(([res, log, n, ov, sso]) => {
       if (!res.ok && failureKind(res.err) === "denied") {
         setPhase("denied");
         return;
@@ -228,6 +243,7 @@ export function OverviewView() {
       setNarrative(n);
       setNarrativeFailed(n === null);
       setCounts(ov ? ov.counts : null);
+      setSso(sso);
       /*
        * NULL WHEN WE DID NOT READ IT, and it used to be `?? 0`. That mattered
        * only once the audit stopped gating the page: a zero here is the signal
@@ -630,7 +646,9 @@ export function OverviewView() {
                   const done =
                     i === STEP_WORKSPACE ||
                     (i === STEP_STUDENTS && (audit?.studentsProfiled ?? 0) > 0) ||
-                    (i === STEP_TEACHERS && teachersOnRoster(counts));
+                    (i === STEP_TEACHERS && teachersOnRoster(counts)) ||
+                    (i === STEP_SIGNIN && signInChosen(sso)) ||
+                    (i === STEP_CONSENT && consentRequestsSent(roster));
                   const row = (
                     <>
                       <span
