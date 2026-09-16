@@ -1281,16 +1281,37 @@ triggers it?**
 
 ---
 
-## Teacher console
+## Teacher console — SUPERSEDED, see the inventory
 
-### Done 5 Sep
+**The per-screen record for this console moved to
+[`docs/CONSOLE_INVENTORY.md`](./CONSOLE_INVENTORY.md) and the narrative that used to sit here
+has been pruned (16 Sep) because it was actively misleading**, not merely old. It was written
+5-7 Sep and every list in it had rotted in the same direction: it named as blocked a set of
+things that had since shipped.
 
-- `/teacher` root redirects to `/teacher/dashboard` (was a 404).
-- `/teacher/students` redirects to `/teacher/classes` (was a placeholder string).
-- Bulk ingestion shows the parse's `lessonTitle` with the filename beneath.
-- Split a staged unit into lessons; named segment rows under each section.
+Kept as a record of HOW it rotted, because the pattern repeats:
 
-### UNBLOCKED 7 Sep — per-student consent. FOR THE ADMIN SESSION.
+- Its NEEDS BACKEND table listed seven blocked screens. **Five of those seven are now
+  delivered and built** — teacher-to-SENCo escalation, profile photo upload, the per-student
+  session read, a note on an assignment, and teacher-initiated SSO all landed on 15 Sep. Two
+  of the seven were never true as stated: "Recommend a lesson" was blocked on a POST that was
+  not needed (`assignmentsApi.create` was reused), and variant review renders off the lesson
+  read.
+- Its NEEDS DESIGN list said "Specific students in the assign wizard has no frame; the wizard
+  errors". It was built on 15 Sep on ids the wizard already held.
+- The 5 Sep "Done" list is still true and is now unremarkable.
+
+**The generalisable bit: a section dated by when it was WRITTEN, holding claims about what is
+blocked, decays into a list of work people think they cannot start.** The inventory carries a
+commit SHA rather than a date for this reason, and every blocker in it is re-tested against
+the deployed spec before it is written down. Do not restore a per-screen list here.
+
+The one part of that section worth keeping is below, because it is addressed to the admin
+session rather than the teacher one and its facts were re-checked when it was written.
+
+---
+
+## Per-student consent — UNBLOCKED 7 Sep. FOR THE ADMIN SESSION.
 
 **This was in NEEDS BACKEND and is now buildable.** The old entry said "no GET returns
 consent for any student but the child themselves". That is no longer true. `consent` is
@@ -1315,26 +1336,6 @@ consent card, and the D5b roster pill.**
 
 One caution carried over: **do not derive consent from the student's `status` field.**
 An account being active is a different fact from a parent having agreed.
-
-### NEEDS BACKEND
-
-| screen                  | why                                                                                                                                                                                       |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C08c Recommend a lesson | Recommendations are **read-only** — `GET /api/intelligence/recommendations/{id}` only, returning prose (`recommendationText`), not selectable lesson options. No POST exists to send one. |
-| C08d Session detail     | Needs a section-by-section breakdown nothing serves.                                                                                                                                      |
-| C16d Variant Review     | No lesson read carries the variant objects.                                                                                                                                               |
-| Escalate to SENCo       | No transport for a teacher-to-SENCo note. The button is disabled rather than lying.                                                                                                       |
-| Teacher SSO connect     | **Not the slug problem.** Nothing in the API enrols a school; all ten SSO operations presuppose a connection that exists. The two `start` endpoints are pre-login user handovers.         |
-| Profile photo upload    | The frame draws the affordance only.                                                                                                                                                      |
-| Drive / OneDrive import | Blocked on per-school credentials.                                                                                                                                                        |
-
-### NEEDS DESIGN
-
-- Help & support — a sidebar item with nowhere to go; no frame draws it.
-- Pulse banding — the Strong/Steady/Building cutoffs are a frontend invention.
-- ~12 undrawn sections: C09's written summary, C06b's stat cards, the C03 flag
-  sparkline (deferred to v1.5), the noticing banner, subject filter pills.
-- "Specific students" in the assign wizard has no frame; the wizard errors.
 
 ---
 

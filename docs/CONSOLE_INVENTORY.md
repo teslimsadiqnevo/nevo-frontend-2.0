@@ -1,7 +1,10 @@
 # Console inventory — what is undone
 
-**Teacher and parent consoles. Re-verified 16 Sep 2026 against `main` @ `8162152` and the
-deployed spec (v2.0.0, 188 paths, 343 schemas).**
+**Teacher and parent consoles. Re-verified 16 Sep 2026 against `main` @ `d0ae9fd` and the
+deployed spec (v2.0.0, 188 paths, 343 schemas, 205 operations).**
+
+*A stamp naming a commit is worth more than a date. If `git rev-parse origin/main` no longer
+returns the SHA above, some of what follows is older than the code.*
 
 ## Why this file exists
 
@@ -59,6 +62,29 @@ first answer. What it found:
 *The lesson generalises: this file drifts the same way the code comments do, and re-reading
 it against the repo is itself work that has to be repeated.*
 
+### Re-verified again, later on 16 Sep — five rows wrong, and a pattern underneath them
+
+All 36 teacher rows were read back against `d0ae9fd`, every claim of drift was then given to
+a separate reader told to REFUTE it, and **11 of 16 claimed corrections did not survive that
+second pass**. Recording that ratio matters more than the corrections: a single read of this
+file against the code produces roughly two false corrections for every true one, so
+"I checked and the doc is wrong" is not on its own grounds to edit a row.
+
+The five that survived are folded into the rows below. Two moved the wrong way — **Upload
+module review from FIXTURE-ONLY to NOT BUILT, and Bulk ingestion from LIVE to PARTIAL** —
+which is the first time this file has had to demote a row it had marked done.
+
+**The new finding is a category this file had no column for: unmarked fixture leaks.** Five
+surfaces hand a signed-in teacher invented data, and because they are not wrapped in
+`SampleRegion` the E2E assertion that exists to catch exactly this cannot see them. They are
+listed in section E. A verdict of LIVE in the table means *the live read is wired*; it has
+never meant *nothing invented reaches the teacher*, and on four rows those two are different.
+
+**Both halves of this file must be audited, not just the table.** Line 167 said the
+assignment note "waits on backend" while lines 98 and 240-248 of the same file said it
+shipped. The 16 Sep pass rewrote the table rows and never touched the numbered backlog, so
+the contradiction survived a re-verification specifically looking for it.
+
 ---
 
 ## Teacher console
@@ -66,7 +92,7 @@ it against the repo is itself work that has to be repeated.*
 | Screen | Verdict | What is missing | Blocked by | Size |
 |---|---|---|---|---|
 | Ask Nevo drawer | LIVE | — (entry prompts are static UI copy) | NONE | — |
-| Bulk curriculum ingestion | LIVE | — | NONE | — |
+| Bulk curriculum ingestion | **PARTIAL** | **Demoted 16 Sep**, and the empty cell was hiding three things. (1) **Fixture leak on the live path**: `BulkIngestion.tsx:329-349` shows "{sorted} of 13 lessons sorted" with a 0%-width bar for the whole of a real batch — `TOTAL` is the hardcoded 13 at :48 and only `runDemo` ever increments `sorted`, while `startParse` never touches it. (2) Two dead controls: "Import from Google Drive" (:308) and "Import from OneDrive" (:317), both `<button>` with no handler. (3) `loadTitles` (:92-107) fires once, immediately after the batch POST resolves, and never retries — `lessonTitle` cannot exist before the parse has read the file, so nearly every row falls back to the filename and the 3 Sep title feature is effectively off | FRONTEND | S |
 | Connect threads | LIVE | — | NONE | — |
 | Feedback panel | LIVE | — (no test on the write) | NONE | — |
 | Upload scope + file | LIVE | — | NONE | — |
@@ -76,15 +102,15 @@ it against the repo is itself work that has to be repeated.*
 | Lesson library | LIVE | Subject pills hidden. `subject` landed on the upload body 15 Sep, so this is ours now — but it is **M**: the field has to be sent, stored, read back and filtered on, and two code comments still assert the endpoint cannot take it | FRONTEND | **M** |
 | Notifications panel | LIVE | — | NONE | — |
 | Feedback panel copy | LIVE | — (counter already present at the last 200 chars; design to confirm the threshold) | NONE | — |
-| Class code / QR | LIVE | No standalone route; dialog only. Design ruled 15 Sep to build it (recorded in section C below), so this is ours | FRONTEND | S |
+| Class code / QR | LIVE | No standalone route. **"Dialog only" is loose shorthand and would send someone to rebuild a screen that exists**: `ClassQrScreen` — the full-screen projection the standalone route is FOR — is already built and mounted from live class detail (`LiveClassDetail.tsx:358-364`, via the dialog's `onProject` at :355). What is missing is a URL that links and reopens, not the screen. Design ruled 15 Sep to build it (section C) | FRONTEND | S |
 | Sign-in | LIVE | — (`classifyLoginFailure` wired 14 Sep: a paused account is told the account is not open, a throttled one to wait. Re-verified 16 Sep.) **The ADMIN door still has this bug** — `AdminSignIn.tsx` maps 401/403 to "check your details" | NONE (admin console owns its half) | — |
 | Console shell + nav rail | PARTIAL | Role label is `MOCK_TEACHER.role` unconditionally; Help & support has no destination | FRONTEND; DESIGN | S |
-| My Classes list | PARTIAL | Card carries no subjects, headcount or summary line | FRONTEND | S |
+| My Classes list | PARTIAL | Card carries no subjects, headcount or summary line. **Split 16 Sep: these are not one job.** Headcount is ours — `ClassLearningPulseResponse.studentCount` is required on `GET /api/v1/teachers/me/home`, already called. **Subjects has no teacher-readable source**: the only schema carrying `subjects` is `ClassSummaryResponse`, and both operations returning it are tagged "school administration"; it is not even in that schema's `required` list. The subjects leg is a backend/scope ask, not an afternoon. Also carries an unmarked fixture leak — see section E | FRONTEND (headcount); **BACKEND (subjects)** | S + ask |
 | Class detail + roster | PARTIAL | No Lessons or Activity tab. (Chips, seat and the two markers built 15 Sep; account state 16 Sep; the header already carried the headcount) | BACKEND (activity); DESIGN (a Lessons tab) | M |
-| Compose message | PARTIAL | Deep link resolves against fixtures in **three** places (`ConnectView:108`, `ComposeModal:69` and `:108`) and the profile link carries no query at all; cannot address a class | FRONTEND | **M** |
+| Compose message | PARTIAL | **Reasons corrected 16 Sep; the M stands.** Two of the three fixture sites were already fixed — `ComposeModal:69` and `:108` are both gated on `signedIn`, so only `ConnectView:108` survives. The deep-link defect is WORSE than "carries no query": `ConnectView.tsx:113-115` derives `composeOpen` from `Boolean(params.get("student"))`, so with no query **compose does not open at all** and "Send them a message" is a bare nav to the Connect index. Second call site, unrecorded until now: `LiveFlagCard.tsx:106` has the same query-less href, and `LiveFlagCard.test.tsx:126` asserts it as correct — a test locks the bug in. The fix is not a prop: fixture ids are name slugs resolved by `studentSlug(s.name)`, a live id is a roster UUID, so the resolver has to move to `useStudentDirectory` | FRONTEND | **M** |
 | Home dashboard | PARTIAL | class trio subject/status; activity counts (`completedCount`/`totalCount` landed 15 Sep, both nullable); "Good to know" | FRONTEND; DESIGN (cutoffs) | M |
 | Insights | PARTIAL | Written summary and "Looking ahead" both landed 15 Sep at `/classes/{class_id}/insights`; per-student recommendations still fan out | FRONTEND | M |
-| Student profile | PARTIAL | 3 of 4 drawn actions now (recommend and share both added 15 Sep); session detail remains, now unblocked; no noticing banner | FRONTEND | M |
+| Student profile | PARTIAL | 3 of 4 drawn actions live (message, recommend, share). The 4th is a session row opening C08d and it is **not startable** — backend addressing, list B item 0b. ~~"now unblocked"~~ was wrong and optimistic: it was written on 15 Sep when only the response SHAPE had been checked, and survived the 16 Sep pass. No noticing banner; the live banner is the `openFlagCount` callout to `/teacher/dashboard`, not C08's per-student prose | FRONTEND (banner); **BACKEND (session detail)** | M |
 | Lesson detail | PARTIAL | Multi-class reports first class only. (The variant-review entry point shipped 14 Sep — re-verified 16 Sep, it renders once per section) | FRONTEND; DESIGN | S |
 | Lesson assignment wizard | LIVE | — ("Specific students" built 15 Sep on `useStudentDirectory`, keyed by `studentId`) | NONE | — |
 | Variant review | PARTIAL | No 5th-variant tab; no audio player. (Reachable since 14 Sep — the "no entry point" line was stale for two days) | FRONTEND; DESIGN; CONTENT | S |
@@ -92,7 +118,7 @@ it against the repo is itself work that has to be repeated.*
 | Teacher onboarding | PARTIAL | Redirect covers password only; join-confirm + profile-setup unbuilt | FRONTEND | M |
 | Profile & settings | PARTIAL | "Change photo" is a `<button>` with no `onClick` — the only dead control in the profile menu. `profileImageUrl` and the upload endpoint landed 15 Sep | FRONTEND | **M** |
 | Parse progress ladder | LIVE | — (three rungs keyed to `UploadStage`, driven by the live stage; design ruling 14 Sep) | NONE | — |
-| Upload module / section review | FIXTURE-ONLY | Hardcoded Photosynthesis six; every control writes nothing | FRONTEND | M |
+| Upload module / section review | **NOT BUILT** | **Demoted 16 Sep.** A signed-in teacher never sees the Photosynthesis six: `SectionReview` is dead code, reachable only through `runMockBeats`, gated on `!getToken()`. The live path always sets `parsed` and renders the read-only `UploadResult` instead (`UploadWizard.tsx:394-409`, :282-294). So on live there is **no module review at all** — no split, no merge, no rename, no re-order, no "keep it as one flow". The task is to build it, not to wire a fixture up | FRONTEND | **L** |
 | Structure preview (standalone) | FIXTURE-ONLY | Orphaned duplicate serving fixtures to signed-in teachers. **It IS session-gated** (`proxy.ts` covers `/teacher/*`) — that half of the line was false | FRONTEND | S |
 | Student observations (C16b) | LIVE | — (built 15 Sep: chips, seat, and the two markers) | NONE | — |
 | Recommend a lesson | PARTIAL | Built and live 15 Sep, note box included. The "Suggested" badge stays blocked — `Recommendation` is prose with no lesson id. The note is sent and stored; **no student screen renders it yet**, so the confirmation stops short of C08c's "She'll see your note when she opens it" | BACKEND (badge); STUDENT CONSOLE (render) | S |
@@ -143,6 +169,12 @@ the end of the road.
 
 ## A. Buildable today — priority order
 
+**Read section E first.** The five fixture leaks found on 16 Sep are all S, all buildable
+today, and one of them — the sign-in door naming Corona Secondary School to every teacher in
+the country — is the single most embarrassing thing in this console and a smaller fix than
+anything numbered below. They are listed there rather than here because they share one cause
+and are best done as a sweep.
+
 1. ~~**Paused teacher told their password is wrong.**~~ **TEACHER HALF DONE 14 Sep**,
    re-verified 16 Sep: `TeacherSignIn.tsx` calls `classifyLoginFailure` and carries both
    the paused and the throttled message. **The ADMIN half is still live**, mapping 401/403
@@ -164,7 +196,9 @@ the end of the road.
 6. ~~**"Specific students" in the assign wizard.**~~ **DONE 15 Sep.** The guard refused
    on a premise that had stopped being true; `useStudentDirectory` already had the ids.
 7. ~~**Recommend a lesson.**~~ **DONE 15 Sep.** Reused `assignmentsApi.create` rather
-   than wrapping a second path. Note field and "Suggested" badge both wait on backend.
+   than wrapping a second path. **Corrected 16 Sep:** the note field does NOT wait on
+   backend — it shipped the same day (see the table row and item 19), and this clause
+   contradicted two other places in this file for a day. Only the "Suggested" badge waits.
 8. **Class headcount** — a join on `classId` against data rendered two sections up. **S**
 9. **Revoked session-end variant.** **M** — re-sized 14 Sep, re-verified 16 Sep. The
    four codes are consumed nowhere, `ConsoleSessionExpired` has no reason prop, and the
@@ -396,7 +430,13 @@ consoles**, which other sessions own.
   **deliberately**; the last replaced a simulation that showed 89 invented students to
   anonymous visitors and wrote a token-less `nevo.role=teacher` cookie.
 - C01 Step 1 "verify email" — the invite link *is* the verification.
-- No class-wide broadcast in compose — ruled out for v1 by the frame.
+- No class-wide broadcast in compose — ruled out for v1 by the frame. **Note the tension,
+  flagged 16 Sep:** the Compose row scores "cannot address a class" as an open gap feeding
+  its M sizing, while this line rules it out. The code sides with this line
+  (`ConnectView.tsx:217-219` hardcodes `recipientType: "student"`) but the transport is
+  already there — `messages.ts:14` types the union and `ConnectView.tsx:166-170` `deliver`
+  already takes `"class"`. This wants a ruling, not a size. Until it gets one, the Compose
+  row's M should be read as excluding it.
 - Flag sparkline and second action — deferred to v1.5 by design.
 - Engine params never rendered — Zero-Tag ruling.
 - `DELETE /ask-nevo/threads/{id}` and `DELETE /assignments/{id}` unwrapped on reasoning.
@@ -412,6 +452,100 @@ consoles**, which other sessions own.
 
 ---
 
+## E. Unmarked fixture leaks — found 16 Sep
+
+**A LIVE verdict in the table means the live read is wired. It has never meant that nothing
+invented reaches the teacher, and on these rows those are different facts.** Every one of
+these renders fixture data to a signed-in teacher WITHOUT a `SampleRegion` wrapper, so
+`e2e/teacher-signed-in.spec.ts` — the one test whose entire purpose is "a signed-in teacher
+is never shown invented data" — cannot see them. Its assertion is vacuous on each.
+
+Ordered by what a teacher would actually believe.
+
+1. **The sign-in door names one school to every teacher in the country.** `TeacherSignIn.tsx:213`
+   hardcodes the eyebrow "Corona Secondary School · Lagos" above "Welcome back". The row is
+   marked LIVE with nothing missing. **S.** The same string is in the SSO callback:
+   `TeacherSsoCallback.tsx:8,133` renders "Signing you in through {TEACHER_INVITE.school}"
+   from `lib/mocks/teacherOnboarding.ts:18-24`.
+2. **The recommend sheet offers eight invented lessons as the teacher's own library.**
+   `useLessonLibrary` returns `FIXTURE_CARDS` whenever the read is in flight OR has failed
+   (`useLessonLibrary.ts:201-203`); `LiveRecommendSheet.tsx:61` destructures only
+   `{ cards, live }` and never surfaces `sample`, and its honest-empty branch
+   (`cards.length === 0`) is unreachable while eight fixtures exist. The Library screen marks
+   the identical fallback; the sheet does not. Pressing Recommend posts a slug where the spec
+   wants a uuid, so it 422s and nothing is falsely confirmed — but the teacher chose from
+   sample data believing it was theirs. The sheet's test mocks the hook wholesale, so this
+   path is untested. **S.**
+3. **My Classes renders three invented classes with headcounts.** `ClassesList.tsx:117,163`
+   renders `TEACHER_CLASSES` — "JSS 2A, 28 students, 2 worth a glance, 1 flagged" — on a
+   failed read, and imports `SampleRegion` nowhere, while every other teacher fallback is
+   marked (Home ×4, `ClassRoute:57`, `InsightsView:166`, `LessonRoute:110`, `StudentRoute:102`).
+   There IS a visible italic banner saying these are samples, so this is a test-coverage hole
+   rather than a silent lie. **S.**
+4. **Bulk ingestion's frozen progress bar.** See the table row. **S.**
+5. **The assign wizard can POST a fixture class id.** `AssignWizard.tsx:171` destructures
+   `{options, sample}` and never reads `loading`, so during the in-flight window a teacher
+   sees invented classes with no notice, and the confirm guard at :261 tests `sample`
+   (failure only), not `loading`. A class picked in that window is a fixture id sent to
+   `/api/v1/assignments`. Step 1 has the same flash but IS caught at confirm by the `!live`
+   guard at :267 — so the fix is known and already applied one screen away. **S.**
+
+**The shared cause is that `sample` and `loading` are different states and only `sample` is
+ever checked.** A fallback that renders during load is invisible to a guard that only tests
+for failure. Worth one sweep rather than five fixes.
+
+## F. Things a next reader would waste a day on — found 16 Sep
+
+- **`ClassQrScreen` already exists.** See the Class code row.
+- **Three comments still say the insights endpoint does not exist** — `useClassInsights.ts:16`,
+  `LiveClassInsights.tsx:13-16`, `teacherInsights.ts:14-22` ("NO SUCH ENDPOINT WAS EVER
+  ADDED, and none is needed"). All three are false against the deployed spec. Anyone starting
+  that task from the code concludes it is blocked.
+- **The variant audio player's blocker has expired.** `LiveVariantReview.tsx:47-51` defers it
+  until "there is a refresh path through `POST /api/content/media/url`". That path is
+  deployed, `contentApi.mediaUrl` exists (`content.ts:155-156`), and `mediaUrlExpired` exists
+  (`variants.ts:153`). Nothing calls any of them. Unwritten frontend work, not a dependency.
+- **`VariantReviewRoute.tsx:27-33`** still says "Nothing consumes `variantsApi` yet, which is
+  why this still renders" and carries a `TODO(fe)` to build what is built 40 lines below. The
+  named export does not exist at all.
+- **`EditProfileModal.tsx:89`** still says `TODO(api): photo upload - the frame draws the
+  affordance only`, while this file records the endpoint as landed 15 Sep.
+- **`uploadsApi.retryPages` is dead API surface** — no caller anywhere — and the backend proxy
+  already grants it the 4-minute long-running budget for a request nothing makes. Meanwhile
+  `failedPages` is deployed and **missing from the client type** (`uploads.ts:89-103`), so the
+  poll silently drops it. Third instance of the pattern that dropped `note` on `Assignment`
+  and `completedCount` on `ActivityRow`.
+- **A dead session-ended route.** `src/app/auth/session-ended/page.tsx:8-10` mounts the
+  student screen with a hardcoded `variant="concurrent"`. Nothing navigates to it. The one
+  screen already shaped like a `session_replaced` answer is unreachable while `client.ts`
+  sends every 401 to the generic expired door.
+
+## G. Corrections to section B, found 16 Sep
+
+- **The 401 code set is FIVE, not four.** The spec's 401 description adds `invalid_session`
+  ("a token that was never valid") alongside the four this file lists. A reason-carrying door
+  has one more branch than list A item 9 budgets for.
+- **"None of the four codes is consumed anywhere" is literally false.** `account_paused` IS
+  consumed, at the login doors (`loginFailure.ts:38`, `TeacherSignIn.tsx:155`) — which this
+  file's own Sign-in row records. The accurate statement is that none is consumed on the
+  SESSION path, because `handleAuthFailure` is exempted from `/auth/login` (`client.ts:128`).
+- **`NotificationCategory` IS deployed — just not where item 10 looks.** The spec defines a
+  7-value enum and uses it at `NotificationPreferenceResponse.category`, and both
+  `GET` and `PUT /api/v1/notification-preferences` are already consumed
+  (`settings.ts:83`, `:96`). So **a teacher can already mute a category while no notification
+  can say which category it is in.** Item 10 and section D both frame this as purely a
+  filter-control question and neither mentions that the enum shipped on the preferences side.
+  That inconsistency is on the wire today.
+- **Item 0b understates itself: there is no client wrapper either.** `GET /api/v1/students/
+  {student_id}/sessions/{session_id}` is unconsumed and no api-client function for it exists.
+  The addressing is the blocker, but it is not the only thing between a teacher and C08d.
+- **A genuinely open blocker, written down nowhere: nothing in the spec ENROLS a school in
+  SSO.** Every sso path presupposes an existing connection. So even once the teacher door
+  reads `slug`, `start` fails for any school that has never connected. (The slug half is
+  already dead — `HandoverStep.tsx:70` calls `ssoStart(school.slug, ...)` today.)
+
+---
+
 ## The cross-cutting caveat
 
 **No write path in either console is exercised end to end by any test.** The signed-in
@@ -420,6 +554,23 @@ E2E suite has never run once — `gh api repos/:owner/:repo/actions/secrets` ret
 that do run (types, lint, unit, contract) are real. The gate everyone cites as proof that
 no real teacher sees invented data is not running — and on Home it would pass even if it
 were, because Home emits no sample marks to count.
+
+**Re-checked 16 Sep, and it is weaker than "the secrets are empty".** Repo secrets, BOTH
+deployment environments (Preview and Production), and Actions variables are all empty; org
+secrets 422 because the repo is not org-owned. There is no path by which those credentials
+get populated. **And filling them would not be enough**: `e2e/teacher-signed-in.spec.ts`
+contains only READ assertions, so "no write path is tested end to end" would survive.
+Separately, section E now records five screens the sample-mark assertion cannot see even
+when it runs, so the claim it licenses — "no signed-in teacher sees invented data" — is
+narrower than it sounds on four rows besides Home.
+
+**One inert defect worth knowing, because it is the shape the gates cannot catch.**
+`LiveRecommendSheet.test.tsx:54` mocks `create` as `{ created: 1 }`; the client types the
+response as `{ assignmentIds, createdCount }` and `AssignWizard.test.tsx:72` mocks it
+correctly. Two tests, one API, one of the shapes fictional. It is inert only because the
+sheet awaits `create` without reading the result, and `tsc` cannot see it because `vi.fn()`
+is untyped. The day that sheet reads the count, the test keeps passing and the screen
+renders `undefined`.
 
 ## The wire changed shape, 15 Sep
 
