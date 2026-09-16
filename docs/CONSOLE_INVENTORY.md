@@ -95,7 +95,7 @@ it against the repo is itself work that has to be repeated.*
 | Upload module / section review | FIXTURE-ONLY | Hardcoded Photosynthesis six; every control writes nothing | FRONTEND | M |
 | Structure preview (standalone) | FIXTURE-ONLY | Orphaned duplicate serving fixtures to signed-in teachers. **It IS session-gated** (`proxy.ts` covers `/teacher/*`) — that half of the line was false | FRONTEND | S |
 | Student observations (C16b) | LIVE | — (built 15 Sep: chips, seat, and the two markers) | NONE | — |
-| Recommend a lesson | PARTIAL | Built and live 15 Sep. The note field is now buildable (`note` landed on both creation contracts that afternoon); the "Suggested" badge stays blocked — `Recommendation` is prose with no lesson id | FRONTEND (note); BACKEND (badge) | S |
+| Recommend a lesson | PARTIAL | Built and live 15 Sep, note box included. The "Suggested" badge stays blocked — `Recommendation` is prose with no lesson id. The note is sent and stored; **no student screen renders it yet**, so the confirmation stops short of C08c's "She'll see your note when she opens it" | BACKEND (badge); STUDENT CONSOLE (render) | S |
 | Share with Learning Support | LIVE | — (built 15 Sep on `POST /api/v1/escalations`: `LiveShareSheet`, confirmed per C14 B5. The SENCo cannot yet SEE what arrives — see below) | NONE | — |
 | Session detail | NOT BUILT | The read landed 15 Sep, but **nothing hands a teacher a session id** to call it with — see list B. C08d's panel is frame-complete and mounted only for signed-out visitors | BACKEND (addressing) | M |
 | SSO callback | NOT BUILT | Component complete and live-wired; `slug` landed on `SchoolCodeResponse` 15 Sep, so the signed-out door can now reach it | FRONTEND | M |
@@ -228,9 +228,16 @@ statements, and the expired consent token, which was already handled.
     sent — flags carry ids and this console already reads them, but C.8b never asks the
     teacher which flag they mean, and guessing would tell the SENCo the wrong thing.
     **The receiving half is not built** — see item 0 in list B.
-19. **Assignment note.** The confirmation already promises "She'll see your note when she
-    opens it". `note` now exists on both creation contracts, so the promise can be kept —
-    and the note field deliberately left out of recommend-a-lesson can go in. **S**
+19. ~~**Assignment note.**~~ **DONE 15 Sep, teacher half.** C08c's "Add a note for Amara
+    (optional)" box is in the recommend sheet and what it holds is sent. An untouched or
+    whitespace-only box sends no `note` key at all, so a child never gets an empty message
+    from her teacher. `note: string | null` was also missing from the client's `Assignment`
+    type, which would have dropped it before any screen could read it.
+    **The child still cannot see it.** `students/me/dashboard` returns the note on every
+    assignment row and `useStudentDashboard` passes it straight through, but nothing
+    renders it — so the confirmation says the note went with the lesson rather than
+    C08c's "She'll see your note when she opens it", and a test guards that wording.
+    Raised as a student-console task; when it lands, the copy and that test change.
 20. **Class Insights narrative.** `weeklySummary` and `lookingAhead` at
     `GET /api/v1/classes/{class_id}/insights`. **M** — re-verified 16 Sep. The endpoint is
     live and unwrapped; there is no backend blocker. The real obstacle is a SHAPE MISMATCH
