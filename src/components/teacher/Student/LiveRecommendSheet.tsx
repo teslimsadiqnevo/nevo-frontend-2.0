@@ -23,17 +23,23 @@ import { cn } from "@/lib/utils";
  * and already tested, so this reuses it rather than adding a second path to the
  * same thing.
  *
- * TWO PARTS OF THE FRAME ARE NOT BUILT, and both are deliberate:
+ * THE NOTE FIELD IS BUILT, AS OF 15 SEP. It was absent because neither
+ * `AssignmentCreate` nor `LessonAssignmentRequest` had anywhere to put it, and
+ * a box that silently discarded what a teacher wrote about a named child is
+ * worse than no box. Backend added `note` to both that afternoon, so the box
+ * is here and what it holds is sent.
  *
- *  1. NO NOTE FIELD. C08c draws "Add a note for Amara (optional)" and its
- *     confirmation promises "She'll see your note when she opens it."
- *     `AssignmentCreate` and `LessonAssignmentRequest` both carry
- *     `{lessonIds/lessonId, classId, studentIds, dueAt, availableFrom}` and
- *     NEITHER has a note field - verified against the deployed spec. A note
- *     input that silently discarded what a teacher wrote about a named child
- *     would be worse than not offering one, so the field is absent and the
- *     confirmation promises only what actually happens. Raised with backend.
- *  2. NO "SUGGESTED" BADGE. The frame marks one option as Nevo's suggestion.
+ * WHAT THE CONFIRMATION DOES NOT SAY. C08c's line is "She'll see your note
+ * when she opens it." The note genuinely reaches her - `students/me/dashboard`
+ * returns `assignments: AssignmentResponse[]` and the note rides on each row -
+ * but no student screen RENDERS it yet, so that sentence would be a promise
+ * about a surface that does not show it. The confirmation says the note went
+ * with the lesson, which is exactly what happened. When the student console
+ * renders it, C08c's wording becomes true and should replace this.
+ *
+ * ONE PART OF THE FRAME IS STILL NOT BUILT, deliberately:
+ *
+ *    NO "SUGGESTED" BADGE. The frame marks one option as Nevo's suggestion.
  *     `Recommendation` is `{id, studentId, recommendationText, generatedAt}` -
  *     prose, with no lesson id - so nothing connects Nevo's sentence to a row
  *     in the library. The sentence is shown above the list, which is what the
@@ -55,7 +61,10 @@ export function LiveRecommendSheet({
   const { cards, live } = useLessonLibrary();
   const [choice, setChoice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
   const [sent, setSent] = useState<string | null>(null);
+  /** Whether the lesson that was sent carried a note, for the confirmation. */
+  const [sentWithNote, setSentWithNote] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const chosen = cards.find((c) => c.id === choice) ?? null;
@@ -65,10 +74,16 @@ export function LiveRecommendSheet({
     setBusy(true);
     setError(null);
     try {
+      // Optional, so an untouched box sends nothing rather than "". Whitespace
+      // is not a note: a teacher who tabbed through the field did not write to
+      // this child, and an empty bubble on her dashboard would say they had.
+      const written = note.trim();
       await assignmentsApi.create({
         lessonIds: [chosen.id],
         studentIds: [studentId],
+        ...(written ? { note: written } : {}),
       });
+      setSentWithNote(written.length > 0);
       setSent(chosen.title);
     } catch {
       // Nothing is confirmed until something is stored. The old sheet said
@@ -88,7 +103,9 @@ export function LiveRecommendSheet({
           {`That${"’"}s sent to ${firstName}`}
         </h2>
         <p className="mt-3 text-[14.5px] leading-[1.6] text-nevo-near-black/72">
-          {`${"“"}${sent}${"”"} is now waiting in ${firstName}${"’"}s lessons.`}
+          {sentWithNote
+            ? `${"“"}${sent}${"”"} is now waiting in ${firstName}${"’"}s lessons, with your note.`
+            : `${"“"}${sent}${"”"} is now waiting in ${firstName}${"’"}s lessons.`}
         </p>
         <button
           type="button"
@@ -154,6 +171,21 @@ export function LiveRecommendSheet({
             </button>
           ))}
         </div>
+      )}
+
+      {/* C08c's "Add a note for Amara (optional)". Hidden when there is
+          nothing to send, because a box for a message attached to no lesson
+          would collect words that go nowhere. */}
+      {cards.length > 0 && (
+        <label className="mt-5 block text-[13px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase">
+          {`Add a note for ${firstName} (optional)`}
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={`A line about why you picked this${"…"}`}
+            className="mt-2 h-[84px] w-full resize-none rounded-[10px] border border-nevo-near-black/15 px-3.5 py-3 text-[14.5px] leading-[1.5] font-normal tracking-normal text-nevo-near-black normal-case transition-colors focus:border-nevo-navy focus:outline-none"
+          />
+        </label>
       )}
 
       <div className="mt-6 flex gap-3">

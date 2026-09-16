@@ -229,7 +229,7 @@ describe("useStudentLesson", () => {
     detail.mockResolvedValue(LIVE_LESSON);
     modules.mockResolvedValue([]);
     dashboard.mockReturnValue({
-      data: { recentProgress: [] },
+      data: { assignments: [], recentProgress: [] },
       loading: false,
       failed: false,
     });
@@ -258,6 +258,7 @@ describe("useStudentLesson", () => {
     modules.mockResolvedValue([]);
     dashboard.mockReturnValue({
       data: {
+        assignments: [],
         recentProgress: [
           {
             lessonId: FIRST_LESSON_ID,
@@ -307,5 +308,91 @@ describe("useStudentLesson", () => {
       expect(result.current.failed).toBe(true);
       expect(result.current.loading).toBe(false);
     });
+  });
+});
+
+/**
+ * A lesson a teacher had called off played exactly like a live one.
+ *
+ * This is the "opens it, completes it" half of the defect, and the galling part
+ * is that the answer was already in memory: this hook reads the dashboard for
+ * the child's saved place, and the assignment row saying the lesson was
+ * cancelled sat two lines away, unread. So the child worked through it and
+ * `useLessonProgress` wrote their progress against it.
+ *
+ * `unavailable` is null for a lesson with NO assignment, and that is deliberate
+ * rather than an oversight — see `isOpenToStudent`. A child can still open any
+ * id their school's library holds; this acts only on what a teacher explicitly
+ * said about a lesson they set.
+ */
+describe("a lesson the child is not meant to be doing", () => {
+  const withAssignment = (over: Record<string, unknown>) => {
+    detail.mockResolvedValue(LIVE_LESSON);
+    modules.mockResolvedValue([]);
+    dashboard.mockReturnValue({
+      data: {
+        assignments: [{ id: "a-1", lesson: { id: FIRST_LESSON_ID }, ...over }],
+        recentProgress: [],
+      },
+      loading: false,
+      failed: false,
+    });
+  };
+
+  it("says a cancelled lesson is cancelled", async () => {
+    signIn();
+    withAssignment({ status: "cancelled", availableFrom: null });
+
+    const { result } = renderHook(() => useStudentLesson(FIRST_LESSON_ID));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.unavailable).toBe("cancelled");
+  });
+
+  it("says a lesson that opens on Friday is not yet open, and when", async () => {
+    signIn();
+    const opensAt = new Date(Date.now() + 86_400_000).toISOString();
+    withAssignment({ status: "assigned", availableFrom: opensAt });
+
+    const { result } = renderHook(() => useStudentLesson(FIRST_LESSON_ID));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.unavailable).toBe("not_yet");
+    expect(result.current.opensAt).toBe(opensAt);
+  });
+
+  it("does not block an ordinary assigned lesson", async () => {
+    // Without this, a gate that blocked everything would pass both above.
+    signIn();
+    withAssignment({ status: "assigned", availableFrom: null });
+
+    const { result } = renderHook(() => useStudentLesson(FIRST_LESSON_ID));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.unavailable).toBeNull();
+    expect(result.current.lesson).not.toBeNull();
+  });
+
+  it("does not block a lesson nothing was said about", async () => {
+    /*
+     * THE SCOPE LIMIT, and it needs its own test or the gate quietly grows into
+     * "only assigned lessons may be opened" — a much larger product decision
+     * about whether the school's library is browsable at all, which this fix
+     * does not get to make.
+     */
+    signIn();
+    detail.mockResolvedValue(LIVE_LESSON);
+    modules.mockResolvedValue([]);
+    dashboard.mockReturnValue({
+      data: { assignments: [], recentProgress: [] },
+      loading: false,
+      failed: false,
+    });
+
+    const { result } = renderHook(() => useStudentLesson(FIRST_LESSON_ID));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.unavailable).toBeNull();
+    expect(result.current.lesson).not.toBeNull();
   });
 });

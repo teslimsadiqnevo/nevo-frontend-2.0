@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks";
 import { authApi } from "@/lib/api";
 import { setSession } from "@/lib/auth/session";
-import { TEACHER_INVITE } from "@/lib/mocks/teacherOnboarding";
 import { type UserRole } from "@/lib/constants";
 
 /**
@@ -13,9 +12,13 @@ import { type UserRole } from "@/lib/constants";
  * A brief auto-routing screen, a quiet success bridge, and a calm error that
  * owns the failure and points to school IT - never the teacher.
  *
- * The handshake is simulated (?mock=error forces the error state) - the
- * deployed callback (GET /api/v1/auth/sso/{provider}/callback) is a browser
- * redirect flow that needs school SSO slugs seeded backend-side first.
+ * THE HANDSHAKE IS NOT SIMULATED, whatever this comment said until 16 Sep.
+ * `authApi.ssoCallback` is a real GET against
+ * `/api/v1/auth/sso/{provider}/callback` (`lib/api/auth.ts:257`) and its result
+ * is what sets the session. What is still true is that no school can reach this
+ * screen: nothing in the deployed spec ENROLS a school in SSO, so every sso
+ * path presupposes a connection that cannot be created. `?mock=error` forces
+ * the error state for design review.
  */
 
 const SUCCESS_HOLD_MS = 900;
@@ -129,8 +132,22 @@ export function TeacherSsoCallback() {
             <LogoMark />
           </span>
           <Ring size={28} />
+          {/*
+            "Signing you in through {school}" named `TEACHER_INVITE.school`, a
+            fixture, so a teacher of any school was told they were being signed
+            in through Corona Secondary School.
+
+            Nothing on this screen knows the school. The teacher arrives here
+            from the identity provider BEFORE the token exchange, so there is no
+            session to read a school off, and the callback carries a provider
+            and a code, not a school name.
+
+            "your school" is the honest version: it says what is happening
+            without claiming to know whose. Same reasoning as the sign-in door's
+            missing eyebrow.
+          */}
           <p className="mt-6 text-[16px] text-nevo-near-black xl:text-[17px]">
-            {`Signing you in through ${TEACHER_INVITE.school}…`}
+            Signing you in through your school…
           </p>
         </>
       )}

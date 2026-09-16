@@ -207,3 +207,91 @@ describe("the section copy", () => {
     expect(container.textContent).not.toMatch(/this week|last 30 days|this month/i);
   });
 });
+
+describe("whether the child can get in", () => {
+  /**
+   * `status` arrived on every roster row from the start and was discarded at
+   * render, so two rows looked identical whether or not the child could use
+   * Nevo at all. Design's no-consent-column ruling rests on this being shown.
+   */
+  const roster = (...students: ReturnType<typeof seg>[]) =>
+    useClassRoster.mockReturnValue({ students, loading: false, failed: false });
+
+  it("marks a child whose account has been switched off", () => {
+    roster(seg({ status: "deactivated" }));
+    render(<LiveClassDetail klass={klass} />);
+
+    expect(screen.getByText("Deactivated")).toBeInTheDocument();
+  });
+
+  it("marks a child who has never opened their account", () => {
+    roster(seg({ status: "invited" }));
+    render(<LiveClassDetail klass={klass} />);
+
+    expect(screen.getByText("Invited")).toBeInTheDocument();
+  });
+
+  it("marks nothing at all for an ordinary active child", () => {
+    // The teacher is looking for the exception. A marker on every row is
+    // decoration, and this row already carries four other signals.
+    //
+    // Asserting only that "Deactivated" and "Invited" are absent was too weak:
+    // a mutation marking active rows "Active" passed, because neither of those
+    // two words appears. The first fix was weak for a subtler reason - it read
+    // `container.textContent` against /\bActive\b/, and textContent concatenates
+    // adjacent elements with no separator, so the row renders as
+    // "...profile buildingActiveHere yesterday" and the word boundary never
+    // matches. An assertion that cannot fail is worse than none.
+    //
+    // `queryByText` matches per element, so it sees the marker's own span.
+    roster(seg({ status: "active" }));
+    render(<LiveClassDetail klass={klass} />);
+
+    expect(screen.queryByText("Deactivated")).not.toBeInTheDocument();
+    expect(screen.queryByText("Invited")).not.toBeInTheDocument();
+    expect(screen.queryByText("Active")).not.toBeInTheDocument();
+  });
+
+  it("does not call an unrecognised status deactivated", () => {
+    // The whole row is rendered from an unvalidated payload. Saying a real
+    // child has been switched off, because we did not recognise a value, is
+    // the failure that matters here.
+    roster(seg({ status: "pending" as never }));
+    render(<LiveClassDetail klass={klass} />);
+
+    expect(screen.queryByText("Deactivated")).not.toBeInTheDocument();
+    expect(screen.getByText("Invited")).toBeInTheDocument();
+  });
+
+  it("marks only the child it belongs to", () => {
+    roster(
+      seg({ studentId: "s-1", firstName: "Amara", status: "deactivated" }),
+      seg({ studentId: "s-2", firstName: "Tunde", status: "active" }),
+    );
+    render(<LiveClassDetail klass={klass} />);
+
+    expect(screen.getAllByText("Deactivated")).toHaveLength(1);
+  });
+
+  it("gives no reason and never mentions consent", () => {
+    // "No consent, no reason, just whether the child is active" is the ruling
+    // this screen exists to satisfy. The consent payload IS on this response,
+    // so its absence has to be asserted rather than assumed.
+    roster(seg({ status: "deactivated" }));
+    const { container } = render(<LiveClassDetail klass={klass} />);
+
+    expect(container.textContent).not.toMatch(/consent|permission|guardian/i);
+    expect(container.textContent).not.toMatch(/because|restore|reactivate/i);
+  });
+
+  it("says the word rather than relying on a colour", () => {
+    // Violet already means "has a learning profile" on this row and navy means
+    // "Sudden change". Admin draws this pill violet; here that would be a third
+    // meaning on a colour carrying two.
+    roster(seg({ status: "deactivated" }));
+    render(<LiveClassDetail klass={klass} />);
+
+    const mark = screen.getByText("Deactivated");
+    expect(mark.className).not.toMatch(/violet|navy/);
+  });
+});

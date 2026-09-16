@@ -70,8 +70,19 @@ describe("useNextLessonHref", () => {
     signIn();
     read({
       assignments: [
-        { status: "completed", lesson: { id: "done-1" } },
-        { status: "assigned", lesson: { id: "real-lesson" } },
+        /*
+         * WAS `status: "completed"`, a value `AssignmentStatus` does not
+         * contain — the fixture mirrored the dead filter it was written
+         * against, so it passed for a reason unrelated to the behaviour.
+         * Cancelled is the real thing a teacher can do, and the one this has
+         * to skip. `availableFrom` is required on the read, so it is here too.
+         */
+        { status: "cancelled", availableFrom: null, lesson: { id: "done-1" } },
+        {
+          status: "assigned",
+          availableFrom: null,
+          lesson: { id: "real-lesson" },
+        },
       ],
       recentProgress: [],
     });
@@ -98,5 +109,67 @@ describe("useNextLessonHref", () => {
     const { result } = renderHook(() => useNextLessonHref());
 
     expect(result.current).toBe(`/student/lessons/${FIRST_LESSON_ID}`);
+  });
+});
+
+/**
+ * The button could hand a child into a lesson their teacher had called off.
+ *
+ * `.find((a) => a.status !== "completed")` looked like a filter and was not:
+ * `AssignmentStatus` is `"assigned" | "cancelled"` and has no "completed"
+ * member, so the comparison was always true and the FIRST assignment won
+ * whatever its state. This is the button at the end of onboarding and at the
+ * end of the daily warm-up, so it is the first lesson many children ever open.
+ */
+describe("useNextLessonHref — what a teacher has actually set", () => {
+  it("does not send a child into a cancelled lesson", () => {
+    signIn();
+    read({
+      assignments: [
+        { status: "cancelled", availableFrom: null, lesson: { id: "off-1" } },
+      ],
+      recentProgress: [],
+    });
+
+    const { result } = renderHook(() => useNextLessonHref());
+
+    expect(result.current).toBe("/student/lessons");
+  });
+
+  it("does not send a child into a lesson that opens on Friday", () => {
+    signIn();
+    read({
+      assignments: [
+        {
+          status: "assigned",
+          availableFrom: new Date(Date.now() + 86_400_000).toISOString(),
+          lesson: { id: "friday-1" },
+        },
+      ],
+      recentProgress: [],
+    });
+
+    const { result } = renderHook(() => useNextLessonHref());
+
+    expect(result.current).toBe("/student/lessons");
+  });
+
+  it("still takes one that has already opened", () => {
+    // Without this, a filter that dropped everything would pass both above.
+    signIn();
+    read({
+      assignments: [
+        {
+          status: "assigned",
+          availableFrom: new Date(Date.now() - 86_400_000).toISOString(),
+          lesson: { id: "open-1" },
+        },
+      ],
+      recentProgress: [],
+    });
+
+    const { result } = renderHook(() => useNextLessonHref());
+
+    expect(result.current).toBe("/student/lessons/open-1");
   });
 });

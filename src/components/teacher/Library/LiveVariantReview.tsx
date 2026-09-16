@@ -75,6 +75,32 @@ const REVIEW_REASON_COPY: Record<SegmentReviewReason, string> = {
   visual_generation_failed: "The visual version did not generate.",
   visual_variant_image_generation_failed:
     "The picture for the visual version did not generate.",
+
+  // The nine below were live on the wire while this map held six, so each one
+  // read as "a reason this console doesn't recognise yet". They say what came
+  // through wrong, never what the teacher should do about it, because the
+  // repair is a re-parse and this console has no control for one yet.
+  //
+  // "Worked steps" is the teacher-facing name for a calculation variant
+  // throughout this screen. Do not write "calculation variant" here.
+  calculation_variant_malformed:
+    "The worked steps did not come through in a form Nevo could use.",
+  calculation_variant_missing_answer:
+    "The worked steps came through without a final answer.",
+  calculation_variant_too_few_steps:
+    "The worked steps are shorter than this calculation usually needs. Worth checking nothing was skipped.",
+  calculation_step_missing_prompt:
+    "One of the worked steps does not ask the student to do anything.",
+  calculation_step_unknown_input_type:
+    "One of the worked steps expects an answer in a form Nevo does not recognise.",
+  calculation_step_missing_answer:
+    "One of the worked steps has no answer to check a student against.",
+  calculation_step_missing_options:
+    "One of the worked steps offers a choice but no options to choose from.",
+  calculation_segment_has_no_interactive_delivery:
+    "This section works through a calculation, but nothing came through for the student to do themselves.",
+  model_flagged_for_review:
+    "Nevo was not confident about this section and asked for a person to look at it.",
 };
 
 /**

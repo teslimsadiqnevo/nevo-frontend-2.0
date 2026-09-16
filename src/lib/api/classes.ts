@@ -1,5 +1,6 @@
 import { api } from "./client";
 import type { StudentConsent } from "./students";
+import type { UserStatus } from "./teachers";
 
 /** The deployed `ClassSource` enum. There is no "sso" member. */
 export type ClassSource = "manual" | "roster_sync";
@@ -77,8 +78,26 @@ export interface ClassStudent {
   /** Always present - the backend's own fallback for a missing name. */
   displayName: string;
   loginIdentifier: string | null;
-  /** Account state. No enum in the spec; "active" is the only value seen. */
-  status: string;
+  /**
+   * Account state, and BOTH halves of what this comment used to say were false.
+   *
+   * It read: "No enum in the spec; 'active' is the only value seen." The spec
+   * types this as `$ref: UserStatus`, a closed enum of `active | invited |
+   * deactivated` described as "Lifecycle state of an account", and `status` is
+   * in the response's `required` list - so every row carries one of the three.
+   *
+   * "The only value seen" was probe-driven typing, which is exactly how
+   * `deactivated` got missed once already: `lib/api/teachers.ts` records the
+   * same enum being widened to a bare string after a live probe returned only
+   * "active", and a "pending" member being invented that the spec has never
+   * had. A value the server has not happened to send yet is not a value that
+   * does not exist.
+   *
+   * The cost of the widening was that a teacher could not tell a deactivated
+   * child from an active one: the field arrived on every row and was discarded
+   * at render because nothing here said it was worth reading.
+   */
+  status: UserStatus;
   profileStatus: ProfileStatus | (string & {});
   latestSessionAt: string | null;
   /**
