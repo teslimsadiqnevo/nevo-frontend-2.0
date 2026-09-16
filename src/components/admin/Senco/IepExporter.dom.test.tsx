@@ -36,7 +36,7 @@ const student = (i: number): AdminStudentRow => ({
   loginIdentifier: `amara${i}`,
   status: "active",
   ageBand: "11-14",
-  consent: null,
+  consent: { status: "not_sent", actorId: null, actorName: null, timestamp: null, channel: null },
 });
 
 describe("IepExporterView student picker", () => {

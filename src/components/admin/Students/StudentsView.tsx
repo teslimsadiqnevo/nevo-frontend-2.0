@@ -143,13 +143,16 @@ export function StudentsView() {
       .filter((s) => {
         if (!consent) return true;
         /*
-         * `none` is the state the API can leave us in and the one a school
-         * most needs to find: a row that came back with no consent object at
-         * all. It is NOT `not_sent` - see `consentNote` - so it gets its own
-         * option rather than being folded into one.
+         * NO "no record at all" OPTION, and there was one for a day.
+         *
+         * It filtered on `!s.consent`, which the contract now rules out:
+         * `consent` is required and non-null on `StudentSummaryResponse`, and
+         * a student nobody has written to comes back `not_sent` rather than
+         * with the object missing. The option could therefore never match a
+         * row - a filter that always returns nothing, which is worse than no
+         * filter, because it reads as a school with nothing in that state.
          */
-        if (consent === "none") return !s.consent;
-        return s.consent?.status === consent;
+        return s.consent.status === consent;
       })
       .filter((s) =>
         needle
@@ -273,7 +276,6 @@ export function StudentsView() {
                   <option value="pending">Asked, no reply yet</option>
                   <option value="not_sent">Not asked yet</option>
                   <option value="withdrawn">Withdrawn</option>
-                  <option value="none">No record at all</option>
                 </select>
               </label>
 

@@ -223,8 +223,25 @@ export interface AdminStudentRow {
   /** "active" | "deactivated" in practice; the schema does not narrow it. */
   status: string;
   ageBand: string | null;
-  /** Absent on older reads; treated as unknown rather than as "not sent". */
-  consent?: StudentConsent | null;
+  /**
+   * REQUIRED AND NON-NULL, confirmed against the deployed spec on 16 Sep.
+   *
+   * This was `consent?: StudentConsent | null`, on the belief that an older
+   * read might omit it - and a whole branch of compliance copy hung off that:
+   * a row without a record was reported as "unknown", distinct from "not
+   * sent". `StudentSummaryResponse` now lists `consent` in its `required` set
+   * and refs the object directly with no null member, and backend confirmed
+   * the behaviour: a student with no record comes back `status: "not_sent"`,
+   * never a missing object.
+   *
+   * So "we were not told" is no longer a state this screen can be in, and the
+   * copy describing it has gone rather than sitting there unreachable.
+   *
+   * NOTE the invitation row's `consentStatus` is a DIFFERENT field on a
+   * different schema, and it is still optional and nullable - see
+   * `Invitation.consentStatus`. Do not generalise this change onto it.
+   */
+  consent: StudentConsent;
 }
 
 export interface AdminStudentDetail {
@@ -237,7 +254,8 @@ export interface AdminStudentDetail {
   ageBand: string | null;
   classIds: string[];
   firstUse: boolean;
-  consent?: StudentConsent | null;
+  /** Required and non-null - see the note on `AdminStudentRow.consent`. */
+  consent: StudentConsent;
 }
 
 /**

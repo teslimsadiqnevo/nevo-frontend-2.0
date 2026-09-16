@@ -48,7 +48,7 @@ const students: AdminStudentRow[] = [
     loginIdentifier: "amara",
     status: "active",
     ageBand: "11-14",
-    consent: null,
+    consent: { status: "not_sent", actorId: null, actorName: null, timestamp: null, channel: null },
   },
 ];
 
@@ -83,7 +83,7 @@ const onRoster = (
   latestSessionAt: null,
   observations,
   seatContext: "active",
-  consent: null,
+  consent: { status: "not_sent", actorId: null, actorName: null, timestamp: null, channel: null },
 });
 
 const klass = (id: string, name: string): AdminClass => ({
