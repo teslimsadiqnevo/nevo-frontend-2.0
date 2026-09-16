@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
+import { useTeacherHome } from "@/hooks/useTeacherHome";
+import { SampleRegion } from "@/components/shared/SampleRegion";
 import { SCHOOL_LINE } from "@/lib/mocks/teacherClasses";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +36,25 @@ function SummaryDot({ tone }: { tone: "glance" | "ok" }) {
 
 export function ClassesList() {
   const { classes, liveClasses, sample, live, loading } = useTeacherClasses();
+  /**
+   * HEADCOUNT, from the one read that carries it.
+   *
+   * `AssignedClassResponse` - what this list is built from - has no
+   * studentCount, so the live card said "Synced from your school" where the
+   * sample card beside it said "28 students". The count IS on the wire:
+   * `ClassLearningPulseResponse.studentCount` is a required integer on
+   * `GET /api/v1/teachers/me/home`, keyed by the same `classId`.
+   *
+   * That is a second request on this page, because `useLiveQuery` has no cache
+   * or in-flight dedupe, so the home read this page would otherwise not make is
+   * genuinely extra. One request for a number on every card is the right trade;
+   * the alternative is `classStudents()` per class, which is N.
+   *
+   * Deliberately NOT gated on the home read succeeding: a class simply missing
+   * from the pulse keeps the old line rather than showing a wrong number.
+   */
+  const { pulse } = useTeacherHome();
+  const headcounts = new Map(pulse.map((p) => [p.classId, p.studentCount]));
   const identity = useCurrentUser();
 
   if (classes.length === 0 && liveClasses.length === 0) {
@@ -114,29 +135,33 @@ export function ClassesList() {
 
         {/* Desktop grid */}
         <div className="mt-6 hidden grid-cols-3 gap-4 xl:grid">
-          {(loading ? [] : classes).map((c) => (
-            <Link
-              key={c.id}
-              href={`/teacher/classes/${c.id}`}
-              className="flex cursor-pointer flex-col rounded-[12px] bg-nevo-cream-elevated p-6 shadow-elevation-1 transition-[filter,transform] hover:brightness-[0.985] active:scale-[0.99]"
-            >
-              <span className="text-[19px] font-semibold tracking-[-0.01em] text-nevo-near-black">
-                {c.name}
-              </span>
-              <span className="mt-[5px] text-[13.5px] text-nevo-near-black/60">
-                {c.subjects}
-              </span>
-              <span className="mt-0.5 text-[13.5px] text-nevo-near-black/50">
-                {c.count} students
-              </span>
-              <div className="mt-[18px] flex items-center gap-[9px] border-t border-nevo-near-black/8 pt-4">
-                <SummaryDot tone={c.summaryTone} />
-                <span className="text-sm text-nevo-near-black/72">
-                  {c.summary}
-                </span>
-              </div>
-            </Link>
-          ))}
+          {!loading && classes.length > 0 && (
+            <SampleRegion kind="teacher:classes-list">
+              {classes.map((c) => (
+                <Link
+                  key={c.id}
+                  href={`/teacher/classes/${c.id}`}
+                  className="flex cursor-pointer flex-col rounded-[12px] bg-nevo-cream-elevated p-6 shadow-elevation-1 transition-[filter,transform] hover:brightness-[0.985] active:scale-[0.99]"
+                >
+                  <span className="text-[19px] font-semibold tracking-[-0.01em] text-nevo-near-black">
+                    {c.name}
+                  </span>
+                  <span className="mt-[5px] text-[13.5px] text-nevo-near-black/60">
+                    {c.subjects}
+                  </span>
+                  <span className="mt-0.5 text-[13.5px] text-nevo-near-black/50">
+                    {c.count} students
+                  </span>
+                  <div className="mt-[18px] flex items-center gap-[9px] border-t border-nevo-near-black/8 pt-4">
+                    <SummaryDot tone={c.summaryTone} />
+                    <span className="text-sm text-nevo-near-black/72">
+                      {c.summary}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </SampleRegion>
+          )}
           {liveClasses.map((a) => (
             <Link
               key={a.assignmentId}
@@ -152,7 +177,9 @@ export function ClassesList() {
                 </span>
               )}
               <span className="mt-0.5 text-[13.5px] text-nevo-near-black/50">
-                Synced from your school
+                {headcounts.has(a.classId)
+                  ? `${headcounts.get(a.classId)} ${headcounts.get(a.classId) === 1 ? "student" : "students"}`
+                  : "Synced from your school"}
               </span>
             </Link>
           ))}
@@ -160,28 +187,32 @@ export function ClassesList() {
 
         {/* Tablet: stacked horizontal cards */}
         <div className="mt-5 flex flex-col gap-3 xl:hidden">
-          {(loading ? [] : classes).map((c) => (
-            <Link
-              key={c.id}
-              href={`/teacher/classes/${c.id}`}
-              className="flex cursor-pointer items-center justify-between gap-4 rounded-[12px] bg-nevo-cream-elevated px-[22px] py-5 shadow-elevation-1 transition-[filter,transform] hover:brightness-[0.985] active:scale-[0.99]"
-            >
-              <div className="min-w-0">
-                <span className="text-[17px] font-semibold text-nevo-near-black">
-                  {c.name}
-                </span>
-                <div className="mt-1 text-[13px] text-nevo-near-black/60">
-                  {c.subjects} · {c.count} students
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <SummaryDot tone={c.summaryTone} />
-                <span className="text-[13.5px] text-nevo-near-black/70">
-                  {c.summary}
-                </span>
-              </div>
-            </Link>
-          ))}
+          {!loading && classes.length > 0 && (
+            <SampleRegion kind="teacher:classes-list">
+              {classes.map((c) => (
+                <Link
+                  key={c.id}
+                  href={`/teacher/classes/${c.id}`}
+                  className="flex cursor-pointer items-center justify-between gap-4 rounded-[12px] bg-nevo-cream-elevated px-[22px] py-5 shadow-elevation-1 transition-[filter,transform] hover:brightness-[0.985] active:scale-[0.99]"
+                >
+                  <div className="min-w-0">
+                    <span className="text-[17px] font-semibold text-nevo-near-black">
+                      {c.name}
+                    </span>
+                    <div className="mt-1 text-[13px] text-nevo-near-black/60">
+                      {c.subjects} · {c.count} students
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <SummaryDot tone={c.summaryTone} />
+                    <span className="text-[13.5px] text-nevo-near-black/70">
+                      {c.summary}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </SampleRegion>
+          )}
           {liveClasses.map((a) => (
             <Link
               key={a.assignmentId}
@@ -197,7 +228,9 @@ export function ClassesList() {
                 </div>
               </div>
               <span className="shrink-0 text-[13.5px] text-nevo-near-black/50">
-                Synced from your school
+                {headcounts.has(a.classId)
+                  ? `${headcounts.get(a.classId)} ${headcounts.get(a.classId) === 1 ? "student" : "students"}`
+                  : "Synced from your school"}
               </span>
             </Link>
           ))}
