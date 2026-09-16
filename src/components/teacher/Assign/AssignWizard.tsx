@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { assignmentsApi } from "@/lib/api/assignments";
 import { useLessonLibrary } from "@/hooks/useLessonLibrary";
+import { useStudentDirectory } from "@/hooks/useStudentDirectory";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import { cn } from "@/lib/utils";
@@ -24,10 +25,17 @@ import { cn } from "@/lib/utils";
  * class, since the payload takes many lessons but a single class, which the
  * backend expands to that class's current enrolment.
  *
- * Step 1 offers the teacher's real library when there is one. Step 2's
- * "Specific students" stays fixture-only: the class list carries no roster,
- * and inventing names to tick on the screen that assigns work would be the
- * worst place for it.
+ * Step 1 offers the teacher's real library when there is one, and step 2's
+ * "Specific students" offers their real students.
+ *
+ * THAT SECOND HALF WAS REFUSED ON A FALSE PREMISE until 15 Sep. The guard said
+ * "the live class list carries no roster, so there are no real ids to send",
+ * which is true of the class LIST - `AssignedClassResponse` carries no roster -
+ * and not true of the product: `GET /api/v1/classes/{class_id}/students`
+ * returns `studentId` per child, `useStudentDirectory` already fans the class
+ * list out across it for the compose picker, and `AssignmentCreate.studentIds`
+ * accepts up to 500. Three pieces, all built, all tested, none joined up. The
+ * refusal was correct when written and outlived its reason.
  *
  * SCHEDULING IS LIVE. `availableFrom` landed on 31 Aug 2026, so step 3 now
  * sends the date it has always been asking for. It is deliberately NOT
@@ -152,6 +160,25 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
   const [classes, setClasses] = useState<Set<string>>(new Set());
   // Recipients are the teacher's real assignments when a session has them.
   const { options: myClasses, sample: classesSample } = useTeacherClasses();
+  /*
+   * The same fan-out the compose picker uses: the class list joined to each
+   * class's roster. A class whose roster fails contributes nothing rather than
+   * failing the whole directory, and `failed` says so - "we could not find
+   * out" and "these classes have no students" are different sentences on the
+   * screen that assigns work.
+   */
+  const {
+    students: directory,
+    loading: directoryLoading,
+    failed: directoryFailed,
+  } = useStudentDirectory();
+  /** The directory, grouped for the picker. Class order follows the directory. */
+  const byClass: [string, typeof directory][] = [];
+  for (const s of directory) {
+    const row = byClass.find(([name]) => name === s.className);
+    if (row) row[1].push(s);
+    else byClass.push([s.className, [s]]);
+  }
   const [students, setStudents] = useState<Set<string>>(new Set());
   const [when, setWhen] = useState<"left" | "right">("left"); // left = available now
   // Empty until "Schedule for later" is chosen - see the note above.
@@ -243,16 +270,11 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
       );
       return;
     }
-    // The API takes `studentIds`, but the live class list carries no roster,
-    // so there are no real ids to send. Rather than quietly assign whole
-    // classes under a summary that promised individuals, say so.
-    if (who === "right") {
-      setError(
-        "Assigning to individual students isn’t connected yet. Choose whole classes instead, and nothing will be sent until you do.",
-      );
+    if (who === "right" && students.size === 0) {
+      setError("Choose at least one student before confirming.");
       return;
     }
-    if (classes.size === 0) {
+    if (who === "left" && classes.size === 0) {
       setError("Choose at least one class before confirming.");
       return;
     }
@@ -273,7 +295,19 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
     setSubmitting(true);
     setError("");
     const lessonIds = [...chosen];
-    const targets = [...classes];
+    /*
+     * ONE REQUEST FOR A STUDENT PICK, one per class otherwise.
+     *
+     * `AssignmentCreate` takes `studentIds` up to 500, so every chosen student
+     * goes in a single call - which also means the partial-failure story below
+     * cannot apply to it: one request either lands or it does not. Whole
+     * classes stay one request each, because `classId` is singular and a
+     * teacher picking three classes is three assignments.
+     */
+    const targets: { classId?: string; studentIds?: string[] }[] =
+      who === "right"
+        ? [{ studentIds: [...students] }]
+        : [...classes].map((classId) => ({ classId }));
 
     // allSettled, NOT all: `Promise.all` rejects on the FIRST failure while
     // the other requests are already in flight and still land server-side.
@@ -281,9 +315,7 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
     // been assigned, and the retry it invited assigned them a second time -
     // there is no idempotency key on this endpoint.
     const results = await Promise.allSettled(
-      targets.map((classId) =>
-        assignmentsApi.create({ lessonIds, classId, availableFrom }),
-      ),
+      targets.map((t) => assignmentsApi.create({ lessonIds, ...t, availableFrom })),
     );
     setSubmitting(false);
 
@@ -300,8 +332,13 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
     if (failed.length > 0) {
       // Name what DID land, so a retry is an informed choice rather than a
       // gamble on double-assigning.
+      //
+      // Only reachable for a CLASS pick: a student pick is one request, so any
+      // failure is total and the branch above has already returned. Reading
+      // `classId` here is therefore always defined, but it is read defensively
+      // rather than asserted.
       const names = failed
-        .map((id) => myClasses.find((c) => c.id === id)?.name ?? "one class")
+        .map((t) => myClasses.find((c) => c.id === t.classId)?.name ?? "one class")
         .join(", ");
       setError(
         `Assigned to the other classes, but ${names} didn’t go through. Don’t redo the whole thing - reopen this for ${names} only.`,
@@ -324,10 +361,19 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
     who === "left"
       ? fmtList(myClasses.filter((c) => classes.has(c.id)).map((c) => c.name))
       : (() => {
-          const classNames = myClasses.filter((c) =>
-            [...students].some((s) => s.startsWith(c.id + ":")),
-          ).map((c) => c.name);
-          return `${students.size} ${students.size === 1 ? "student" : "students"} in ${fmtList(classNames)}`;
+          /* The selection is `studentId`s now, not `${classId}:${name}`, so
+             the classes named here come from the directory rather than from
+             parsing a key apart. */
+          const classNames = [
+            ...new Set(
+              directory
+                .filter((d) => students.has(d.studentId))
+                .map((d) => d.className),
+            ),
+          ];
+          return `${students.size} ${students.size === 1 ? "student" : "students"}${
+            classNames.length > 0 ? ` in ${fmtList(classNames)}` : ""
+          }`;
         })();
   const whenText =
     when === "right" && date
@@ -458,39 +504,53 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                   </div>
                 ) : (
                   <div className="mt-4 flex flex-col gap-4 xl:mt-[18px]">
-                    {myClasses.map((c) => (
-                      <div key={c.id}>
+                    {/*
+                     * REAL STUDENTS, keyed by `studentId`. The fixture version
+                     * keyed on `${classId}:${name}`, which is what a screen
+                     * does when it has no ids - and it had none because nobody
+                     * had joined the class list to the rosters. Two children
+                     * sharing a name would also have shared a key.
+                     */}
+                    {directoryLoading && (
+                      <p className="text-[13.5px] text-nevo-near-black/60">
+                        Finding your students…
+                      </p>
+                    )}
+                    {!directoryLoading && directory.length === 0 && (
+                      <p className="text-[13.5px] leading-[1.5] text-nevo-near-black/60">
+                        {directoryFailed
+                          ? "We couldn’t reach your classes just now, so we can’t list your students. Nothing will be sent until we can."
+                          : "There are no students in your classes yet. Once your school adds them they will appear here."}
+                      </p>
+                    )}
+                    {byClass.map(([className, rows]) => (
+                      <div key={className}>
                         <div className="font-mono text-[10.5px] font-bold tracking-[0.1em] text-nevo-violet">
-                          {c.name.toUpperCase()}
+                          {className.toUpperCase()}
                         </div>
                         <div className="mt-2 flex flex-col gap-2">
-                          {c.roster && !classesSample ? (
-                            c.roster.map((s) => {
-                              const key = `${c.id}:${s.name}`;
-                              return (
-                                <CheckCard
-                                  key={key}
-                                  on={students.has(key)}
-                                  onClick={() =>
-                                    setStudents((v) => togIn(v, key))
-                                  }
-                                  title={s.name}
-                                  compactTitle
-                                />
-                              );
-                            })
-                          ) : (
-                            // The live class list carries no roster, and
-                            // inventing names to tick would be the worst
-                            // possible thing on a screen that assigns work.
-                            <p className="text-[13.5px] leading-[1.5] text-nevo-near-black/60">
-                              Picking individual students isn&rsquo;t connected
-                              yet. Assign to the whole class for now.
-                            </p>
-                          )}
+                          {rows.map((s) => (
+                            <CheckCard
+                              key={s.studentId}
+                              on={students.has(s.studentId)}
+                              onClick={() =>
+                                setStudents((v) => togIn(v, s.studentId))
+                              }
+                              title={s.name}
+                              compactTitle
+                            />
+                          ))}
                         </div>
                       </div>
                     ))}
+                    {directoryFailed && directory.length > 0 && (
+                      /* A partial directory is still worth offering, but a
+                         teacher must know a class is missing from it. */
+                      <p className="text-[13px] leading-[1.5] text-nevo-near-black/60 italic">
+                        One of your classes didn’t load, so some students may be
+                        missing from this list.
+                      </p>
+                    )}
                   </div>
                 )}
               </>

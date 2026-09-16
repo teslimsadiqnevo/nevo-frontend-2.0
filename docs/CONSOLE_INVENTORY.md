@@ -86,7 +86,7 @@ it against the repo is itself work that has to be repeated.*
 | Insights | PARTIAL | Written summary and "Looking ahead" both landed 15 Sep at `/classes/{class_id}/insights`; per-student recommendations still fan out | FRONTEND | M |
 | Student profile | PARTIAL | 3 of 4 drawn actions now (recommend and share both added 15 Sep); session detail remains, now unblocked; no noticing banner | FRONTEND | M |
 | Lesson detail | PARTIAL | Multi-class reports first class only. (The variant-review entry point shipped 14 Sep — re-verified 16 Sep, it renders once per section) | FRONTEND; DESIGN | S |
-| Lesson assignment wizard | PARTIAL | "Specific students" refused by a guard whose stated reason is false | FRONTEND | M |
+| Lesson assignment wizard | LIVE | — ("Specific students" built 15 Sep on `useStudentDirectory`, keyed by `studentId`) | NONE | — |
 | Variant review | PARTIAL | No 5th-variant tab; no audio player. (Reachable since 14 Sep — the "no entry point" line was stale for two days) | FRONTEND; DESIGN; CONTENT | S |
 | Parse fallback | PARTIAL | 2 of 4 states live; `partial`/`noBoundary` unreachable signed in | BACKEND | M |
 | Teacher onboarding | PARTIAL | Redirect covers password only; join-confirm + profile-setup unbuilt | FRONTEND | M |
@@ -161,8 +161,8 @@ the end of the road.
 5. ~~**Variant review entry point.**~~ **DONE 14 Sep**, re-verified 16 Sep. The screen is
    reachable from lesson detail, once per section. This line stayed open for two days after
    the work landed, which is the same failure this file exists to stop.
-6. **"Specific students" in the assign wizard.** Swap `ClassOption.roster` for
-   `useClassRoster`, key on `studentId`. **M**
+6. ~~**"Specific students" in the assign wizard.**~~ **DONE 15 Sep.** The guard refused
+   on a premise that had stopped being true; `useStudentDirectory` already had the ids.
 7. ~~**Recommend a lesson.**~~ **DONE 15 Sep.** Reused `assignmentsApi.create` rather
    than wrapping a second path. Note field and "Suggested" badge both wait on backend.
 8. **Class headcount** — a join on `classId` against data rendered two sections up. **S**
