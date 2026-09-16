@@ -102,14 +102,14 @@ the contradiction survived a re-verification specifically looking for it.
 | Lesson library | LIVE | Subject pills hidden. `subject` landed on the upload body 15 Sep, so this is ours now — but it is **M**: the field has to be sent, stored, read back and filtered on, and two code comments still assert the endpoint cannot take it | FRONTEND | **M** |
 | Notifications panel | LIVE | — | NONE | — |
 | Feedback panel copy | LIVE | — (counter already present at the last 200 chars; design to confirm the threshold) | NONE | — |
-| Class code / QR | LIVE | No standalone route. **"Dialog only" is loose shorthand and would send someone to rebuild a screen that exists**: `ClassQrScreen` — the full-screen projection the standalone route is FOR — is already built and mounted from live class detail (`LiveClassDetail.tsx:358-364`, via the dialog's `onProject` at :355). What is missing is a URL that links and reopens, not the screen. Design ruled 15 Sep to build it (section C) | FRONTEND | S |
+| Class code / QR | **LIVE** | — **Standalone route built 16 Sep** at `/teacher/classes/{classId}/code`; "Show full screen" now navigates rather than opening an overlay with no URL. Historical note, kept because it cost time: **"Dialog only" is loose shorthand and would send someone to rebuild a screen that exists**: `ClassQrScreen` — the full-screen projection the standalone route is FOR — is already built and mounted from live class detail (`LiveClassDetail.tsx:358-364`, via the dialog's `onProject` at :355). What is missing is a URL that links and reopens, not the screen. Design ruled 15 Sep to build it (section C) | NONE | — |
 | Sign-in | LIVE | — (`classifyLoginFailure` wired 14 Sep: a paused account is told the account is not open, a throttled one to wait. Re-verified 16 Sep.) The admin door was the last one left and is **DONE 16 Sep** — `AdminSignIn.tsx:220` classifies too, with its own paused line because the teacher's names an authority a proprietor does not have. **All four doors now classify**: `auth/login/page.tsx:171`, `ReturningSignInScreen.tsx:187`, `TeacherSignIn.tsx:153`, `AdminSignIn.tsx:220`. ~~Still open — fixture leak #1~~ **CLOSED same day, #408** (`377ca27`): the hardcoded "Corona Secondary School · Lagos" eyebrow is gone and a comment at `TeacherSignIn.tsx:215` records why no school is named pre-auth. Section E's leak #1 is done; the other four stand | NONE | — |
 | Console shell + nav rail | PARTIAL | Role label is `MOCK_TEACHER.role` unconditionally; Help & support has no destination | FRONTEND; DESIGN | S |
-| My Classes list | PARTIAL | Card carries no subjects, headcount or summary line. **Split 16 Sep: these are not one job.** Headcount is ours — `ClassLearningPulseResponse.studentCount` is required on `GET /api/v1/teachers/me/home`, already called. **Subjects has no teacher-readable source**: the only schema carrying `subjects` is `ClassSummaryResponse`, and both operations returning it are tagged "school administration"; it is not even in that schema's `required` list. The subjects leg is a backend/scope ask, not an afternoon. Also carries an unmarked fixture leak — see section E | FRONTEND (headcount); **BACKEND (subjects)** | S + ask |
-| Class detail + roster | PARTIAL | No Lessons or Activity tab. (Chips, seat and the two markers built 15 Sep; account state 16 Sep; the header already carried the headcount) | BACKEND (activity); DESIGN (a Lessons tab) | M |
+| My Classes list | PARTIAL | Card carries no subjects, headcount or summary line. **Split 16 Sep: these are not one job.** Headcount is ours — `ClassLearningPulseResponse.studentCount` is required on `GET /api/v1/teachers/me/home`, already called. **Subjects has no teacher-readable source**: the only schema carrying `subjects` is `ClassSummaryResponse`, and both operations returning it are tagged "school administration"; it is not even in that schema's `required` list. The subjects leg is a backend/scope ask, not an afternoon. **Headcount built 16 Sep** from the home read's `studentCount`, and the fixture leak is marked (section E). Only subjects remains, and it is not ours | **BACKEND (subjects)** | ask |
+| Class detail + roster | **LIVE** | — **Lessons tab built 16 Sep**; Activity is RULED OUT, not missing. Design: a per-class activity feed "is a surveillance surface by default and we have nothing that needs it." The Lessons tab shipped because design made it conditional on whether the library can be filtered by class, and it cannot: `GET /api/content/lessons` takes `limit` and `scope` only, `LessonScope` is `mine or school`, `LessonSummaryResponse` carries no class. `GET /api/v1/assignments?classId=` answers it instead. Read-only by ruling | NONE | — |
 | Compose message | PARTIAL | **Reasons corrected 16 Sep; the M stands.** Two of the three fixture sites were already fixed — `ComposeModal:69` and `:108` are both gated on `signedIn`, so only `ConnectView:108` survives. The deep-link defect is WORSE than "carries no query": `ConnectView.tsx:113-115` derives `composeOpen` from `Boolean(params.get("student"))`, so with no query **compose does not open at all** and "Send them a message" is a bare nav to the Connect index. Second call site, unrecorded until now: `LiveFlagCard.tsx:106` has the same query-less href, and `LiveFlagCard.test.tsx:126` asserts it as correct — a test locks the bug in. The fix is not a prop: fixture ids are name slugs resolved by `studentSlug(s.name)`, a live id is a roster UUID, so the resolver has to move to `useStudentDirectory` | FRONTEND | **M** |
 | Home dashboard | PARTIAL | class trio subject/status; activity counts (`completedCount`/`totalCount` landed 15 Sep, both nullable); "Good to know" | FRONTEND; DESIGN (cutoffs) | M |
-| Insights | PARTIAL | Written summary and "Looking ahead" both landed 15 Sep at `/classes/{class_id}/insights`; per-student recommendations still fan out | FRONTEND | M |
+| Insights | PARTIAL | **Design ruled 16 Sep and the ruling cannot be built on the current contract — see the note below this table.** The engine is to own the threshold, `weeklySummary`/`lookingAhead` nullable, absence meaning "render the empty state". Both are **required, non-nullable `string`** on the deployed `ClassInsightsNarrativeResponse`, so the engine has no way to send nothing. Per-student recommendations still fan out | **BACKEND (nullability)**; FRONTEND | M |
 | Student profile | PARTIAL | 3 of 4 drawn actions live (message, recommend, share). The 4th is a session row opening C08d and it is **not startable** — backend addressing, list B item 0b. ~~"now unblocked"~~ was wrong and optimistic: it was written on 15 Sep when only the response SHAPE had been checked, and survived the 16 Sep pass. No noticing banner; the live banner is the `openFlagCount` callout to `/teacher/dashboard`, not C08's per-student prose | FRONTEND (banner); **BACKEND (session detail)** | M |
 | Lesson detail | PARTIAL | Multi-class reports first class only. (The variant-review entry point shipped 14 Sep — re-verified 16 Sep, it renders once per section) | FRONTEND; DESIGN | S |
 | Lesson assignment wizard | LIVE | — ("Specific students" built 15 Sep on `useStudentDirectory`, keyed by `studentId`) | NONE | — |
@@ -121,7 +121,7 @@ the contradiction survived a re-verification specifically looking for it.
 | Upload module / section review | **NOT BUILT** | **Demoted 16 Sep.** A signed-in teacher never sees the Photosynthesis six: `SectionReview` is dead code, reachable only through `runMockBeats`, gated on `!getToken()`. The live path always sets `parsed` and renders the read-only `UploadResult` instead (`UploadWizard.tsx:394-409`, :282-294). So on live there is **no module review at all** — no split, no merge, no rename, no re-order, no "keep it as one flow". The task is to build it, not to wire a fixture up | FRONTEND | **L** |
 | Structure preview (standalone) | FIXTURE-ONLY | Orphaned duplicate serving fixtures to signed-in teachers. **It IS session-gated** (`proxy.ts` covers `/teacher/*`) — that half of the line was false | FRONTEND | S |
 | Student observations (C16b) | LIVE | — (built 15 Sep: chips, seat, and the two markers) | NONE | — |
-| Recommend a lesson | PARTIAL | Built and live 15 Sep, note box included. The "Suggested" badge stays blocked — `Recommendation` is prose with no lesson id. The note is sent and stored; **no student screen renders it yet**, so the confirmation stops short of C08c's "She'll see your note when she opens it" | BACKEND (badge); STUDENT CONSOLE (render) | S |
+| Recommend a lesson | PARTIAL | Built and live 15 Sep, note box included. The "Suggested" badge stays blocked — `Recommendation` is prose with no lesson id. The note is sent and stored; **no student screen renders it yet**, so the confirmation stops short of C08c's "She'll see your note when she opens it". **Fixture leak fixed 16 Sep**: the sheet offered eight invented lessons on a failed read, and its honest-empty copy was unreachable | BACKEND (badge); STUDENT CONSOLE (render) | S |
 | Share with Learning Support | LIVE | — (built 15 Sep on `POST /api/v1/escalations`: `LiveShareSheet`, confirmed per C14 B5. The SENCo cannot yet SEE what arrives — see below) | NONE | — |
 | Session detail | NOT BUILT | The read landed 15 Sep, but **nothing hands a teacher a session id** to call it with — see list B. C08d's panel is frame-complete and mounted only for signed-out visitors | BACKEND (addressing) | M |
 | SSO callback | NOT BUILT | Component complete and live-wired; `slug` landed on `SchoolCodeResponse` 15 Sep, so the signed-out door can now reach it | FRONTEND | M |
@@ -137,6 +137,61 @@ approval transport** — `approve` appears in none of the 188 paths (re-checked 
 document; the only sign-off field is `VisualVariant.reviewedBy`, which is a read. So what
 is built is review *without* approval, and the approval half is a backend ask nobody had
 made. Added to list B.
+
+## Design rulings, 16 Sep — and one that cannot be built yet
+
+**1. Class insights narrative. THE RULING IS RIGHT AND THE CONTRACT WILL NOT CARRY IT.**
+Design ruled the same design as the observation count: the engine owns the threshold,
+`weeklySummary` and `lookingAhead` are nullable, and **absence is the instruction** — if the
+engine cannot support a summary it sends nothing and we render the empty state. Nothing
+derived from row counts on our side.
+
+The deployed `ClassInsightsNarrativeResponse` declares both as `{"type": "string"}` and lists
+both in `required`. **Non-nullable and mandatory**, so the engine has no way to send nothing
+and the empty state is unreachable — the same shape of bug as the recommend sheet's
+unreachable copy, one layer down. Building to the ruling today would mean the frontend
+inventing a threshold, which is the exact thing the ruling forbids.
+
+**The ask is one line: make `weeklySummary` and `lookingAhead` nullable.** Until then this
+row is backend-blocked, not frontend work.
+
+The empty copy, for when it lands: *"No summary this week. Nevo writes one when there is
+enough in a week to say something useful."* Note it is about the WEEK, never the class —
+design was explicit that "this class has been quiet" is a finding we have no grounds for. One
+empty state covers a quiet week and a new class both; design does not want them
+distinguished, so no signal is needed for it.
+
+**2. Session-end states: FOUR screens, not five.**
+- `session_expired` and `invalid_session` share the ordinary end-of-session screen. Invalid
+  means a malformed or unknown token, which is either our bug or tampering, and neither is
+  something to put in front of a teacher.
+- `session_revoked` as drawn.
+- `session_replaced` gets its own screen and says plainly that they signed in on another
+  device — the one state where the honest wording matters, because if it was not them they
+  need to know.
+- `account_paused` is **not a session state and must not look like one**. Same frame as the
+  paused learner, one level up: it points at the school administrator, and carries **no retry
+  button**, because retrying does nothing.
+
+**3. Class-wide messaging: OUT for v1, confirmed.** Compose is scored complete against the
+frame; the transport capability (`messages.ts:14` types the union, `deliver` already takes
+`"class"`) is a **deliberate deferral**, recorded in section D. Design's reasoning is worth
+keeping: a one-to-one message exists because something triggered it and is attached to that.
+A broadcast has no trigger, duplicates channels the school already runs, and sends messages
+to families the school never approved. That is a school's decision, not a feature we ship
+because the transport allows it.
+
+**4. Lessons tab: IN for v1, and built 16 Sep.** Design made it conditional on one fact —
+whether the library can be filtered by class. It cannot, so a teacher had no way to answer
+"what has this class been given", which they ask every week. Read-only, with status; no
+authoring, because the Library stays the only place a lesson is created. **Activity is out
+either way.**
+
+Design also asked that the signed-out sample class screen stop drawing three tabs the
+product does not have: "a sample screen is a promise, so either it matches what we ship or
+it changes." Changed 16 Sep — `ClassDetail.tsx` now draws Roster and Lessons.
+
+---
 
 ## Parent console
 
@@ -432,7 +487,7 @@ consoles**, which other sessions own.
   **deliberately**; the last replaced a simulation that showed 89 invented students to
   anonymous visitors and wrote a token-less `nevo.role=teacher` cookie.
 - C01 Step 1 "verify email" — the invite link *is* the verification.
-- No class-wide broadcast in compose — ruled out for v1 by the frame. **Note the tension,
+- No class-wide broadcast in compose — **ruled out for v1, re-confirmed by design 16 Sep**, and the transport capability is a deliberate deferral rather than an oversight. Reasoning in the rulings section above. The earlier tension in this file is resolved: Compose is scored COMPLETE against the frame, and its sizing excludes class addressing. Previous note, kept for the record: **Note the tension,
   flagged 16 Sep:** the Compose row scores "cannot address a class" as an open gap feeding
   its M sizing, while this line rules it out. The code sides with this line
   (`ConnectView.tsx:217-219` hardcodes `recipientType: "student"`) but the transport is
