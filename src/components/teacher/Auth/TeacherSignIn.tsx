@@ -16,9 +16,11 @@ import { cn } from "@/lib/utils";
  *
  * Password sign-in is LIVE against POST /api/v1/auth/login/password (the
  * deployed contract); the session token is stored by authApi and the success
- * beat routes into the console. SSO is a simulated hop to C02b until school
- * SSO slugs exist backend-side. The frame draws the error banner but leaves
- * its copy blank - the messages here are ours, flagged in the PR.
+ * beat routes into the console. SSO IS NO LONGER A SIMULATED HOP - this line
+ * said so while the code 150 lines below had already stopped pretending; the
+ * button now explains that school sign-in is not set up rather than miming a
+ * handoff. See the comment on the SSO handler. The frame draws the error banner
+ * but leaves its copy blank - the messages here are ours, flagged in the PR.
  */
 
 const SUCCESS_HOLD_MS = 1400;
@@ -209,10 +211,22 @@ export function TeacherSignIn() {
       <div className="w-full max-w-[432px]">
         {isForm && (
           <div className="flex flex-col items-start">
-            <span className="text-[12.5px] font-semibold tracking-[0.14em] text-nevo-violet uppercase">
-              Corona Secondary School · Lagos
-            </span>
-            <h2 className="mt-3.5 text-[34px] leading-[1.15] font-semibold tracking-[-0.02em]">
+            {/*
+              NO SCHOOL EYEBROW. The frame draws "Corona Secondary School ·
+              Lagos" here and this shipped it as a literal, so every teacher at
+              every school was greeted by one tenant's name.
+
+              The frame resolves school identity BEFORE auth, from the
+              school-specific URL that D10 issues. Nothing hands this door a
+              school: there is no school-code step on the teacher door, and
+              `POST /api/v1/auth/school-code/verify` is keyed on a code the
+              teacher never types. So naming a school here is inventing one.
+
+              Removed rather than made dynamic, which is the same call the admin
+              door made for the same reason (`AdminSignIn.tsx`). When a pre-auth
+              lookup exists, both doors get it together.
+            */}
+            <h2 className="text-[34px] leading-[1.15] font-semibold tracking-[-0.02em]">
               Welcome back
             </h2>
             <p className="mt-3 text-[16px] leading-[1.55] text-nevo-near-black/70">
