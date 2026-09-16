@@ -17,7 +17,15 @@ import { api } from "./client";
  * route answers it for free.
  */
 
-export type FeedbackType = "feedback" | "feature";
+/**
+ * `account_request` is the third, added 16 Sep for D14's "Request another
+ * account". The admin Team screen drew that as a primary button with no
+ * handler at all - styled navy, promising "we'll add it at no charge, just
+ * ask", and doing nothing when asked. There is no bespoke endpoint for an
+ * extra admin seat and there does not need to be: this route is deployed,
+ * carries `context`, and lands where somebody triages it.
+ */
+export type FeedbackType = "feedback" | "feature" | "account_request";
 
 export const feedbackApi = {
   submit: (payload: { type: FeedbackType; note: string; context?: string }) =>
