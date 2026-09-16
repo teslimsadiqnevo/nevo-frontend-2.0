@@ -783,6 +783,17 @@ a child experiences rather than what a screen looks like.
     the flanker's `congruency` tag. **S each**
 17. **The scaffolds subsystem** — three deployed endpoints with no client module at all.
     Worth a scoping pass before it is sized. **M**
+18. **Tell a teacher when their upload was silently degraded.** Traced 16 Sep after
+    backend flagged the Zero-Tag rejection. `UploadWizard.tsx:285-290` awaits the parse run,
+    tests `run.status === "failed"` and nothing else, then walks the teacher into the review
+    screen. A Zero-Tag rejection does not fail the run — it completes, having fallen back to
+    splitting the source, so the teacher reviews split-up source text believing it is
+    generated content. **`fallbackSegmentCount` is in the same object the wizard already
+    polls**, is typed at `content.ts:133`, and carries a docblock calling it "THE FIELD THAT
+    MATTERS" — and no screen reads it. When it equals `segmentCount` the lesson is entirely
+    fallback. The wizard's existing `fallback` phase is a different thing (an unreadable
+    file), so this needs its own state. **S, and it is the twelfth field on the "written but
+    never read" list.** Teacher-lane file, student-lane finding — raised to that session.
 
 ## S-B. Blocked on backend — the exact ask
 
@@ -801,7 +812,7 @@ Each re-checked against the deployed spec on 16 Sep.
 | 9. `currentPin` on the PIN change | Frame 27 draws three steps beginning with the current PIN; no such field exists anywhere |
 | 10. A lesson description | The preview sheet's plain-language description has no field on any lesson schema |
 | 11. **Visual generation is failing** | Not a schema gap — every image 400s, so `visualVariant` is null library-wide, the visual channel is dead and the modality-suggestion pill is structurally unreachable. Backend has the diagnostic deployed |
-| 12. **Zero-Tag rejects ordinary English** | Raised by backend 16 Sep: "treatment", "be patient" and "water treatment" are refused, and a lesson containing one degrades silently to deterministic splitting. Flagged as a compliance decision rather than a bug. **Frontend consequence to check: whether the teacher who uploaded it is told anything** — `fallbackSegmentCount` is the signal and this survey did not trace whether the ingestion UI surfaces it |
+| 12. **Zero-Tag rejects ordinary English** | Raised by backend 16 Sep: "treatment", "be patient" and "water treatment" are refused, and a lesson containing one degrades silently to deterministic splitting. Flagged as a compliance decision rather than a bug. **Not a backend ask — traced 16 Sep and the frontend half is ours: the teacher is told nothing.** See S-A item 18 |
 
 ## S-C. Blocked on design
 
