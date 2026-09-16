@@ -77,7 +77,7 @@ it against the repo is itself work that has to be repeated.*
 | Notifications panel | LIVE | — | NONE | — |
 | Feedback panel copy | LIVE | — (counter already present at the last 200 chars; design to confirm the threshold) | NONE | — |
 | Class code / QR | LIVE | No standalone route; dialog only. Design ruled 15 Sep to build it (recorded in section C below), so this is ours | FRONTEND | S |
-| Sign-in | LIVE | — (`classifyLoginFailure` wired 14 Sep: a paused account is told the account is not open, a throttled one to wait. Re-verified 16 Sep.) **The ADMIN door still has this bug** — `AdminSignIn.tsx` maps 401/403 to "check your details" | NONE (admin console owns its half) | — |
+| Sign-in | LIVE | — (`classifyLoginFailure` wired 14 Sep: a paused account is told the account is not open, a throttled one to wait. Re-verified 16 Sep.) The admin door was the last one left and is **DONE 16 Sep** — `AdminSignIn.tsx` classifies too, with its own paused line because the teacher's names an authority a proprietor does not have | NONE | — |
 | Console shell + nav rail | PARTIAL | Role label is `MOCK_TEACHER.role` unconditionally; Help & support has no destination | FRONTEND; DESIGN | S |
 | My Classes list | PARTIAL | Card carries no subjects, headcount or summary line | FRONTEND | S |
 | Class detail + roster | PARTIAL | No Lessons or Activity tab. (Chips, seat and the two markers built 15 Sep; account state 16 Sep; the header already carried the headcount) | BACKEND (activity); DESIGN (a Lessons tab) | M |
@@ -143,12 +143,14 @@ the end of the road.
 
 ## A. Buildable today — priority order
 
-1. ~~**Paused teacher told their password is wrong.**~~ **TEACHER HALF DONE 14 Sep**,
-   re-verified 16 Sep: `TeacherSignIn.tsx` calls `classifyLoginFailure` and carries both
-   the paused and the throttled message. **The ADMIN half is still live**, mapping 401/403
-   to "check your details" — same bug, same fix, and it locks a proprietor or IT admin out
-   of their own school with the correct password. **S, admin console** — flagged to that
-   session rather than taken here.
+1. ~~**Paused teacher told their password is wrong.**~~ **BOTH HALVES DONE.** Teacher
+   14 Sep, admin 16 Sep; all four doors now classify. The admin half was taken here
+   rather than left flagged, because it locks a proprietor out of their own school with
+   the correct password and there is nobody above them to ask. **Its paused line is not
+   the teacher's** — "your school admin can tell you more" is a circle when the person
+   reading it IS the school admin, so the admin line offers a colleague holding `team`
+   and then `support@nevolearning.com`. The refusal cannot tell a SENCo from a sole
+   proprietor, so it serves both. Nine tests in `AdminSignIn.dom.test.tsx`.
 2. ~~**Parent sign-in (D03).**~~ **DONE 14 Sep.** Built at `/parent-sign-in`; the portal's
    signed-out screen offers it rather than pointing at a link that may have expired.
 3. ~~**Student observations (C16b).**~~ **DONE 15 Sep.** Chips imported from
