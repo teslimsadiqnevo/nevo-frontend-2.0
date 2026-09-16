@@ -314,3 +314,133 @@ Ordered as before, cheapest first. Section numbers refer to the body above.
 part one. §5 slots in wherever an SSO change is cheapest for you; it is one
 nullable field and it prevents a whole-school lockout, which is a better ratio
 than anything else on this page.
+
+---
+
+# Addendum 2 — 16 September 2026: eleven we never sent you
+
+The list above was not just stale, it was **incomplete**. A lane-by-lane probe of
+the deployed document (v2.0.0, 188 paths, 343 schemas, fetched fresh) found that
+every admin lane has at least one contract-blocked state that had never been
+written down anywhere — including an entire screen and one bug that loses data.
+
+None of this is new work you were asked for and deprioritised. It is work nobody
+told you about, because our own blocked list had four rows on it and stopped.
+
+## 7 · The two that should jump the queue
+
+**7a · `AcademicConfig.termStartDates` has `maxItems: 3`, and it loses data.**
+
+**Underneath this is a product disagreement, not a schema nit.** Your field
+description reads *"Nigerian schools run three terms, so send three; fewer means
+Nevo falls back to splitting the contract year evenly."* SCRUM-99 says otherwise
+and calls a fourth term *"a quiet action for schools running four terms"* —
+`SchoolSettings.tsx:508` renders that "Add a term" control today.
+
+So one of us is wrong about the customer, and the current behaviour is the worst
+resolution of that: the screen accepts a fourth term start and the contract
+**silently drops it** — no 422, no warning — and the school is then invoiced on a
+calendar it did not choose. `academicCalendar.ts:120-128` carries the TODO.
+
+This is a different and worse problem than `yearGroupLabels` in §6: that one goes
+unvalidated, this one **discards a value the user typed**. Either answer is fine
+and we will follow it — **raise the cap, or return a 422 so the screen can say
+why and we pull the control.** Silently truncating is the only option that cannot
+be handled on our side.
+
+**7b · Nothing reads back whether an IEP export was shared.**
+
+`IepExportShareResponse` exists as a schema, but the only deployed operation is
+`POST /api/v1/exports/iep/{export_id}/share`. There is no GET, and
+`GET /api/v1/exports/iep/{export_id}` returns `IepExportResponse`, which carries
+no shares.
+
+So on reload a SENCo cannot tell whether a child's IEP already reached a
+guardian. The screen can neither confirm a send nor prevent a duplicate one, on
+a document about a named child's special educational needs. **This is a safety
+row, not a convenience one.**
+
+### `GET /api/v1/exports/iep/{export_id}/shares`
+
+Returns the `IepExportShareResponse` rows that already exist. No new schema, no
+new shape — the record is being written and never read, which is the same defect
+the rights-log endpoint was built to fix.
+
+## 8 · D09 Reports — an entire screen with no contract
+
+**Zero** of 343 schemas match `/report/`, and the only report path among 188 is
+`GET /api/admin/compliance-audit/report.pdf`. `/admin/reports` currently serves
+D20 Cohort Analytics instead, so D09 has no route and no data.
+
+This needs a conversation before it needs a schema: a list of named school
+reports, each exportable as PDF or CSV. Flagging it here so it stops being
+invisible — it is the largest single gap in the console and it was on no list.
+
+Related and smaller: **no PDF route exists for an IEP export or a learner
+profile**, so D8b's "Export Profile as PDF" and the exporter's "Download PDF" are
+both absent affordances. The only PDF in the API is the compliance audit's.
+
+## 9 · D19 Invitations — four small fields
+
+`InvitationResponse` is `{id, token, role, email, name, status, expiresAt,
+deliveryStatus, consentStatus}`.
+
+1. **No `classId`.** D19 draws a CLASS column; nothing sources it.
+2. **No created-at.** D19 draws "Invited 9 Jul"; `expiresAt` is the only date.
+3. **`status` is `string | null` with no enum** — while `deliveryStatus` and
+   `consentStatus` on the *same schema* are both enums. The four lifecycle
+   values the frame draws cannot be checked against the contract.
+4. **`JoinInspectionResponse` is `{status, role, schoolName, expiresAt}` — no
+   name**, so D19's "Welcome, Amara" greeting on the public join link has no
+   source and the page says "you" instead.
+
+And one that is structural rather than a field: **nothing can queue a parent
+consent request for an INVITED student.**
+`POST /students/{id}/parent-consent-requests` needs a student uuid, and the
+contract never links an invitation to one before acceptance, nor mints a parent
+link from an invite's bare contact. The children these flows create are exactly
+the ones nobody can be asked about — which matters more since 15 Sep, when
+withdrawal began being enforced.
+
+## 10 · Three more, one per lane
+
+**`NotificationResponse` has no `category`.** `NotificationCategory` exists in the
+document but is used only by preferences. That kills D13b's filter pill, the
+per-row category label, and category-scoped "Mark these as read". Separately,
+three of SCRUM-100's six admin categories — roster, SSO, teacher — have no enum
+value at all.
+
+**Compliance D22 cannot verify two of its four claims.** `erasure` appears zero
+times in the document and `ParentRightType` is
+`request_data | object | withdraw_consent`; `subprocessor` appears zero times.
+The rights-log read (thank you — see §11) closes the *requests* half of this
+screen but not these two.
+
+**The DPA document TEXT.** `GET/POST /api/v1/school/dpa-acceptance` shipped and
+returns the acceptance RECORD — `{version, acceptedByName, acceptedAt}`. Nothing
+returns `{version, html}`, so the wording a school is agreeing to is still held
+in our client. That is the unfinished half of the 6 Sep launch blocker about
+schools accepting 0.9-draft text, and we had been treating the row as closed
+because the acceptance half landed.
+
+## 11 · Corrections back to us, again
+
+Two of these are ours, and both are the same shape as §4's: **a capability you
+shipped, sitting unused behind a comment saying it does not exist.**
+
+- **`GET /api/v1/consents/rights-log` has zero callers in our tree.** You built it
+  to our own privacy specification — `reasonRecorded` as a boolean so the
+  parent's free text never crosses the wire — and `ndpaClaims.ts:57` still reads
+  "nothing reads one back". Ours to wire; nothing needed from you.
+- **`POST /api/v1/users/me/profile-photo` has zero callers**, and
+  `profileImageUrl` appears **nowhere in 681 source files** although
+  `CurrentUserResponse` returns it on every `/users/me` we already call. We
+  reported this as struck from the Settings ask on 15 Sep and then did not wire
+  it.
+
+**And one process note, offered in the same spirit as documenting `vatRate`.**
+Our blocked list was wrong in both directions on the same afternoon: two rows had
+shipped a day earlier, and eleven rows had never been written down. If a response
+description named the code or field that closes a known gap — the way your 401
+description on `login/password` names its three codes — a stale claim on our side
+would be visible to a diff rather than to whoever happens to re-read the comment.
