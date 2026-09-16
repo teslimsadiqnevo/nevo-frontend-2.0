@@ -240,3 +240,77 @@ And the "why can't this student be promoted" reasons must be an **enum**, never
 free text — for the same reason you left `reasonRecorded` out of the rights log.
 "Repeating this year at his parents' request" is a family circumstance about a
 named child in front of every admin who opens the page.
+
+---
+
+# Addendum — 16 September 2026: what is still open
+
+Re-verified this morning against the deployed document (v2.0.0, 188 paths, 343
+schemas), fetched fresh rather than read from the copy above. Nothing here is
+new work for you except §5; the rest is the 15 September ask, still open, with
+today's evidence attached so you do not have to re-derive it.
+
+## 4 · One of these is CLOSED, and our own notes did not know
+
+**`GET /api/admin/adaptation-log?eventType=` shipped.** The endpoint now takes
+`classId`, `studentId`, `lessonId`, `eventType`, `dateFrom`, `dateTo`, `limit`
+and `offset`. We consume it — `schoolIntelligence.ts:107` types the filter and
+`AdaptationLogView.tsx:189` sends it. Thank you.
+
+**`academicConfig` is half closed.** `termStartDates` is a validated schema
+field now, so a mistyped term date is a 422 rather than an invoice on a date
+the school never chose. That was the half that mattered. The other half is
+below in §6.
+
+Both of these sat in our own `BUILD_STATUS.md` under "blocked on backend, NOT
+buildable at any velocity" until today, after they had shipped and after we
+had consumed them. **That is our defect, not yours** — recorded here so the
+next person to read that table treats it as a claim to check rather than a
+fact.
+
+## 5 · NEW — the SSO signing certificate
+
+The only ask on this page you have not seen before.
+
+D17's IT home draws *"SSO signing certificate renews in 40 days"*. **No
+certificate or expiry field exists anywhere in the contract.** The only
+`expiry*` fields belong to payment cards; every other `expiresAt` is a token or
+an invitation. `SsoConnectionHealthResponse` carries `connectionCheckedAt`,
+`reauthorisedAt`, `lastSuccessfulSyncAt`, `nextScheduledSyncAt`,
+`disconnectedAt` and `lastConnectionError` — every date about the connection
+except the one that ends it.
+
+### `SsoConnectionHealthResponse.certificateExpiresAt: string | null`
+
+An ISO date-time, null when the provider does not expose one or the connection
+is disconnected. Nothing else changes, and the card is then a subtraction from
+`connectionCheckedAt` on our side.
+
+**Why this is worth a field rather than a ticket.** A signing certificate
+lapsing does not degrade SSO, it stops it: every teacher and every student at
+that school is locked out on one morning, with nothing in the console having
+said it was coming. We have `lastConnectionError` to tell them afterwards and
+nothing to tell them before. It is the one lockout in this product that is
+entirely predictable and currently invisible.
+
+**Null is genuinely fine.** The card is absent rather than wrong when the field
+is null — the same position we took on the provider count, where
+`GET /admin/sso/status` returning one connection is the data model saying one
+per school, so the card names the provider rather than counting to two.
+
+## 6 · Still open, unchanged, with today's evidence
+
+Ordered as before, cheapest first. Section numbers refer to the body above.
+
+| ask | §  | re-verified 16 Sep |
+| --- | -- | ------------------ |
+| SENCo active support — a collection sibling for accommodations | 1 | `GET /api/intelligence/accommodations/{student_id}` is still the only route on that resource. 247 profiles is still 247 requests to paint one list, which is why it is still not built. |
+| Assignment history | 2 | `TeacherAssignmentResponse` is `{id, schoolId, teacherId, classId, role, source, assignedAt}` — no actor. `DELETE /api/v1/teacher-class-assignments/{id}` still returns no body and nothing in the schema set carries `endedAt`. The dates shipped; the history still cannot. |
+| Settings part one — role title, typed `profile`, school address, email-change pair | 3a–3d | `roleTitle` appears in zero schemas. `CurrentUserResponse` is `{userId, role, firstName, lastName, displayName, email, school, subjects, profileImageUrl}` — no `pendingEmail`. `SchoolPatch.profile` is still an untyped object. |
+| Settings part two — two-step sign-in, promotion | 3f | Held on design, as agreed. No endpoint exists for either and none should be built until the questions in 3f are answered. |
+| `academicConfig.yearGroupLabels` | — | New half of an old row. `additionalProperties: true` means the labels pass through unvalidated, so the map the whole product reads through `yearGroupLabel` is a **client-owned provisional contract** — the third in this codebase. Money and dates have been lifted out of that position; the labels have not. Lower priority than everything above it, and worth settling before launch rather than after. |
+
+**Send order unchanged:** SENCo active support → assignment history → Settings
+part one. §5 slots in wherever an SSO change is cheapest for you; it is one
+nullable field and it prevents a whole-school lockout, which is a better ratio
+than anything else on this page.

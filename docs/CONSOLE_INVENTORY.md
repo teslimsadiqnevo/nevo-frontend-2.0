@@ -1,6 +1,6 @@
 # Console inventory — what is undone
 
-**Teacher and parent consoles. Re-verified 16 Sep 2026 against `main` @ `d0ae9fd` and the
+**Teacher and parent consoles. Re-verified 16 Sep 2026 against `main` @ `64a74b0` and the
 deployed spec (v2.0.0, 188 paths, 343 schemas, 205 operations).**
 
 *A stamp naming a commit is worth more than a date. If `git rev-parse origin/main` no longer
@@ -98,12 +98,12 @@ the contradiction survived a re-verification specifically looking for it.
 | Upload scope + file | LIVE | — | NONE | — |
 | Teacher activation | LIVE | — (copy signed off 14 Sep) | NONE | — |
 | Password reset | LIVE | Error states unsigned-off | DESIGN | S |
-| Session expired door | LIVE | Only the "expired" variant. Backend now sends four codes (`session_expired`, `session_revoked`, `session_replaced`, `account_paused`); **none is consumed anywhere**, and `ConsoleSessionExpired` takes only `signInHref`. Carrying a reason means changing `client.ts`, which all three consoles route through. Design HAS drawn revoked (`student/28a Session Ended - Revoked`, 10 Sep) — only `session_replaced` and `account_paused` remain undrawn for the console | FRONTEND | **M** |
+| Session expired door | LIVE | Only the "expired" variant. **Two corrections, 16 Sep.** The code set is **FIVE**, not four — `invalid_session` is in the deployed spec alongside `session_expired`, `session_revoked`, `session_replaced` and `account_paused`. And "none is consumed anywhere" was **false**: `account_paused` is consumed at all four sign-in doors via `loginFailure.ts:38` (`auth/login/page.tsx:171`, `ReturningSignInScreen.tsx:187`, `TeacherSignIn.tsx:153`, `AdminSignIn.tsx:220`). What is true is that none is consumed on the SESSION path, because `handleAuthFailure` is exempted from `/auth/login`, and `ConsoleSessionExpired` takes only `signInHref`. Carrying a reason means changing `client.ts`, which all three consoles route through. Design HAS drawn revoked (`student/28a Session Ended - Revoked`, 10 Sep) — only `session_replaced` and `account_paused` remain undrawn for the console | FRONTEND | **M** |
 | Lesson library | LIVE | Subject pills hidden. `subject` landed on the upload body 15 Sep, so this is ours now — but it is **M**: the field has to be sent, stored, read back and filtered on, and two code comments still assert the endpoint cannot take it | FRONTEND | **M** |
 | Notifications panel | LIVE | — | NONE | — |
 | Feedback panel copy | LIVE | — (counter already present at the last 200 chars; design to confirm the threshold) | NONE | — |
 | Class code / QR | LIVE | No standalone route. **"Dialog only" is loose shorthand and would send someone to rebuild a screen that exists**: `ClassQrScreen` — the full-screen projection the standalone route is FOR — is already built and mounted from live class detail (`LiveClassDetail.tsx:358-364`, via the dialog's `onProject` at :355). What is missing is a URL that links and reopens, not the screen. Design ruled 15 Sep to build it (section C) | FRONTEND | S |
-| Sign-in | LIVE | — (`classifyLoginFailure` wired 14 Sep: a paused account is told the account is not open, a throttled one to wait. Re-verified 16 Sep.) **The ADMIN door still has this bug** — `AdminSignIn.tsx` maps 401/403 to "check your details" | NONE (admin console owns its half) | — |
+| Sign-in | LIVE | — (`classifyLoginFailure` wired 14 Sep: a paused account is told the account is not open, a throttled one to wait. Re-verified 16 Sep.) The admin door was the last one left and is **DONE 16 Sep** — `AdminSignIn.tsx:220` classifies too, with its own paused line because the teacher's names an authority a proprietor does not have. **All four doors now classify**: `auth/login/page.tsx:171`, `ReturningSignInScreen.tsx:187`, `TeacherSignIn.tsx:153`, `AdminSignIn.tsx:220`. **Still open — fixture leak #1**: `TeacherSignIn.tsx:213` hardcodes the eyebrow "Corona Secondary School · Lagos", so the teacher door names one school to every teacher in the country. See section E | FRONTEND (leak #1) | S |
 | Console shell + nav rail | PARTIAL | Role label is `MOCK_TEACHER.role` unconditionally; Help & support has no destination | FRONTEND; DESIGN | S |
 | My Classes list | PARTIAL | Card carries no subjects, headcount or summary line. **Split 16 Sep: these are not one job.** Headcount is ours — `ClassLearningPulseResponse.studentCount` is required on `GET /api/v1/teachers/me/home`, already called. **Subjects has no teacher-readable source**: the only schema carrying `subjects` is `ClassSummaryResponse`, and both operations returning it are tagged "school administration"; it is not even in that schema's `required` list. The subjects leg is a backend/scope ask, not an afternoon. Also carries an unmarked fixture leak — see section E | FRONTEND (headcount); **BACKEND (subjects)** | S + ask |
 | Class detail + roster | PARTIAL | No Lessons or Activity tab. (Chips, seat and the two markers built 15 Sep; account state 16 Sep; the header already carried the headcount) | BACKEND (activity); DESIGN (a Lessons tab) | M |
@@ -175,12 +175,14 @@ the country — is the single most embarrassing thing in this console and a smal
 anything numbered below. They are listed there rather than here because they share one cause
 and are best done as a sweep.
 
-1. ~~**Paused teacher told their password is wrong.**~~ **TEACHER HALF DONE 14 Sep**,
-   re-verified 16 Sep: `TeacherSignIn.tsx` calls `classifyLoginFailure` and carries both
-   the paused and the throttled message. **The ADMIN half is still live**, mapping 401/403
-   to "check your details" — same bug, same fix, and it locks a proprietor or IT admin out
-   of their own school with the correct password. **S, admin console** — flagged to that
-   session rather than taken here.
+1. ~~**Paused teacher told their password is wrong.**~~ **BOTH HALVES DONE.** Teacher
+   14 Sep, admin 16 Sep; all four doors now classify. The admin half was taken here
+   rather than left flagged, because it locks a proprietor out of their own school with
+   the correct password and there is nobody above them to ask. **Its paused line is not
+   the teacher's** — "your school admin can tell you more" is a circle when the person
+   reading it IS the school admin, so the admin line offers a colleague holding `team`
+   and then `support@nevolearning.com`. The refusal cannot tell a SENCo from a sole
+   proprietor, so it serves both. Nine tests in `AdminSignIn.dom.test.tsx`.
 2. ~~**Parent sign-in (D03).**~~ **DONE 14 Sep.** Built at `/parent-sign-in`; the portal's
    signed-out screen offers it rather than pointing at a link that may have expired.
 3. ~~**Student observations (C16b).**~~ **DONE 15 Sep.** Chips imported from

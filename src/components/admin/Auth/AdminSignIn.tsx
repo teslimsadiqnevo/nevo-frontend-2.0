@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks";
-import { ApiError, authApi } from "@/lib/api";
+import { authApi } from "@/lib/api";
+import { classifyLoginFailure, type LoginFailure } from "@/lib/auth/loginFailure";
 import type { UserRole } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -60,6 +62,68 @@ const MISMATCH_MSG =
 /** Not drawn in D02; ours, and flagged. */
 const UNREACHABLE_MSG =
   "We couldn't reach your school's sign-in right now. Nothing on your end - try again in a moment.";
+/**
+ * A 401 STOPPED BEING ONE THING, AND THIS WAS THE LAST DOOR STILL READING IT
+ * AS ONE.
+ *
+ * Backend documents the three cases on `POST /api/v1/auth/login/password`
+ * itself: "authentication_failed when the credential is wrong, account_paused
+ * when it is right but the account is not open, too_many_attempts when rate
+ * limited". Mapping all three to MISMATCH_MSG told an administrator whose
+ * password was RIGHT to check it and try again - and then relabelled the
+ * button "Try again" so they could. The student doors have used
+ * `classifyLoginFailure` since they shipped and the teacher door since 14 Sep;
+ * only this one was left.
+ *
+ * THE PAUSED LINE CANNOT BE THE TEACHER'S. Teachers are told "your school
+ * admin can tell you more". Said to an administrator that is a circle, and to
+ * a proprietor it names nobody at all - they ARE the school admin. A SENCo or
+ * IT admin can be reopened by a colleague holding `team`; a sole proprietor
+ * cannot be reopened by anyone inside the school, and the refusal carries
+ * nothing that tells the two apart. So the line offers the colleague first and
+ * ends on the route that exists either way.
+ *
+ * NO WHOLE-SCREEN PAUSE STATE, for the reason the teacher door gives: `Account
+ * On Pause` is drawn "NEVO - STUDENT" and reads "talk to your teacher".
+ *
+ * Neither line is drawn - D02 has one error state - so both are ours, like
+ * UNREACHABLE_MSG above.
+ */
+const PAUSED_MSG = (
+  <>
+    This account isn&rsquo;t open at the moment. Another administrator at your
+    school can reopen it. If there isn&rsquo;t one, email{" "}
+    <a
+      href="mailto:support@nevolearning.com"
+      className="font-semibold text-nevo-navy hover:underline"
+    >
+      support@nevolearning.com
+    </a>
+    .
+  </>
+);
+const THROTTLED_MSG =
+  "Too many attempts just now. Wait a few minutes before trying again.";
+
+const MESSAGE: Record<LoginFailure, ReactNode> = {
+  credentials: MISMATCH_MSG,
+  ours: UNREACHABLE_MSG,
+  paused: PAUSED_MSG,
+  throttled: THROTTLED_MSG,
+};
+
+/**
+ * Whether pressing the button again could possibly help. For a paused account
+ * it cannot, and for a throttled one it is the instruction that extends the
+ * lockout - so neither gets told to retry by the most prominent control on the
+ * screen.
+ */
+const RETRYABLE: Record<LoginFailure, boolean> = {
+  credentials: true,
+  ours: true,
+  paused: false,
+  throttled: false,
+};
 
 type Phase = "idle" | "signing" | "error" | "success";
 
@@ -113,7 +177,7 @@ export function AdminSignIn() {
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
-  const [errMsg, setErrMsg] = useState("");
+  const [failure, setFailure] = useState<LoginFailure | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -151,11 +215,9 @@ export function AdminSignIn() {
         );
       })
       .catch((err: unknown) => {
-        setErrMsg(
-          err instanceof ApiError && (err.status === 401 || err.status === 403)
-            ? MISMATCH_MSG
-            : UNREACHABLE_MSG,
-        );
+        // The timeout above rejects with a bare Error, which classifies as
+        // "ours" - the same answer this branch used to give it by hand.
+        setFailure(classifyLoginFailure(err));
         setPhase("error");
       });
   };
@@ -280,9 +342,9 @@ export function AdminSignIn() {
         </button>
       </div>
 
-      {errored && (
+      {errored && failure && (
         <p className="mt-3 rounded-[10px] bg-nevo-violet/16 px-4 py-3 text-[13.5px] leading-[1.5] text-nevo-near-black/78">
-          {errMsg}
+          {MESSAGE[failure]}
         </p>
       )}
 
@@ -302,7 +364,7 @@ export function AdminSignIn() {
             <Spinner onNavy />
             Signing you in&hellip;
           </>
-        ) : errored ? (
+        ) : errored && failure && RETRYABLE[failure] ? (
           "Try again"
         ) : (
           "Sign in"
