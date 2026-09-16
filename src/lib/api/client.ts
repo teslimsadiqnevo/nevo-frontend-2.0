@@ -101,9 +101,36 @@ async function getAuthToken(): Promise<string | undefined> {
  * The backend's admin roles are `senco_admin` and `other_admin`, never a plain
  * "admin" - which is why this asks `isAdminRole` rather than comparing.
  */
-export function sessionExpiredDoor(role: string | undefined): string {
+export function sessionExpiredDoor(
+  role: string | undefined,
+  code?: string | null,
+): string {
   if (role === "teacher") return "/auth/teacher/session-expired";
   if (isAdminRole(role)) return "/auth/admin/session-expired";
+  /*
+   * WHICH ENDING IT WAS. Backend documents five 401 codes on all 176
+   * authenticated operations, and this client read none of them - so a child
+   * whose account a school closed mid-lesson, and one whose session a teacher
+   * ended from another device, were both told they had "been away for a
+   * while". A statement about their behaviour, and untrue in both cases.
+   *
+   * `invalid_session` is deliberately NOT branched. The spec glosses it as a
+   * token that was never valid - corruption or tampering rather than anything
+   * that happened to the child - and no frame draws it, so the generic door is
+   * the honest place to leave it rather than inventing words.
+   *
+   * An unrecognised code falls here too. `apiErrorCode` returns null for an
+   * older deployment or a proxy's own error page, and guessing at that point
+   * means telling a child the wrong thing about their own account.
+   *
+   * THE CONSOLE ROLES ARE ABOVE THIS ON PURPOSE. `ConsoleSessionExpired` takes
+   * no reason and design has drawn only the revoked console variant, so
+   * teacher and admin keep their one door until that lane builds the rest.
+   * The plumbing they need is now here, which is what they were waiting on.
+   */
+  if (code === "session_replaced") return "/auth/session-ended";
+  if (code === "session_revoked") return "/auth/session-revoked";
+  if (code === "account_paused") return "/auth/account-paused";
   return "/auth/session-expired";
 }
 
@@ -119,7 +146,11 @@ export function sessionExpiredDoor(role: string | undefined): string {
  */
 let redirecting = false;
 
-function handleAuthFailure(path: string, sentToken: boolean): void {
+function handleAuthFailure(
+  path: string,
+  sentToken: boolean,
+  code?: string | null,
+): void {
   if (typeof window === "undefined" || !sentToken || redirecting) return;
   // Only the sign-in and sign-out calls own their failures. The session
   // check must NOT be exempt: it is the one call that discovers a dead
@@ -135,7 +166,7 @@ function handleAuthFailure(path: string, sentToken: boolean): void {
   // picks the door the screen offers. The backend's admin roles are
   // `senco_admin` and `other_admin`, never a plain "admin".
   redirecting = true;
-  window.location.assign(sessionExpiredDoor(role));
+  window.location.assign(sessionExpiredDoor(role, code));
 }
 
 /** An array repeats the key - see `buildUrl`. */
@@ -255,7 +286,10 @@ export async function request<T>(
     // route reaches a 403-able endpoint routinely, and a school with more than
     // one admin hits this on day one.
     if (response.status === 401) {
-      handleAuthFailure(path, Boolean(token));
+      // `detail` is parsed just above, so the reason is in hand at the only
+      // moment it exists. `apiErrorCode` returns null for any shape that is
+      // not the documented one, and the door falls back to generic on null.
+      handleAuthFailure(path, Boolean(token), apiErrorCode(detail));
     }
     throw new ApiError(
       response.status,
@@ -308,6 +342,9 @@ export async function requestBlob(
   }
 
   if (!response.ok) {
+    // No reason here, deliberately: this path returns a blob and never parses
+    // a JSON body, so there is no `detail` to read a code from. The generic
+    // door is the honest fallback rather than a guess.
     if (response.status === 401) handleAuthFailure(path, Boolean(token));
     throw new ApiError(response.status, friendlyMessage(response.status));
   }

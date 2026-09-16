@@ -78,6 +78,60 @@ describe("sessionExpiredDoor", () => {
     expect(sessionExpiredDoor(undefined)).toBe("/auth/session-expired");
     expect(sessionExpiredDoor("admin")).toBe("/auth/session-expired");
   });
+
+  /*
+   * Backend documents five 401 codes on all 176 authenticated operations and
+   * this client read none of them, so every ending was "you've been away for a
+   * while" - a statement about the child's behaviour, and false for three of
+   * the five.
+   */
+  it("sends a child whose account was closed to the paused screen", () => {
+    expect(sessionExpiredDoor("student", "account_paused")).toBe(
+      "/auth/account-paused",
+    );
+  });
+
+  it("sends a child signed out from elsewhere to the revoked screen", () => {
+    expect(sessionExpiredDoor("student", "session_revoked")).toBe(
+      "/auth/session-revoked",
+    );
+  });
+
+  it("sends a child who signed in on another device to that screen", () => {
+    expect(sessionExpiredDoor("student", "session_replaced")).toBe(
+      "/auth/session-ended",
+    );
+  });
+
+  it("leaves session_expired, invalid_session and anything unknown on the generic door", () => {
+    // `invalid_session` is a token that was never valid - corruption or
+    // tampering rather than anything that happened to the child - and no frame
+    // draws it. An unrecognised code is an older deployment or a proxy's error
+    // page, and guessing there tells a child the wrong thing about their own
+    // account.
+    expect(sessionExpiredDoor("student", "session_expired")).toBe(
+      "/auth/session-expired",
+    );
+    expect(sessionExpiredDoor("student", "invalid_session")).toBe(
+      "/auth/session-expired",
+    );
+    expect(sessionExpiredDoor("student", "something_new")).toBe(
+      "/auth/session-expired",
+    );
+    expect(sessionExpiredDoor("student", null)).toBe("/auth/session-expired");
+  });
+
+  it("keeps console roles on their own door whatever the reason", () => {
+    // `ConsoleSessionExpired` takes no reason yet and design has drawn only the
+    // revoked console variant. Routing a teacher to the child's paused screen
+    // would be worse than the generic door, not better.
+    expect(sessionExpiredDoor("teacher", "account_paused")).toBe(
+      "/auth/teacher/session-expired",
+    );
+    expect(sessionExpiredDoor("senco_admin", "session_revoked")).toBe(
+      "/auth/admin/session-expired",
+    );
+  });
 });
 
 describe("the auth latch", () => {
