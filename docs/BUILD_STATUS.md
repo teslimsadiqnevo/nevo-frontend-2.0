@@ -1109,29 +1109,33 @@ In the shared zone, run `git log -1 -- <file>` before editing to see who last mo
 it, and keep the diff minimal. Stage with explicit paths — never `git add -A`, which
 sweeps up whatever another session has in flight.
 
-### LIVE, UNPUSHED WORK IN THE ADMIN LANE — 16 Sep. Read before assigning.
+### LIVE WORK IN THE ADMIN LANE — 16 Sep. Read before assigning.
 
-**`fix/wire-catchup` is 2 commits ahead of `origin/main`, both dated today, and
-pushed to no remote.** It is checked out in the sibling worktree
-`nevo-2.0-admin`, so another session is in that lane right now:
+**`fix/wire-catchup` is now on the remote** at `929806c` — `origin/fix/wire-catchup`,
+pushed 16 Sep. It is 2 ahead of `origin/main` and **31 behind**, and it is checked
+out in the sibling worktree `nevo-2.0-admin`, so another session is in that lane:
 
 - `262d8fd fix(admin): a consent object is never absent…`
 - `929806c test(e2e): an admin suite against the seeded tenant…`
 
-It carries **`e2e/admin-signed-in.spec.ts`, which does not exist on `main`** —
-`ls e2e/` on main returns exactly four specs. So **do not commission an admin
-signed-in E2E spec**; it is written, it is just not pushed.
+It carries **`e2e/admin-signed-in.spec.ts` (224 lines), which is not on `main`
+yet** — so **do not commission an admin signed-in E2E spec**; it is written. It
+reads its credentials from `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` and SKIPS
+when they are unset, so a plain `npm run e2e` stays signed-out; `.env.example`
+documents the variables with empty values. No PR is open — that is the owning
+session's call, and the branch wants a merge from `main` first at 31 behind.
 
 Coordinate before touching `Students/StudentsView.tsx`,
 `Students/StudentDetailView.tsx`, `Compliance/ndpaClaims.ts` or anything under
-`e2e/` — all have same-day unpushed edits in that worktree. `git worktree list`
-shows who is where; `git log --oneline origin/main..<branch>` shows what they
-have that you do not.
+`e2e/` — all have same-day edits on that branch. `git worktree list` shows who is
+where; `git log --oneline origin/main..<branch>` shows what they have that you do
+not.
 
-**This is the same failure as a stale blocker, one day earlier in its life.** A
-branch nobody can see is indistinguishable from work nobody has done — and the
-answer to "what is left?" is wrong either way. Push early, even unfinished, or
-say here that you are holding it.
+**It was unpushed for most of the day, and that is the point of this section.** A
+branch nobody can see is indistinguishable from work nobody has done — it made
+"write an admin E2E spec" look like open work when it was finished. Same failure
+as a stale blocker, one day earlier in its life. **Push early, even unfinished,
+or say here that you are holding it.**
 
 ### Handoffs currently waiting
 
