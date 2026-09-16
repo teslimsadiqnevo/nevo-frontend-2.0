@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   OBSERVATION_COPY,
   observationCount,
@@ -15,7 +16,7 @@ import {
   useClassRoster,
 } from "@/hooks/useClassRoster";
 import { cn } from "@/lib/utils";
-import { ClassQrDialog, ClassQrScreen } from "./ClassQr";
+import { ClassQrDialog } from "./ClassQr";
 
 /**
  * A class the school assigned, drawn from what the backend actually serves:
@@ -42,8 +43,9 @@ import { ClassQrDialog, ClassQrScreen } from "./ClassQr";
  * design says what an observation row looks like here.
  */
 export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
-  const [qr, setQr] = useState<"none" | "dialog" | "screen">("none");
+  const [qr, setQr] = useState<"none" | "dialog">("none");
   const role = klass.role === "co_teacher" ? "Co-teacher" : "Primary teacher";
+  const router = useRouter();
   const { students, loading, failed } = useClassRoster(klass.classId);
   const observed = students.filter(
     (s) => s.profileStatus === "observed",
@@ -352,14 +354,18 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
           className={klass.className}
           code={klass.classCode}
           onClose={() => setQr("none")}
-          onProject={() => setQr("screen")}
-        />
-      )}
-      {qr === "screen" && klass.classCode && (
-        <ClassQrScreen
-          className={klass.className}
-          code={klass.classCode}
-          onClose={() => setQr("none")}
+          /*
+           * Projecting now NAVIGATES, where it used to swap local state for an
+           * overlay with no URL. Design's ruling for the standalone route is
+           * that teachers "project it, read it aloud and return to it", and a
+           * projection you cannot link or reopen fails the third of those: the
+           * teacher who closed it had to walk back through class detail and
+           * the dialog to get it up again.
+           *
+           * The route renders the same `ClassQrScreen`, so nothing about what
+           * is projected changes - only that it now has an address.
+           */
+          onProject={() => router.push(`/teacher/classes/${klass.classId}/code`)}
         />
       )}
     </div>

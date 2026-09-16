@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ClassStudent } from "@/lib/api/classes";
 
-const { useClassRoster, useTeacherFlags } = vi.hoisted(() => ({
+const { useClassRoster, useTeacherFlags, push } = vi.hoisted(() => ({
   useClassRoster: vi.fn(),
   useTeacherFlags: vi.fn(),
+  push: vi.fn(),
+}));
+
+// Added when "Show full screen" stopped being a local overlay and became a
+// navigation to /teacher/classes/{id}/code. Without this every test in the file
+// dies on "invariant expected app router to be mounted".
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push, replace: push, prefetch: vi.fn() }),
 }));
 
 vi.mock("@/hooks/useClassRoster", async (importOriginal) => ({
@@ -293,5 +301,40 @@ describe("whether the child can get in", () => {
 
     const mark = screen.getByText("Deactivated");
     expect(mark.className).not.toMatch(/violet|navy/);
+  });
+});
+
+/**
+ * Projecting the class code.
+ *
+ * "Show full screen" used to swap local state for an overlay with no URL, so a
+ * teacher who closed it had to walk back through class detail and the dialog to
+ * get it up again. Design's ruling for the standalone route is that teachers
+ * "project it, read it aloud and RETURN TO IT", and the third of those is the
+ * one an overlay cannot do.
+ *
+ * The route renders the same `ClassQrScreen`, so what is projected is unchanged.
+ */
+describe("projecting the class code", () => {
+  it("navigates to the class code route rather than opening an overlay", async () => {
+    render(<LiveClassDetail klass={klass} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Class code/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /Show full screen/i }));
+
+    expect(push).toHaveBeenCalledWith("/teacher/classes/c-1/code");
+  });
+
+  it("still opens the dialog from the class header", () => {
+    // The dialog is the in-console view and design kept it; only the
+    // projection moved to a URL.
+    render(<LiveClassDetail klass={klass} />);
+
+    expect(screen.queryByRole("button", { name: /Show full screen/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Class code/i }));
+
+    expect(screen.getByRole("button", { name: /Show full screen/i })).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
   });
 });
