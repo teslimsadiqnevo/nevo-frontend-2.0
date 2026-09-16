@@ -1951,7 +1951,7 @@ divergences (many at 1024x768, which is the breakpoint that gets forgotten), and
 backlog of "built to the frame, not quite" — worth working through before the
 design review, and now enumerated rather than guessed at.
 
-### Still buildable, not built — ELEVEN. This said NONE, and that was wrong.
+### Still buildable, not built — ELEVEN found, FIVE landed. This said NONE.
 
 **Corrected 16 Sep.** This heading read "NONE — the list is empty, everything
 remaining on the admin console is blocked on an endpoint". It was written 15 Sep,
@@ -1967,17 +1967,17 @@ that register.
 
 | # | what | where | size |
 |---|---|---|---|
-| 1 | **Nothing in the product can reset a student PIN.** `POST /api/v1/students/{student_id}/pin/reset` is deployed and tagged "school administration" — the same tag as `deactivate` and `restore`, which this console does consume. Grep returns TWO hits in all of `src/`, both docblock prose in `student/Auth/ForgotPinScreen.tsx:14,17`. **Zero callers.** The child's Forgot-PIN screen says "ask your teacher"; the teacher console has no such control and neither does D7b. `NotificationType` even carries `pin_reset_requested`, so the notification arrives with nowhere to act on it | `Students/StudentDetailView.tsx` | M |
-| 2 | **Profile photo is shipped and entirely unconsumed.** `grep -rn profileImageUrl src/` returns **0 across 681 files**, while `CurrentUserResponse.profileImageUrl` comes back on every `GET /users/me` the console already makes, `ProfilePatch.profileImageUrl` accepts it, and `POST /users/me/profile-photo` takes the multipart upload. `lib/api/users.ts:22-33` simply does not declare the field, so it is dropped on arrival | `lib/api/users.ts:22`, `Settings/AccountSettings.tsx` | M |
-| 3 | **A genuinely dead primary CTA.** "Request another account" is `<button type="button">` with no `onClick`, no handler, and no `<form>` anywhere in the file to catch it. Its own copy is "We'll add it at no charge - just ask", which needs no bespoke endpoint: `mailto:` or `feedbackApi.submit` (`feedback.ts:22`, deployed and consumed) satisfies it. Breaks this console's own law at `SettingsView.tsx:42-44` — "a settings screen that appears to save and does not is worse than one that admits the control is not built" | `Team/AdminTeamView.tsx:320` | S |
-| 4 | Getting-started **CONSENT** step can never tick. `studentsApi.list()` is already called in this same component at `:271` into `roster` and used only in the non-early branch; `AdminStudentRow.consent` carries the status. The fix is prescribed verbatim at `overviewGettingStarted.ts:44` and labelled `TODO (client, not api)` | `Overview/OverviewView.tsx:633` | S |
-| 5 | Getting-started **SIGN-IN** step can never tick. `overviewGettingStarted.ts:41-43` states the fix: add `ssoApi.status()` to the existing `Promise.all` with a `.catch(() => null)` like its two neighbours. Settles the "connect a provider" half only — "share your school code" stays unverifiable and MUST stay open | `Overview/OverviewView.tsx` | S |
-| 6 | Sidebar fixture identity, half-marked and ungated — see the retraction under ACTION NEEDED | `Shell/AdminSidebar.tsx:419` | S |
-| 7 | **The Compliance parental-rights claim has a source now.** `GET /api/v1/consents/rights-log` is live, paginated, filterable, and has **zero callers**; `resolvedAt === null` gives requests-in-progress. It already honours our own privacy constraint — `reasonRecorded` is a BOOLEAN, so a parent's free text never crosses the wire. Two caveats so this is not oversold: `ParentRightType` still has no `erasure` value, so this licenses a correctly-worded replacement rather than restoring the pulled text; and the op sits under the `consents` tag, so confirm admin scope first | `Compliance/ndpaClaims.ts:57` | M |
-| 8 | **Reports cohort selector — partly unblocked, and the stated reason is false.** The docblock asserts "every read behind this screen is school-wide with no cohort parameter at all". `GET /api/transformation-metrics` takes `scope` and `cohortId`, and `lib/api/analytics.ts:89` ALREADY types it. The other two reads do check out. The design argument may survive; the stated reason must stop being cited as a backend ask | `Reports/ReportsView.tsx:86` | S |
-| 9 | `reviewedByName` resolves client-side. `IepExportResponse` carries `reviewedByUserId`; `GET /api/v1/admin/team` is unpaged and returns names for every admin, and an IEP reviewer is an admin. Price the caveat first: that route is scope-gated, so a SENCo holding only `senco` may 403 — degrade to the date, which still beats "only ever name the reader" | `Senco/IepExporterView.tsx:512` | S |
-| 10 | The last fixture row on the Overview roll-up. The marker says "classes haven't run a lesson is the only one with no source"; `ClassStudentResponse.latestSessionAt` is typed at `lib/api/classes.ts:102` and already read by `useClassRoster.ts:59`. This is what deleting `overviewSample.ts` outright is waiting on | `Overview/overviewSample.ts:14` | M |
-| 11 | House copy rule, this lane's share. 25 `&ndash;`/`&mdash;` entities remain; the 14 Sep "no dashes in Nevo copy" ruling was applied to teacher and parent and skipped here | `components/admin/**` | S |
+| 1 | **DONE #420.** **Nothing in the product can reset a student PIN.** `POST /api/v1/students/{student_id}/pin/reset` is deployed and tagged "school administration" — the same tag as `deactivate` and `restore`, which this console does consume. Grep returns TWO hits in all of `src/`, both docblock prose in `student/Auth/ForgotPinScreen.tsx:14,17`. **Zero callers.** The child's Forgot-PIN screen says "ask your teacher"; the teacher console has no such control and neither does D7b. `NotificationType` even carries `pin_reset_requested`, so the notification arrives with nowhere to act on it | `Students/StudentDetailView.tsx` | M |
+| 2 | **v1.5 / out.** **Profile photo is shipped and entirely unconsumed.** `grep -rn profileImageUrl src/` returns **0 across 681 files**, while `CurrentUserResponse.profileImageUrl` comes back on every `GET /users/me` the console already makes, `ProfilePatch.profileImageUrl` accepts it, and `POST /users/me/profile-photo` takes the multipart upload. `lib/api/users.ts:22-33` simply does not declare the field, so it is dropped on arrival | `lib/api/users.ts:22`, `Settings/AccountSettings.tsx` | M |
+| 3 | **DONE #420.** **A genuinely dead primary CTA.** "Request another account" is `<button type="button">` with no `onClick`, no handler, and no `<form>` anywhere in the file to catch it. Its own copy is "We'll add it at no charge - just ask", which needs no bespoke endpoint: `mailto:` or `feedbackApi.submit` (`feedback.ts:22`, deployed and consumed) satisfies it. Breaks this console's own law at `SettingsView.tsx:42-44` — "a settings screen that appears to save and does not is worse than one that admits the control is not built" | `Team/AdminTeamView.tsx:320` | S |
+| 4 | **DONE #420.** Getting-started **CONSENT** step can never tick. `studentsApi.list()` is already called in this same component at `:271` into `roster` and used only in the non-early branch; `AdminStudentRow.consent` carries the status. The fix is prescribed verbatim at `overviewGettingStarted.ts:44` and labelled `TODO (client, not api)` | `Overview/OverviewView.tsx:633` | S |
+| 5 | **DONE #420.** Getting-started **SIGN-IN** step can never tick. `overviewGettingStarted.ts:41-43` states the fix: add `ssoApi.status()` to the existing `Promise.all` with a `.catch(() => null)` like its two neighbours. Settles the "connect a provider" half only — "share your school code" stays unverifiable and MUST stay open | `Overview/OverviewView.tsx` | S |
+| 6 | **DONE #420.** Sidebar fixture identity, half-marked and ungated — see the retraction under ACTION NEEDED | `Shell/AdminSidebar.tsx:419` | S |
+| 7 | **v1.5 / out.** **The Compliance parental-rights claim has a source now.** `GET /api/v1/consents/rights-log` is live, paginated, filterable, and has **zero callers**; `resolvedAt === null` gives requests-in-progress. It already honours our own privacy constraint — `reasonRecorded` is a BOOLEAN, so a parent's free text never crosses the wire. Two caveats so this is not oversold: `ParentRightType` still has no `erasure` value, so this licenses a correctly-worded replacement rather than restoring the pulled text; and the op sits under the `consents` tag, so confirm admin scope first | `Compliance/ndpaClaims.ts:57` | M |
+| 8 | **v1.5 / out.** **Reports cohort selector — partly unblocked, and the stated reason is false.** The docblock asserts "every read behind this screen is school-wide with no cohort parameter at all". `GET /api/transformation-metrics` takes `scope` and `cohortId`, and `lib/api/analytics.ts:89` ALREADY types it. The other two reads do check out. The design argument may survive; the stated reason must stop being cited as a backend ask | `Reports/ReportsView.tsx:86` | S |
+| 9 | **v1.5 / out.** `reviewedByName` resolves client-side. `IepExportResponse` carries `reviewedByUserId`; `GET /api/v1/admin/team` is unpaged and returns names for every admin, and an IEP reviewer is an admin. Price the caveat first: that route is scope-gated, so a SENCo holding only `senco` may 403 — degrade to the date, which still beats "only ever name the reader" | `Senco/IepExporterView.tsx:512` | S |
+| 10 | **v1.5 / out.** The last fixture row on the Overview roll-up. The marker says "classes haven't run a lesson is the only one with no source"; `ClassStudentResponse.latestSessionAt` is typed at `lib/api/classes.ts:102` and already read by `useClassRoster.ts:59`. This is what deleting `overviewSample.ts` outright is waiting on | `Overview/overviewSample.ts:14` | M |
+| 11 | **v1.5 / out.** House copy rule, this lane's share. 25 `&ndash;`/`&mdash;` entities remain; the 14 Sep "no dashes in Nevo copy" ruling was applied to teacher and parent and skipped here | `components/admin/**` | S |
 
 **Two documentation chores, an hour together.** `Students/StudentDetailView.tsx:54`
 opens with its own words *"TODO(api): BUILT, and this marker outlived it"* — strip
@@ -2050,45 +2050,110 @@ values and the first draft handled three, so a run the provider named
 attention. And the neutral "N imported" row was being counted in "N things worth
 a glance", telling a healthy school it had something to look at.
 
-### Blocked on backend, and NOT buildable at any velocity
+### THE ADMIN CONSOLE IS CLOSED AT v1 — 16 Sep
 
-These sat under "Still buildable" until 14 Sep, which was wrong in the way this
-console keeps being wrong: a heading that did not match its own contents. Two of
-the three rows said "Genuinely blocked" and "Blocked on…" in their own text.
+**Said plainly, because without this sentence the console keeps absorbing days.**
+It is the best-documented, best-specced surface in the product: 41 of 51 screens,
+the 74-finding design check closed, no stubs — 22 of 23 routes render real
+data-wired views and the 23rd is a deliberate scope-aware redirect. That makes
+progress here *feel* productive, which is exactly the trap. **Admin is not what
+stands between this product and a working one.**
+
+**What went in on the last day:** the four highest-impact items from the eleven
+above — a child locked out of Nevo can be given a new PIN (nothing in the product
+could), the sidebar stopped showing real admins an invented person, the dead
+"Request another account" button does something, and the last two getting-started
+rows tick from what the school actually did. Plus the admin signed-in E2E suite
+(#412), so these guarantees are asserted against something.
+
+**Deliberately OUT of v1, and not because anyone ran out of time:**
+
+- **Profile photo upload.** The capability is shipped and unconsumed, and it is
+  still the weakest value-per-hour on the list: a multipart upload with preview,
+  limits and failure states, for an avatar.
+- **Four cosmetic or marginal items** from the eleven: the 25 `&ndash;` entities,
+  `reviewedByName` via the team read, the Overview roll-up's last fixture row,
+  and the Reports cohort selector.
+- **Wiring `GET /consents/rights-log` into D22** (row 7). This is the one I would
+  reopen the console for if there is appetite, and it is named here rather than
+  left unspoken: it turns the Compliance parental-rights claim from a mechanism
+  with no number into a measured figure, and the endpoint was built to our own
+  privacy specification. Two reasons it is not in v1 — it needs a scope check
+  first (the op sits under the `consents` tag, not `oversight`), and D22's other
+  two claims stay unverifiable regardless, so the screen does not become whole.
+
+**That accounts for all eleven: five landed, six deliberately out.** No item is
+sitting in this list unspoken, which is the state that produced "NONE".
+- **Twelve backend-blocked items**, moved to v1.5 below rather than left on an
+  open list. *A blocked list that never shrinks stops being read as a decision
+  and starts being read as weather.*
+
+**Reopen this console for exactly three things:** a pre-launch row below landing,
+a defect a real school hits, or a design ruling that changes a screen. Not for
+the deferred list.
+
+### Blocked on backend — SPLIT INTO PRE-LAUNCH AND v1.5, 16 Sep
+
+This was one undifferentiated table, which meant fifteen items arrived at backend
+carrying equal weight — so the three that can hurt a school queued behind a
+six-year rate table nobody needs yet. **Three are pre-launch. One more is
+pre-launch and is not backend's at all. The rest are v1.5.**
+
+#### PRE-LAUNCH — three backend asks, and they are small
 
 | | |
 |---|---|
-| SENCo active support | The last of D8b's three, and the only one that really does cost a call per learner. Needs a list-scoped accommodations read. `GET /api/intelligence/accommodations/{student_id}` is the only route and takes no student list, so it is one call per learner. |
+| **`AcademicConfig.termStartDates` has `maxItems: 3`, and it LOSES DATA** | A four-term school has its fourth term start silently dropped — no 422, no warning — and is then invoiced on a calendar it did not choose. `SchoolSettings.tsx:508` renders an "Add a term" control for exactly that case, per SCRUM-99's "a quiet action for schools running four terms". Underneath it is a **product disagreement, not a schema nit**: the field description says *"Nigerian schools run three terms"*. Either answer is fine — raise the cap, or return a 422 and we pull the control. Silent truncation is the only outcome we cannot handle. |
+| **Nothing reads back whether an IEP was shared — SAFETY** | `IepExportShareResponse` exists as a schema; the only deployed op is `POST /exports/iep/{export_id}/share`. There is no GET, and `IepExportResponse` carries no shares. On reload a SENCo cannot tell whether a child's SEN report already reached a guardian, so the screen can neither confirm a send nor prevent a duplicate one. Ask: `GET /api/v1/exports/iep/{export_id}/shares` — no new schema, the record is already written and simply never read. |
+| **`SsoConnectionHealthResponse` has no certificate expiry — LOCKOUT** | `certificate` is 0 occurrences spec-wide. The schema carries six dates about the connection and not the one that ends it. A lapsed signing certificate does not degrade SSO, it **stops** it: every teacher and child at that school locked out on one morning, with nothing in the console having said it was coming. It is the only fully predictable lockout in the product and it is currently invisible. One nullable field: `certificateExpiresAt: string \| null`. |
+
+#### PRE-LAUNCH, AND NOT BACKEND'S — the DPA wording
+
+Filed here so it stops being counted as an API gap, which is how it has been
+read. **The blocker is counsel, not an endpoint.** `lib/mocks/dpa.ts` is
+labelled a placeholder on screen and carries `TODO(legal): replace wholesale
+when counsel returns the final wording`. The acceptance record shipped on 7 Sep
+and is sound — version, accepting administrator, timestamp.
+
+What backend's half would add is *drift protection*: SCRUM-39 asks for
+`GET dpa {version, html}` so the text comes from the server rather than our
+bundle. Without it, a school accepts "version X" and the words they read came
+from whatever our build contained. **Worth landing at the same time as counsel's
+copy, and pointless before it.**
+
+#### v1.5 — DEFERRED, DELIBERATELY
+
+These are real and none is urgent. They are recorded so nobody re-derives them,
+and they should not be worked before launch.
+
+| | |
+|---|---|
+| SENCo active support | The last of D8b's three. **A COST blocker, not a capability one** — the route exists and works; 247 profiles is 247 requests to paint one list. `GET /api/intelligence/flags` on the SAME router already takes `studentId/classId/limit/offset`, so this closes with a query parameter rather than a new resource. |
 | Assignment history proper | No actor on any assignment schema, and an ended assignment leaves no record (the DELETE returns no body, nothing carries `ended_at`). The dates shipped; the history cannot. |
 | Settings — 4 sections | Promotion, two-step sign-in, school address/logo/band, and profile email/role-title. No endpoint for any of them. |
 | `academicConfig` — the LABELS half only | Half of this row shipped; see the correction below. `termStartDates` is a validated schema field now. `yearGroupLabels` still rides on `additionalProperties: true`, so the map every screen reads through `yearGroupLabel` is a client-owned provisional contract. Lower priority than the three above it, and still worth settling before launch. |
 
 **All four rows above were re-probed against the live spec on 16 Sep and all four
-survive.** One reframe worth carrying to backend: **SENCo active support is a COST
-blocker, not a capability one.** The route exists and works; 247 profiles is 247
-requests to paint one list. `GET /api/intelligence/flags` on the SAME router
-already takes `studentId/classId/limit/offset`, so this closes with a query
-parameter rather than a new resource.
+survive.**
 
-#### ELEVEN MORE, none of which was on this table — added 16 Sep
+#### AND NINE MORE THE TABLE NEVER HAD — added 16 Sep, all v1.5
 
 The table was not merely stale, it was **materially incomplete**: every admin lane
 probed had at least one contract-blocked state nobody had written down, including
 an entire screen. Each row below was derived from the deployed document, not from
-a comment.
+a comment. The three that were urgent have been lifted out to PRE-LAUNCH above;
+what remains here is genuinely deferrable.
 
 | | |
 |---|---|
 | **D09 Reports — the whole screen** | **Zero** of 343 schemas match `/report/`, and the only report path in 188 is `GET /api/admin/compliance-audit/report.pdf`. `/admin/reports` currently serves D20 instead. An entire admin screen with no contract behind it, and it had never been listed. **L** |
-| **Nothing reads back whether an IEP was shared** | `IepExportShareResponse` exists as a schema but the only deployed op is `POST /exports/iep/{export_id}/share` — there is no GET, and `IepExportResponse` carries no shares. On reload a SENCo cannot tell whether a child's report already reached a guardian, so the screen can neither confirm nor prevent a second send. **Safety-relevant.** |
-| **`termStartDates` has `maxItems: 3`** | A four-term school has its fourth term start **silently dropped**, while Settings offers "Add a term" for exactly that case per SCRUM-99. Filed near the `yearGroupLabels` row and a different, worse problem: that one goes unvalidated, this one LOSES DATA. |
 | **No PDF route for an IEP export or a learner profile** | The only PDF in the whole API is the compliance audit's, so both D8b's "Export Profile as PDF" and the exporter's "Download PDF" are absent affordances. |
 | **`NotificationResponse` has no `category`** | `NotificationCategory` exists but is used only by preferences. Kills D13b's filter pill, the per-row label and category-scoped "Mark these as read". Three of SCRUM-100's six admin categories (roster, SSO, teacher) have no enum value at all. |
 | **Compliance: erasure and subprocessors** | `erasure` = 0 occurrences spec-wide and `ParentRightType` is `request_data \| object \| withdraw_consent`; `subprocessor` = 0. Two of D22's four claims stay unverifiable even after the rights-log read lands. |
 | **D19 invitations, three fields** | `InvitationResponse` has **no `classId`** (the CLASS column), **no created-at** (the "Invited 9 Jul" column), and `status` is `string \| null` with **no enum** — while `deliveryStatus` and `consentStatus` on the same schema ARE enums. |
 | **`JoinInspectionResponse` has no name** | `{status, role, schoolName, expiresAt}`, so D19's "Welcome, Amara" greeting on the public join link has no source. |
-| **Nothing queues parent consent for an INVITED student** | `POST /students/{id}/parent-consent-requests` needs a student uuid, and the contract never links an invite to one before acceptance nor mints a parent link from an invite's bare contact. The students these flows create are exactly the ones nobody can be asked about. |
-| **The DPA document TEXT** | `GET/POST /school/dpa-acceptance` shipped and returns the acceptance RECORD; nothing returns `{version, html}`, so the wording a school agrees to is still client-held. This is the unfinished half of the 6 Sep launch blocker and the row was being treated as closed. |
+| **Nothing queues parent consent for an INVITED student** | `POST /students/{id}/parent-consent-requests` needs a student uuid, and the contract never links an invite to one before acceptance nor mints a parent link from an invite's bare contact. **v1.5 rather than pre-launch, and the call is worth showing:** this looks statutory, because SCRUM-80 cites NDPA s31 and calls consent a launch blocker. It is a TIMING gap, not a hole — the moment a child accepts, they have a uuid and the request works. And SCRUM-80 also rules that Nevo is NOT the consent gate: a child may begin lessons either way, so a delay until acceptance costs the school a record, not a learner their lessons. If that ruling ever changes, this row moves up the same day. |
+| **The DPA document TEXT** | Moved to PRE-LAUNCH above, and re-filed: the blocker is **counsel**, not an endpoint. `lib/mocks/dpa.ts` is a labelled placeholder carrying `TODO(legal)`. Backend’s half (`GET dpa {version, html}`) is drift protection and is pointless before the final wording exists. |
 | **Overview period / date filter** | Nothing deployed carries a period or accepts a date filter for the five Overview figures, so SCRUM-39's period pill cannot be a control and every "this half-term" figure would be false. |
 
 *Also real, lower stakes:* `SchoolRegistrationResponse` carries no session token,

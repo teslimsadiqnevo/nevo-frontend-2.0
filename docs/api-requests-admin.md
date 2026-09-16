@@ -317,7 +317,7 @@ than anything else on this page.
 
 ---
 
-# Addendum 2 — 16 September 2026: eleven we never sent you
+# Addendum 2 — 16 September 2026: eleven we never sent you, three of which matter now
 
 The list above was not just stale, it was **incomplete**. A lane-by-lane probe of
 the deployed document (v2.0.0, 188 paths, 343 schemas, fetched fresh) found that
@@ -326,6 +326,40 @@ written down anywhere — including an entire screen and one bug that loses data
 
 None of this is new work you were asked for and deprioritised. It is work nobody
 told you about, because our own blocked list had four rows on it and stopped.
+
+---
+
+## READ THIS FIRST — only three of the fifteen are pre-launch
+
+Everything we have sent you across both addenda arrived carrying equal weight,
+which is our fault and makes your triage impossible. **Fifteen open asks. Three
+are pre-launch. The other twelve are v1.5 and we are not asking for them before
+launch** — they are written down so nobody re-derives them, not so they queue.
+
+**The three, and they are all small:**
+
+| # | ask | why it cannot wait | size |
+|---|---|---|---|
+| 1 | **Raise `AcademicConfig.termStartDates`' `maxItems: 3`, or 422 on the fourth** (§7a) | It **loses data today**. A four-term school's fourth term start is silently discarded and the school is then invoiced on a calendar it never chose. Silent truncation is the only outcome we cannot handle on our side. | one constraint |
+| 2 | **`GET /api/v1/exports/iep/{export_id}/shares`** (§7b) | **Safety.** A SENCo cannot tell whether a child's SEN report already reached a guardian, so the screen can neither confirm a send nor prevent a second disclosure. The record is already written by your own `POST`; nothing reads it back. | no new schema |
+| 3 | **`SsoConnectionHealthResponse.certificateExpiresAt: string \| null`** (Addendum 1 §5) | A lapsed signing certificate does not degrade SSO, it **stops** it — every teacher and child at that school locked out on one morning, with nothing having said it was coming. The only fully predictable lockout in the product, and currently invisible to us. | one nullable field |
+
+**Suggested order is exactly that order**, cheapest-with-teeth first. If only one
+lands before launch, make it #1: it is the only one of the three that is actively
+destroying something a school typed.
+
+**Explicitly NOT asking for before launch:** D09 Reports, IEP/profile PDF routes,
+notification `category`, compliance erasure and subprocessors, the D19 invitation
+fields, the join-link name, parent consent for invited students, the Overview
+period filter, SENCo active support, assignment history, Settings part one, and
+`academicConfig.yearGroupLabels`. All real. None urgent. Several are one field.
+
+**One correction on our side while we are here:** we previously implied the DPA
+document text was a backend gap. It is not — the blocker is our counsel returning
+final wording, and `lib/mocks/dpa.ts` says so in its own `TODO(legal)`. SCRUM-39's
+`GET dpa {version, html}` is worth having as drift protection so the words and the
+stored version cannot diverge, but it is **pointless before the final copy exists**
+and should land alongside it rather than now.
 
 ## 7 · The two that should jump the queue
 
