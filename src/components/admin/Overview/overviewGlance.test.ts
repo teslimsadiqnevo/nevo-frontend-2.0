@@ -55,12 +55,6 @@ describe("awaitingParentReply", () => {
     expect(awaitingParentReply(rows)).toBe(2);
   });
 
-  it("does not count a row that carried no consent record", () => {
-    const rows: AdminStudentRow[] = [
-      { ...student("a", "pending"), consent: null },
-    ];
-    expect(awaitingParentReply(rows)).toBe(0);
-  });
 });
 
 describe("learnersWithOpenFlags", () => {

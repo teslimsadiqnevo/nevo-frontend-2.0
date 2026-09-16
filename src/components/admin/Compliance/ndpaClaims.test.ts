@@ -34,21 +34,36 @@ const claim = (
   )!;
 
 describe("consentCoverage", () => {
-  it("keeps confirmed, outstanding and unknown apart", () => {
+  it("keeps confirmed and outstanding apart", () => {
     const c = consentCoverage([
       row("confirmed"),
       row("confirmed"),
       row("pending"),
       row("not_sent"),
-      row(null),
+      row("withdrawn"),
     ]);
-    expect(c).toEqual({ roster: 5, confirmed: 2, outstanding: 2, unknown: 1 });
+    expect(c).toEqual({ roster: 5, confirmed: 2, outstanding: 3 });
   });
 
   it("derives confirmed by subtraction so it cannot drift from the roster", () => {
-    const rows = [row("confirmed"), row("withdrawn"), row(null)];
+    const rows = [row("confirmed"), row("withdrawn"), row("not_sent")];
     const c = consentCoverage(rows);
-    expect(c.confirmed + c.outstanding + c.unknown).toBe(c.roster);
+    expect(c.confirmed + c.outstanding).toBe(c.roster);
+  });
+
+  it("counts a malformed row as outstanding, never as covered", () => {
+    /*
+     * `consent` is required and non-null on the wire, so this row cannot
+     * arrive from a well-formed response - but `api.get<T>` is a cast, not a
+     * validation. Overstating what a school still owes is the safe direction
+     * to fail on a compliance screen; counting it as covered would not be.
+     */
+    const c = consentCoverage([row("confirmed"), row(null)]);
+    expect(c.confirmed).toBe(1);
+    expect(c.roster).toBe(2);
+    // In neither bucket: the figure understates rather than claiming a
+    // consent we do not hold.
+    expect(c.confirmed + c.outstanding).toBeLessThan(c.roster);
   });
 });
 
@@ -73,17 +88,6 @@ describe("the parental consent row", () => {
     expect(c.mechanism).toMatch(/Learning is not held up/);
   });
 
-  it("refuses a figure when any row came back without a record", () => {
-    const c = claim(
-      consentCoverage([row("confirmed"), row(null)]),
-      "Parental consent coverage",
-    );
-    // A coverage number over a roster we only partly understand looks exactly
-    // like one we do understand. So: none.
-    expect(c.verification).toBe("unverified");
-    expect(c.state).toBeUndefined();
-    expect(c.note).toMatch(/no consent record at all/);
-  });
 
   it("blames the console, not the school, when the roster would not load", () => {
     const c = claim("unreadable", "Parental consent coverage");

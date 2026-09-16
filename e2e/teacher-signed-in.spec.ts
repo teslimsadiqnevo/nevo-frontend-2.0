@@ -81,12 +81,28 @@ async function signInAsTeacher(page: Page, request: APIRequestContext) {
   const body = await res.json();
   expect(body.role, "The E2E account must be a teacher").toBe("teacher");
 
+  /*
+   * camelCase, and this read snake_case until 16 Sep.
+   *
+   * `SessionResponse` is `{accessToken, tokenType, expiresAt, userId, role,
+   * replacedSession}` - all six required, all six renamed in the backend's
+   * 129-field sweep. This planted `token: undefined`, so the console mounted
+   * signed-OUT and rendered the very fixtures this suite exists to assert the
+   * absence of. It was invisible because the suite skips without credentials.
+   *
+   * `npm run contract` would not have caught it: that script scans `src/`,
+   * which is the whole client and none of the tests.
+   */
   const session = {
-    token: body.access_token,
-    expiresAt: body.expires_at,
-    userId: body.user_id,
+    token: body.accessToken,
+    expiresAt: body.expiresAt,
+    userId: body.userId,
     role: body.role,
   };
+  expect(
+    session.token,
+    "The login response carried no accessToken - has SessionResponse changed again?",
+  ).toBeTruthy();
 
   await page.context().addCookies([
     {

@@ -59,7 +59,7 @@ beforeEach(() => {
     row("Amara Okafor", withStatus("confirmed")),
     row("Chidi Eze", withStatus("withdrawn")),
     row("Ngozi Bello", withStatus("pending")),
-    row("Tunde Alao", null),
+    row("Tunde Alao", withStatus("not_sent")),
   ]);
 });
 
@@ -83,25 +83,33 @@ describe("the consent filter", () => {
     expect(visibleText(container)).toMatch(/Chidi Eze/);
   });
 
-  it("tells a missing record from one that says 'not asked'", async () => {
-    // A row that came back with no consent object is not the same as
-    // `not_sent`, and folding them would report a read gap as a school's own
-    // decision not to ask.
+  it("narrows to the families nobody has written to", async () => {
+    // `not_sent` is the state a student with no record comes back in. There is
+    // no separate "missing record" to tell it apart from: `consent` is
+    // required and non-null on the wire, confirmed against the spec 16 Sep.
     const { container } = render(<StudentsView />);
     await waitFor(() => expect(visibleText(container)).toMatch(/Tunde Alao/));
-
-    fireEvent.change(select(container, "Any consent"), {
-      target: { value: "none" },
-    });
-    await waitFor(() => expect(visibleText(container)).not.toMatch(/Ngozi/));
-    expect(visibleText(container)).toMatch(/Tunde Alao/);
 
     fireEvent.change(select(container, "Any consent"), {
       target: { value: "not_sent" },
     });
     await waitFor(() =>
-      expect(visibleText(container)).not.toMatch(/Tunde Alao/),
+      expect(visibleText(container)).not.toMatch(/Ngozi Bello/),
     );
+    expect(visibleText(container)).toMatch(/Tunde Alao/);
+  });
+
+  it("offers no option that can never match a row", () => {
+    // A "no record at all" option shipped for a day and could not match
+    // anything, which reads as a school with nothing in that state.
+    const { container } = render(<StudentsView />);
+    return waitFor(() => {
+      const options = Array.from(container.querySelectorAll("option")).map(
+        (o) => o.value,
+      );
+      expect(options).toContain("not_sent");
+      expect(options).not.toContain("none");
+    });
   });
 });
 

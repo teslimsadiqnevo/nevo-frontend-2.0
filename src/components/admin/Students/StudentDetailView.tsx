@@ -320,12 +320,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                   </p>
                 );
               })()
-            ) : (
-              <p className="m-0 mt-1.5 text-[13.5px] leading-[1.55] text-nevo-near-black/62">
-                This read didn&rsquo;t carry a consent state, so this is not a
-                record that none was given.
-              </p>
-            )}
+            ) : null}
           </div>
           <ConsentPill consent={student.consent} />
         </div>

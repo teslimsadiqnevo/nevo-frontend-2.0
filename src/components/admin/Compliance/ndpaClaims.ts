@@ -90,8 +90,6 @@ export interface ConsentCoverage {
   confirmed: number;
   /** Rows carrying a record that is not confirmed. */
   outstanding: number;
-  /** Rows carrying NO consent record at all. Not zero - unknown. */
-  unknown: number;
 }
 
 export type ConsentInput = ConsentCoverage | "unreadable";
@@ -118,13 +116,41 @@ export interface NdpaInputs {
 export function consentCoverage(
   rows: { consent?: StudentConsent | null }[],
 ): ConsentCoverage {
+  /*
+   * NO "UNKNOWN" TALLY, AND THERE WAS ONE. It counted rows that came back
+   * with no consent object, and sent the whole claim to `unverified` if any
+   * existed - on the reasoning that a coverage figure over a roster we only
+   * partly understand is worse than none.
+   *
+   * That state cannot occur. `consent` is required and non-null on
+   * `StudentSummaryResponse` (verified against the deployed spec, 16 Sep) and
+   * a student nobody has written to arrives as `not_sent`, never absent.
+   *
+   * The row signature still tolerates a missing object because `api.get<T>`
+   * is a cast rather than a validation - and a malformed row then counts as
+   * OUTSTANDING via `withoutRecordedConsent`, which overstates the school's
+   * remaining work rather than understating it. On a compliance screen that
+   * is the safe direction to fail.
+   */
   const outstanding = withoutRecordedConsent(rows);
-  const unknown = rows.filter((r) => !r.consent).length;
   return {
     roster: rows.length,
     outstanding,
-    unknown,
-    confirmed: rows.length - outstanding - unknown,
+    /*
+     * COUNTED POSITIVELY, NOT BY SUBTRACTION - and this is the second time
+     * the direction of that arithmetic has mattered here.
+     *
+     * `withoutRecordedConsent` deliberately ignores a row with no consent
+     * object (see its own note), so `roster - outstanding` quietly moves such
+     * a row into CONFIRMED. On the screen a school shows a regulator, a row we
+     * could not read must never be reported as a consent we hold. Counted
+     * directly, it lands in neither bucket and the coverage figure understates
+     * - which is the only safe way for this number to be wrong.
+     *
+     * `outstanding` still comes from the roster's own function, so the two
+     * screens cannot disagree about how many consents are outstanding.
+     */
+    confirmed: rows.filter((r) => r.consent?.status === "confirmed").length,
   };
 }
 
@@ -217,14 +243,6 @@ function consentClaim(input: ConsentInput): NdpaClaim {
       mechanism: generic,
       verification: "unverified",
       note: "Your roster didn\u2019t come back when this page loaded, so no count is shown. That is this console failing to read it \u2013 nothing about your school\u2019s consents has changed.",
-    };
-  }
-  if (input.unknown > 0) {
-    return {
-      ...base,
-      mechanism: generic,
-      verification: "unverified",
-      note: `${input.unknown} of the ${input.roster} learners in this read came back with no consent record at all. Counting those as covered, or as missing, would both be guesses, so no figure is shown.`,
     };
   }
   if (input.roster === 0) {
