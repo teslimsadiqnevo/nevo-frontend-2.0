@@ -58,7 +58,28 @@ export function LiveRecommendSheet({
   suggestion?: string | null;
   onClose: () => void;
 }) {
-  const { cards, live } = useLessonLibrary();
+  /**
+   * `sample` and `loading` were both dropped here, and that was the bug.
+   *
+   * `useLessonLibrary` returns eight FIXTURE_CARDS whenever the read is in
+   * flight OR has failed. This sheet destructured only `{cards, live}`, so a
+   * signed-in teacher whose library read failed was offered "Solving Linear
+   * Equations", "Comprehension: Things Fall Apart" and six more as though they
+   * were their own, with no sample notice. The honest-empty branch below is
+   * `cards.length === 0`, which eight fixtures make unreachable, so the "we
+   * couldn't reach your library" copy that already existed never once rendered.
+   *
+   * This sheet is mounted only by `LiveStudentProfile`, which is signed-in
+   * only, so fixtures here are never the designed walkthrough - they are always
+   * leakage.
+   *
+   * NOT MARKED WITH `SampleRegion` LIKE THE LIBRARY SCREEN, but withheld. The
+   * library screen shows samples behind a notice because reading them is
+   * harmless. Here the teacher would ACT on one: pressing Recommend posts the
+   * fixture's slug id where the contract wants a uuid, so the send 422s. A
+   * lesson you cannot send is not worth offering behind a caveat.
+   */
+  const { cards, live, loading } = useLessonLibrary();
   const [choice, setChoice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -139,7 +160,21 @@ export function LiveRecommendSheet({
         Which lesson
       </p>
 
-      {cards.length === 0 ? (
+      {loading ? (
+        <div className="mt-3 flex flex-col gap-2">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="h-[52px] animate-pulse rounded-[10px] bg-nevo-cream-elevated"
+            />
+          ))}
+        </div>
+      ) : !live || cards.length === 0 ? (
+        /*
+         * One branch for both, keyed on `live` for the wording. Previously this
+         * tested `cards.length === 0` alone, which the fixture cards made
+         * unreachable - so the failure copy below has never been on screen.
+         */
         <p className="mt-3 text-[14px] leading-[1.55] text-nevo-near-black/62">
           {live
             ? `Your library is empty, so there is nothing to send ${firstName} yet. Upload a lesson and it will appear here.`
