@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useHasSession } from "@/hooks/useHasSession";
+import { useHydrated } from "@/hooks/useHydrated";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { notificationsApi } from "@/lib/api/notifications";
@@ -147,6 +148,15 @@ export function AdminSidebar() {
   const { scopes, resolved, status, refresh } = usePermissions();
   const identity = useCurrentUser();
   const signedIn = useHasSession();
+  /*
+   * `useHasSession` is the SERVER's answer until hydration, and its server
+   * snapshot is hardcoded false - so gating the fixture persona on it alone
+   * put "Mrs. Adebayo" in the server markup and the first client frame of a
+   * genuinely signed-in admin. Every student surface added this guard for the
+   * same reason; this rail had not.
+   */
+  const hydrated = useHydrated();
+  const showingFixtureIdentity = hydrated && !signedIn;
   /*
    * Desktop opens expanded, tablet collapsed - which `AdminShell`'s docblock
    * has claimed since it was written ("tablet 1024x768 with the rail
@@ -406,58 +416,29 @@ export function AdminSidebar() {
           expanded ? "px-3" : "justify-center",
         )}
       >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-nevo-navy text-[13px] font-semibold text-nevo-cream">
-          {signedIn && identity?.initials ? (
-            identity.initials
-          ) : signedIn ? (
-            // No name means no initials; a neutral glyph beats a blank disc.
-            <svg {...GLYPH} width={17} height={17} strokeWidth={1.9} aria-hidden>
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 20a8 8 0 0 1 16 0" />
-            </svg>
-          ) : (
-            "AA"
-          )}
-        </span>
-        {expanded &&
-          (signedIn ? (
-            /*
-              * THE ADMIN'S OWN NAME, WHICH THIS BLOCK NEVER SHOWED.
-              *
-              * It rendered a generic person glyph over a scope summary, so the
-              * one place in the console that says who you are said only what
-              * you may do - while the teacher console, using the same hook,
-              * has shown a name and initials since 1 Sep. The justification
-              * recorded in this file for not doing it had already been
-              * corrected elsewhere and was out of date.
-              *
-              * The scope line stays underneath: it is the second thing an
-              * admin checks here, not the first, and it is what distinguishes
-              * two admins at the same school.
-              */
-            <span className="flex min-w-0 flex-col text-left">
-              {identity?.name ? (
-                <span className="truncate text-sm font-semibold text-nevo-near-black">
-                  {identity.name}
-                </span>
-              ) : null}
-              <span
-                className={cn(
-                  "truncate",
-                  identity?.name
-                    ? "text-xs text-nevo-near-black/55"
-                    : "text-sm font-semibold text-nevo-near-black",
-                )}
-              >
-                {scopesFailed ? "Couldn't load your access" : scopeSummary(scopes)}
-              </span>
+        {/*
+          * THE WHOLE FIXTURE IDENTITY IS INSIDE THE MARK NOW, INCLUDING THE
+          * DISC. It used to wrap the name block alone, and that block only
+          * renders when `expanded` - so on a collapsed rail the entire
+          * invented identity a viewer met was the bare initials "AA", outside
+          * the mark and invisible to the E2E's `[data-nevo-sample]` count.
+          * The rail collapses below 1280px and EVERY admin frame is drawn at
+          * 1024, so the unmarked half was the half the console actually
+          * shipped.
+          *
+          * It is also gated on `hydrated` now, like every student surface.
+          * `useHasSession` returns its server snapshot - false - through SSR
+          * and the hydration render, so a genuinely signed-in admin's first
+          * frame rendered "Mrs. Adebayo - Proprietor" before settling. Until
+          * the client can answer, this shows neutral chrome and claims
+          * nothing: no name, no initials, no invented person.
+          */}
+        {showingFixtureIdentity ? (
+          <SampleRegion kind="admin:sidebar-identity">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-nevo-navy text-[13px] font-semibold text-nevo-cream">
+              AA
             </span>
-          ) : (
-            /* The signed-out persona is a FIXTURE - "Mrs. Adebayo" is nobody.
-               Marked so the end-to-end suite can assert a signed-in admin never
-               meets it: this is the identity block, so a fallback here means the
-               console is showing an invented person to a real one. */
-            <SampleRegion kind="admin:sidebar-identity">
+            {expanded ? (
               <span className="flex min-w-0 flex-col text-left">
                 <span className="truncate text-sm font-semibold text-nevo-near-black">
                   Mrs. Adebayo
@@ -466,8 +447,58 @@ export function AdminSidebar() {
                   Proprietor &middot; General oversight
                 </span>
               </span>
-            </SampleRegion>
-          ))}
+            ) : null}
+          </SampleRegion>
+        ) : (
+          <>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-nevo-navy text-[13px] font-semibold text-nevo-cream">
+              {identity?.initials ? (
+                identity.initials
+              ) : (
+                // No name means no initials; a neutral glyph beats a blank
+                // disc. This is also the pre-hydration state, which is the
+                // point: neutral rather than invented.
+                <svg {...GLYPH} width={17} height={17} strokeWidth={1.9} aria-hidden>
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 20a8 8 0 0 1 16 0" />
+                </svg>
+              )}
+            </span>
+            {expanded ? (
+              /*
+                * THE ADMIN'S OWN NAME, WHICH THIS BLOCK NEVER SHOWED.
+                *
+                * It rendered a generic person glyph over a scope summary, so the
+                * one place in the console that says who you are said only what
+                * you may do - while the teacher console, using the same hook,
+                * has shown a name and initials since 1 Sep. The justification
+                * recorded in this file for not doing it had already been
+                * corrected elsewhere and was out of date.
+                *
+                * The scope line stays underneath: it is the second thing an
+                * admin checks here, not the first, and it is what distinguishes
+                * two admins at the same school.
+                */
+              <span className="flex min-w-0 flex-col text-left">
+                {identity?.name ? (
+                  <span className="truncate text-sm font-semibold text-nevo-near-black">
+                    {identity.name}
+                  </span>
+                ) : null}
+                <span
+                  className={cn(
+                    "truncate",
+                    identity?.name
+                      ? "text-xs text-nevo-near-black/55"
+                      : "text-sm font-semibold text-nevo-near-black",
+                  )}
+                >
+                  {scopesFailed ? "Couldn't load your access" : scopeSummary(scopes)}
+                </span>
+              </span>
+            ) : null}
+          </>
+        )}
       </button>
 
       {signedIn && scopesFailed && expanded && (
