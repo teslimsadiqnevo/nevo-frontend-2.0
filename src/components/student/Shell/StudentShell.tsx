@@ -16,6 +16,8 @@ import { useHydrated } from "@/hooks/useHydrated";
 import { useSessionLapse } from "@/hooks/useSessionLapse";
 import { useSessionRefresh } from "@/hooks/useSessionRefresh";
 import { flushPendingProgress } from "@/lib/lessons/pendingProgress";
+import { flushPendingBaseline } from "@/lib/profiling/pendingBaseline";
+import { getSession } from "@/lib/auth/session";
 import { MOCK_STUDENT, STUDENT_NAV } from "./studentNav";
 import { useDisplayName } from "./useDisplayName";
 
@@ -97,6 +99,22 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
    */
   useEffect(() => {
     void flushPendingProgress();
+    /*
+     * And anything the daily warm-up could not save.
+     *
+     * `WarmUpRun` parks a refused vector and its comment claimed this was
+     * "already called on every student screen". It was not: the only callers
+     * were the two inside onboarding, which a returning child never runs
+     * again. So a warm-up a child sat on a bad connection had no delivery path
+     * at all, and the seven-day expiry - which only runs when the record is
+     * read - never ran either. A named child's cognitive measurements sat on
+     * the device indefinitely.
+     *
+     * No run id is passed, so this can only ever deliver a vector that carries
+     * its owner. An anonymous onboarding vector is refused here and stays for
+     * the run that created it.
+     */
+    void flushPendingBaseline(getSession()?.userId);
   }, []);
   const { textSize } = useAccessibility();
   // The chrome calls the student by their own name, not the fixture's.

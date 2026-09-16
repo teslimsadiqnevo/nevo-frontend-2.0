@@ -101,6 +101,24 @@ export interface JoinLookup {
   expiresAt: string;
 }
 
+/** 201 of `POST /join/{token}/accept`. See `acceptJoin` for why each field is here. */
+export interface JoinAccepted {
+  userId: string;
+  role: string;
+  /** The only identifier the next sign-in will recognise. Null is possible. */
+  loginIdentifier: string | null;
+  /** Where the school's consent for this child stands the moment they join. */
+  consentStatus?: ConsentStatus | null;
+  /** Identical to `SessionResponse`; absent on any deployment older than 16 Sep. */
+  session?: {
+    accessToken: string;
+    tokenType: string;
+    expiresAt: string;
+    userId: string;
+    role: string;
+  } | null;
+}
+
 export const invitesApi = {
   /** Every invitation, newest handling first. `status` narrows server-side. */
   list: (status?: string) =>
@@ -147,7 +165,34 @@ export const invitesApi = {
   lookupJoin: (token: string) =>
     api.get<JoinLookup>(`/api/v1/join/${token}`),
 
-  /** PUBLIC. Redeem the invitation and become an account. */
+  /**
+   * PUBLIC. Redeem the invitation and become an account.
+   *
+   * `session` AND `consentStatus` LANDED 16 SEP and this module declared
+   * neither, so both were erased by the return type before any caller could
+   * read them - the same failure that dropped `note` off `Assignment`. The
+   * session is the identical `SessionResponse` shape `auth/login/pin` returns,
+   * and backend holds the two together with a test, so they cannot drift.
+   *
+   * Until it was read, an invite-link child finished onboarding with no token:
+   * their first lesson, their progress and their parked baseline were all
+   * attributed to nobody. That was the recorded launch blocker.
+   *
+   * BOTH OPTIONAL, deliberately. Neither is in the `required` list of the
+   * deployed schema and neither declares a default, so typing them as
+   * guaranteed would encode a promise the document does not make - and invite
+   * `res.session.accessToken` at a call site, which throws against any
+   * deployment older than today.
+   *
+   * THE SESSION IS NOT STORED HERE, and that is the one place this differs
+   * from `authApi.completeAccount`, which stores its own so no route can
+   * forget to. This endpoint serves TWO flows: the teacher half
+   * (`SetPasswordForm`) redeems the same link with a password and then signs
+   * in with the address on it. Storing a session inside the call would hand
+   * that flow a post-condition it does not want, on a lane this change does
+   * not own. So each caller stores what it needs; the student path does it in
+   * `ObservedInteractionSequence`.
+   */
   acceptJoin: (
     token: string,
     payload: {
@@ -156,9 +201,5 @@ export const invitesApi = {
       firstName?: string | null;
       lastName?: string | null;
     },
-  ) =>
-    api.post<{ userId: string; role: string; loginIdentifier: string | null }>(
-      `/api/v1/join/${token}/accept`,
-      payload,
-    ),
+  ) => api.post<JoinAccepted>(`/api/v1/join/${token}/accept`, payload),
 };

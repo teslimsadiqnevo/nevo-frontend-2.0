@@ -35,9 +35,18 @@ export function ProfilingFlow({
   onDone,
 }: {
   track?: TrackEvent;
-  /** The whole flow is complete - carry on to the Consent Gate. */
-  onDone: () => void;
+  /**
+   * The whole flow is complete - carry on to the Consent Gate.
+   *
+   * `runSessionId` is the capture session this run parked its vector under, or
+   * null if nothing was parked. The caller hands it back to
+   * `flushPendingBaseline`, which is what proves the vector belongs to the
+   * child who just sat it rather than to whoever used this device last.
+   */
+  onDone: (runSessionId: string | null) => void;
 }) {
+  /** The capture session this run parked, if it parked one. */
+  const parkedRunRef = useRef<string | null>(null);
   const [phase, setPhase] = useState<
     | "intro"
     | "m1"
@@ -118,6 +127,9 @@ export function ProfilingFlow({
        * is still purged the moment it has been reduced.
        */
       holdBaseline(c.sessionId, features);
+      // Remembered so the account this run goes on to create can prove the
+      // vector is its own. Nothing else may send it.
+      parkedRunRef.current = c.sessionId;
       void c.purge();
       track?.(ONBOARDING_SIGNAL_TYPES.BASELINE_SUBMITTED, {
         modules: features.map((f) => f.module),
@@ -243,5 +255,10 @@ export function ProfilingFlow({
     );
   }
 
-  return <ProfilingIntro mode="complete" onContinue={onDone} />;
+  return (
+    <ProfilingIntro
+      mode="complete"
+      onContinue={() => onDone(parkedRunRef.current)}
+    />
+  );
 }

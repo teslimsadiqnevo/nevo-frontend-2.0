@@ -8,6 +8,7 @@ import { ArrowRight, Check } from "lucide-react";
 import { cn, randomId } from "@/lib/utils";
 import { baselineApi } from "@/lib/api";
 import { holdBaseline } from "@/lib/profiling/pendingBaseline";
+import { getSession } from "@/lib/auth/session";
 import {
   BASELINE_DIMENSIONS,
   type BaselineDimension,
@@ -116,15 +117,26 @@ export function WarmUpRun({
        * on every student screen - delivers it later against a session provably
        * this child's.
        */
+      /*
+       * WHOSE WARM-UP THIS IS, recorded at the moment it is parked.
+       *
+       * A warm-up is sat by a child who is already signed in, so unlike the
+       * onboarding run there IS an id to write down - and writing it down is
+       * what stops this vector being delivered to the next child who onboards
+       * on this tablet. The guard that used to prevent that relied on the
+       * device having no session for the new account, which stopped being true
+       * when the invite path began storing one.
+       */
+      const owner = getSession()?.userId ?? null;
       void baselineApi
         .submitWithRetry(capture.sessionId, features)
         .then((ok) => {
           setSaved(ok);
-          if (!ok) holdBaseline(capture.sessionId, features);
+          if (!ok) holdBaseline(capture.sessionId, features, owner);
         })
         .catch(() => {
           setSaved(false);
-          holdBaseline(capture.sessionId, features);
+          holdBaseline(capture.sessionId, features, owner);
         })
         // The RAW stream is purged either way - only the reduced vector ever
         // travels, and it must not linger on the device. What is parked above
