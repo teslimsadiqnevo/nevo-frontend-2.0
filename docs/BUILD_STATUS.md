@@ -1015,7 +1015,7 @@ console. **Everything the console-wide lists called "still buildable" really is
 empty** — these four are what is left that is neither built nor blocked on an
 endpoint, and none of them is a screen.
 
-**1. The sign-in door is FIXED and merged — do not build it again.**
+**1. The sign-in door is FIXED — #405. Do not build it again.**
 `AdminSignIn.tsx` mapped every 401 and 403 to "We couldn't sign you in with
 those details. Check them and try again", then relabelled the primary button
 "Try again". A paused administrator typing the CORRECT password was told to
