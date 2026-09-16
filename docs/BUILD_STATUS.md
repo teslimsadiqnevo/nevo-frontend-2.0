@@ -444,13 +444,15 @@ the mark exists at all is that a gate can regress:
   `ProfileSettings.tsx:172` and `:214`, which is page content and so sits outside
   `StudentShell`'s wrapper.
 
-**AND THE TEST THAT WOULD ENFORCE ANY OF THIS DOES NOT EXIST FOR EITHER LANE.**
-`e2e/` holds `landing-pinned`, `public-pages`, `route-guards` and
-`teacher-signed-in` — there is no student or admin signed-in spec at all, and
-`data-nevo-sample` is asserted on only in `public-pages.spec.ts:168` and
-`teacher-signed-in.spec.ts`. Marking is necessary and it is not sufficient: until
-a signed-in spec exists for these two lanes, a perfect set of marks is asserted
-against by nothing.
+**THE TEST THAT ENFORCES THIS NOW EXISTS FOR ADMIN, AND STILL NOT FOR STUDENT.**
+`e2e/admin-signed-in.spec.ts` landed 16 Sep (#412), so the admin marks are
+asserted against something at last. **The STUDENT lane has no signed-in spec** —
+`e2e/` holds `landing-pinned`, `public-pages`, `route-guards`,
+`teacher-signed-in` and `admin-signed-in`, and `data-nevo-sample` is asserted on
+in the latter three. Marking is necessary and it is not sufficient: until a
+student signed-in spec exists, that lane's marks are asserted against by nothing
+— which matters most there, because the unmarked notification bell above is the
+one that reaches a real child.
 
 **HOW THIS WENT WRONG, because the method is the actual defect.** The claim was
 built by grepping the lane for `fixture` and `sample` — which is what the
@@ -1109,33 +1111,38 @@ In the shared zone, run `git log -1 -- <file>` before editing to see who last mo
 it, and keep the diff minimal. Stage with explicit paths — never `git add -A`, which
 sweeps up whatever another session has in flight.
 
-### LIVE WORK IN THE ADMIN LANE — 16 Sep. Read before assigning.
+### THE ADMIN LANE HAS A SIGNED-IN E2E SUITE NOW — landed 16 Sep, #412.
 
-**`fix/wire-catchup` is now on the remote** at `929806c` — `origin/fix/wire-catchup`,
-pushed 16 Sep. It is 2 ahead of `origin/main` and **31 behind**, and it is checked
-out in the sibling worktree `nevo-2.0-admin`, so another session is in that lane:
+**`fix/wire-catchup` is merged and gone.** The session that wrote it stopped, so
+it was brought up from 33 behind `main` (clean, no conflicts, no dependency
+change) and landed rather than handed back. The worktree `nevo-2.0-admin` is
+detached and free.
 
-- `262d8fd fix(admin): a consent object is never absent…`
-- `929806c test(e2e): an admin suite against the seeded tenant…`
+**`e2e/admin-signed-in.spec.ts` is on `main` — 224 lines.** Before this the admin
+console had no signed-in end-to-end test at all; `e2e/` held four specs and none
+signed in as an admin. **This is what makes the rest of this console's guarantees
+checkable**, the `data-nevo-sample` assertion above all — the difference between
+"the suite is green" and "the suite is green while a real admin is shown invented
+data".
 
-It carries **`e2e/admin-signed-in.spec.ts` (224 lines), which is not on `main`
-yet** — so **do not commission an admin signed-in E2E spec**; it is written. It
-reads its credentials from `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` and SKIPS
-when they are unset, so a plain `npm run e2e` stays signed-out; `.env.example`
-documents the variables with empty values. No PR is open — that is the owning
-session's call, and the branch wants a merge from `main` first at 31 behind.
+It reads `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` and **SKIPS when they are
+unset**, so a plain `npm run e2e` stays signed-out and read-only. `.env.example`
+documents the variables with empty values. The seeded tenant is school code
+`NEVO-E2E`, whose admin holds all seven scopes.
 
-Coordinate before touching `Students/StudentsView.tsx`,
-`Students/StudentDetailView.tsx`, `Compliance/ndpaClaims.ts` or anything under
-`e2e/` — all have same-day edits on that branch. `git worktree list` shows who is
-where; `git log --oneline origin/main..<branch>` shows what they have that you do
-not.
+Also landed: `a consent object is never absent` — `StudentsView`,
+`StudentDetailView`, `ndpaClaims` and `lib/api/students.ts` stop describing a
+state the contract cannot produce, since `consent` is required on both
+`StudentSummaryResponse` and `StudentDetailResponse`.
 
-**It was unpushed for most of the day, and that is the point of this section.** A
-branch nobody can see is indistinguishable from work nobody has done — it made
-"write an admin E2E spec" look like open work when it was finished. Same failure
-as a stale blocker, one day earlier in its life. **Push early, even unfinished,
-or say here that you are holding it.**
+**The lesson this section was written for still stands.** The branch sat
+unpushed in a worktree for most of a day, which made "write an admin E2E spec"
+look like open work when it was finished — a branch nobody can see is
+indistinguishable from work nobody has done, and the answer to "what is left?" is
+wrong either way. It is the same failure as a stale blocker, one day earlier in
+its life. **Push early, even unfinished, or say here that you are holding it.**
+`git worktree list` shows who is where; `git log --oneline origin/main..<branch>`
+shows what they have that you do not.
 
 ### Handoffs currently waiting
 
@@ -1978,8 +1985,9 @@ the prefix so it stops being counted as a blocker. `Team/AdminTeamView.tsx:44`
 states in its own text that the endpoint "is deployed and typed" and ends "Needs
 design"; it is a `TODO(design)`, filed under `TODO(api)`.
 
-**Do NOT commission an admin signed-in E2E spec.** It exists, written, on the
-unpushed branch `fix/wire-catchup` — see the coordination note in Handoffs.
+**The admin signed-in E2E spec is DONE and on `main`** (#412, 16 Sep) — it was
+written, then sat unpushed in a worktree for a day. Do not write another; extend
+that one.
 
 **Why this heading was wrong for a day, and how to not repeat it.** Three of the
 eleven above are recorded as open in this repo's own files, including one this
