@@ -97,8 +97,13 @@ const lesson = (seg: ContentSegment): LessonDetailResponse =>
     modules: [],
   }) as unknown as LessonDetailResponse;
 
-const calcOf = (seg: ContentSegment) =>
-  lessonFromContent(lesson(seg)).segments[0];
+const calcOf = (seg: ContentSegment) => {
+  const built = lessonFromContent(lesson(seg));
+  if (!built) throw new Error("the adapter refused the whole lesson");
+  const first = built.segments[0];
+  if (!first) throw new Error("the adapter dropped the segment entirely");
+  return first;
+};
 
 describe("a generated calculation", () => {
   it("gives every step ITS OWN answer, not the whole problem's", () => {
@@ -174,7 +179,7 @@ describe("a calculation this app cannot honestly mark", () => {
     expect(built.calculationVariant).toBeUndefined();
     expect(built.modalities).not.toContain("interactive");
     // And the segment is still a lesson.
-    expect(built.text.body.default).toContain("letters");
+    expect(built.text?.body.default).toContain("letters");
   });
 
   it("refuses a selection step with fewer than two options", () => {
