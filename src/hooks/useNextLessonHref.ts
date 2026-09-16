@@ -1,6 +1,7 @@
 "use client";
 
 import { useHasSession } from "./useHasSession";
+import { isOpenToStudent } from "@/lib/lessons/availability";
 import { useStudentDashboard } from "./useStudentDashboard";
 import { FIRST_LESSON_ID } from "@/lib/mocks";
 
@@ -38,7 +39,15 @@ export function useNextLessonHref(): string {
   // Signed out: the designed walkthrough, where the demo lesson is the point.
   if (!signedIn) return `/student/lessons/${FIRST_LESSON_ID}`;
 
-  const assigned = data?.assignments.find((a) => a.status !== "completed");
+  /*
+   * This read `a.status !== "completed"`, which can never be false -
+   * `AssignmentStatus` is "assigned" | "cancelled". So the button took the
+   * FIRST assignment whatever its state, and could hand a child straight into
+   * a lesson their teacher had called off, or one that opens on Friday. It is
+   * the button at the end of onboarding and after the warm-up, so it is the
+   * first lesson many children ever open.
+   */
+  const assigned = data?.assignments.find((a) => isOpenToStudent(a));
   return assigned
     ? `/student/lessons/${assigned.lesson.id}`
     : "/student/lessons";

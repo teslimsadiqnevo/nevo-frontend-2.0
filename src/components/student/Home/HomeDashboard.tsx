@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { isOpenToStudent } from "@/lib/lessons/availability";
 import { BookOpen, Clock, Play, Shapes } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { EmptyState, IllustrationWrapper } from "@/components/shared";
@@ -124,7 +125,28 @@ export function HomeDashboard() {
   let encouragement = ENCOURAGEMENT;
   if (signedIn) {
     if (live) {
-      const byLesson = new Map(live.assignments.map((a) => [a.lesson.id, a]));
+      /*
+       * FILTERED ONCE, HERE, BECAUSE THIS SCREEN BUILDS TWO LISTS FROM IT.
+       *
+       * Today's lessons is the obvious one. The other is the Pick Back Up card,
+       * which crosses recentProgress against this map - and it was the worse
+       * leak of the two: Today's list excludes whatever is on the continue card
+       * BY ID, so a cancelled lesson a child had already started did not merely
+       * survive, it was promoted out of the small grid into the single biggest
+       * card on the screen.
+       *
+       * Filtering the array both lists come from closes both, and cannot be
+       * half-applied later.
+       *
+       * The old filter below read `a.status !== "completed"`, which is a
+       * comparison that can never be false: `AssignmentStatus` is
+       * "assigned" | "cancelled" and has no "completed" member. `Assignment`
+       * types the field as a plain `string`, so nothing stopped it being
+       * written and typecheck will not stop it coming back - only the tests
+       * will.
+       */
+      const open = live.assignments.filter((a) => isOpenToStudent(a));
+      const byLesson = new Map(open.map((a) => [a.lesson.id, a]));
       const ip = [...live.recentProgress]
         // `exited` counts. A child who deliberately left a lesson is still
         // partway through it - the status records HOW they left, not whether
@@ -163,8 +185,8 @@ export function HomeDashboard() {
             }
           : null;
       const contId = cont ? cont.lessonId : null;
-      today = live.assignments
-        .filter((a) => a.status !== "completed" && a.lesson.id !== contId)
+      today = open
+        .filter((a) => a.lesson.id !== contId)
         .map((a) => ({
           lessonId: a.lesson.id,
           title: a.lesson.title,

@@ -6,6 +6,7 @@ import type {
   LessonStatus,
   LessonSummary,
 } from "@/components/student/Lessons/lessonCatalog";
+import { isOpenToStudent } from "@/lib/lessons/availability";
 import { useStudentDashboard } from "./useStudentDashboard";
 
 /**
@@ -63,27 +64,40 @@ export function useStudentLessons(): StudentLessons {
       }
     }
 
-    return data.assignments.map<LessonSummary>((a) => {
-      const row = latest.get(a.lesson.id);
-      const status = statusFrom(row?.status);
-      const count = a.lesson.segmentCount;
-      // Coarse on purpose, like Home: whether segmentPosition is 0- or
-      // 1-based is unstated, so this may be off by a segment. It drives a
-      // bar, never a number shown to a child.
-      const progress =
-        status === "in_progress" && row && count > 0
-          ? Math.max(0, Math.min(1, row.segmentPosition / count))
-          : undefined;
+    /*
+     * A cancelled assignment is not this child's lesson, and one that opens on
+     * Friday is not yet. Neither was filtered here at all - this was a bare
+     * `.map`, so every assignment the dashboard returned became a card.
+     *
+     * It matters more on this screen than on Home, because the Lessons tab is
+     * the child's whole list: the empty state ("nothing has been assigned yet")
+     * is gated on this array, so a child whose only assignment was cancelled
+     * was never told their list was empty - they were shown the cancelled
+     * lesson instead.
+     */
+    return data.assignments
+      .filter((a) => isOpenToStudent(a))
+      .map<LessonSummary>((a) => {
+        const row = latest.get(a.lesson.id);
+        const status = statusFrom(row?.status);
+        const count = a.lesson.segmentCount;
+        // Coarse on purpose, like Home: whether segmentPosition is 0- or
+        // 1-based is unstated, so this may be off by a segment. It drives a
+        // bar, never a number shown to a child.
+        const progress =
+          status === "in_progress" && row && count > 0
+            ? Math.max(0, Math.min(1, row.segmentPosition / count))
+            : undefined;
 
-      return {
-        id: a.lesson.id,
-        lessonId: a.lesson.id,
-        title: a.lesson.title,
-        timeEstimate: `${count} ${count === 1 ? "section" : "sections"}`,
-        status,
-        ...(progress !== undefined ? { progress } : {}),
-      };
-    });
+        return {
+          id: a.lesson.id,
+          lessonId: a.lesson.id,
+          title: a.lesson.title,
+          timeEstimate: `${count} ${count === 1 ? "section" : "sections"}`,
+          status,
+          ...(progress !== undefined ? { progress } : {}),
+        };
+      });
   }, [data]);
 
   if (!data) return { lessons, live: false, loading, failed };
