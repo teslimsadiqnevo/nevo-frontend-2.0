@@ -1,7 +1,12 @@
 # Console inventory — what is undone
 
-**Teacher and parent consoles. Re-verified 16 Sep 2026 against `main` @ `d0ae9fd` and the
-deployed spec (v2.0.0, 188 paths, 343 schemas, 205 operations).**
+**All three consoles.** Teacher and parent re-verified 16 Sep 2026 against `main` @
+`d0ae9fd`; the student console surveyed 16 Sep against `main` @ `bd4b89c`. Both against the
+deployed spec (v2.0.0, 188 paths, 343 schemas, 205 operations).
+
+**The student half is at the bottom of this file and carries its own verification caveat.
+Read that before quoting a LIVE verdict from it — it was not verified to the same standard
+as the teacher rows.**
 
 *A stamp naming a commit is worth more than a date. If `git rev-parse origin/main` no longer
 returns the SHA above, some of what follows is older than the code.*
@@ -591,3 +596,271 @@ the rename was **surgical, not blanket**:
 
 The last two points are open questions with backend, not settled design. The contract gate
 caught all of this within minutes of the first merge, which is the argument for it.
+
+---
+
+# Student console
+
+**Surveyed 16 Sep 2026** against `main` @ `bd4b89c`, the same deployed spec (v2.0.0, 188
+paths, 343 schemas), and the four backend deliveries of 16 Sep. 198 reachable states were
+enumerated and consolidated into the table below.
+
+**Read this caveat first.** The teacher and parent halves of this file were adversarially
+verified row by row. The student half was not, evenly. The verification pass was cut off
+partway, so **onboarding and home/progress were fully re-checked, sign-in partly, and the
+player, the lesson ending, profiling, Connect/profile/shell and the data layer carry
+single-pass verdicts.** Every claim deciding a BACKEND or DESIGN attribution in those
+areas was then re-checked by hand against the deployed spec, and that much is verified —
+but an unqualified LIVE in the player or profiling sections is one agent's reading. Treat
+it as "probably" and re-check before building on it.
+
+## The headline
+
+**The student console is not complete, and the gap is no longer where this repo has been
+recording it.** Three things are true as of 16 Sep and none of them is a screen:
+
+1. **A child can get in, learn, and finish.** The entrance, the player and — since
+   15 Sep — the ending all work on real content. None of that was true a week ago.
+2. **Delivery D removed the excuse.** The library holds three parsed lessons across three
+   subjects and three year groups, each with a recap, four assessment questions and
+   `comprehensionCheckpoints` on the wire. Every surface recorded as "waiting for content"
+   is now waiting for us.
+3. **The largest single gap is one unwritten adapter.** `calculationVariant` has **no
+   mapper anywhere in the repo**. `LessonPlayer.tsx:91` and `:1238` both require
+   `segment.calculationVariant && segment.calculation`, and nothing ever sets
+   `calculation` from the wire — so the co-construction solver, the most distinctive
+   screen in the product, cannot render for any real lesson. The JSS3 Maths lesson's two
+   calculation segments draw as plain text today.
+
+**The recurring shape is unchanged, and it is the thing to grep your own lane for: a field
+the backend writes that nothing reads.** This survey found eleven — `modules`, `note`,
+`highlights`, `assignmentId`, `conceptId`, `explanation`, `subject`, `estimatedMinutes`,
+`blocked`, `session` on the join accept, and the five 401 codes. They are not cosmetic.
+The teacher's note never reaches the child it was written for; `modules` being absent from
+the client's `LessonDetailResponse` makes every lesson open fetch the same data twice; and
+`conceptId` being dropped one step from the screen is the whole reason per-concept results
+were filed as a backend blocker they never were.
+
+## Student console
+
+| Screen | Verdict | What is missing | Blocked by | Size |
+|---|---|---|---|---|
+| Welcome + teacher-invite sheet | LIVE | — | NONE | — |
+| Name & age (Step 1) | LIVE | — | NONE | — |
+| School code (Step 2) | LIVE | — (free-length and bounded from the contract; refused and "we couldn't check" get different sentences) | NONE | — |
+| Class confirmation — verified school | LIVE | — (searchable list, single-class auto-skip and the empty-roster route are all live) | NONE | — |
+| Class confirmation — no verified school | FIXTURE-ONLY | `/student/onboarding/class` is open to anyone (`proxy.ts:104`), so a bookmark or a typed URL shows a real child **fourteen invented class names** (`ClassConfirmationStep.tsx:37-52`). Tapping one writes `classId: undefined` and 422s three screens later. A test currently pins the fixture behaviour, so this is a ruling to make, not a bug to quietly fix | DESIGN | S |
+| Teacher Join — class code | LIVE | — | NONE | — |
+| Teacher Join — QR scan | PARTIAL | The **primary** button on the welcome sheet opens no camera: `TeacherJoin.tsx:112-167` is four CSS bracket spans over a dark box, and a repo-wide grep for `getUserMedia`, `BarcodeDetector`, `<video>` and `jsQR` finds nothing but comments. The teacher's QR does encode a full URL, so the device's own camera app works — nobody has ruled whether that is the accepted path | DESIGN | M |
+| Transition + PIN creation | LIVE | — (the shared-tablet PIN bug is fixed: onboarding intent decides, not whether a token happens to be present) | NONE | — |
+| PIN creation — "that didn't save" | PARTIAL | The message names the PIN for three failures that have nothing to do with it: a dead invite token, a 422 from `connectClassCode` on an empty draft, and a missing `onboardingToken`. A child retypes a correct PIN forever | FRONTEND | S |
+| "You're In" — device remembered | LIVE | — | NONE | — |
+| "You're In" — device cannot remember | PARTIAL | Built on a premise that has expired: `GET /api/v1/users/me` returns `school.code`, so once Delivery A's session is stored the school code is fetchable and this branch is unnecessary | FRONTEND | S |
+| **First lesson — invite-link child** | **NOT BUILT** | **Delivery A shipped `session` on `JoinAcceptedResponse` today and this repo does not declare it.** `invites.ts:160` types neither `session` nor `consentStatus`, and `ObservedInteractionSequence.tsx:117` stores nothing — so an invite-link child still ends onboarding with no token. Declare both, then `setSession` exactly as `completeAccount` does at `auth.ts:142-149`. The teacher console calls the same endpoint and is unaffected | FRONTEND | S |
+| Dead or expired join link | NOT BUILT | `WelcomeScreen`'s `linkError` prop has **no caller** — `page.tsx:22` passes `joinToken` alone. A child who opens a dead link directly walks four screens of onboarding and learns at PIN creation that their PIN "didn't save" | FRONTEND | S |
+| Signed-in child re-enters onboarding | NOT BUILT | No bounce. `/student/onboarding` sits in `PRE_AUTH_STUDENT_ROUTES` (`proxy.ts:69`) and returns before the `isStudent` check ever runs; the two bounces that exist (`proxy.ts:126-131`) cover `/auth/login` and `/auth/sign-in` only. **This is the route one child's baseline reached another child's account through** — `pendingBaseline.ts:16-21` names it. Bounce the ROOT only; the step routes are what create the session | FRONTEND | S |
+| SSO transition + PIN variants | NOT BUILT | `method` does not survive a reload, so an SSO child who refreshes is dropped into the manual PIN flow with an empty draft, which 422s | FRONTEND | M |
+| PIN unlock — all five states | LIVE | — (lock screen, wrong PIN, throttled, our fault, and the device-remembers-nobody case) | NONE | — |
+| Account on pause, at sign-in | LIVE | — | NONE | — |
+| Forgot PIN | LIVE | — (the frame is informational by design; `auth/pin/reset` is deliberately uncalled) | NONE | — |
+| Returning sign-in, new device | LIVE | — (built 14 Sep; the username-as-display-name leak fixed 15 Sep) | NONE | — |
+| Session expired door | LIVE | — | NONE | — |
+| **Signed in elsewhere / revoked / paused mid-session** | **NOT BUILT** | **Delivery C landed five codes on 176 operations and not one is read.** A child whose account is PAUSED mid-lesson, who is signed out by a teacher, or who signs in on another tablet is told their session "ran out". `AccountOnPauseScreen` already exists and takes no props; frame `28a Session Ended - Revoked` has existed since 10 Sep. The change is to pass the parsed `detail` from `client.ts:244` into `handleAuthFailure` and branch on it. **`client.ts` is shared by all three consoles, so this is the one place it can be done once** | FRONTEND | M |
+| `invalid_session` | NOT BUILT | The one of the five where leaving the child on the expired door is defensible. No frame draws it | DESIGN | S |
+| Shared classroom tablet | PARTIAL | `nevo.auth.profile` is a single slot, so the second child to sign in displaces the first. Design's answer is frame 28c — up to six children, first name and avatar only, ageing out at thirty days — and **that frame does not exist in the design repo**; only `28` and `28a` are there | DESIGN | M |
+| SSO sign-in (start + callback) | NOT BUILT | `SsoStartRequest` requires `provider: microsoft \| google`, and nothing a signed-out child can call names a school's vendor — `SchoolCodeResponse.authMethod` is only `email_password \| pin \| sso`. Children at an SSO school cannot sign in at all | BACKEND | M |
+| Player shell, resume, text segment | LIVE | — (resume waits on both reads, so it no longer races the position write that used to destroy it) | NONE | — |
+| Audio segment | LIVE | — (real playback; the clip-won't-load state is honest) | NONE | — |
+| Inline quick check | LIVE | — (`comprehensionCheckpoints` carried at `fromContent.ts:198`; the miss path teaches rather than just marking) | NONE | — |
+| Scaffold indicator | LIVE | — (per-segment `scaffolding` from the live adapt call) | NONE | — |
+| Visual segment | FIXTURE-ONLY | Neither our schema nor our code: `VisualVariant` is complete and correct, but **image generation returns 400 on every lesson today**, so `visualVariant` is null library-wide and the JSS2 lesson's `visual_diagram` segment renders as text. Backend has a diagnostic fix deployed; one re-run will name the cause | BACKEND (content) | — |
+| **Calculation solver** | **FIXTURE-ONLY** | **No mapper exists.** Nothing anywhere reads `LessonSegmentResponse.calculationVariant` into a `CalculationSegment`; `LessonPlayer.tsx:91,1238` require both and only the mock ever sets `calculation`. The client type is also behind the wire — `variants.ts:89-96` declares six fields where the deployed `CalculationStep` adds **`answer`, `options`, `unit`, `visualUpdate`, `equationState`, `narrationAudio`**. Per-step `answer` must drive each step: mapping the variant-level answer across all three steps of `5x - 4 = 2x + 11` renders "5" for every one, and only the last is right | FRONTEND | **L** |
+| Calculation — the visual scaffold | FIXTURE-ONLY | Nobody has decided what the scaffold is for a calculation that is not two like fractions. The deployed `CalculationVariant` has no `{kind, parts, rows}` — it carries `scaffoldImage` (a generated picture) and a per-step `visualUpdate` string | DESIGN | M |
+| Interactive segment | FIXTURE-ONLY | Two different objects sharing a name. The wire is a QUESTION — `InteractiveVariant` is `{type, prompt, expectedInteraction, options, answerKey, instructions}` — and the player draws tickable STEPS with an outcome. `expectedInteraction` defaults to `teacher_review`, which hints the payload may not be student-facing at all. No student code reads `interactiveVariant`; only the teacher's variant review does | DESIGN | M |
+| Reading-density toggle | FIXTURE-ONLY | No reshape exists on the wire: `TextVariant` carries `body` and `keyPoints` and nothing else, and the engine's `DensityLevel` is a different axis that `adaptation.ts:93-98` deliberately refuses to translate. The bar is absent entirely on live content | BACKEND | M |
+| Module boundary screen | PARTIAL | **`modules` is a REQUIRED property of `LessonDetailResponse` and the client interface omits it** (`lessons.ts:114-135`), so it is erased by the type and `useStudentLesson.ts:197-201` fetches it again — every lesson open costs two requests for data the first one already returned. The same failure that dropped `note` from `Assignment` | FRONTEND | S |
+| Break offer + break screen | PARTIAL | The screen is live and engine-driven; what it observes is discarded. `break_start`, `break_end` and `feeling_checkin` are **not in the deployed `SignalEventType`** (27 values, checked in full), so `signals.ts:53-96` partitions them out. The consolidation break asks a child how they are feeling and sends nothing | BACKEND | S |
+| Affective layer — boredom, confusion, frustration, anxiety | FIXTURE-ONLY | There is no affective transport at all: `affect`, `emotion`, `frustration`, `boredom`, `anxiety`, `confusion` and `socratic` return **zero matches across all 188 paths and 343 schemas**. Nothing to map and no endpoint that would carry one | BACKEND | L |
+| Modality suggestion pill | PARTIAL | Structurally unreachable today — the pill needs a segment with two renderable channels, and with `visualVariant` null library-wide that reduces to text and audio only | BACKEND (content) | S |
+| Lesson error, empty, cancelled, not-yet-open | LIVE | — (cancelled and not-yet-open shipped today, #402) | NONE | — |
+| "No such lesson" (deleted or wrong id) | PARTIAL | The hook already computes `missing`; `LessonRoute` destructures `failed`, `empty` and `unavailable` and not it. One branch, and `LessonMessage` is already the component | FRONTEND | S |
+| Lesson complete | LIVE | — (including the "we couldn't save that" state) | NONE | — |
+| After-lesson check-in | LIVE | — (intro and question; `assessmentFor` refuses anything it cannot honestly mark) | NONE | — |
+| Check-in — a miss | PARTIAL | The authored teaching line is on the wire and thrown away one step from the screen. `ComprehensionCheckpoint.explanation` exists, `toQuickCheck` reads it into `correctNote` (`checkpoints.ts:152-154`), and `assessmentFor` maps only `{prompt, options, correctId}` (`fromContent.ts:310-317`) | FRONTEND | S |
+| Growth result — per concept | PARTIAL | The same discard, at higher cost: `ComprehensionCheckpoint.conceptId` and `.conceptName` ride every question and are already typed (`checkpoints.ts:35-36`), and `assessmentFor` drops them — so the result can only tell *all* from *none*. This was filed as a BACKEND blocker ("questions carry no concept id"); **that is false against the deployed spec** | FRONTEND | M |
+| Growth result — nothing landed | PARTIAL | Heading and body are ours, flagged unsigned-off in the file itself | DESIGN | S |
+| Lesson summary — recap and "what you covered" | LIVE | — (`covered` derived from `conceptName` across the assessment and the segments' own checkpoints) | NONE | — |
+| Summary — "From the check-in" list | FIXTURE-ONLY | Needs no endpoint: `conceptName` rides every checkpoint, and the child's own picks are already on the device in `reviewStore.ts:16-27` | FRONTEND | S |
+| Summary — live lesson with no recap | PARTIAL | The route does not apply the gate the player already applies (`LessonPlayer.tsx:826-830`), so a lesson with no summary opens a near-empty screen | FRONTEND | S |
+| Review answers — with the child's picks | LIVE | — | NONE | — |
+| Review answers — without them (new tab, next day) | PARTIAL | **No assessment-attempt endpoint exists in the 188 paths.** Attempts live in `sessionStorage`; the only per-answer write is `POST /api/mastery/update`, which is a mastery update rather than an attempt store, and is itself uncalled | BACKEND | M |
+| Review session (spaced retrieval) | PARTIAL | `POST /api/scheduler/record-review` is deployed, needs only `{studentId, conceptId, recallSuccessful}`, and has **no typed client method at all**. The `conceptId` is in hand at the entrance and discarded — `SubjectDetail.tsx:372-378` builds the href from `review.playable` and keeps only the lesson id. The "there is no question to ask" reasoning expired with Delivery D: every lesson now carries four | FRONTEND | M |
+| Home — pick back up and today's lessons | PARTIAL | **The teacher's note is on the wire and thrown away.** `AssignmentResponse.note` is typed at `assignments.ts:44` and rides the dashboard read in; every `note` in `HomeDashboard.tsx` is the local progress bucket ("Nearly there"), and the Today mapping drops `a.note` entirely. The teacher's confirmation promises "She'll see your note when she opens it" and a test guards that wording | FRONTEND | S |
+| Home — empty and failed states | LIVE | — | NONE | — |
+| Lessons tab — the grid | PARTIAL | `subject` and `estimatedMinutes` are on `LessonSummaryResponse`, already typed (`lessons.ts:50,58`), and shown nowhere. With three subjects in the library this is now visible to a child | FRONTEND | S |
+| Lessons tab — empty states | PARTIAL | A status chip alone empties the grid and the child is told their **search** found nothing, under a "Clear search" button that resets only the query and leaves the chip active. The screen cannot be recovered without knowing to tap the chip again | FRONTEND | S |
+| Lesson preview sheet | PARTIAL | Two of the frame's three facts are on the wire and unused; only the plain-language description has no field anywhere in the spec | FRONTEND; BACKEND (description) | S |
+| Progress tab | PARTIAL | `highlights` is a **REQUIRED** `string[]` on `StudentProgressResponse`, is carried to the screen (`useStudentProgress.ts:130`) and is rendered nowhere in the student console. It is a student-level list and the only nearby slot is a per-subject card, so mapping it by index would be fabrication — it needs a designed slot | DESIGN | S |
+| Progress tab — "nothing to show yet" | PARTIAL | `ConceptProgressResponse.subject` is nullable and `lessons` is a separate required array, so a child who has finished lessons but whose concept rows carry no subject is told there is nothing to show — and their history becomes unreachable | FRONTEND | S |
+| **Subject detail** | **PARTIAL** | **"Lessons you've done" is the whole-student history under one subject's heading.** `SubjectDetail.tsx:105` passes `lessons={live.lessons}`, which `useStudentProgress.ts:116-124` takes unfiltered from the student-wide progress read. With one lesson in the library nobody could see this; with three subjects they will | FRONTEND | S |
+| Subject detail — "Ready for another look" chips | LIVE | — (the review-session entrance, wired 15 Sep) | NONE | — |
+| Session detail sheet | FIXTURE-ONLY | Addressing, not shape — and **the same blocker as teacher item 0b**: `GET /students/{student_id}/sessions/{session_id}` wants a uuid and nothing a child can read returns one | BACKEND | M |
+| Connect — threads, conversation, reply, send states | LIVE | — | NONE | — |
+| Connect — unread dot | PARTIAL | `POST /api/messages/threads/{id}/read` is deployed, typed, and called by the teacher console. `useStudentThreads` exposes no equivalent, so the dot never clears | FRONTEND | S |
+| Connect — start a new conversation | NOT BUILT | `MessageRecipientType` is `{student, class}` with no `teacher` value, so the only thread-creating call cannot address one. **Deliberate**: access IS the thread, so a child may write where they can already read and cannot start a conversation | BACKEND (by design) | — |
+| Ask Nevo — drawer, answer, voice input | PARTIAL | `lessonId` is structurally always null, so a child stuck inside a lesson cannot have an answer scoped to it; `currentPage` is the only context sent | FRONTEND | S |
+| Ask Nevo — conversation history | NOT BUILT | Nothing is missing from backend: all three thread endpoints are deployed and consumed elsewhere, and `ThreadSummary` / `ThreadTranscript` are already typed with the windowing the frame describes | FRONTEND | M |
+| Ask Nevo — "can't help, ask your teacher" | FIXTURE-ONLY | `AskNevoAnswer` carries no boundary or handoff field, so nothing on the wire can say "hand this to a teacher" | BACKEND | S |
+| Downloads tab | NOT BUILT | Both endpoints are deployed and unused; the missing half is the device — a Service Worker and a Cache API store. Hidden from signed-in children, honestly | FRONTEND | L |
+| Profile and settings, sign-out, feedback | LIVE | — | NONE | — |
+| Profile — avatar selector | NOT BUILT | Nothing to ask for: frame 27 draws eight swatches of the child's own initials, a local look rather than a photo upload, and `/api/settings/me` already carries `displayName` | FRONTEND | S |
+| Change PIN | PARTIAL | Frame 27 draws three steps beginning "Enter your current PIN". `PinUpdateRequest` is `{pin, onboardingToken, firstName, lastName, age}` and **no `currentPin`, `oldPin` or `verifyPin` exists anywhere in the spec**. Either an ask, or a ruling that a signed-in child re-entering their PIN is not required | BACKEND; DESIGN | S |
+| Notification bell and feed | PARTIAL | Nothing marks anything read: there is no student caller for `markRead`, the row click just closes the panel, and the context exposes no method | FRONTEND | S |
+| Shell — sidebar, bottom nav, top bar | PARTIAL | The mobile top-bar avatar is an inert `<span>` where the frames make it the profile entry; the bottom nav renders six items where the frame draws five | FRONTEND | S |
+| Rotate prompt | LIVE | Working as ruled ("portrait only, v1") and **there is no escape** — no dismiss, no override, no stored preference. A tablet mounted on a wheelchair tray, or one with rotation locked, has no route into Nevo at all. SEND-relevant rather than hypothetical | DESIGN | S |
+| Offline takeover, error boundary, session door | LIVE | — | NONE | — |
+| Baseline intro and Modules 1–3 | LIVE | — (scoring fixed 11 Sep; the submit is parked until the session provably belongs to the child who sat it) | NONE | — |
+| Module 2B — Arrow Flanker, P1-3 | PARTIAL | Two trials are tagged `congruency: "incongruent"` with no flankers on screen to be incongruent with. Either draw them for P1-3 or record `congruency: "none"` | FRONTEND | S |
+| Module 3 — P1-3 audio activity | PARTIAL | A **system** `speechSynthesis` voice reads to six-year-olds in a calibration activity. A large improvement on silence, and not what anyone designed; raised 11 Sep and still unanswered | DESIGN | S |
+| Module 4 — Domain Probe | PARTIAL | No item transport exists: the only baseline content operation is `GET /api/baseline/recalibrate-prompt/{student_id}`, returning `{dimension}` and nothing else. Items are authored mocks | BACKEND | M |
+| Baseline complete | PARTIAL | The honest failure state exists and is unreachable — `ProfilingIntro.tsx:147-149` renders it on `saved === false` and nothing ever passes false. The daily warm-up does this correctly, so the pattern is already in the repo | FRONTEND | S |
+| Daily warm-up card | PARTIAL | There is no done state anywhere: the card is byte-identical before and after, and a child can re-sit and re-submit the warm-up any number of times a day | DESIGN | S |
+| Daily warm-up run | PARTIAL | One fixed stimulus with a fixed answer per dimension ("Different", "True", "Right", "Two-thirds"); the only per-day variation the wire offers is *which* dimension | BACKEND | M |
+| **Warm-up — a refused write** | **PARTIAL** | **A parked vector is never sent.** A refused write calls `holdBaseline`, and `flushPendingBaseline` has exactly two call sites in the repo, both inside onboarding — which a returning child never runs again. The measurement is held on the device forever | FRONTEND | S |
+| Scaffolding that responds to the child | NOT BUILT | A whole deployed subsystem with no client module: `POST /api/intelligence/scaffolds/attempt`, `GET .../state/{student_id}/{concept_id}` and `GET .../history/{student_id}` are all unused, and no file in `src/lib/api` touches them | FRONTEND | M |
+| Completion write — `assignmentId` | PARTIAL | `ProgressWrite.assignmentId` is typed at `lessons.ts:217` and **sent by nothing**. The id is already in memory from the dashboard read, so progress cannot be tied back to the assignment that caused it | FRONTEND | S |
+
+## S-A. Buildable today — priority order
+
+Nothing on this list is waiting for anybody. The first four are the ones that change what
+a child experiences rather than what a screen looks like.
+
+1. **Store the session an invite-link child is now handed.** Delivery A, today. Declare
+   `session` and `consentStatus` on `acceptJoin` (`invites.ts:160`) and `setSession` from
+   it. Until this lands, every invite-link child finishes onboarding unauthenticated, and
+   everything downstream of that — their first lesson, their progress, their baseline —
+   is attributed to nobody. **S, and it was the recorded launch blocker.**
+2. **Read the five 401 codes.** Delivery C, today. One change at `client.ts:244` →
+   `handleAuthFailure`, then branch: `account_paused` to the screen that already exists,
+   `session_revoked` to the frame that has existed since 10 Sep, `session_replaced` to
+   frame 28. **`client.ts` is shared by all three consoles, so doing it here delivers the
+   teacher console's list-A item 9 at the same time.** **M**
+3. **Write the calculation adapter.** Delivery B, today. Type the six `CalculationStep`
+   fields the wire now carries, then write `segmentFor`'s calculation branch. Per-step
+   `answer` drives each step; a numeric answer stays a number so nothing parses it back,
+   and a string stays a string so `3/4` does not stop being a fraction; `expectedInput`
+   picks the control; a selection or drag step now always has at least two `options`.
+   **This is the one item that turns a screen the product is sold on from unreachable
+   into live.** **L**
+4. **Stop dropping `conceptId` and `explanation` in `assessmentFor`.** Two fields, one
+   function (`fromContent.ts:310-317`). It gives the after-lesson result per-concept
+   attribution and gives a child the authored teaching line when they miss — and it
+   retires a BACKEND blocker that was never real. **M**
+5. **Render the teacher's note.** `AssignmentResponse.note` is typed and thrown away.
+   When it lands, the teacher console's confirmation copy and the test guarding it change
+   — coordinate with that lane. **S**
+6. **Bounce a signed-in child off `/student/onboarding`.** The root only. This is the
+   door a baseline reached the wrong child's account through. **S**
+7. **Fix Subject Detail's lesson list.** It shows the whole-student history under one
+   subject's heading. Invisible with one lesson in the library; visible now. **S**
+8. **Declare `modules` on `LessonDetailResponse`** and drop the second request. **S**
+9. **Send `assignmentId` on the progress write.** Already in memory. **S**
+10. **Flush a parked baseline vector outside onboarding.** Today a returning child's
+    held measurement never sends. **S**
+11. **Wire `record-review`.** Keep the `conceptId` at the review entrance instead of
+    discarding it, and type the client method. **M**
+12. **The Lessons tab pair** — show `subject` and `estimatedMinutes`; make "Clear search"
+    clear the status chip too. **S**
+13. **Mark a thread read, and mark a notification read.** Both endpoints deployed, both
+    called by other consoles. **S**
+14. **Scope an Ask Nevo question to the lesson the child is in.** `lessonId` is
+    structurally null today. **S**
+15. **Ask Nevo conversation history.** Endpoints deployed, types already written. **M**
+16. **The small honest ones** — the fourth `LessonMessage` for a missing lesson; the
+    summary route applying the player's own `lesson.summary` gate; the unreachable
+    baseline failure state; the `linkError` prop that has no caller; PIN creation naming
+    the failure that actually happened; the avatar selector; the inert top-bar avatar;
+    the flanker's `congruency` tag. **S each**
+17. **The scaffolds subsystem** — three deployed endpoints with no client module at all.
+    Worth a scoping pass before it is sized. **M**
+
+## S-B. Blocked on backend — the exact ask
+
+Each re-checked against the deployed spec on 16 Sep.
+
+| Blocked | The ask |
+|---|---|
+| 1. Affective adaptation | There is no affect transport: `affect`, `emotion`, `frustration`, `boredom`, `anxiety`, `confusion`, `socratic` — **zero matches across 188 paths and 343 schemas**. The whole `AffectiveLayer` is built against nothing. Either a field on `RuntimeSignalsRequest` and `AdaptResponse`, or a ruling that affective modulation is not v1 |
+| 2. Break and boundary signals | `break_start`, `break_end`, `feeling_checkin`, `module_boundary_reached` and `module_boundary_action` are absent from `SignalEventType` (27 values). The consolidation break asks a child how they feel and the answer is discarded |
+| 3. An assessment-attempt store | Nothing in the 188 paths reads back a child's per-question answers. `POST /api/mastery/update` is a mastery update, not an attempt record. Today "Review answers" works only in the tab the child answered in |
+| 4. Reading-density reshapes | `TextVariant` is `{body, keyPoints}`. Simplify / Expand / Slower need authored reshapes or a generation endpoint; the engine's `DensityLevel` is a different axis and cannot stand in |
+| 5. Baseline and warm-up items | `BaselinePromptResponse` is `{dimension}`. Every stimulus and every answer is hardcoded, so the daily warm-up asks the same question each time that dimension comes round |
+| 6. A session id a child can address | Same as teacher item 0b. `GET /students/{id}/sessions/{session_id}` needs a uuid nothing returns |
+| 7. Student SSO | `SsoStartRequest` needs `provider`, and `SchoolCodeResponse.authMethod` names only the *method*, never the vendor. Children at an SSO school cannot sign in |
+| 8. Ask Nevo handoff | `AskNevoAnswer` carries no boundary field, so "I can't help with this, ask your teacher" cannot be triggered by anything |
+| 9. `currentPin` on the PIN change | Frame 27 draws three steps beginning with the current PIN; no such field exists anywhere |
+| 10. A lesson description | The preview sheet's plain-language description has no field on any lesson schema |
+| 11. **Visual generation is failing** | Not a schema gap — every image 400s, so `visualVariant` is null library-wide, the visual channel is dead and the modality-suggestion pill is structurally unreachable. Backend has the diagnostic deployed |
+| 12. **Zero-Tag rejects ordinary English** | Raised by backend 16 Sep: "treatment", "be patient" and "water treatment" are refused, and a lesson containing one degrades silently to deterministic splitting. Flagged as a compliance decision rather than a bug. **Frontend consequence to check: whether the teacher who uploaded it is told anything** — `fallbackSegmentCount` is the signal and this survey did not trace whether the ingestion UI surfaces it |
+
+## S-C. Blocked on design
+
+1. **Frame 28c does not exist.** The shared-classroom-tablet picker is design's own answer
+   to a known defect and the frame was never delivered. Only `28` and `28a` are in the
+   design repo. **This is the single most-cited student blocker and it is waiting on one
+   frame.**
+2. **What the Interactive channel IS.** The wire sends a question; the player draws
+   tickable steps. `expectedInteraction` defaults to `teacher_review`, which may mean the
+   payload is not student-facing at all. A product decision, not a mapping.
+3. **The calculation scaffold** for anything that is not two like fractions, and whether
+   `scaffoldImage` replaces the drawn bar model.
+4. **A slot for `highlights`** — required on the wire, carried to the screen, nowhere to
+   put it that is not fabrication.
+5. **The invented class list** at a real URL, and whether the demo walkthrough should be
+   reachable by typing.
+6. **QR scanning** — whether pointing a child at their device's camera app is the accepted
+   path, given this is the primary button on the welcome sheet.
+7. **A system voice reading to six-year-olds** in a calibration activity.
+8. **No escape from the rotate prompt** — SEND-relevant.
+9. **A done state for the daily warm-up**, which is currently re-sittable any number of
+   times a day.
+10. **The nothing-landed result copy**, and **`invalid_session`** — whether it needs words
+    of its own.
+
+## S-D. Not a gap — do not re-open
+
+- **A child cannot start a conversation with a teacher.** `MessageRecipientType` has no
+  `teacher` value and the reply path is deliberately shaped so access IS the thread.
+- **Forgot PIN calls nothing.** The frame is informational; `auth/pin/reset` is
+  deliberately uncalled.
+- **Engine parameters are never rendered** — Zero-Tag ruling. `stability`, `difficulty`
+  and `retrievability` are typed because the contract sends them and shown to nobody.
+- **Only observed facts are sent to the adaptation engine.** Inventing `engagementScore`
+  or `comprehensionScore` escalates a live break from `mild` to `high`. Measured, not
+  assumed.
+- **Downloads are hidden from signed-in children.** The endpoints exist; the device half
+  is a Service Worker project and pretending otherwise would be a lie about offline.
+- **`/student/onboarding/*` stays unguarded.** It is the flow that creates the session.
+  Only the root needs a bounce.
+- **Signing out is not forgetting the device** — deliberate and tested; design confirmed
+  15 Sep that 28c does not overturn it.
+- **No copy guesses a child's pronoun.** Singular they; a test fails the build otherwise.
+
+## The student console's own cross-cutting caveat
+
+**There is no signed-in student E2E, at all.** `e2e/` holds four specs and the only
+signed-in one is `teacher-signed-in.spec.ts`, which `test.skip`s without secrets that do
+not exist. So every verdict of LIVE above rests on unit tests, on the deployed spec, and
+on reading the code — **not one of them rests on a real child's session reaching a real
+backend.** Given that eleven of the defects in this table are "a field nothing reads",
+which is exactly the class of defect a passing unit test cannot see, that gap is the one
+to close before the console is called finished.
+
+**Nothing in this lane has been checked against its design frames since 8 Sep.** The admin
+console had 74 findings confirmed in a frame-by-frame pass this week and the student
+console has never had one. On the admin evidence, expect a comparable number here.
+
+**House rule check, 16 Sep.** The "60 dashes remain in the student and admin consoles"
+figure in the teacher section counts code comments. In student **user-facing copy** there
+are exactly three: `HomeDashboard.tsx:202`, `LessonPlayer.tsx:804` and
+`ProfilingIntro.tsx:82`. The admin console's share is a separate count.
