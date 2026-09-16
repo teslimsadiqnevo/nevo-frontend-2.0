@@ -115,18 +115,71 @@ export interface CalcNumericStep {
   input: "numeric";
   answer: string;
   hint: string;
+  /** "naira", "years", "%" - shown beside the field where the wire gives one. */
+  unit?: string | null;
 }
 
-export type CalculationStep = CalcCardStep | CalcNumericStep;
+/**
+ * A step whose answer is an expression rather than a number.
+ *
+ * ADDED FOR REAL CONTENT. The player knew two kinds of step, cards and a
+ * numeric finish, because the only calculation that existed was
+ * `fraction_add_like`. The backend's algebra lesson answers "3x - 4" and "3x"
+ * before it answers 5, so two of its three steps had no kind to be - and a
+ * mapper that dropped them would have left a child solving the last third of
+ * an equation.
+ *
+ * Separate from `CalcNumericStep` because the keypad differs: an expression
+ * needs letters and an operator, a number does not.
+ */
+export interface CalcTextStep {
+  prompt: string;
+  input: "text";
+  answer: string;
+  hint: string;
+  unit?: string | null;
+}
+
+export type CalculationStep = CalcCardStep | CalcNumericStep | CalcTextStep;
 
 export function isNumericStep(step: CalculationStep): step is CalcNumericStep {
   return "input" in step && step.input === "numeric";
 }
 
+export function isTextStep(step: CalculationStep): step is CalcTextStep {
+  return "input" in step && step.input === "text";
+}
+
+/** Card steps are the ones the student picks from rather than types into. */
+export function isCardStep(step: CalculationStep): step is CalcCardStep {
+  return !("input" in step);
+}
+
 export interface CalculationSegment {
   variant: CalculationVariant;
-  problem: { expression: string; answer: string };
-  scaffold: { kind: string; parts: number; rows: number[] };
+  /**
+   * `answer` is the whole calculation's answer, and it is OPTIONAL because the
+   * wire's is. The solver shows it only where it has one; it never derives it
+   * from the last step, which is a different claim.
+   */
+  problem: { expression: string; answer?: string };
+  /**
+   * The drawn scaffold - fraction bars today.
+   *
+   * OPTIONAL, and this is the change real content forced. `fraction_add_like`
+   * is an authored variant with `{parts, rows}`; the deployed contract has no
+   * such field for anything else, only a generated `scaffoldImage` and a
+   * per-step `equationState` string. A calculation that is not two like
+   * fractions has no bars to draw, and drawing some anyway would be inventing
+   * a picture of a child's problem.
+   */
+  scaffold?: { kind: string; parts: number; rows: number[] };
+  /**
+   * How the equation should read as the child works, one entry per step, plus
+   * the opening state at index 0 where the backend gives one. Authored
+   * fraction content has none and renders its own bars instead.
+   */
+  equationStates?: string[];
   steps: CalculationStep[];
   completion: string;
   /** Per-step narration asset refs — producer-generated content. */
