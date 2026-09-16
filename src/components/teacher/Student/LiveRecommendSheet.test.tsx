@@ -248,4 +248,51 @@ describe("an empty or unreachable library", () => {
     expect(screen.getByText(/couldn’t reach your library/i)).toBeInTheDocument();
     expect(screen.queryByText(/library is empty/i)).not.toBeInTheDocument();
   });
+
+  /**
+   * THE SHAPE ABOVE IS ONE THE REAL HOOK NEVER RETURNS, which is how this bug
+   * survived having a test that looked like it covered it.
+   *
+   * `useLessonLibrary` returns `{cards: FIXTURE_CARDS, live: false}` on a failed
+   * read - eight invented lessons, not an empty array. The test above pairs
+   * `live: false` with `cards: []`, so it exercised a state that cannot occur
+   * and the honest-empty branch (`cards.length === 0`) passed for the wrong
+   * reason. In the product a signed-in teacher was offered "Solving Linear
+   * Equations" and seven more as though they were their own.
+   *
+   * These use the shape the hook actually produces.
+   */
+  it("offers no lessons at all when the read failed, fixtures included", () => {
+    useLessonLibrary.mockReturnValue({
+      cards: LESSONS,
+      live: false,
+      sample: true,
+      loading: false,
+    });
+    show();
+
+    for (const lesson of LESSONS) {
+      expect(screen.queryByText(lesson.title)).not.toBeInTheDocument();
+    }
+    expect(screen.getByText(/couldn’t reach your library/i)).toBeInTheDocument();
+  });
+
+  it("shows no lesson a teacher could press while the read is in flight", () => {
+    // `live` is false for the whole in-flight window too, and the hook is
+    // serving fixtures throughout it.
+    useLessonLibrary.mockReturnValue({
+      cards: LESSONS,
+      live: false,
+      sample: false,
+      loading: true,
+    });
+    show();
+
+    for (const lesson of LESSONS) {
+      expect(screen.queryByText(lesson.title)).not.toBeInTheDocument();
+    }
+    // Not the failure copy either: nothing has failed yet.
+    expect(screen.queryByText(/couldn’t reach your library/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/library is empty/i)).not.toBeInTheDocument();
+  });
 });
