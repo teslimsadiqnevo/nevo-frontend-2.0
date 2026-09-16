@@ -14,15 +14,23 @@ import { useStudentDirectory } from "./useStudentDirectory";
 /**
  * C09 Insights for one class, from three reads.
  *
- * There is no `/classes/{id}/insights` - which is why this looked blocked for
- * most of a day. The data is there under its own names: `misconceptions/class`
- * is the misconception section outright, `mastery/class` is the class-mastery
- * panel (and unlike the per-student read it carries `conceptName`), and the
- * flags endpoint filters by class.
+ * The three reads are `misconceptions/class` (the misconception section
+ * outright), `mastery/class` (the class-mastery panel, and unlike the
+ * per-student read it carries `conceptName`), and the flags endpoint filtered
+ * by class.
  *
- * WHAT STILL HAS NO SOURCE: the written summary at the top of C09, the
- * per-student recommendations, and C14 A2's "looking ahead". Those stay absent
- * rather than becoming invented prose about a real class.
+ * "THERE IS NO `/classes/{id}/insights`" WAS TRUE AND IS NOT ANY MORE - checked
+ * against the deployed spec on 16 Sep. `GET /api/v1/classes/{class_id}/insights`
+ * exists and returns `ClassInsightsNarrativeResponse {classId, className,
+ * weeklySummary, lookingAhead, generatedAt}` - which is C09's written summary
+ * and C14 A2's "looking ahead", the two things the next paragraph used to call
+ * sourceless, by name. Nothing in `src/` calls it yet; `classInsightsApi` wraps
+ * only misconceptions and mastery. `CONSOLE_INVENTORY.md` has recorded it as
+ * landed since 15 Sep, so this docblock was the stale half.
+ *
+ * WHAT STILL HAS NO SOURCE: the per-student recommendations, which still fan
+ * out. That stays absent rather than becoming invented prose about a real
+ * class.
  *
  * Each read stands alone: a class can have mastery and no misconceptions, and
  * one failing must not empty the others.

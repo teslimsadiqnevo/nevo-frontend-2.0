@@ -7,7 +7,7 @@ deployed OpenAPI document, not from tickets.
 view in this file; everything after it is per-area detail, and some of it predates
 that measurement.
 
-Keep this current. Two rules make it useful rather than decorative:
+Keep this current. Three rules make it useful rather than decorative:
 
 1. **The deployed OpenAPI document is the contract.** Handoff docs have diverged
    from it on every item checked so far — `options` as strings where the schema
@@ -16,6 +16,27 @@ Keep this current. Two rules make it useful rather than decorative:
    before believing a summary.
 2. **Say which pile a thing is in.** "Not done" hides the difference between work
    we can do today and work nobody can do yet.
+3. **A BLOCKER IS NOT BELIEVED UNTIL IT IS RE-DERIVED. Added 16 Sep, after four
+   separate claims in this file failed verification in one afternoon** — the
+   admin blocked table (two rows had shipped the day before), "still buildable:
+   NONE" (eleven items), "fifty unchecked `TODO(api)` markers" (43, already
+   checked), and "fixture marking CLOSED" (four unmarked surfaces, one of them
+   reaching a signed-in child). Every one decayed in the SAME direction: recorded
+   as blocked when it was buildable, or done when it was open.
+
+   The mechanism is always the same — **the thing that resolves a row never edits
+   the row.** Backend ships an endpoint; the comment saying it does not exist
+   stays where it is. So:
+
+   - Before you plan around a blocker, re-derive it. `node scripts/api-audit.mjs`
+     takes under a minute and would have caught all four.
+   - **A count is not a measurement.** "50 markers" is not "50 problems", and
+     promoting one into the other is how item 3 of the admin handoff was wrong.
+   - When a claim here is falsified, **retract it in place rather than editing it
+     silently**, so the next reader can see the direction this file drifts.
+   - The highest-yield question is not "what is blocked?" but **"what shipped
+     that we never noticed?"** Five deployed capabilities currently have zero
+     consumers in `src/` — see the section below.
 
 ---
 
@@ -25,6 +46,28 @@ Keep this current. Two rules make it useful rather than decorative:
 > complete?" got a different answer every time it was asked, each one re-derived from
 > grep and memory. Read and update that file rather than rebuilding the answer. The
 > sections below remain the narrative record; the inventory is the current state.
+
+## SHIPPED AND UNCONSUMED — check this before you check anything else. 16 Sep.
+
+**Six deployed capabilities have zero consumers in `src/`.** Nothing is blocked
+on them; nobody noticed them. This is the most expensive category in the project,
+because a missing endpoint stops one screen while an unnoticed one silently
+freezes a whole lane's plan — and two of these sit INSIDE documents that argue
+the opposite.
+
+| capability | state | what it unblocks |
+|---|---|---|
+| `POST /api/v1/users/me/profile-photo` + `ProfilePatch.profileImageUrl` + `CurrentUserResponse.profileImageUrl` | Shipped. **`grep -rn profileImageUrl src/` returns 0 across 681 files** | The real avatar on admin Settings › Your account, the shell, Team and Teachers. `lib/api/users.ts:22-33` never declares the field, so it is dropped from a response the console already receives on every `/users/me`. The proxy forwards multipart and passes bytes, so the upload is reachable today. **`docs/api-requests-admin.md` quotes the full `CurrentUserResponse` field list — `profileImageUrl` included — inside the very sentence arguing Settings is blocked.** |
+| `GET /api/v1/consents/rights-log` | Live, paginated, filterable, **0 callers** | D22's parental-rights claim gets a measured figure instead of a mechanism with no number. Built to this frontend's own privacy spec: `reasonRecorded` is a BOOLEAN so the parent's free text never crosses the wire. `ndpaClaims.ts:57` still says "nothing reads one back", which is now false and is single-handedly holding the claim in the unverified state. |
+| `GET /api/v1/classes/{class_id}/insights` → `ClassInsightsNarrativeResponse` | Live, **0 callers** | **TEACHER LANE, and the largest single find.** `useClassInsights.ts:14` asserts *"There is no `/classes/{id}/insights`"* and names C09's written summary and C14 A2's "looking ahead" as having no source. The endpoint returns **both, by name**. `CONSOLE_INVENTORY.md:112` already records it as landed — the hook's own docblock is what is stale. |
+| `POST /api/v1/students/{student_id}/pin/reset` — and `POST /api/v1/auth/pin/reset` | Both live, **0 callers between them** | Nothing anywhere in the product can reissue a child's PIN, while the child's own Forgot-PIN screen promises it and `NotificationType.pin_reset_requested` delivers the request to a surface that cannot act on it. The only two mentions in `src/` are docblock prose at `ForgotPinScreen.tsx:14,17` — the second of which explains why the `auth/` variant is not called THERE, which is correct and is not an argument against the admin-scoped one. |
+| `GET /api/transformation-metrics` with `scope` + `cohortId` | Live, **already typed** at `analytics.ts:89` | Makes the Reports adaptations panel cohort-narrowable. `ReportsView.tsx:86` asserts no read behind that screen takes a cohort parameter; one of the three does. |
+| `GET`/`PUT /api/v1/settings/me` | Live; the spec's OWN descriptions say the legacy pair is superseded | `lib/api/settings.ts:113,117` still call the unversioned `/api/settings/me`. Both hit the same column so nothing is broken — but it is a documented deprecation with the migration shape spelled out, and cheaper now than after launch. |
+
+**One that is live and must NOT be wired without a ruling:** `GET /api/v1/ops/overview`
+and `/api/v1/ops/feedback`. `OpsOverviewResponse.schools` is plural and
+cross-school — this reads as an internal Nevo ops dashboard, and building it into
+the SCHOOL admin console would show one proprietor data about every school.
 
 
 ## WHERE THE PRODUCT ACTUALLY IS — measured 10 Sep
@@ -1066,6 +1109,30 @@ In the shared zone, run `git log -1 -- <file>` before editing to see who last mo
 it, and keep the diff minimal. Stage with explicit paths — never `git add -A`, which
 sweeps up whatever another session has in flight.
 
+### LIVE, UNPUSHED WORK IN THE ADMIN LANE — 16 Sep. Read before assigning.
+
+**`fix/wire-catchup` is 2 commits ahead of `origin/main`, both dated today, and
+pushed to no remote.** It is checked out in the sibling worktree
+`nevo-2.0-admin`, so another session is in that lane right now:
+
+- `262d8fd fix(admin): a consent object is never absent…`
+- `929806c test(e2e): an admin suite against the seeded tenant…`
+
+It carries **`e2e/admin-signed-in.spec.ts`, which does not exist on `main`** —
+`ls e2e/` on main returns exactly four specs. So **do not commission an admin
+signed-in E2E spec**; it is written, it is just not pushed.
+
+Coordinate before touching `Students/StudentsView.tsx`,
+`Students/StudentDetailView.tsx`, `Compliance/ndpaClaims.ts` or anything under
+`e2e/` — all have same-day unpushed edits in that worktree. `git worktree list`
+shows who is where; `git log --oneline origin/main..<branch>` shows what they
+have that you do not.
+
+**This is the same failure as a stale blocker, one day earlier in its life.** A
+branch nobody can see is indistinguishable from work nobody has done — and the
+answer to "what is left?" is wrong either way. Push early, even unfinished, or
+say here that you are holding it.
+
 ### Handoffs currently waiting
 
 **For the student session — ALL FIVE ARE DONE, 7 Sep.** Left here as a record of
@@ -1135,19 +1202,39 @@ says "settle the remaining three"** — it is two now, because the teachers row
 settled and the sentence did not follow. That is the defect shape this file
 keeps naming, sitting in the docblock that describes the fix.
 
-**3. Fifty `TODO(api)` markers, none re-checked since the spec moved.**
-`grep -rn "TODO(api)" src/components/admin src/app/admin` returns 50. The 7 Sep
-repo-wide audit found 17 of 97 already stale, and the 15 Sep check of your
-register found four flatly wrong. **The spec has gained endpoints twice since
-those markers were written**, and today two whole rows came off the blocked
-table for exactly that reason (see the correction above). Budget an afternoon
-against `node scripts/api-audit.mjs`, not against the markers' own text.
+**3. ~~Fifty `TODO(api)` markers, none re-checked since the spec moved.~~ THIS
+ITEM WAS WRONG. Do not spend a day on it.**
 
-A free demonstration rather than a count, from the teacher lane's own sweep:
-`EditProfileModal.tsx:89` still reads `TODO(api): photo upload - the frame draws
-the affordance only`, while `POST /api/v1/users/me/profile-photo` is deployed and
-`ProfilePatch.profileImageUrl` exists. The marker outlived its blocker and nobody
-noticed, which is the whole shape.
+It read: "`grep` returns 50, the 7 Sep audit found 17 of 97 stale, budget an
+afternoon". Both halves are false, and I wrote it — turning somebody else's
+count into a work item without measuring it, in the same document where I had
+just written two paragraphs about exactly that failure.
+
+What is actually true, checked marker by marker against the live spec on 16 Sep:
+
+- **43 live markers, not 50.** Seven of the fifty grep hits are cross-references
+  to or verbatim quotations of markers already retired — `AdminSidebar.tsx:30`
+  literally reads *"DONE, and this said otherwise. It read \"TODO(api): a
+  profile endpoint…\""*, and `snapshotTiles.ts:33` is *"See the TODO(api) on
+  `OverviewView`."*
+- **They WERE re-checked.** `d785a42 docs: all 45 TODO(api) markers re-checked,
+  with verdicts` and `8eb192d docs: correct the sixteen misleading TODO(api)
+  markers, and three the audit missed` are both in history. The "17 of 97" and
+  "four wrong" figures I cited as an outstanding backlog are the INPUT to those
+  commits.
+- **38 of the 43 verify STILL_TRUE**, field by field, not by reading the comment.
+- **Five are not, and only three carry work** — the rights-log read, the Overview
+  roll-up's last fixture row, and the Reports cohort parameter. All three are in
+  the "Still buildable" table above. **There is no hidden backlog behind these
+  comments.**
+
+Two are pure filing errors worth an hour: `StudentDetailView.tsx:54` opens with
+*"TODO(api): BUILT, and this marker outlived it"* and should lose the prefix, and
+`AdminTeamView.tsx:44` says the endpoint "is deployed and typed" then ends "Needs
+design" — it is a `TODO(design)`.
+
+**The lesson is not "markers rot".** It is that a COUNT is not a MEASUREMENT, and
+this file keeps promoting one into the other.
 
 **4. Your blocked list is three items, not five, and one ask has never been
 sent.** `docs/api-requests-admin.md` now carries a 16 Sep addendum: what
@@ -1853,10 +1940,49 @@ divergences (many at 1024x768, which is the breakpoint that gets forgotten), and
 backlog of "built to the frame, not quite" — worth working through before the
 design review, and now enumerated rather than guessed at.
 
-### Still buildable, not built — NONE
+### Still buildable, not built — ELEVEN. This said NONE, and that was wrong.
 
-The list is empty. Everything remaining on the admin console is blocked on an
-endpoint, below.
+**Corrected 16 Sep.** This heading read "NONE — the list is empty, everything
+remaining on the admin console is blocked on an endpoint". It was written 15 Sep,
+repeated in every status answer since, and never re-derived. It does not survive
+a walk of the lane.
+
+It was also self-contradicting on its own page: the paragraph above it describes
+68 remaining design-check findings as "39 states the frames draw that do not
+exist, 19 layout divergences and 14 copy differences" and calls them "worth
+working through". Layout and copy work is by definition not endpoint-blocked.
+Those 74 are genuinely closed now — so the list below is what turned up OUTSIDE
+that register.
+
+| # | what | where | size |
+|---|---|---|---|
+| 1 | **Nothing in the product can reset a student PIN.** `POST /api/v1/students/{student_id}/pin/reset` is deployed and tagged "school administration" — the same tag as `deactivate` and `restore`, which this console does consume. Grep returns TWO hits in all of `src/`, both docblock prose in `student/Auth/ForgotPinScreen.tsx:14,17`. **Zero callers.** The child's Forgot-PIN screen says "ask your teacher"; the teacher console has no such control and neither does D7b. `NotificationType` even carries `pin_reset_requested`, so the notification arrives with nowhere to act on it | `Students/StudentDetailView.tsx` | M |
+| 2 | **Profile photo is shipped and entirely unconsumed.** `grep -rn profileImageUrl src/` returns **0 across 681 files**, while `CurrentUserResponse.profileImageUrl` comes back on every `GET /users/me` the console already makes, `ProfilePatch.profileImageUrl` accepts it, and `POST /users/me/profile-photo` takes the multipart upload. `lib/api/users.ts:22-33` simply does not declare the field, so it is dropped on arrival | `lib/api/users.ts:22`, `Settings/AccountSettings.tsx` | M |
+| 3 | **A genuinely dead primary CTA.** "Request another account" is `<button type="button">` with no `onClick`, no handler, and no `<form>` anywhere in the file to catch it. Its own copy is "We'll add it at no charge - just ask", which needs no bespoke endpoint: `mailto:` or `feedbackApi.submit` (`feedback.ts:22`, deployed and consumed) satisfies it. Breaks this console's own law at `SettingsView.tsx:42-44` — "a settings screen that appears to save and does not is worse than one that admits the control is not built" | `Team/AdminTeamView.tsx:320` | S |
+| 4 | Getting-started **CONSENT** step can never tick. `studentsApi.list()` is already called in this same component at `:271` into `roster` and used only in the non-early branch; `AdminStudentRow.consent` carries the status. The fix is prescribed verbatim at `overviewGettingStarted.ts:44` and labelled `TODO (client, not api)` | `Overview/OverviewView.tsx:633` | S |
+| 5 | Getting-started **SIGN-IN** step can never tick. `overviewGettingStarted.ts:41-43` states the fix: add `ssoApi.status()` to the existing `Promise.all` with a `.catch(() => null)` like its two neighbours. Settles the "connect a provider" half only — "share your school code" stays unverifiable and MUST stay open | `Overview/OverviewView.tsx` | S |
+| 6 | Sidebar fixture identity, half-marked and ungated — see the retraction under ACTION NEEDED | `Shell/AdminSidebar.tsx:419` | S |
+| 7 | **The Compliance parental-rights claim has a source now.** `GET /api/v1/consents/rights-log` is live, paginated, filterable, and has **zero callers**; `resolvedAt === null` gives requests-in-progress. It already honours our own privacy constraint — `reasonRecorded` is a BOOLEAN, so a parent's free text never crosses the wire. Two caveats so this is not oversold: `ParentRightType` still has no `erasure` value, so this licenses a correctly-worded replacement rather than restoring the pulled text; and the op sits under the `consents` tag, so confirm admin scope first | `Compliance/ndpaClaims.ts:57` | M |
+| 8 | **Reports cohort selector — partly unblocked, and the stated reason is false.** The docblock asserts "every read behind this screen is school-wide with no cohort parameter at all". `GET /api/transformation-metrics` takes `scope` and `cohortId`, and `lib/api/analytics.ts:89` ALREADY types it. The other two reads do check out. The design argument may survive; the stated reason must stop being cited as a backend ask | `Reports/ReportsView.tsx:86` | S |
+| 9 | `reviewedByName` resolves client-side. `IepExportResponse` carries `reviewedByUserId`; `GET /api/v1/admin/team` is unpaged and returns names for every admin, and an IEP reviewer is an admin. Price the caveat first: that route is scope-gated, so a SENCo holding only `senco` may 403 — degrade to the date, which still beats "only ever name the reader" | `Senco/IepExporterView.tsx:512` | S |
+| 10 | The last fixture row on the Overview roll-up. The marker says "classes haven't run a lesson is the only one with no source"; `ClassStudentResponse.latestSessionAt` is typed at `lib/api/classes.ts:102` and already read by `useClassRoster.ts:59`. This is what deleting `overviewSample.ts` outright is waiting on | `Overview/overviewSample.ts:14` | M |
+| 11 | House copy rule, this lane's share. 25 `&ndash;`/`&mdash;` entities remain; the 14 Sep "no dashes in Nevo copy" ruling was applied to teacher and parent and skipped here | `components/admin/**` | S |
+
+**Two documentation chores, an hour together.** `Students/StudentDetailView.tsx:54`
+opens with its own words *"TODO(api): BUILT, and this marker outlived it"* — strip
+the prefix so it stops being counted as a blocker. `Team/AdminTeamView.tsx:44`
+states in its own text that the endpoint "is deployed and typed" and ends "Needs
+design"; it is a `TODO(design)`, filed under `TODO(api)`.
+
+**Do NOT commission an admin signed-in E2E spec.** It exists, written, on the
+unpushed branch `fix/wire-catchup` — see the coordination note in Handoffs.
+
+**Why this heading was wrong for a day, and how to not repeat it.** Three of the
+eleven above are recorded as open in this repo's own files, including one this
+very page flagged at "Also unwired: `POST /students/{id}/pin/reset`". A blocked
+or completeness claim decays silently because *the thing that resolves a row
+never edits the row*. `node scripts/api-audit.mjs` takes under a minute and
+would have caught every one.
 
 **`total` did not just go unused — it was actively dangerous.** The first draft
 of `collectAdaptationWindow` used it as a corroborating gate: report nothing if
@@ -1924,6 +2050,43 @@ the three rows said "Genuinely blocked" and "Blocked on…" in their own text.
 | Assignment history proper | No actor on any assignment schema, and an ended assignment leaves no record (the DELETE returns no body, nothing carries `ended_at`). The dates shipped; the history cannot. |
 | Settings — 4 sections | Promotion, two-step sign-in, school address/logo/band, and profile email/role-title. No endpoint for any of them. |
 | `academicConfig` — the LABELS half only | Half of this row shipped; see the correction below. `termStartDates` is a validated schema field now. `yearGroupLabels` still rides on `additionalProperties: true`, so the map every screen reads through `yearGroupLabel` is a client-owned provisional contract. Lower priority than the three above it, and still worth settling before launch. |
+
+**All four rows above were re-probed against the live spec on 16 Sep and all four
+survive.** One reframe worth carrying to backend: **SENCo active support is a COST
+blocker, not a capability one.** The route exists and works; 247 profiles is 247
+requests to paint one list. `GET /api/intelligence/flags` on the SAME router
+already takes `studentId/classId/limit/offset`, so this closes with a query
+parameter rather than a new resource.
+
+#### ELEVEN MORE, none of which was on this table — added 16 Sep
+
+The table was not merely stale, it was **materially incomplete**: every admin lane
+probed had at least one contract-blocked state nobody had written down, including
+an entire screen. Each row below was derived from the deployed document, not from
+a comment.
+
+| | |
+|---|---|
+| **D09 Reports — the whole screen** | **Zero** of 343 schemas match `/report/`, and the only report path in 188 is `GET /api/admin/compliance-audit/report.pdf`. `/admin/reports` currently serves D20 instead. An entire admin screen with no contract behind it, and it had never been listed. **L** |
+| **Nothing reads back whether an IEP was shared** | `IepExportShareResponse` exists as a schema but the only deployed op is `POST /exports/iep/{export_id}/share` — there is no GET, and `IepExportResponse` carries no shares. On reload a SENCo cannot tell whether a child's report already reached a guardian, so the screen can neither confirm nor prevent a second send. **Safety-relevant.** |
+| **`termStartDates` has `maxItems: 3`** | A four-term school has its fourth term start **silently dropped**, while Settings offers "Add a term" for exactly that case per SCRUM-99. Filed near the `yearGroupLabels` row and a different, worse problem: that one goes unvalidated, this one LOSES DATA. |
+| **No PDF route for an IEP export or a learner profile** | The only PDF in the whole API is the compliance audit's, so both D8b's "Export Profile as PDF" and the exporter's "Download PDF" are absent affordances. |
+| **`NotificationResponse` has no `category`** | `NotificationCategory` exists but is used only by preferences. Kills D13b's filter pill, the per-row label and category-scoped "Mark these as read". Three of SCRUM-100's six admin categories (roster, SSO, teacher) have no enum value at all. |
+| **Compliance: erasure and subprocessors** | `erasure` = 0 occurrences spec-wide and `ParentRightType` is `request_data \| object \| withdraw_consent`; `subprocessor` = 0. Two of D22's four claims stay unverifiable even after the rights-log read lands. |
+| **D19 invitations, three fields** | `InvitationResponse` has **no `classId`** (the CLASS column), **no created-at** (the "Invited 9 Jul" column), and `status` is `string \| null` with **no enum** — while `deliveryStatus` and `consentStatus` on the same schema ARE enums. |
+| **`JoinInspectionResponse` has no name** | `{status, role, schoolName, expiresAt}`, so D19's "Welcome, Amara" greeting on the public join link has no source. |
+| **Nothing queues parent consent for an INVITED student** | `POST /students/{id}/parent-consent-requests` needs a student uuid, and the contract never links an invite to one before acceptance nor mints a parent link from an invite's bare contact. The students these flows create are exactly the ones nobody can be asked about. |
+| **The DPA document TEXT** | `GET/POST /school/dpa-acceptance` shipped and returns the acceptance RECORD; nothing returns `{version, html}`, so the wording a school agrees to is still client-held. This is the unfinished half of the 6 Sep launch blocker and the row was being treated as closed. |
+| **Overview period / date filter** | Nothing deployed carries a period or accepts a date filter for the five Overview figures, so SCRUM-39's period pill cannot be a control and every "this half-term" figure would be false. |
+
+*Also real, lower stakes:* `SchoolRegistrationResponse` carries no session token,
+forcing a second round trip at `SignUpStep.tsx:57`; onboarding writes band and
+auth method into the untyped `profile` blob — the same provisional-contract shape
+as `yearGroupLabels`, in a lane nobody had flagged; `PricingResponse` has no rate
+schedule, so SCRUM-98's D11.3 six-year table has no source; and D20's headline is
+blocked twice over (`AdaptationEventLogRow` has no `segmentId` and no `modality`,
+and `studentFirstName` is REQUIRED on every row, which disqualifies it on an
+aggregate-only screen).
 
 **TWO ROWS CAME OFF THIS TABLE ON 16 SEP, AND THEY HAD BEEN WRONG FOR A DAY.**
 

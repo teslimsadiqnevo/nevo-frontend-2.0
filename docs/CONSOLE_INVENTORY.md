@@ -103,7 +103,7 @@ the contradiction survived a re-verification specifically looking for it.
 | Notifications panel | LIVE | — | NONE | — |
 | Feedback panel copy | LIVE | — (counter already present at the last 200 chars; design to confirm the threshold) | NONE | — |
 | Class code / QR | LIVE | No standalone route. **"Dialog only" is loose shorthand and would send someone to rebuild a screen that exists**: `ClassQrScreen` — the full-screen projection the standalone route is FOR — is already built and mounted from live class detail (`LiveClassDetail.tsx:358-364`, via the dialog's `onProject` at :355). What is missing is a URL that links and reopens, not the screen. Design ruled 15 Sep to build it (section C) | FRONTEND | S |
-| Sign-in | LIVE | — (`classifyLoginFailure` wired 14 Sep: a paused account is told the account is not open, a throttled one to wait. Re-verified 16 Sep.) The admin door was the last one left and is **DONE 16 Sep** — `AdminSignIn.tsx:220` classifies too, with its own paused line because the teacher's names an authority a proprietor does not have. **All four doors now classify**: `auth/login/page.tsx:171`, `ReturningSignInScreen.tsx:187`, `TeacherSignIn.tsx:153`, `AdminSignIn.tsx:220`. **Still open — fixture leak #1**: `TeacherSignIn.tsx:213` hardcodes the eyebrow "Corona Secondary School · Lagos", so the teacher door names one school to every teacher in the country. See section E | FRONTEND (leak #1) | S |
+| Sign-in | LIVE | — (`classifyLoginFailure` wired 14 Sep: a paused account is told the account is not open, a throttled one to wait. Re-verified 16 Sep.) The admin door was the last one left and is **DONE 16 Sep** — `AdminSignIn.tsx:220` classifies too, with its own paused line because the teacher's names an authority a proprietor does not have. **All four doors now classify**: `auth/login/page.tsx:171`, `ReturningSignInScreen.tsx:187`, `TeacherSignIn.tsx:153`, `AdminSignIn.tsx:220`. ~~Still open — fixture leak #1~~ **CLOSED same day, #408** (`377ca27`): the hardcoded "Corona Secondary School · Lagos" eyebrow is gone and a comment at `TeacherSignIn.tsx:215` records why no school is named pre-auth. Section E's leak #1 is done; the other four stand | NONE | — |
 | Console shell + nav rail | PARTIAL | Role label is `MOCK_TEACHER.role` unconditionally; Help & support has no destination | FRONTEND; DESIGN | S |
 | My Classes list | PARTIAL | Card carries no subjects, headcount or summary line. **Split 16 Sep: these are not one job.** Headcount is ours — `ClassLearningPulseResponse.studentCount` is required on `GET /api/v1/teachers/me/home`, already called. **Subjects has no teacher-readable source**: the only schema carrying `subjects` is `ClassSummaryResponse`, and both operations returning it are tagged "school administration"; it is not even in that schema's `required` list. The subjects leg is a backend/scope ask, not an afternoon. Also carries an unmarked fixture leak — see section E | FRONTEND (headcount); **BACKEND (subjects)** | S + ask |
 | Class detail + roster | PARTIAL | No Lessons or Activity tab. (Chips, seat and the two markers built 15 Sep; account state 16 Sep; the header already carried the headcount) | BACKEND (activity); DESIGN (a Lessons tab) | M |
@@ -464,11 +464,12 @@ is never shown invented data" — cannot see them. Its assertion is vacuous on e
 
 Ordered by what a teacher would actually believe.
 
-1. **The sign-in door names one school to every teacher in the country.** `TeacherSignIn.tsx:213`
-   hardcodes the eyebrow "Corona Secondary School · Lagos" above "Welcome back". The row is
-   marked LIVE with nothing missing. **S.** The same string is in the SSO callback:
-   `TeacherSsoCallback.tsx:8,133` renders "Signing you in through {TEACHER_INVITE.school}"
-   from `lib/mocks/teacherOnboarding.ts:18-24`.
+1. ~~**The sign-in door names one school to every teacher in the country.**~~ **DONE — #408
+   (`377ca27`), the same day it was found.** `TeacherSignIn.tsx` hardcoded the eyebrow
+   "Corona Secondary School · Lagos" above "Welcome back", and `TeacherSsoCallback.tsx:8,133`
+   rendered "Signing you in through {TEACHER_INVITE.school}" from
+   `lib/mocks/teacherOnboarding.ts:18-24`. Both are gone; a comment at `TeacherSignIn.tsx:215`
+   records why no school is named before auth. **Four leaks remain, 2–5 below.**
 2. **The recommend sheet offers eight invented lessons as the teacher's own library.**
    `useLessonLibrary` returns `FIXTURE_CARDS` whenever the read is in flight OR has failed
    (`useLessonLibrary.ts:201-203`); `LiveRecommendSheet.tsx:61` destructures only
