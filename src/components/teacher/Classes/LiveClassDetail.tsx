@@ -5,6 +5,7 @@ import {
   OBSERVATION_COPY,
   observationCount,
 } from "@/lib/constants/observations";
+import { rosterMarker } from "@/lib/constants/accountStatus";
 import { useTeacherFlags } from "@/hooks/useTeacherFlags";
 import { useState } from "react";
 import type { AssignedClass } from "@/lib/api";
@@ -234,6 +235,37 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
                       </span>
                     )}
                   </div>
+                  {/*
+                   * WHETHER THE CHILD CAN GET IN AT ALL.
+                   *
+                   * `status` has been on every roster row the whole time and was
+                   * thrown away here, under a comment in `classes.ts` claiming
+                   * the spec had no enum for it. It has one, closed at three.
+                   *
+                   * Design's ruling that this roster carries no consent column
+                   * rested on the "Deactivated" pill telling a teacher why a
+                   * child cannot get in - but that pill is on the ADMIN roster.
+                   * This is the dependency that ruling left behind, and its
+                   * whole brief is "no consent, no reason, just whether the
+                   * child is active".
+                   *
+                   * It comes FIRST in this cluster because it changes how to
+                   * read the rest of the row: an observation about a child who
+                   * has been switched off is history, not a prompt to act.
+                   *
+                   * NEITHER COLOUR ON THIS ROW IS AVAILABLE. Violet is "has a
+                   * learning profile" (the left border and the legend below),
+                   * navy is "Sudden change". Admin draws this pill violet;
+                   * here that would be a third meaning on a colour that already
+                   * carries two. It is outlined and muted instead, so it reads
+                   * as a state rather than competing with the attention markers
+                   * next to it - and it says its word, like they do.
+                   */}
+                  {rosterMarker(student.status) && (
+                    <span className="mt-1.5 shrink-0 rounded-full border border-nevo-near-black/22 px-2.5 py-1 text-[12px] font-medium whitespace-nowrap text-nevo-near-black/62 xl:mt-0">
+                      {rosterMarker(student.status)}
+                    </span>
+                  )}
                   {/*
                    * C16b's two markers, LABELLED rather than coloured.
                    *

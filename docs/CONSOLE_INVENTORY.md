@@ -80,7 +80,7 @@ it against the repo is itself work that has to be repeated.*
 | Sign-in | LIVE | — (`classifyLoginFailure` wired 14 Sep: a paused account is told the account is not open, a throttled one to wait. Re-verified 16 Sep.) **The ADMIN door still has this bug** — `AdminSignIn.tsx` maps 401/403 to "check your details" | NONE (admin console owns its half) | — |
 | Console shell + nav rail | PARTIAL | Role label is `MOCK_TEACHER.role` unconditionally; Help & support has no destination | FRONTEND; DESIGN | S |
 | My Classes list | PARTIAL | Card carries no subjects, headcount or summary line | FRONTEND | S |
-| Class detail + roster | PARTIAL | No Lessons or Activity tab. (Chips, seat and the two markers built 15 Sep; the header already carried the headcount) | BACKEND (activity); DESIGN (a Lessons tab) | M |
+| Class detail + roster | PARTIAL | No Lessons or Activity tab. (Chips, seat and the two markers built 15 Sep; account state 16 Sep; the header already carried the headcount) | BACKEND (activity); DESIGN (a Lessons tab) | M |
 | Compose message | PARTIAL | Deep link resolves against fixtures in **three** places (`ConnectView:108`, `ComposeModal:69` and `:108`) and the profile link carries no query at all; cannot address a class | FRONTEND | **M** |
 | Home dashboard | PARTIAL | class trio subject/status; activity counts (`completedCount`/`totalCount` landed 15 Sep, both nullable); "Good to know" | FRONTEND; DESIGN (cutoffs) | M |
 | Insights | PARTIAL | Written summary and "Looking ahead" both landed 15 Sep at `/classes/{class_id}/insights`; per-student recommendations still fan out | FRONTEND | M |
@@ -187,8 +187,17 @@ the end of the road.
 12. **Calculation variant tab (SCRUM-136).** Ruled 14 Sep. The fifth form a student can
     receive, which a teacher currently cannot preview at all. **M**
 13. **D02 SMS and email copy**, to design's exact strings, plus "Send it again". **S**
-14. **Teacher-side active/inactive indicator.** The dependency the no-consent-column
-    ruling now rests on. **M** — re-verified 16 Sep; a re-size to S was refuted.
+14. ~~**Teacher-side active/inactive indicator.**~~ **DONE 16 Sep.** The roster marks
+    "Invited" and "Deactivated" and says nothing on an active row. Outlined and muted, not
+    coloured: admin draws this pill violet, and violet on this row already means "has a
+    learning profile" - a third meaning on one colour is how a teacher acts on the wrong
+    one. Words, like the C16b markers beside it. `accountStatus` narrows the wire value and
+    resolves anything unrecognised to `invited`, never `deactivated`, because telling a
+    teacher a real child is switched off on a value we did not recognise is the failure
+    that matters. Copy lives in `lib/constants/accountStatus.ts` with a test that fails on
+    consent vocabulary, on giving a reason, and on any instruction the teacher cannot act
+    on (`deactivate` and `restore` are both tagged "school administration").
+    The old **M** sizing was right, and the notes below are why.
     **No backend work at all.** `ClassStudentResponse.status` is a REQUIRED property of
     `GET /api/v1/classes/{class_id}/students`, typed `UserStatus` = `active | invited |
     deactivated`. It is already fetched, already typed, and thrown away at render:
@@ -351,11 +360,12 @@ waiting, so it has moved to list A. Kept here as the record of what was decided:
    console permanently.
 3. ~~Help & support~~ → **one screen, not a knowledge base**: support email, WhatsApp
    number, response time.
-4. ~~Consent on the teacher roster~~ → **no consent column, ever**. But the ruling rested
+4. ~~Consent on the teacher roster~~ → **no consent column, ever**. The ruling rested
    on the Deactivated pill already telling a teacher why a child cannot get in, and that
-   pill is on the ADMIN roster, not the teacher one. So the ruling now carries a
-   dependency: a teacher-side active/inactive indicator. No consent, no reason, just
-   whether the child is active.
+   pill was on the ADMIN roster, not the teacher one. **That dependency is now met**
+   (16 Sep): the roster marks "Invited" and "Deactivated", no consent, no reason, just
+   whether the child is active - which is the ruling's own wording, and the whole of the
+   design brief, because no teacher-facing frame draws this state at all.
 5. ~~`UploadStage` → rung mapping~~ → **done 14 Sep**, three rungs, labels below.
 6. ~~D02 editable contact~~ → **drop the edit.** Read-only stays; the binding is the
    security property, and a parent who has not proven who they are should not choose
