@@ -12,7 +12,11 @@ import {
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import { ReadFailed } from "../ReadFailed";
-import { ConsentPill, consentDetailLine } from "./ConsentPill";
+import {
+  ConsentPill,
+  consentDetailLine,
+  mayRequestConsent,
+} from "./ConsentPill";
 import {
   consentRequestLine,
   useConsentRequests,
@@ -53,7 +57,7 @@ import { WriteFailed } from "../WriteFailed";
  * (the `Consent` section, with `ConsentPill` and `consentDetailLine`).
  * Formerly: "the CONSENT card is not built." `GET /api/v1/students/{id}`
  * carries no consent state, no giver, no date and no channel, and
- * `parent-links` carries `account_created`, which answers a different
+ * `parent-links` carries `accountCreated`, which answers a different
  * question. The card is a record a school may have to stand behind, so it is
  * absent rather than assembled from the nearest-looking fields. This also
  * removes the header's consent pill and the "View record" link.
@@ -198,6 +202,11 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                 Deactivated
               </span>
             ) : null}
+            {/* The consent state at the top, where the frame puts it. It was
+                readable only by scrolling to the card further down - on the
+                record whose header is the one thing an admin reads before
+                deciding anything about this child. */}
+            {student.consent ? <ConsentPill consent={student.consent} /> : null}
           </div>
           <div className="mt-[3px] truncate text-[14.5px] text-nevo-near-black/62">
             {currentClass
@@ -275,6 +284,29 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                   ? `A parent has withdrawn consent for ${firstName}`
                   : `No consent is recorded for ${firstName} yet`}
             </p>
+            {student.consent?.status === "withdrawn" ? (
+              /*
+               * WHAT WITHDRAWN ACTUALLY MEANS, which this card never said.
+               *
+               * It named the fact and stopped. Since 15 September the backend
+               * enforces withdrawal on the four processing endpoints with a
+               * 403 `consent_withdrawn`, so the child genuinely cannot start a
+               * lesson - and this is the screen an admin opens when a parent
+               * rings to ask why. Saying only "a parent has withdrawn consent"
+               * leaves them with no answer and no route.
+               *
+               * It states the three things the reader needs: that access is
+               * paused, that nothing of the child's is lost, and that only the
+               * parent can lift it - because SCRUM-80 makes withdrawal the
+               * parent's decision and nothing in this console may override it.
+               */
+              <p className="m-0 mt-1.5 max-w-[62ch] text-[13.5px] leading-[1.55] text-nevo-near-black/70">
+                {firstName}&rsquo;s lessons are paused while this stands, and
+                everything they have done is kept. Only the parent who
+                withdrew can restore it &ndash; there is nothing to change
+                here.
+              </p>
+            ) : null}
             {student.consent ? (
               (() => {
                 const line = consentDetailLine(student.consent);
@@ -306,9 +338,9 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
           *
           * Offered only where consent is not already confirmed. The frame's
           * own words for the two cases, and it never claims delivery it has
-          * not been told about - the receipt's `delivery_status` decides.
+          * not been told about - the receipt's `deliveryStatus` decides.
           */}
-        {student.consent && student.consent.status !== "confirmed" ? (
+        {mayRequestConsent(student.consent) ? (
           <div className="mt-4 border-t border-nevo-near-black/8 pt-4">
             <button
               type="button"
@@ -318,7 +350,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
             >
               {consentState.kind === "sending"
                 ? "Sending…"
-                : student.consent.status === "pending"
+                : student.consent?.status === "pending"
                   ? "Send a gentle reminder"
                   : "Send the consent request"}
             </button>
@@ -361,27 +393,27 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                 i < guardians.length - 1 && ROW_DIVIDER,
               )}
             >
-              <Avatar name={g.parent_name} size={44} />
+              <Avatar name={g.parentName} size={44} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-base font-semibold text-nevo-near-black">
-                  {g.parent_name}
+                  {g.parentName}
                 </div>
                 <div className="truncate text-[13.5px] text-nevo-near-black/62">
-                  {g.parent_contact}
+                  {g.parentContact}
                 </div>
               </div>
               <span
                 className={cn(
                   "inline-flex flex-none items-center gap-2 rounded-full px-3 py-1 text-[12.5px] font-semibold",
-                  g.account_created
+                  g.accountCreated
                     ? "bg-nevo-navy/12 text-nevo-navy"
                     : "bg-nevo-near-black/[0.07] text-nevo-near-black/60",
                 )}
               >
-                {g.account_created ? (
+                {g.accountCreated ? (
                   <span aria-hidden="true" className="size-[7px] rounded-full bg-nevo-navy" />
                 ) : null}
-                {g.account_created ? "Account active" : "No account yet"}
+                {g.accountCreated ? "Account active" : "No account yet"}
               </span>
             </div>
           ))
@@ -564,7 +596,15 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
           studentId={student.id}
           studentName={name}
           onClose={() => setErasing(false)}
-          onErased={() => router.push("/admin/students")}
+          /* THE ERASURE SAID NOTHING. Permanently deleting a child's record
+             returned to the roster in silence, so the one irreversible action
+             on this screen was also the only one that never confirmed it had
+             happened. The roster reads this and renders a single plain line. */
+          onErased={() =>
+            router.push(
+              `/admin/students?erased=${encodeURIComponent(firstName)}`,
+            )
+          }
         />
       ) : null}
     </Wrapper>

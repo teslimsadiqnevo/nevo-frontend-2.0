@@ -45,8 +45,8 @@ export interface SignalSessionEnvelope {
 
 /** 202 receipt. */
 export interface SignalBatchReceipt {
-  session_id: string;
-  accepted_events: number;
+  sessionId: string;
+  acceptedEvents: number;
 }
 
 /** Event types the backend ingest enum accepts today (OpenAPI SignalEventType). */

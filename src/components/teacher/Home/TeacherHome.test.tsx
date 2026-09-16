@@ -40,7 +40,7 @@ import { TeacherHome } from "./TeacherHome";
 
 const classes = (over: Record<string, unknown> = {}) => ({
   classes: [],
-  liveClasses: [{ class_id: "c-1", class_name: "E2E Probe Class", class_code: "AB12" }],
+  liveClasses: [{ classId: "c-1", className: "E2E Probe Class", classCode: "AB12" }],
   options: [],
   live: true,
   loading: false,

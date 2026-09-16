@@ -44,7 +44,7 @@ import {
  * "ONLY THE BACKEND CAN PREVENT THAT" USED TO CLOSE THIS, and it is not true.
  * There is no PATCH on an assignment, but there is a role-changing seam:
  * `POST /api/v1/teacher-class-assignments/{assignment_id}/reassign` taking
- * `{new_teacher_id, role?}`, already wrapped as `classesApi.reassign` and
+ * `{newTeacherId, role?}`, already wrapped as `classesApi.reassign` and
  * already used by RemoveAccessSheet. Honouring the notice client-side means
  * reassigning the incumbent's row to co_teacher and creating the new primary -
  * TWO CALLS, NOT ONE TRANSACTION, so the open question is what the second
@@ -136,13 +136,13 @@ export function AssignTeacherSheet({
   // Somebody already assigned cannot be assigned again from here; the row's own
   // "Remove from this class" is how a role changes.
   const assignable = teachers.filter(
-    (t) => !assigned.some((a) => a.teacher_id === t.id),
+    (t) => !assigned.some((a) => a.teacherId === t.id),
   );
 
   const currentPrimary = assigned.find((a) => a.role === "primary");
   const primaryConflict = role === "primary" && Boolean(currentPrimary);
   const primaryName = currentPrimary
-    ? [currentPrimary.first_name, currentPrimary.last_name]
+    ? [currentPrimary.firstName, currentPrimary.lastName]
         .filter(Boolean)
         .join(" ")
         .trim() ||
@@ -157,7 +157,7 @@ export function AssignTeacherSheet({
     if (!ready || !role) return;
     setPhase("assigning");
     classesApi
-      .createAssignment({ teacher_id: teacherId, class_id: classId, role })
+      .createAssignment({ teacherId: teacherId, classId: classId, role })
       .then(() => {
         setPhase("assigned");
         // Let the confirmation be read before the sheet goes.
@@ -197,6 +197,12 @@ export function AssignTeacherSheet({
             </FailureLine>
             <button type="button" onClick={submit} className={PRIMARY_BTN}>
               Try again
+            </button>
+            {/* SCRUM-40 names both: "Primary 'Try again', secondary
+                'Close'." A failure with one way out is a failure that holds
+                the sheet open until it succeeds. */}
+            <button type="button" onClick={onClose} className={GHOST_BTN}>
+              Close
             </button>
           </>
         ) : (
@@ -308,10 +314,20 @@ export function AssignTeacherSheet({
       </fieldset>
 
       {primaryConflict ? (
+        /*
+         * SCRUM-40's line, whole: "Ms. Adeyemi is Primary for JSS 2A right
+         * now. Making Mr. Bello Primary moves her to Co-teacher; SHE KEEPS THE
+         * CLASS AND HER NOTES."
+         *
+         * That last clause was dropped, and it is the half that matters. What
+         * an admin hesitates over here is whether they are about to take
+         * something off a colleague; the notice stated the demotion and then
+         * stopped, leaving the answer to be guessed.
+         */
         <p className="m-0 rounded-[10px] bg-nevo-violet/24 px-4 py-3 text-[13.5px] leading-[1.5] text-nevo-navy">
           {primaryName} is the primary teacher for {className}. Making{" "}
           {chosen?.name ?? "this teacher"} primary moves {primaryName} to
-          co-teacher.
+          co-teacher; they keep the class and their notes.
         </p>
       ) : null}
     </Sheet>

@@ -278,11 +278,26 @@ export interface AdaptationPlan {
   segments: SegmentAdaptation[];
   /**
    * Active UDL accommodations (37c / SCRUM-71, backend-owned). Cross-session
-   * delivery themes, never a label: `reading` renders text more spaciously;
-   * `attention` chunks long text into tap-to-continue parts (with a calm pause
-   * between), dims secondary chrome and enriches the module boundary with
-   * recap/preview blocks; `numerical` is carried by the calc solver's
-   * picture-first rendering. TODO(api): source from the ratified contract.
+   * delivery themes, never a label.
+   *
+   * Sourced for a signed-in child by `useAccommodations` from
+   * `GET /api/intelligence/accommodations/{student_id}` - the same route the
+   * teacher's own screen reads - and merged onto the live plan in
+   * `useStudentLesson`. The adapt route carries no accommodation field.
+   *
+   * WHAT EACH ONE ACTUALLY DOES TODAY, which is not what this said before:
+   * - `reading` renders the body larger, airier and on a softer card. It
+   *   reaches the TEXT modality only; a segment opened on visual, audio,
+   *   calculation or interactive is untouched by it.
+   * - `attention` chunks a multi-sentence body into tap-to-continue parts with
+   *   a calm pause between, dims secondary chrome to 30%, and enriches the
+   *   module boundary with recap/preview blocks.
+   * - `numerical` CHANGES NOTHING. This previously claimed it "is carried by
+   *   the calc solver's picture-first rendering"; `CalculationSolver` takes no
+   *   such prop and renders identically either way. It is read by nothing in
+   *   the student app, while the teacher's screen lists it as active support.
+   *   Raised with design - either it gates something or it should stop being
+   *   presented to staff as a provision.
    */
   accommodations?: {
     attention?: boolean;

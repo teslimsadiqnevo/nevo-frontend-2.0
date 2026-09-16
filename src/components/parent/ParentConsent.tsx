@@ -104,7 +104,7 @@ export function ParentConsent({
     setPhase("sending");
     try {
       const res = await parentApi.completeConsent(token);
-      setReceipt(res.receipt_sent_to);
+      setReceipt(res.receiptSentTo);
       setPhase("done");
     } catch (e) {
       // 404 covers unknown, revoked and expired - the same dead end, and the
@@ -447,9 +447,9 @@ function AccountSetup({
     try {
       const session = await parentApi.verifyCode(contact, code);
       setSession({
-        token: session.access_token,
-        expiresAt: session.expires_at,
-        userId: session.user_id,
+        token: session.accessToken,
+        expiresAt: session.expiresAt,
+        userId: session.userId,
         role: session.role,
       });
       // A hard navigation, not a router push: the session and its mirror cookie

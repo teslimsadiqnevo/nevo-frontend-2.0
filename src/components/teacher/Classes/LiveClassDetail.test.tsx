@@ -52,9 +52,9 @@ const seg = (over: Partial<ClassStudent> = {}): ClassStudent =>
   }) as unknown as ClassStudent;
 
 const klass = {
-  class_id: "c-1",
-  class_name: "JSS 2B",
-  class_code: "AB12",
+  classId: "c-1",
+  className: "JSS 2B",
+  classCode: "AB12",
   role: "primary_teacher",
 } as never;
 

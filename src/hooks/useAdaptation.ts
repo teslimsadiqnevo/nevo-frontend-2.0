@@ -19,7 +19,7 @@ import type { AdaptationPlan, Lesson } from "@/lib/types";
  *
  * The response is TRANSLATED, not cast. This hook previously did
  * `setPlan(res as AdaptationPlan)`, which could not have worked - the wire is
- * snake_case (`segment_id`, `scaffolding`) and the player is camelCase
+ * snake_case (`segmentId`, `scaffolding`) and the player is camelCase
  * (`segmentId`, `scaffold`), so every lookup would have missed. Nothing
  * consumed the hook, so nothing surfaced it. See `lib/lessons/adaptation.ts`.
  */

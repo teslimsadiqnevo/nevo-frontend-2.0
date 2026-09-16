@@ -70,7 +70,7 @@ function ScopePill({ label }: { label: string }) {
 }
 
 function displayName(m: TeamMember): string {
-  const full = [m.first_name, m.last_name].filter(Boolean).join(" ").trim();
+  const full = [m.firstName, m.lastName].filter(Boolean).join(" ").trim();
   return full || m.email || "Invited admin";
 }
 
@@ -114,18 +114,6 @@ export function AdminTeamView() {
     fetchTeam();
   };
 
-  if (inviting) {
-    return (
-      <InvitePanel
-        onCancel={() => setInviting(false)}
-        onSent={() => {
-          setInviting(false);
-          retry();
-        }}
-      />
-    );
-  }
-
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
       <div className="mx-auto max-w-[820px]">
@@ -152,7 +140,7 @@ export function AdminTeamView() {
               <button
                 type="button"
                 onClick={retry}
-                className="mt-5 h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
+                className="mt-5 h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93"
               >
                 Try again
               </button>
@@ -168,6 +156,26 @@ export function AdminTeamView() {
           <TeamList team={team} seats={seats} onInvite={() => setInviting(true)} />
         )}
       </div>
+
+      {/*
+        * A DOCKED SHEET OVER THE LIST, not a page in its place.
+        *
+        * Inviting used to return the InvitePanel INSTEAD of this whole screen,
+        * so the team an admin was looking at vanished the moment they pressed
+        * Invite - and the seats line, which is the thing that decides whether
+        * to invite at all, went with it. SCRUM-40's rule for the console is
+        * that "sheets are reserved for a single focused action: assign,
+        * invite, enrol, move", and an invite is exactly that.
+        */}
+      {inviting && (
+        <InvitePanel
+          onCancel={() => setInviting(false)}
+          onSent={() => {
+            setInviting(false);
+            retry();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -209,7 +217,7 @@ function InviteButton({
     <button
       type="button"
       onClick={onClick}
-      className="h-[46px] shrink-0 cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
+      className="h-[46px] shrink-0 cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93"
     >
       {label}
     </button>
@@ -279,7 +287,15 @@ function TeamList({
         <div className="min-w-0">
           <Heading count={team.length} />
         </div>
-        {!atAllowance && <InviteButton onClick={onInvite} />}
+        {/*
+          * THE ACTION STAYS, ALWAYS. At the seat allowance this button was
+          * removed outright, so a school that had filled its seats had no path
+          * to add anyone at all - and SCRUM-39 is explicit the other way: "At
+          * zero remaining the invite action stays visible and routes to
+          * Billing." The card below is the explanation, not a replacement for
+          * the affordance; a control that vanishes teaches nothing.
+          */}
+        <InviteButton onClick={onInvite} />
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-4">
@@ -303,7 +319,7 @@ function TeamList({
             {/* TODO(api): no endpoint requests an extra account. */}
             <button
               type="button"
-              className="h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
+              className="h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93"
             >
               Request another account
             </button>
@@ -317,7 +333,7 @@ function TeamList({
 
       <div className={cn(CARD, "mt-3 overflow-hidden")}>
         {team.map((m, i) => (
-          <MemberRow key={m.user_id} m={m} last={i === team.length - 1} />
+          <MemberRow key={m.userId} m={m} last={i === team.length - 1} />
         ))}
       </div>
     </>
@@ -393,7 +409,7 @@ function InvitePanel({
       .then((created) => {
         /*
          * KEEP THE RESPONSE. This was `.then(() => ...)`, discarding a 201
-         * whose `invitation_token` is the ONLY way to build an activation
+         * whose `invitationToken` is the ONLY way to build an activation
          * link - and then navigating away 1.4 seconds later, so the one copy
          * of it was gone before anybody could act on it. The same shape as the
          * bulk import's dropped join tokens, in its sibling surface.
@@ -403,15 +419,31 @@ function InvitePanel({
       })
       .catch(() => {
         setPhase("idle");
+        /*
+         * THE SYSTEM OWNS THE FAULT. "Check the address and try again" reads
+         * as a correction to the admin, on a failure we have no reason to
+         * attribute to them - the response that produced it says nothing about
+         * the address. And it left the real question unanswered: whether the
+         * four scopes they had just ticked are still there. They are.
+         */
         setError(
-          "We couldn't send that invitation. Check the address and try again.",
+          "That didn't send, and we're on it. What you typed and the access you chose are still here - try again in a moment.",
         );
       });
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
-      <div className="mx-auto max-w-[560px]">
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-nevo-near-black/28 backdrop-blur-[0.4px] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200"
+      onClick={onCancel}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Invite a new admin"
+        onClick={(e) => e.stopPropagation()}
+        className="h-full w-full max-w-[560px] overflow-y-auto bg-nevo-cream px-[38px] py-[34px] shadow-[0_0_48px_rgba(0,0,0,0.22)] motion-safe:animate-in motion-safe:slide-in-from-right motion-safe:duration-200"
+      >
         <h2 className="text-[23px] font-semibold tracking-[-0.015em] text-nevo-near-black xl:text-[26px]">
           Invite a new admin
         </h2>
@@ -419,9 +451,9 @@ function InvitePanel({
           {/*
             * WAS: "They'll get an email to set a password and join."
             *
-            * Nothing supported that. The 201 carries `invitation_id`,
-            * `user_id`, `email`, `role`, `scopes`, `invitation_token` and
-            * `expires_at` - and NO delivery state of any kind, unlike the
+            * Nothing supported that. The 201 carries `invitationId`,
+            * `userId`, `email`, `role`, `scopes`, `invitationToken` and
+            * `expiresAt` - and NO delivery state of any kind, unlike the
             * student invites, which have `deliveryStatus` precisely so a
             * screen can tell. So the console can no more promise an email than
             * deny one, and it does neither: it hands over the link.
@@ -511,7 +543,7 @@ function InvitePanel({
             className={cn(
               "flex h-[50px] items-center justify-center rounded-[10px] bg-nevo-navy px-6 text-[15px] font-semibold text-nevo-cream transition-[filter]",
               valid && phase === "idle"
-                ? "cursor-pointer hover:brightness-93"
+                ? "cursor-pointer hover:brightness-110 active:brightness-93"
                 : "cursor-default opacity-50",
             )}
           >
@@ -564,7 +596,7 @@ function InvitePanel({
               </button>
             </div>
             <p className="m-0 mt-2.5 text-[13px] leading-[1.5]">
-              It expires {longDate(invited.expires_at)}. There is no way to
+              It expires {longDate(invited.expiresAt)}. There is no way to
               resend or cancel an admin invitation yet, so keep this link until
               they have used it.
             </p>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -9,7 +10,7 @@ import {
 } from "@/lib/api/classes";
 import { intelligenceApi, type AttentionFlag } from "@/lib/api/intelligence";
 import { studentsApi, type AdminStudentRow } from "@/lib/api/students";
-import { yearGroupLabel } from "@/lib/constants/yearGroups";
+import { YEAR_GROUPS, yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import {
   collectAdaptationWindow,
@@ -134,6 +135,7 @@ export function SencoView() {
   const [classOf, setClassOf] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [classId, setClassId] = useState("");
+  const [year, setYear] = useState("");
   const [now, setNow] = useState(0);
   /** A "mark as seen" the server refused. Nothing moved; say why. */
   const [ackFailed, setAckFailed] = useState(false);
@@ -260,12 +262,27 @@ export function SencoView() {
     [flags],
   );
 
+  /** The year groups this school's classes actually use, in enum order. */
+  const years = useMemo(() => {
+    const seen = new Set(
+      classes.map((c) => c.yearGroup).filter((y): y is string => Boolean(y)),
+    );
+    return YEAR_GROUPS.filter((y) => seen.has(y));
+  }, [classes]);
+
   const profiles = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return students
       .filter((s) => (classId ? classOf[s.id] === classId : true))
+      .filter((s) => {
+        if (!year) return true;
+        // A learner whose class we have not resolved is not evidence of any
+        // year group, so a year filter leaves them out rather than guessing.
+        const c = classById.get(classOf[s.id] ?? "");
+        return c?.yearGroup === year;
+      })
       .filter((s) => (needle ? s.name.toLowerCase().includes(needle) : true));
-  }, [students, search, classId, classOf]);
+  }, [students, search, classId, year, classOf, classById]);
 
   /*
    * PESSIMISTIC, AND DELIBERATELY SO.
@@ -396,6 +413,17 @@ export function SencoView() {
         {phase === "ready" && view === "attention" ? (
           openFlags.length === 0 ? (
             <div className={cn(CARD, "mt-6 px-6 py-14 text-center")}>
+              {/* The frame's mark, which every sibling admin empty state has
+                  and this one did not - so the calmest screen in the console
+                  was also the barest, on the tab a SENCo opens hoping to find
+                  exactly this. */}
+              <Image
+                src="/illustrations/empty-admin-outcomes.png"
+                alt=""
+                width={320}
+                height={200}
+                className="mx-auto mb-3 h-[180px] w-auto object-contain"
+              />
               <h3 className="m-0 text-xl font-semibold text-nevo-near-black">
                 Nothing needs your attention right now
               </h3>
@@ -528,6 +556,28 @@ export function SencoView() {
                   ))}
                 </select>
               </label>
+              {/* A YEAR GROUP IS HOW A SENCo THINKS ABOUT THIS LIST, and the
+                  screen offered only search and class. The options are the
+                  year groups this school's own classes actually use, in the
+                  enum's order - never the full canonical seventeen, which
+                  would offer a SENCo levels their school does not run. */}
+              {years.length > 1 ? (
+                <label className={FILTER_PILL}>
+                  <span className="sr-only">Filter by year group</span>
+                  <select
+                    value={year}
+                    onChange={(e) => setYear(e.target.value)}
+                    className="cursor-pointer appearance-none bg-transparent outline-none"
+                  >
+                    <option value="">All year groups</option>
+                    {years.map((y) => (
+                      <option key={y} value={y}>
+                        {yearGroupLabel(y) ?? y}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
             </div>
 
             <div className={cn(CARD, "mt-4")}>
@@ -554,6 +604,7 @@ export function SencoView() {
                     onClick={() => {
                       setSearch("");
                       setClassId("");
+                      setYear("");
                     }}
                     className="mt-3 cursor-pointer text-sm font-semibold text-nevo-navy hover:opacity-75"
                   >
@@ -572,8 +623,27 @@ export function SencoView() {
                   >
                     <Avatar name={s.name} size={38} />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[15px] font-semibold text-nevo-near-black">
-                        {s.name}
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-[15px] font-semibold text-nevo-near-black">
+                          {s.name}
+                        </span>
+                        {/* THE DOT THE FRAME DRAWS, from flags already in this
+                            component's own state. Without it the two halves of
+                            this screen do not join up: a SENCo reading the
+                            profiles list had no way to see which of these
+                            learners are the ones the Learning Support tab is
+                            about, short of switching tabs and back.
+
+                            It marks an OPEN flag only - acknowledged ones are
+                            handled, and a permanent mark on a learner whose
+                            flag was dealt with weeks ago is the kind of
+                            lingering label this console does not keep. */}
+                        {openFlags.some((f) => f.studentId === s.id) ? (
+                          <span
+                            aria-label="Has an open support flag"
+                            className="size-2 flex-none rounded-full bg-nevo-violet"
+                          />
+                        ) : null}
                       </div>
                       {describeClass(s.id) ? (
                         <div className="truncate text-[13px] text-nevo-near-black/58">

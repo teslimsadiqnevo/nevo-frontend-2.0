@@ -32,6 +32,16 @@ export interface Assignment {
   availableFrom: string | null;
   /** When it is DUE - a different thing. */
   dueAt: string | null;
+  /**
+   * What the teacher wrote to the child when they set it. Shipped 15 Sep.
+   *
+   * This rides on the STUDENT's dashboard too: `GET /api/v1/students/me/dashboard`
+   * returns `assignments: AssignmentResponse[]`, so the note reaches the child
+   * it was written for. Until 15 Sep this field was missing from the type, which
+   * meant `useStudentDashboard` - which passes `Assignment[]` straight through -
+   * would have dropped a teacher's words before any screen could render them.
+   */
+  note: string | null;
   assignedAt: string;
 }
 
@@ -67,6 +77,11 @@ export const assignmentsApi = {
    * lesson scheduled to open on Friday is not a lesson due on Friday.
    * `availableFrom` landed on 31 Aug 2026 and is what the wizard's step 3
    * has always been asking for.
+   *
+   * `note` landed 15 Sep. It is a message to the CHILD, not a label for the
+   * teacher's own list: it comes back on the student's dashboard alongside the
+   * lesson. Send it only where a teacher was actually given a box to write in
+   * - a note assembled on their behalf would be words they never chose.
    */
   create: (payload: {
     lessonIds: string[];
@@ -74,6 +89,7 @@ export const assignmentsApi = {
     studentIds?: string[];
     availableFrom?: string | null;
     dueAt?: string | null;
+    note?: string | null;
   }) => api.post<CreateAssignmentsResult>("/api/v1/assignments", payload),
 
   /** Every assignment the teacher can see, optionally narrowed. */

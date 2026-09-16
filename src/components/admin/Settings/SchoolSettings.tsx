@@ -15,10 +15,20 @@ import {
   YEAR_GROUPS,
   defaultYearGroupLabel,
   setYearGroupLabels,
-  type YearGroup,
 } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
 import { CARD } from "../Roster/primitives";
+import {
+  termIssues,
+  termStartDatesFrom,
+  unresolvedLine,
+} from "./academicCalendar";
+import {
+  PRESETS,
+  labelsForPreset,
+  presetFor,
+  type PresetId,
+} from "./taxonomy";
 import {
   NotBuiltNote,
   S_FIELD,
@@ -74,32 +84,6 @@ const RETENTION: { value: RetentionPolicy; label: string; plain: string }[] = [
   },
 ];
 
-/** The presets D12b offers. Each maps the enum onto a naming convention. */
-const PRESETS: { id: string; name: string; example: string }[] = [
-  { id: "nigerian", name: "Nigerian", example: "Nursery 1 · Primary 4 · JSS 2 · SS 1" },
-  { id: "british", name: "British", example: "Nursery · Year 5 · Year 8 · Year 10" },
-  { id: "american", name: "American", example: "Pre-K · Grade 4 · Grade 7 · Grade 10" },
-];
-
-const BRITISH: Record<YearGroup, string> = {
-  n1: "Nursery 1", n2: "Nursery 2", kg1: "Reception", kg2: "Year 1",
-  p1: "Year 2", p2: "Year 3", p3: "Year 4", p4: "Year 5", p5: "Year 6", p6: "Year 7",
-  jss1: "Year 8", jss2: "Year 9", jss3: "Year 10",
-  ss1: "Year 11", ss2: "Year 12", ss3: "Year 13",
-};
-
-const AMERICAN: Record<YearGroup, string> = {
-  n1: "Pre-K 1", n2: "Pre-K 2", kg1: "Kindergarten", kg2: "Grade 1",
-  p1: "Grade 2", p2: "Grade 3", p3: "Grade 4", p4: "Grade 5", p5: "Grade 6", p6: "Grade 7",
-  jss1: "Grade 8", jss2: "Grade 9", jss3: "Grade 10",
-  ss1: "Grade 11", ss2: "Grade 12", ss3: "Grade 13",
-};
-
-function presetMap(id: string): Record<YearGroup, string> | null {
-  if (id === "british") return BRITISH;
-  if (id === "american") return AMERICAN;
-  return null;
-}
 
 export function SchoolSettings() {
   const [load, setLoad] = useState<Load>("loading");
@@ -116,7 +100,6 @@ export function SchoolSettings() {
   const [calendar, setCalendar] = useState<Phase>("idle");
 
   const [labels, setLabels] = useState<Record<string, string>>({});
-  const [preset, setPreset] = useState<string>("nigerian");
   const [taxonomy, setTaxonomy] = useState<Phase>("idle");
 
   const hydrate = useCallback((s: School) => {
@@ -134,7 +117,6 @@ export function SchoolSettings() {
     );
     setAcademic(acad);
     setLabels(acad.yearGroupLabels ?? {});
-    setPreset(acad.taxonomyPreset ?? "nigerian");
     setYearGroupLabels(acad.yearGroupLabels);
     setLoad("ready");
   }, []);
@@ -159,7 +141,6 @@ export function SchoolSettings() {
   }
 
   const chosen = RETENTION.find((r) => r.value === retention) ?? RETENTION[0];
-  const edited = Object.keys(labels).length > 0;
 
   const saveGeneral = () => {
     setGeneral("saving");
@@ -187,6 +168,21 @@ export function SchoolSettings() {
         yearStart: academic.yearStart,
         yearEnd: academic.yearEnd,
         terms: academic.terms ?? [],
+        /*
+         * THE ONLY FIELD NEVO ACTUALLY READS, and this save never wrote it.
+         *
+         * `yearStart`, `yearEnd` and `terms` are all OURS - client inventions
+         * kept in a blob the backend passes through untouched. The deployed
+         * `AcademicConfig` types exactly one property, `termStartDates`, and
+         * its own description says what happens without it: "fewer means Nevo
+         * falls back to splitting the contract year evenly."
+         *
+         * So a school that carefully set three term dates here had told Nevo
+         * nothing, and every "this half-term" figure in the product went on
+         * dividing their year into equal thirds. Derived rather than typed
+         * twice, so the two cannot disagree.
+         */
+        termStartDates: termStartDatesFrom(academic.terms ?? []),
       })
       .then((s) => {
         hydrate(s);
@@ -199,6 +195,8 @@ export function SchoolSettings() {
   const saveTaxonomy = () => {
     setTaxonomy("saving");
     schoolApi
+      // The preset is derived from the labels, so what is stored can never
+      // disagree with what is on screen.
       .saveAcademic({ yearGroupLabels: labels, taxonomyPreset: preset })
       .then((s) => {
         hydrate(s);
@@ -208,26 +206,22 @@ export function SchoolSettings() {
       .catch(() => setTaxonomy("failed"));
   };
 
-  const applyPreset = (id: string) => {
-    setPreset(id);
-    const map = presetMap(id);
-    if (!map) {
-      setLabels({});
-      return;
-    }
-    // Only store what actually differs from the Nigerian default, so a school
-    // that later goes back to Nigerian has an empty map rather than a full one
-    // that happens to match.
-    const next: Record<string, string> = {};
-    YEAR_GROUPS.forEach((yg) => {
-      if (map[yg] !== defaultYearGroupLabel(yg)) next[yg] = map[yg];
-    });
-    setLabels(next);
-  };
-
   const terms = academic.terms ?? [];
   const setTerms = (next: SchoolTerm[]) =>
     setAcademic((a) => ({ ...a, terms: next }));
+
+  /*
+   * SCRUM-99: "Save stays disabled while any row is unresolved, with a live
+   * count beside it." There was no validation at all, on the record every
+   * period figure in the product resolves through.
+   */
+  const issues = termIssues(terms);
+  const issueFor = (i: number) => issues.find((x) => x.index === i) ?? null;
+  const unresolved = unresolvedLine(issues);
+
+  /** Derived, never a stored claim - see `presetFor`. */
+  const preset: PresetId = presetFor(labels);
+  const applyPreset = (id: PresetId) => setLabels(labelsForPreset(id));
 
   return (
     <>
@@ -308,6 +302,21 @@ export function SchoolSettings() {
           When you deactivate a student, {chosen.plain} in case they return or a
           record is needed. After that they&rsquo;re permanently deleted and
           can&rsquo;t be recovered. Active students are never affected.
+        </p>
+        {/*
+          * SCRUM-99's VS ERASURE line, verbatim, and it is a done-when: "The
+          * erasure distinction is stated on screen."
+          *
+          * Two retention periods exist and the spec is emphatic they must not
+          * be conflated - this setting governs a DEACTIVATED student's record,
+          * while an outright erasure follows the separate, shorter period
+          * SCRUM-40 fixes at 90 days and which is not editable here. The
+          * spec's own reasoning for saying it out loud: "the two numbers being
+          * different is exactly what confuses people."
+          */}
+        <p className="m-0 mt-2 max-w-[62ch] text-sm leading-[1.6] text-nevo-near-black/70">
+          This is about students you deactivate. If you erase a record
+          outright, a shorter period applies that we&rsquo;re required to keep.
         </p>
         {school.retentionDays ? (
           <p className="m-0 mt-2 text-[12.5px] text-nevo-near-black/50">
@@ -415,6 +424,68 @@ export function SchoolSettings() {
                     className={cn(S_FIELD, "flex-1")}
                   />
                 </div>
+
+                {/* SCRUM-99's term row is "term name, start date, end date,
+                    and an optional half-term break with its own two dates".
+                    The pair had no fields at all - the type carried a dead
+                    `halfTermBreak?: boolean` that nothing wrote and nothing
+                    read, so a school could say a break existed but never
+                    when, on the screen whose whole job is to say when. */}
+                <div className="mt-3 flex gap-3 max-xl:flex-col">
+                  <div className="flex-1">
+                    <label
+                      htmlFor={`half-start-${t.id}`}
+                      className="mb-1 block text-[12.5px] text-nevo-near-black/55"
+                    >
+                      Half-term break starts (optional)
+                    </label>
+                    <input
+                      id={`half-start-${t.id}`}
+                      type="date"
+                      value={t.halfTermStart ?? ""}
+                      onChange={(e) =>
+                        setTerms(
+                          terms.map((x, j) =>
+                            j === i
+                              ? { ...x, halfTermStart: e.target.value }
+                              : x,
+                          ),
+                        )
+                      }
+                      className={cn(S_FIELD, "w-full")}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label
+                      htmlFor={`half-end-${t.id}`}
+                      className="mb-1 block text-[12.5px] text-nevo-near-black/55"
+                    >
+                      Half-term break ends (optional)
+                    </label>
+                    <input
+                      id={`half-end-${t.id}`}
+                      type="date"
+                      value={t.halfTermEnd ?? ""}
+                      onChange={(e) =>
+                        setTerms(
+                          terms.map((x, j) =>
+                            j === i ? { ...x, halfTermEnd: e.target.value } : x,
+                          ),
+                        )
+                      }
+                      className={cn(S_FIELD, "w-full")}
+                    />
+                  </div>
+                </div>
+
+                {/* "A plain line under the offending row ... in navy not red."
+                    No red anywhere in this console, and a term calendar being
+                    half-entered is not an alarm. */}
+                {issueFor(i) ? (
+                  <p className="m-0 mt-2.5 text-[13px] leading-[1.5] text-nevo-navy">
+                    {issueFor(i)!.message}
+                  </p>
+                ) : null}
               </div>
             ))}
           </div>
@@ -443,7 +514,16 @@ export function SchoolSettings() {
           </p>
         </div>
 
-        <SaveRow phase={calendar} onSave={saveCalendar} />
+        {unresolved ? (
+          <p className="m-0 mt-5 text-[13px] font-medium text-nevo-navy">
+            {unresolved}
+          </p>
+        ) : null}
+        <SaveRow
+          phase={calendar}
+          onSave={saveCalendar}
+          disabled={issues.length > 0}
+        />
       </SettingsSection>
 
       {/* ----------------------------------------------------------- TAXONOMY */}
@@ -469,13 +549,30 @@ export function SchoolSettings() {
                 {p.name}
               </span>
               <span className="mt-0.5 block text-[13px] text-nevo-near-black/60">
-                {p.example}
+                {p.examples.join(" · ")}
               </span>
             </button>
           ))}
+
+          {/* CUSTOM IS A CARD, NOT AN ABSENCE. SCRUM-99's done-criterion is
+              "Editing a label moves the preset to Custom rather than lying" -
+              and with three cards and no fourth, a school that renamed one
+              level went on being described as British while its labels were
+              no longer British. It is not selectable: a school arrives here by
+              editing, not by choosing. */}
+          {preset === "custom" ? (
+            <div className="rounded-xl border-2 border-nevo-navy bg-nevo-navy/[0.06] px-4 py-3.5">
+              <span className="block text-[15px] font-semibold text-nevo-near-black">
+                Custom
+              </span>
+              <span className="mt-0.5 block text-[13px] text-nevo-near-black/60">
+                Your own names, edited below.
+              </span>
+            </div>
+          ) : null}
         </div>
 
-        {edited && preset === "nigerian" ? (
+        {preset === "custom" ? (
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <p className="m-0 text-[13px] text-nevo-near-black/62">
               You&rsquo;ve edited a label, so this is a custom set now.

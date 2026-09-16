@@ -7,7 +7,7 @@ import { getSession } from "@/lib/auth/session";
 /**
  * Keeps a signed-in session alive.
  *
- * A session carried `expires_at` and nothing renewed it. When it passed,
+ * A session carried `expiresAt` and nothing renewed it. When it passed,
  * `getSession()` cleared itself - so no token was sent, nothing 401'd, and the
  * redirect that would have sent someone to sign in never fired. A child came
  * back the next morning to the signed-out walkthrough wearing another child's

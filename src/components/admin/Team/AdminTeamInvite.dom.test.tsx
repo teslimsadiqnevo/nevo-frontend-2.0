@@ -6,13 +6,13 @@ import { AdminTeamView } from "./AdminTeamView";
 /**
  * "They'll get an email to set a password and join."
  *
- * Nothing supported that. The 201 carries `invitation_id`, `user_id`, `email`,
- * `role`, `scopes`, `invitation_token` and `expires_at` - and NO delivery state
+ * Nothing supported that. The 201 carries `invitationId`, `userId`, `email`,
+ * `role`, `scopes`, `invitationToken` and `expiresAt` - and NO delivery state
  * of any kind, unlike the student invites, which carry `deliveryStatus`
  * precisely so a screen can tell.
  *
  * Worse, the response was DISCARDED (`.then(() => ...)`) and the screen
- * navigated away 1.4 seconds later, so `invitation_token` - the only way to
+ * navigated away 1.4 seconds later, so `invitationToken` - the only way to
  * build an activation link - was gone before anybody could act on it. The same
  * shape as the bulk import's dropped join tokens, in its sibling surface.
  */
@@ -39,13 +39,13 @@ vi.mock("next/navigation", () => ({
 }));
 
 const CREATED = {
-  invitation_id: "inv1",
-  user_id: "u1",
+  invitationId: "inv1",
+  userId: "u1",
   email: "f.adebayo@brightgate.edu.ng",
   role: "other_admin",
   scopes: ["billing"],
-  invitation_token: "tok-abc123",
-  expires_at: "2026-10-01T00:00:00Z",
+  invitationToken: "tok-abc123",
+  expiresAt: "2026-10-01T00:00:00Z",
 };
 
 /** Open the invite form, fill it, and send. */

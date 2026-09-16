@@ -22,7 +22,7 @@ import { LiveVariantReview } from "./LiveVariantReview";
  *  - "they appear ONLY on `ParsedLessonSegmentResponse` ... no lesson READ
  *    carries them at all" - all five sit on `LessonSegmentResponse`, reached
  *    by `GET /api/v1/lessons/{lesson_id}` and `GET /api/content/lessons/
- *    {lesson_id}`, and are typed locally at `lib/api/variants.ts`.
+ *    {lessonId}`, and are typed locally at `lib/api/variants.ts`.
  *
  * So the honest state below is now OVER-honest: it tells a signed-in teacher
  * variants are unavailable when the lesson read they came from carries them.

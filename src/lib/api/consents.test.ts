@@ -18,9 +18,9 @@ const gate = (
   status: ConsentGateStatus["status"],
   granted: boolean,
 ): ConsentGateStatus => ({
-  student_id: "s-1",
+  studentId: "s-1",
   granted,
-  required_type: "data_processing",
+  requiredType: "data_processing",
   status,
 });
 

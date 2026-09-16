@@ -140,7 +140,7 @@ export function AdminSignIn() {
     Promise.race([live, cap])
       .then((session) => {
         signIn({
-          id: session.user_id,
+          id: session.userId,
           role: session.role as UserRole,
           schoolId: "",
           method: "manual",
@@ -188,6 +188,23 @@ export function AdminSignIn() {
 
   return (
     <div className="flex w-full max-w-[440px] flex-col items-stretch px-6">
+      {/*
+        * THE WORDMARK, on a pre-shell surface that carries no sidebar.
+        *
+        * The frames put it on every state of both of these screens, and
+        * neither rendered any mark at all - so the two places a school meets
+        * Nevo before there is a console around them were the only two with
+        * nothing saying whose product this is. The crop is `AdminSidebar`'s,
+        * scaled: one source image, so the surfaces cannot drift apart.
+        */}
+      <span className="relative mb-8 block h-[24px] w-[81px] overflow-hidden self-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/logo-wordmark-purple.png"
+          alt="Nevo"
+          className="absolute block h-[236px] w-[236px] max-w-none -translate-x-[85px] -translate-y-[113px]"
+        />
+      </span>
       <h2 className="text-center text-[34px] leading-[1.15] font-semibold tracking-[-0.02em] text-nevo-near-black">
         Welcome back
       </h2>
@@ -276,7 +293,7 @@ export function AdminSignIn() {
         className={cn(
           "mt-6 flex h-[52px] w-full items-center justify-center gap-2.5 rounded-[10px] bg-nevo-navy text-[15px] font-semibold text-nevo-cream transition-[filter]",
           canSubmit && !busy
-            ? "cursor-pointer hover:brightness-93"
+            ? "cursor-pointer hover:brightness-110 active:brightness-93"
             : "cursor-default opacity-50",
         )}
       >

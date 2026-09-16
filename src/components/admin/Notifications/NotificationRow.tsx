@@ -185,7 +185,21 @@ export function NotificationRow({
             e.stopPropagation();
             onArchive(notification.notificationId);
           }}
-          className="flex-none cursor-pointer text-[13px] font-semibold text-nevo-near-black/55 transition-opacity hover:text-nevo-near-black/80 max-lg:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100"
+          className={cn(
+            "flex-none cursor-pointer text-[13px] font-semibold text-nevo-near-black/55 transition-opacity hover:text-nevo-near-black/80",
+            /*
+             * HOVER IS THE PANEL'S TREATMENT, NOT THE PAGE'S, and this row
+             * applied one rule to both. SCRUM-100 says of the panel row "a
+             * small quiet action revealed on row hover only", and of the PAGE
+             * row "the archive action always visible rather than hover-only" -
+             * two sentences, one per surface. The breakpoint written here
+             * honoured neither: it hid the action on the page at both designed
+             * widths, and revealed it in the panel only above 1024.
+             */
+            compact
+              ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+              : "opacity-100",
+          )}
         >
           Archive
         </button>

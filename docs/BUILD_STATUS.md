@@ -1,6 +1,6 @@
 # Nevo frontend — what is left
 
-Last updated **14 September 2026**. Written from a survey of the source and the
+Last updated **16 September 2026**. Written from a survey of the source and the
 deployed OpenAPI document, not from tickets.
 
 **Start with the section directly below.** It is the only measured, whole-product
@@ -124,12 +124,43 @@ found 17 of 97 markers repo-wide were already stale; assume the same rate here.
 
 ---
 
-## Student sign-in on a new device — PARKED pending design, 14 Sep
+## Student sign-in on a new device — RULED AND BUILT, 15 Sep
 
-**Do not start building this.** Raised with design and backend on 14 Sep; Olayinka
-has asked that it wait for their rulings. Recorded here so nobody picks it up.
+**Unparked.** Design ruled on 14 Sep and the screen shipped the same day
+(`ReturningSignInScreen.tsx`, frame 00c); the identity leak it introduced was
+fixed on 15 Sep in PR #398. The history below is kept because the correction in
+it is still load-bearing and the shared-tablet sub-case is still open.
 
-**The gap.** A returning child on a new or wiped device cannot sign in. The
+**What design chose:** the child types the identifier a teacher reads out, over
+a class name-picker. That trades friction for never exposing a roster to anyone
+holding a class code, and it needed nothing from backend.
+
+**Two things worth knowing if you touch this screen:**
+
+- **The username field must NOT use `CodeInput`.** It hardcodes `normaliseCode`,
+  which uppercases and strips punctuation — `amara.k` becomes `AMARAK` and no
+  child can sign in. It is a plain input with `autoCapitalize="none"`.
+- **Never store the login identifier as a display name.** The first version did,
+  as a stand-in, and the lock screen then read "Welcome back, amara.k" forever.
+  Design's assessment: that string is half a credential, on a pre-authentication
+  screen, beside a school code the whole building knows. `displayName` is now
+  optional on `RememberedProfile`, the real first name is fetched from
+  `users/me` after sign-in, and a nameless device says "Welcome back" alone.
+  The name read is deliberately NOT awaited — awaiting it put a profile read
+  between a child and the lesson they had just unlocked.
+
+**Still open — the shared classroom tablet.** The device remembers exactly ONE
+child (`nevo.auth.profile` is a single slot `rememberProfile` overwrites), so
+the second child to sign in displaces the first. Design's answer is frame 28c, a
+picker holding up to six children by FIRST NAME AND AVATAR ONLY, never full
+names, ageing out after thirty days of non-use. Waiting on the frame.
+
+**Note for whoever builds 28c:** "signing out is not forgetting the device" is a
+deliberate, tested decision (`session.dom.test.ts`) and design confirmed on
+15 Sep that 28c does NOT overturn it — entries expire on age, not on sign-out.
+
+**The original gap, for the record.** A returning child on a new or wiped device
+could not sign in. The
 Welcome screen offers only "I have a school code" and "I'm joining through my
 teacher" and both CREATE AN ACCOUNT; `/auth/login` (`page.tsx:56`) only unlocks a
 profile the device already remembers and otherwise redirects into onboarding. So
@@ -154,11 +185,53 @@ since it lists children's first names to anyone with a class code); a sign-in QR
 from the teacher (no roster exposed, needs a new endpoint); or type the
 identifier a teacher reads out (nothing needed from anyone, poor for primary).
 
-**Separable sub-case, also parked.** The device remembers exactly ONE child —
-`nevo.auth.profile` is a single slot that `rememberProfile` overwrites. So the
-second child to onboard on a shared classroom tablet displaces the first. Fixing
-that is pure frontend (a list plus a picker) and needs no backend, but it needs a
-picker frame, so it is parked with the rest.
+---
+
+## Student lane — UDL accommodations, and a signal that would have lied, 15 Sep
+
+Three merged: **#395** (accommodations reach the child), **#397** (observation
+copy), **#398** (the username leak above). The parts other lanes need:
+
+**Every UDL accommodation was computed, shown to staff as active, and never
+applied to the child.** `toAdaptationPlan` never set
+`AdaptationPlan.accommodations`, so it was undefined for every signed-in learner.
+The only plan that ever carried one is the authored mock — so **the signed-out
+demo visitor got the accommodation and the SEND learner it was built for did
+not**, while the teacher screen said "Support Nevo has turned on" and the SENCo
+screen called it the accommodation record for the IEP.
+
+**Grep your own lane for this shape:** a field the UI reads that nothing ever
+writes. It is the same class as the 27 typed-client-methods-with-no-caller in
+the API audit, one layer up.
+
+**The part that could not simply be switched on.** The player calls a segment
+fully read when its column has no room to scroll. True for a segment, false for
+one chunk of one — a chunk always fits. Turning `attention` on would have
+reported every chunked segment as 100% read the instant it opened, and **only
+children WITH the accommodation are ever chunked**, so it would have corrupted
+the adaptation signal for exactly the learners it exists to help. The chunked
+body now reports its own progress and that outranks the layout measurement.
+
+**Two mutations survived and both were real findings** — a guard in the
+measurement effect and a `!signedIn` check, each proved inert and deleted rather
+than left looking load-bearing. Worth doing on your own fixes: a surviving
+mutation usually means the line is dead, not that the test is weak.
+
+**`numerical` gates nothing.** Its docblock claimed it "is carried by the calc
+solver's picture-first rendering"; `CalculationSolver` takes no such prop.
+Another comment asserting the opposite of the code. Raised with design — either
+it gates something or it stops being shown to staff as a provision.
+
+**Observation copy is now design's final wording** (`lib/constants/observations.ts`),
+with two behavioural rulings: no sentence ever interpolates the count, and only
+`completed_lessons` may carry one — a number beside `revisited_content` undoes
+the sentence that stops it reading as "struggles with retention".
+`observationCount` takes the pattern now, so the rule is enforced at the source.
+**If you render observations anywhere, that signature changed.**
+
+**One house rule that came out of it:** no copy guesses a child's pronoun. Design's
+draft said "the lessons she starts"; we store no pronoun for anybody, so it is
+singular they, and a test fails the build on any gendered pronoun in the five.
 
 ---
 
@@ -1571,6 +1644,36 @@ Both guards on the new copy were then mutation-verified: reinstating the promise
 the audit killed fails "never offers to send one", and making the fallback
 assert contact fails two more.
 
+## The admin design check — 74 confirmed, 15 Sep
+
+Every built admin screen compared frame-by-frame against its frame and SCRUM
+spec, each finding then adversarially verified against the code by a second
+agent. **79 raw, 74 confirmed, 5 rejected.** The full register with a proposed
+fix per row is `docs/design-check-findings.md`.
+
+**Six were design-law breaches and all six are fixed.** Two of the six were
+mine, both introduced in the previous 48 hours, and both against rules written
+down in the files I was editing:
+
+| | |
+|---|---|
+| A withdrawn parent could be asked again | Both student screens gated the action on "anything but confirmed", which includes `withdrawn`. SCRUM-40 forbids it outright — and it matters more since 15 Sep, when backend began enforcing withdrawal: the child is genuinely stopped, so the request goes to the parent who stopped them. |
+| A class could go to a deactivated teacher | `RemoveAccessSheet` filtered on identity alone. `isActive()` was written and unit-tested next door and simply never called — producing the orphaned class the sheet exists to prevent. |
+| Zero-Tag, learner profile | Accommodations rendered as pills reading "Reading", "Attention", "Numerical" beside a named child. A category noun next to a learner's name is a label about that learner however neutral the word looks alone. |
+| Zero-Tag, adaptation log | The row headline printed `simplify_trigger`. The labels had been written for the type filter **one hour earlier** and not used in the rows. |
+| A card on the finance home (MINE) | Rendered brand and last four with a "Manage" route. SCRUM-98 and D11 forbid it in every state, and `PaymentMethod` is annotated **"Read, never rendered"** on the very type it was read from. |
+| The bulk-import lesson claim (MINE) | The `skipped > 0` branch was corrected and its sibling three lines below was not. |
+
+**The pattern, and it is the one already named in this file:** four of the six
+are a rule stated in a comment while the code a few lines away breaks it, or a
+fix applied to one branch and not its neighbour. Docblocks are not a control.
+
+**The remaining 68** are 39 states the frames draw that do not exist, 19 layout
+divergences (many at 1024x768, which is the breakpoint that gets forgotten), and
+14 copy differences. None is a correctness or safety defect. They are the
+backlog of "built to the frame, not quite" — worth working through before the
+design review, and now enumerated rather than guessed at.
+
 ### Still buildable, not built — NONE
 
 The list is empty. Everything remaining on the admin console is blocked on an
@@ -2767,7 +2870,7 @@ since it is the conversion form.
 
 | item                    | state                                                                                                                                                                                                                          |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Tests**               | 216 unit + 20 E2E, green as of 8 Sep. `npm test`, enforced by CI alongside types, lint and contract. Four shared primitives, the marking logic, the judgement screens, and the five admin failed-read guards. See **Testing**. |
+| **Tests**               | **1052 unit across 140 files, + 25 E2E across 4 specs.** Green on `main` (CI, 16 Sep). `npm test`, enforced by CI alongside types, lint and contract. See **Testing**. The 8 Sep figure in this row read "216 unit + 20 E2E" for a week after it stopped being true — re-measure before quoting it. |
 | **Landing performance** | **41** deployed / **73** on a local production build (3-run median). Investigated 7 Sep — see below before repeating it.                                                                                                       |
 | **Lint**                | Green as of 5 Sep (0 errors, 1 warning). Now enforced by CI.                                                                                                                                                                   |
 | **Contract**            | Green as of 6 Sep. `npm run contract`, enforced by CI.                                                                                                                                                                         |
@@ -2833,3 +2936,18 @@ there. Manual transfers go through `manual-transfer`.
   trusts the former shows a generic message instead of the real reason.
 - Legacy lessons need reparsing before checkpoints can auto-mark: `toQuickCheck`
   skips every checkpoint whose `answerKey` is null.
+- **Can a STUDENT's token call `GET /api/intelligence/accommodations/{student_id}`
+  for their own id?** (asked 15 Sep) Every existing caller is a teacher or a
+  SENCo. This cannot be answered from the spec — **student-only and admin-only
+  routes declare byte-identical security blocks, so the document carries no scope
+  information at all** — and the E2E tenant has no students to probe with.
+  Shipped failing closed, so nothing breaks either way; but if it is staff-only,
+  every signed-in child is making a request on every lesson open that can never
+  succeed, and the accommodation can never be delivered. Precedent for optimism:
+  `POST /api/intelligence/adapt` is on the same prefix and does answer 200 to a
+  student's own token.
+- **What characters can a `login_identifier` contain?** (asked 15 Sep) No
+  `pattern` on any of the nine schemas carrying it — `string`, 1–50 — and no
+  prose anywhere in the document describes the format. Every fixture we have
+  uses `firstname.initial` with an optional digit (`amara.k`, `amara.k7`), and
+  design is holding the child's keyboard layout on the answer.

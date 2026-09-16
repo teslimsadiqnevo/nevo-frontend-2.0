@@ -174,7 +174,7 @@ export function TeachersView() {
             </div>
 
             <div className={cn(CARD, "mt-[18px]")}>
-              <div className="grid grid-cols-[1.6fr_120px_120px] gap-4 border-b border-nevo-near-black/8 bg-nevo-near-black/[0.03] px-6 py-[13px] text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50 max-lg:hidden">
+              <div className="grid grid-cols-[1.6fr_120px_120px] gap-4 border-b border-nevo-near-black/8 bg-nevo-near-black/[0.03] px-6 py-[13px] text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-near-black/50 max-xl:hidden">
                 <span>Teacher</span>
                 <span>Classes</span>
                 <span>Status</span>
@@ -202,7 +202,7 @@ export function TeachersView() {
                       type="button"
                       onClick={() => router.push(`/admin/teachers/${t.id}`)}
                       className={cn(
-                        "grid w-full cursor-pointer grid-cols-[1.6fr_120px_120px] items-center gap-4 px-6 py-[15px] text-left transition-colors hover:bg-nevo-navy/[0.03] max-lg:flex max-lg:items-center max-lg:justify-between max-lg:gap-3 max-lg:px-[18px] max-lg:py-[13px]",
+                        "grid w-full cursor-pointer grid-cols-[1.6fr_120px_120px] items-center gap-4 px-6 py-[15px] text-left transition-colors hover:bg-nevo-navy/[0.03] max-xl:flex max-xl:items-center max-xl:justify-between max-xl:gap-3 max-xl:px-[18px] max-xl:py-[13px]",
                         i < teachers.length - 1 && ROW_DIVIDER,
                       )}
                     >
@@ -213,13 +213,31 @@ export function TeachersView() {
                             {t.name}
                           </span>
                           {t.email ? (
-                            <span className="block truncate text-[13px] text-nevo-near-black/60">
+                            <span className="block truncate text-[13px] text-nevo-near-black/60 max-xl:hidden">
                               {t.email}
                             </span>
                           ) : null}
+                          {/*
+                            * THE CLASS LOAD, AT TABLET, WHERE ITS COLUMN IS
+                            * GONE. The Classes cell is hidden below the
+                            * desktop boundary and nothing took its place, so
+                            * the one thing this screen exists to show -
+                            * how much a teacher is teaching - simply vanished
+                            * at 1024. It rides under the name instead, exactly
+                            * as the year group does on the classes list, and
+                            * the email steps aside for it rather than both
+                            * competing for one line.
+                            */}
+                          <span className="mt-0.5 hidden truncate text-[12.5px] text-nevo-near-black/55 max-xl:block">
+                            {held === undefined
+                              ? t.email ?? ""
+                              : held === 0
+                                ? "No classes yet"
+                                : `${held} ${held === 1 ? "class" : "classes"}`}
+                          </span>
                         </span>
                       </span>
-                      <span className="text-sm text-nevo-near-black/66 max-lg:hidden">
+                      <span className="text-sm text-nevo-near-black/66 max-xl:hidden">
                         {held === undefined ? (
                           <span
                             aria-hidden="true"
@@ -231,7 +249,7 @@ export function TeachersView() {
                           `${held} ${held === 1 ? "class" : "classes"}`
                         )}
                       </span>
-                      <span className="flex max-lg:flex-none">
+                      <span className="flex max-xl:flex-none">
                         <StatusPill status={t.status} />
                       </span>
                     </button>
@@ -248,7 +266,15 @@ export function TeachersView() {
 
 function EmptyState() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
+    /*
+     * A DEFINITE HEIGHT, because `flex-1` here is inert: the two wrappers
+     * above this are plain blocks with no height and no flex, so there was
+     * nothing for a flex child to grow into and `justify-center` centred the
+     * panel inside its own content box. It rendered directly under the
+     * heading. `min-h` gives the box the height the centring needs without
+     * making the whole page a flex column.
+     */
+    <div className="flex min-h-[52vh] flex-1 flex-col items-center justify-center py-16 text-center">
       <div className="max-w-[440px]">
         <Image
           src="/illustrations/empty-admin-teachers.png"

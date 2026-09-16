@@ -43,11 +43,11 @@ vi.mock("@/lib/api/auth", async (importOriginal) => {
 });
 
 const USER = {
-  user_id: "u1",
+  userId: "u1",
   role: "other_admin",
-  first_name: "Folake",
-  last_name: "Adebayo",
-  display_name: "Folake Adebayo",
+  firstName: "Folake",
+  lastName: "Adebayo",
+  displayName: "Folake Adebayo",
   email: "f.adebayo@brightgate.edu.ng",
   school: null,
 };
@@ -79,7 +79,7 @@ describe("editing your own name", () => {
 
   it("saves through PATCH and reads the record back", async () => {
     me.mockResolvedValue(USER);
-    updateMe.mockResolvedValue({ ...USER, first_name: "Folasade", display_name: "Folasade Adebayo" });
+    updateMe.mockResolvedValue({ ...USER, firstName: "Folasade", displayName: "Folasade Adebayo" });
 
     const { container } = render(<AccountSettings />);
     await editFirstName(container, "Folasade");

@@ -85,8 +85,8 @@ export type AdaptationMode = "lesson_load" | "in_lesson";
  *
  * What is here is time, position and what the child actually did. Checked
  * against the deployed engine: those alone earn a real break -
- * `continuousMinutes: 25` returns `severity: "mild"`, `break_type: "movement"`,
- * `triggered_thresholds: ["time_threshold"]`.
+ * `continuousMinutes: 25` returns `severity: "mild"`, `breakType: "movement"`,
+ * `triggeredThresholds: ["time_threshold"]`.
  */
 export interface RuntimeSignals {
   currentSegmentId?: string | null;
@@ -111,12 +111,12 @@ export interface RuntimeSignals {
  * `AdaptResponse`, snake_case - one of the few routes that is. Every field
  * below is REQUIRED by the contract except the two nullable suggestions.
  *
- * `confidence`, `adaptation_confidence` and every score behind them are engine
+ * `confidence`, `adaptationConfidence` and every score behind them are engine
  * parameters: they may decide what the interface does and must never be
  * rendered to a child (Zero-Tag).
  */
 export interface SegmentAdaptationResponse {
-  segment_id: string;
+  segmentId: string;
   /** `ContentModality` - visual | audio | text | interactive. */
   modality: string;
   /** `DensityLevel` - low | medium | high. NOT the player's Density. */
@@ -127,29 +127,29 @@ export interface SegmentAdaptationResponse {
 }
 
 export interface BreakSuggestionResponse {
-  triggered_thresholds: string[];
+  triggeredThresholds: string[];
   severity: string;
   /** `BreakType`, null when nothing is suggested. */
-  break_type: string | null;
+  breakType: string | null;
   reason: string | null;
 }
 
 export interface ModalitySuggestionResponse {
   /** `ContentModality`. */
   suggested: string;
-  trigger_reason: string;
+  triggerReason: string;
   confidence: string;
-  adaptation_confidence: number;
+  adaptationConfidence: number;
 }
 
 export interface AdaptResponse {
-  lesson_id: string;
+  lessonId: string;
   /** e.g. `rule_based` - which engine answered. */
   source: string;
   segments: SegmentAdaptationResponse[];
-  break_suggestion: BreakSuggestionResponse;
-  proactive_adjustment: { action: string; reason: string } | null;
-  modality_suggestion: ModalitySuggestionResponse | null;
+  breakSuggestion: BreakSuggestionResponse;
+  proactiveAdjustment: { action: string; reason: string } | null;
+  modalitySuggestion: ModalitySuggestionResponse | null;
 }
 
 export const intelligenceApi = {

@@ -69,7 +69,7 @@ export function HandoverStep({ state }: { state: WizardState }) {
     schoolApi
       .ssoStart(school.slug, state.authMethod)
       .then((res) => {
-        window.location.assign(res.authorization_url);
+        window.location.assign(res.authorizationUrl);
       })
       .catch(() => {
         setConnecting(false);
@@ -92,6 +92,16 @@ export function HandoverStep({ state }: { state: WizardState }) {
   if (isSso) {
     return (
       <>
+        {/* THE ONE MOMENT OF WARMTH IN THE FLOW, and it was missing from
+            both branches. A head teacher has just given Nevo their school's
+            name, band, DPA acceptance and sign-in method; the last screen
+            should mark that it landed, not read like another form. */}
+        <span
+          aria-hidden="true"
+          className="mx-auto mb-5 flex size-[52px] items-center justify-center rounded-full bg-nevo-navy text-nevo-cream motion-safe:animate-nevo-pop"
+        >
+          <CheckIcon size={22} />
+        </span>
         <StepHeading
           title="You're almost there"
           sub={`${schoolName}'s workspace is created. One step left: connect ${providerName} so everyone can sign in with their school account.`}
@@ -169,6 +179,16 @@ export function HandoverStep({ state }: { state: WizardState }) {
 
   return (
     <>
+      {/* THE ONE MOMENT OF WARMTH IN THE FLOW, and it was missing from
+          both branches. A head teacher has just given Nevo their school's
+          name, band, DPA acceptance and sign-in method; the last screen
+          should mark that it landed, not read like another form. */}
+      <span
+        aria-hidden="true"
+        className="mx-auto mb-5 flex size-[52px] items-center justify-center rounded-full bg-nevo-navy text-nevo-cream motion-safe:animate-nevo-pop"
+      >
+        <CheckIcon size={22} />
+      </span>
       <StepHeading
         title="You're all set up"
         sub={`${schoolName}'s workspace is ready. Share your school code so staff and students can join.`}

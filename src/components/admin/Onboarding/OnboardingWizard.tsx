@@ -68,8 +68,23 @@ export function OnboardingWizard() {
   const patch = (p: Partial<WizardState>) => setState((s) => ({ ...s, ...p }));
 
   return (
-    <main className="flex min-h-dvh flex-col items-center bg-nevo-cream px-6 py-16 lg:justify-center lg:py-12">
-      <div className="w-full max-w-[520px]">
+    /*
+     * `xl:`, NOT `lg:` - the console's own tablet boundary is 1280, where the
+     * admin shell collapses its rail, and the frames are drawn at 1440 and
+     * 1024. Keyed at `lg` this wizard applied its DESKTOP centring from
+     * 1024 up, so the tablet treatment the frame draws at 1024x768 could
+     * never be reached. Same re-key as the rest of the console.
+     */
+    <main className="flex min-h-dvh flex-col items-center bg-nevo-cream px-6 py-16 xl:justify-center xl:py-12">
+      <div className="flex w-full max-w-[520px] flex-col">
+        <span className="relative mb-9 block h-[24px] w-[81px] shrink-0 self-center overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logo-wordmark-purple.png"
+            alt="Nevo"
+            className="absolute block h-[236px] w-[236px] max-w-none -translate-x-[85px] -translate-y-[113px]"
+          />
+        </span>
         {/* Position is the only signal - no numbers, no labels. */}
         <div className="mb-9 flex gap-2" aria-hidden="true">
           {Array.from({ length: TOTAL }, (_, i) => (

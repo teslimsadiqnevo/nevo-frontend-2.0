@@ -243,19 +243,19 @@ export interface AdminStudentDetail {
 /**
  * A guardian attached to a student.
  *
- * `account_created` says an account exists, not that consent was given. It was
+ * `accountCreated` says an account exists, not that consent was given. It was
  * never a consent signal and is still not one - the real four-state record now
  * arrives as `consent` on the student reads above.
  */
 export interface ParentLink {
   id: string;
-  school_id: string;
-  student_id: string;
-  parent_id: string | null;
-  parent_name: string;
-  parent_contact: string;
-  contact_method: string;
-  account_created: boolean;
+  schoolId: string;
+  studentId: string;
+  parentId: string | null;
+  parentName: string;
+  parentContact: string;
+  contactMethod: string;
+  accountCreated: boolean;
 }
 
 export const studentsApi = {

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { exportApi, type IepExport } from "@/lib/api/export";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { studentsApi, type AdminStudentRow, type ParentLink } from "@/lib/api/students";
 import { cn } from "@/lib/utils";
 import { ReadFailed } from "../ReadFailed";
@@ -95,6 +96,9 @@ export function IepExporterView() {
   const [periodEnd, setPeriodEnd] = useState("");
   const [draft, setDraft] = useState<IepExport | null>(null);
   const [content, setContent] = useState("");
+  /** The reviewer's own note. Written on finalise, never shared with a parent. */
+  const [note, setNote] = useState("");
+  const me = useCurrentUser();
   const [guardians, setGuardians] = useState<ParentLink[]>([]);
   const [guardiansFailed, setGuardiansFailed] = useState(false);
   const [shareFailed, setShareFailed] = useState(false);
@@ -208,13 +212,39 @@ export function IepExporterView() {
       .catch(() => setPhase("failed"));
   };
 
+  const reviewedOn =
+    draft?.reviewedAt && !Number.isNaN(Date.parse(draft.reviewedAt))
+      ? new Date(draft.reviewedAt).toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : null;
+  const reviewedByMe = Boolean(
+    draft?.reviewedByUserId && me?.userId && draft.reviewedByUserId === me.userId,
+  );
+
   const finalise = () => {
     if (!draft) return;
     setPhase("finalising");
     // The edited wording goes with the review, so what is finalised is what
     // the reviewer actually read on screen.
     exportApi
-      .review(draft.id, { exportContent: content })
+      /*
+       * THE REVIEW NOTE, which `POST /exports/iep/{id}/review` has always
+       * accepted and `IepExport.reviewNote` has always carried back - the
+       * field existed on both ends of the call and no screen ever wrote it.
+       * It is the SENCo's own note on why they signed this off, and it is
+       * the difference between a report that was reviewed and one that was
+       * merely finalised.
+       *
+       * Trimmed to null rather than sent as "": an empty note is the absence
+       * of one, and should not read back as a reviewer who wrote nothing.
+       */
+      .review(draft.id, {
+        exportContent: content,
+        reviewNote: note.trim() || null,
+      })
       .then((d) => {
         setDraft(d);
         setContent(d.exportContent);
@@ -409,6 +439,27 @@ export function IepExporterView() {
                 className="mt-4 w-full resize-y rounded-[10px] border-[1.5px] border-nevo-near-black/16 bg-nevo-cream p-4 text-[15px] leading-[1.7] text-nevo-near-black outline-none transition-colors focus:border-nevo-navy"
               />
 
+              <div className="mt-4">
+                <label
+                  htmlFor="iep-note"
+                  className="block text-[13px] font-semibold text-nevo-near-black"
+                >
+                  Add a note (optional)
+                </label>
+                <p className="m-0 mt-1 max-w-[62ch] text-[12.5px] leading-[1.5] text-nevo-near-black/58">
+                  For your own record of why you signed this off. It is kept
+                  with the report and is not part of what a parent reads.
+                </p>
+                <textarea
+                  id="iep-note"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  disabled={phase !== "draft"}
+                  rows={3}
+                  className="mt-2 w-full resize-y rounded-[10px] border-[1.5px] border-nevo-near-black/16 bg-nevo-cream p-3 text-[14px] leading-[1.6] text-nevo-near-black outline-none transition-colors focus:border-nevo-navy disabled:opacity-60"
+                />
+              </div>
+
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -447,9 +498,28 @@ export function IepExporterView() {
               <span className="inline-flex items-center rounded-full bg-nevo-navy px-3 py-1 text-[11.5px] font-semibold uppercase tracking-[0.05em] text-nevo-cream">
                 Final
               </span>
+              {/*
+                * THE ATTESTATION THIS SCREEN EXISTS TO PRODUCE, and it named
+                * nobody. A finalised IEP is a member of staff putting their
+                * name to a report about a child; "Finalised 14 September"
+                * records that it happened, not who stands behind it.
+                *
+                * GUARDED ON IDENTITY. The contract gives `reviewedByUserId` -
+                * an id, not a name - so the only reviewer this console can
+                * honestly name is the person reading it. Anyone else's report
+                * keeps the date alone rather than an id nobody recognises.
+                *
+                * TODO(api): `reviewedByName` on `IepExport`. Every other
+                * surface that shows an actor has one (`acceptedByName` on the
+                * DPA record, `actor_name_at_time` on the assignment history
+                * we asked for), and this is the surface where it matters
+                * most.
+                */}
               <span className="text-[13.5px] text-nevo-near-black/62">
-                {draft.reviewedAt
-                  ? `Finalised ${new Date(draft.reviewedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`
+                {reviewedOn
+                  ? reviewedByMe && me?.name
+                    ? `Finalised by ${me.name} on ${reviewedOn}`
+                    : `Finalised ${reviewedOn}`
                   : "Finalised"}
               </span>
             </div>
@@ -530,27 +600,27 @@ export function IepExporterView() {
                       key={g.id}
                       className="flex items-center gap-3.5 rounded-xl border-[1.5px] border-nevo-near-black/14 px-4 py-3.5"
                     >
-                      <Avatar name={g.parent_name} size={44} />
+                      <Avatar name={g.parentName} size={44} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[15px] font-semibold text-nevo-near-black">
-                          {g.parent_name}
+                          {g.parentName}
                         </div>
                         <div className="truncate text-[13px] text-nevo-near-black/62">
                           Guardian ·{" "}
-                          {g.account_created ? "account active" : "no account yet"}
+                          {g.accountCreated ? "account active" : "no account yet"}
                         </div>
                       </div>
                       <button
                         type="button"
-                        disabled={!g.parent_id || phase === "sharing"}
-                        onClick={() => g.parent_id && share(g.parent_id)}
+                        disabled={!g.parentId || phase === "sharing"}
+                        onClick={() => g.parentId && share(g.parentId)}
                         className={PRIMARY_BTN}
                       >
                         {phase === "sharing" ? "Sending…" : "Share"}
                       </button>
                     </div>
                   ))}
-                  {guardians.some((g) => !g.parent_id) ? (
+                  {guardians.some((g) => !g.parentId) ? (
                     <p className="m-0 text-[13px] leading-[1.5] text-nevo-near-black/55">
                       A guardian without an account can&rsquo;t receive this
                       yet. It becomes available once they confirm consent and

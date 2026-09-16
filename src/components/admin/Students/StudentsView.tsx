@@ -8,7 +8,11 @@ import { classesApi, type AdminClass } from "@/lib/api/classes";
 import { studentsApi, type AdminStudentRow } from "@/lib/api/students";
 import { yearGroupLabel } from "@/lib/constants/yearGroups";
 import { cn } from "@/lib/utils";
-import { ConsentPill, withoutRecordedConsent } from "./ConsentPill";
+import {
+  ConsentPill,
+  mayRequestConsent,
+  withoutRecordedConsent,
+} from "./ConsentPill";
 import { consentRequestLine, useConsentRequests } from "./useConsentRequests";
 import { statusLabel, studentStatus } from "./status";
 import { NoAccess, failureKind } from "../NoAccess";
@@ -77,6 +81,15 @@ export function StudentsView() {
   const [classOf, setClassOf] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [classId, setClassId] = useState(params.get("class") ?? "");
+  /*
+   * D07's second filter pill, "Any consent", and the reason the screen exists.
+   * SCRUM-40 draws it beside the class pill; the roster shipped with the class
+   * one alone, so the one question this page is opened to answer - which
+   * families have replied - could be read row by row and never narrowed to.
+   */
+  const [consent, setConsent] = useState("");
+  /** Set by student detail when a record was erased - see its `onErased`. */
+  const erased = params.get("erased");
   const [includeInactive, setIncludeInactive] = useState(false);
 
   const load = useCallback((cid: string, inactive: boolean) => {
@@ -126,15 +139,29 @@ export function StudentsView() {
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    if (!needle) return students;
-    return students.filter(
-      (s) =>
-        s.name.toLowerCase().includes(needle) ||
-        (s.loginIdentifier ?? "").toLowerCase().includes(needle),
-    );
-  }, [students, search]);
+    return students
+      .filter((s) => {
+        if (!consent) return true;
+        /*
+         * `none` is the state the API can leave us in and the one a school
+         * most needs to find: a row that came back with no consent object at
+         * all. It is NOT `not_sent` - see `consentNote` - so it gets its own
+         * option rather than being folded into one.
+         */
+        if (consent === "none") return !s.consent;
+        return s.consent?.status === consent;
+      })
+      .filter((s) =>
+        needle
+          ? s.name.toLowerCase().includes(needle) ||
+            (s.loginIdentifier ?? "").toLowerCase().includes(needle)
+          : true,
+      );
+  }, [students, search, consent]);
 
-  const filtering = Boolean(search.trim() || classId || includeInactive);
+  const filtering = Boolean(
+    search.trim() || classId || includeInactive || consent,
+  );
 
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
@@ -234,6 +261,22 @@ export function StudentsView() {
                 </select>
               </label>
 
+              <label className={FILTER_PILL}>
+                <span className="sr-only">Filter by consent</span>
+                <select
+                  value={consent}
+                  onChange={(e) => setConsent(e.target.value)}
+                  className="cursor-pointer appearance-none bg-transparent outline-none"
+                >
+                  <option value="">Any consent</option>
+                  <option value="confirmed">Recorded</option>
+                  <option value="pending">Asked, no reply yet</option>
+                  <option value="not_sent">Not asked yet</option>
+                  <option value="withdrawn">Withdrawn</option>
+                  <option value="none">No record at all</option>
+                </select>
+              </label>
+
               <button
                 type="button"
                 onClick={() => setIncludeInactive((v) => !v)}
@@ -247,6 +290,16 @@ export function StudentsView() {
                 {includeInactive ? "Showing deactivated" : "Show deactivated"}
               </button>
             </div>
+
+            {/* The erasure confirmation, read off the navigation that brought
+                the admin back here. One plain line, above the roster: the
+                record is gone and there is nothing to undo, so this states it
+                and nothing more. */}
+            {erased ? (
+              <p className="m-0 mt-4 rounded-[10px] bg-nevo-violet/[0.18] px-4 py-3 text-[13.5px] leading-[1.5] text-nevo-navy">
+                {`${erased}'s record has been erased. Nothing of it is kept.`}
+              </p>
+            ) : null}
 
             <div className={cn(CARD, "mt-[18px]")}>
               {/* Four tracks, matching the rows. Consent sits BEFORE status
@@ -270,6 +323,7 @@ export function StudentsView() {
                     onClick={() => {
                       setSearch("");
                       setClassId("");
+                      setConsent("");
                       setIncludeInactive(false);
                     }}
                     className="mt-3 cursor-pointer text-sm font-semibold text-nevo-navy hover:opacity-75"
@@ -360,7 +414,7 @@ export function StudentsView() {
                         </span>
                       </button>
                       <span className="flex justify-end pr-6">
-                        {s.consent && s.consent.status !== "confirmed" ? (
+                        {mayRequestConsent(s.consent) ? (
                           <button
                             type="button"
                             onClick={() => sendConsent(s.id)}
@@ -389,6 +443,19 @@ export function StudentsView() {
                 })
               )}
             </div>
+
+            {/*
+              * D07's footer line, and SCRUM-40 says to keep it by name: "Keep
+              * this: it is where admins learn how parent accounts come into
+              * being." It was missing entirely, so the one place the product
+              * explains where a parent account comes from said nothing.
+              *
+              * The count is of what is on screen against what came back, so
+              * it stays true under every filter above it.
+              */}
+            <p className="m-0 mt-3 text-[12.5px] leading-[1.5] text-nevo-near-black/55">
+              {`Showing ${visible.length} of ${students.length} · a parent account is created automatically once consent is confirmed.`}
+            </p>
           </>
         ) : null}
       </div>
@@ -398,7 +465,12 @@ export function StudentsView() {
 
 function EmptyState() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
+    /*
+     * Same definite height as the Classes and Teachers empty states: `flex-1`
+     * is inert here too, so this centred inside its own content box and sat
+     * directly under the heading. Three files, one defect.
+     */
+    <div className="flex min-h-[52vh] flex-1 flex-col items-center justify-center py-16 text-center">
       <div className="max-w-[440px]">
         <Image
           src="/illustrations/empty-admin-students.png"

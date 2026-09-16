@@ -139,16 +139,16 @@ export function ClassesList() {
           ))}
           {liveClasses.map((a) => (
             <Link
-              key={a.assignment_id}
-              href={`/teacher/classes/${a.class_id}`}
+              key={a.assignmentId}
+              href={`/teacher/classes/${a.classId}`}
               className="flex cursor-pointer flex-col rounded-[12px] bg-nevo-cream-elevated p-6 shadow-elevation-1 transition-[filter,transform] hover:brightness-[0.985] active:scale-[0.99]"
             >
               <span className="text-[19px] font-semibold tracking-[-0.01em] text-nevo-near-black">
-                {a.class_name}
+                {a.className}
               </span>
-              {a.class_code && (
+              {a.classCode && (
                 <span className="mt-[5px] text-[13.5px] text-nevo-near-black/60">
-                  {`Class code ${a.class_code}`}
+                  {`Class code ${a.classCode}`}
                 </span>
               )}
               <span className="mt-0.5 text-[13.5px] text-nevo-near-black/50">
@@ -184,16 +184,16 @@ export function ClassesList() {
           ))}
           {liveClasses.map((a) => (
             <Link
-              key={a.assignment_id}
-              href={`/teacher/classes/${a.class_id}`}
+              key={a.assignmentId}
+              href={`/teacher/classes/${a.classId}`}
               className="flex cursor-pointer items-center justify-between gap-4 rounded-[12px] bg-nevo-cream-elevated px-[22px] py-5 shadow-elevation-1 transition-[filter,transform] hover:brightness-[0.985] active:scale-[0.99]"
             >
               <div className="min-w-0">
                 <span className="text-[17px] font-semibold text-nevo-near-black">
-                  {a.class_name}
+                  {a.className}
                 </span>
                 <div className="mt-1 text-[13px] text-nevo-near-black/60">
-                  {a.class_code ? `Class code ${a.class_code}` : "Assigned to you"}
+                  {a.classCode ? `Class code ${a.classCode}` : "Assigned to you"}
                 </div>
               </div>
               <span className="shrink-0 text-[13.5px] text-nevo-near-black/50">

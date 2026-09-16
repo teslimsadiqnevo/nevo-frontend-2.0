@@ -206,7 +206,7 @@ export function SetPasswordForm({
      * TWO ACCEPT ENDPOINTS, and the token says which.
      *
      * `POST /api/v1/admin/team/invitations/accept` redeems an ADMIN TEAM
-     * invitation, keyed on `invitation_token`. `POST /api/v1/join/{token}/
+     * invitation, keyed on `invitationToken`. `POST /api/v1/join/{token}/
      * accept` redeems a PRODUCT ACCESS join link - a different namespace, a
      * different tag in the spec, and the token in the path rather than the
      * body.
@@ -224,7 +224,7 @@ export function SetPasswordForm({
         await invitesApi.acceptJoin(token, { password });
       } else {
         await teamApi.acceptInvitation({
-          invitation_token: token,
+          invitationToken: token,
           password,
         });
       }
@@ -237,7 +237,7 @@ export function SetPasswordForm({
     }
 
     // The account is active from here on. Accepting returns no session
-    // (AcceptInvitationResponse is role/school_id/user_id), so sign in to
+    // (AcceptInvitationResponse is role/schoolId/userId), so sign in to
     // reach the console; if that hop fails it is not an activation failure
     // and must not read like one.
     //

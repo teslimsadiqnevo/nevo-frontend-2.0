@@ -24,8 +24,8 @@
 export type EphemeralSignalType = "keystroke" | "cursor" | "click" | "timing";
 
 export interface EphemeralSignal {
-  session_id: string;
-  student_id: string;
+  sessionId: string;
+  studentId: string;
   signal_type: EphemeralSignalType;
   timestamp: number;
   payload: Record<string, unknown>;
@@ -81,7 +81,7 @@ async function purgeOtherSessions(current: string) {
     req.onsuccess = () => {
       const cursor = req.result;
       if (!cursor) return;
-      if ((cursor.value as EphemeralSignal).session_id !== current)
+      if ((cursor.value as EphemeralSignal).sessionId !== current)
         cursor.delete();
       cursor.continue();
     };
@@ -118,8 +118,8 @@ export async function writeSignal(
   if (!d) return;
   try {
     const record: EphemeralSignal = {
-      session_id: session,
-      student_id: studentId,
+      sessionId: session,
+      studentId: studentId,
       signal_type: type,
       timestamp: performance.now(),
       payload,
@@ -146,7 +146,7 @@ export async function readRecentSignals(
         resolve(
           (req.result as EphemeralSignal[]).filter(
             (s) =>
-              s.session_id === session &&
+              s.sessionId === session &&
               s.signal_type === type &&
               s.timestamp >= cutoff,
           ),
@@ -174,7 +174,7 @@ export async function clearSession(): Promise<void> {
       req.onsuccess = () => {
         const cursor = req.result;
         if (!cursor) return resolve();
-        if ((cursor.value as EphemeralSignal).session_id === session)
+        if ((cursor.value as EphemeralSignal).sessionId === session)
           cursor.delete();
         cursor.continue();
       };

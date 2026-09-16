@@ -34,6 +34,8 @@ const row = (over: Partial<Assignment> = {}): Assignment => ({
   status: "assigned",
   availableFrom: "2026-10-03T00:00:00.000Z",
   dueAt: "2026-10-10T00:00:00.000Z",
+  /** Landed 15 Sep. Null here: these rows are about dates, not messages. */
+  note: null,
   assignedAt: "2026-09-01T00:00:00.000Z",
   ...over,
 });
@@ -54,7 +56,7 @@ beforeEach(() => {
   // no mock.
   useTeacherClasses.mockReturnValue({
     classes: [],
-    liveClasses: [{ class_id: "c-1", class_name: "JSS 2A", class_code: "2A" }],
+    liveClasses: [{ classId: "c-1", className: "JSS 2A", classCode: "2A" }],
     options: [{ id: "c-1", name: "JSS 2A", joinCode: "2A" }],
     live: true,
     sample: false,
@@ -74,7 +76,7 @@ describe("what a teacher sees", () => {
     // signed-in teachers can reach.
     useTeacherClasses.mockReturnValue({
       classes: [],
-      liveClasses: [{ class_id: "c-1", class_name: "JSS 2A", class_code: "2A" }],
+      liveClasses: [{ classId: "c-1", className: "JSS 2A", classCode: "2A" }],
       options: [{ id: "c-1", name: "JSS 2A", joinCode: "2A" }],
       live: true,
       sample: false,

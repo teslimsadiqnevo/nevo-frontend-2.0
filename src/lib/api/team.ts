@@ -13,11 +13,11 @@ import { api } from "./client";
  */
 
 export interface TeamMember {
-  user_id: string;
-  admin_id: string;
+  userId: string;
+  adminId: string;
   email: string | null;
-  first_name: string | null;
-  last_name: string | null;
+  firstName: string | null;
+  lastName: string | null;
   role: string;
   status: string;
   scopes: PermissionScope[];
@@ -30,24 +30,24 @@ export interface InviteTeamMemberRequest {
 }
 
 export interface InvitedTeamMember {
-  invitation_id: string;
-  user_id: string;
+  invitationId: string;
+  userId: string;
   email: string;
   role: string;
   scopes: PermissionScope[];
   /** What the activation link carries as `?token=`. */
-  invitation_token: string;
-  expires_at: string;
+  invitationToken: string;
+  expiresAt: string;
 }
 
 export interface AcceptInvitationRequest {
-  invitation_token: string;
+  invitationToken: string;
   password: string;
 }
 
 export interface AcceptInvitationResponse {
-  user_id: string;
-  school_id: string;
+  userId: string;
+  schoolId: string;
   role: string;
 }
 
@@ -78,7 +78,7 @@ export function roleForScopes(scopes: PermissionScope[]): UserRole {
 export function adminActivationLink(invited: InvitedTeamMember): string {
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   return `${origin}/auth/admin/activate?token=${encodeURIComponent(
-    invited.invitation_token,
+    invited.invitationToken,
   )}&email=${encodeURIComponent(invited.email)}`;
 }
 

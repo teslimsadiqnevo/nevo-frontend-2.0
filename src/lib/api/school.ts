@@ -6,8 +6,8 @@ import { api } from "./client";
  * ============================================================================
  * THREE ONBOARDING DECISIONS HAVE NO FIELD OF THEIR OWN, AND LIVE IN `profile`.
  *
- * SCRUM-39 asks for `PATCH school.auth_method`, `PATCH school.band`, and a
- * DPA acceptance carrying `{school_id, admin_id, dpa_version, accepted_at}`.
+ * SCRUM-39 asks for `PATCH school.authMethod`, `PATCH school.band`, and a
+ * DPA acceptance carrying `{schoolId, adminId, dpa_version, acceptedAt}`.
  * None of the three exists: `PATCH /api/v1/school` accepts only
  * `{name, profile, academicConfig, retentionPolicy}`, and `profile` is an
  * untyped `object`.
@@ -167,7 +167,23 @@ export interface SchoolTerm {
   name: string;
   start: string;
   end: string;
-  halfTermBreak?: boolean;
+  /**
+   * The optional half-term break, as the spec's own pair.
+   *
+   * WAS `halfTermBreak?: boolean`, which nothing wrote and nothing read - a
+   * flag saying a break exists, with no way to say when, on the screen whose
+   * whole job is to say when. SCRUM-99's data line is
+   * `terms:[{name,start,end,half_term_start?,half_term_end?}]`.
+   *
+   * CAMEL CASE BECAUSE THIS FIELD IS OURS. The deployed `AcademicConfig`
+   * types `termStartDates` and nothing else, with `additionalProperties: true`
+   * and a description saying so outright: "Only the field the backend actually
+   * reads is named. Anything else a school has stored is passed through
+   * untouched." Every other key on this interface is a client invention stored
+   * in that blob, and they are camelCase; these two match them.
+   */
+  halfTermStart?: string;
+  halfTermEnd?: string;
 }
 
 /**
@@ -310,7 +326,7 @@ export const schoolApi = {
 
   /** Where the provider consent screen lives, for the SSO handover. */
   ssoStart: (schoolSlug: string, provider: string) =>
-    api.get<{ authorization_url: string; school_entry_url: string }>(
+    api.get<{ authorizationUrl: string; schoolEntryUrl: string }>(
       `/api/v1/schools/${schoolSlug}/sso/${provider}/start`,
     ),
 };

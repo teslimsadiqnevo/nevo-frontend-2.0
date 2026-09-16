@@ -204,7 +204,7 @@ export function AskNevo() {
       setMessages((m) => [
         ...m,
         res
-          ? { who: "nevo", text: res.answer, interactionId: res.interaction_id }
+          ? { who: "nevo", text: res.answer, interactionId: res.interactionId }
           : // Say so. A student cannot tell a canned reply from real tutoring,
             // and they are the last person who should have to.
             { ...replyFor(text), sample: true },

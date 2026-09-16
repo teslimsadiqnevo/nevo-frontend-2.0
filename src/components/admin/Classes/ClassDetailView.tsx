@@ -67,7 +67,7 @@ import { WriteFailed } from "../WriteFailed";
  *
  * TODO(api): the two fields that really are missing - WHO CHANGED IT (no actor
  * on any assignment schema) and ENDED assignments (the DELETE returns no body
- * and nothing carries an `ended_at`). Those are what would make it a history.
+ * and nothing carries an `endedAt`). Those are what would make it a history.
  */
 
 type Phase = "loading" | "ready" | "failed" | "denied";
@@ -281,13 +281,13 @@ export function ClassDetailView({ classId }: { classId: string }) {
         ) : (
           teachers.map((t, i) => {
             const name =
-              [t.first_name, t.last_name].filter(Boolean).join(" ").trim() ||
+              [t.firstName, t.lastName].filter(Boolean).join(" ").trim() ||
               t.email ||
               "Assigned teacher";
-            const confirming = removing === t.assignment_id;
+            const confirming = removing === t.assignmentId;
             return (
               <div
-                key={t.assignment_id}
+                key={t.assignmentId}
                 className={cn(
                   "px-[22px] py-4",
                   i < teachers.length - 1 && ROW_DIVIDER,
@@ -304,9 +304,9 @@ export function ClassDetailView({ classId }: { classId: string }) {
                         {t.email}
                       </div>
                     ) : null}
-                    {longDate(t.assigned_at) ? (
+                    {longDate(t.assignedAt) ? (
                       <div className="truncate text-[12.5px] text-nevo-near-black/45">
-                        {`Assigned ${longDate(t.assigned_at)}`}
+                        {`Assigned ${longDate(t.assignedAt)}`}
                       </div>
                     ) : null}
                   </div>
@@ -316,7 +316,7 @@ export function ClassDetailView({ classId }: { classId: string }) {
                       type="button"
                       onClick={() => {
                         setRemoveFailed(false);
-                        setRemoving(confirming ? null : t.assignment_id);
+                        setRemoving(confirming ? null : t.assignmentId);
                       }}
                       aria-label={`Remove ${name} from this class`}
                       className="flex size-[30px] flex-none cursor-pointer items-center justify-center rounded-lg text-nevo-near-black/40 transition-colors hover:bg-nevo-near-black/[0.06] hover:text-nevo-near-black/70"
@@ -332,18 +332,26 @@ export function ClassDetailView({ classId }: { classId: string }) {
                 {confirming ? (
                   <div className="mt-3 rounded-[10px] bg-nevo-violet/[0.18] px-4 py-3">
                     <p className="m-0 text-[13.5px] leading-[1.5] text-nevo-navy">
-                      {name} will lose access to {klass.name}
+                      {name} will no longer see {klass.name} in their console
                       {teachers.length === 1
                         ? ", and the class will have no teacher until you assign one"
                         : ""}
-                      . Nothing about the students changes.
+                      {/* SCRUM-40: "His notes on these students stay with the
+                          school." This read "Nothing about the students
+                          changes", which is a different and weaker claim - it
+                          answers a question nobody asked while leaving the one
+                          they did ask, about the work their colleague wrote,
+                          unanswered. SCRUM-40 is explicit elsewhere that
+                          "removing a teacher does not remove or hide what they
+                          wrote", so the fact exists and was simply not said. */}
+                      . Their notes on these students stay with the school.
                     </p>
                     <div className="mt-3 flex gap-2.5">
                       <button
                         type="button"
                         onClick={() =>
                           classesApi
-                            .removeAssignment(t.assignment_id)
+                            .removeAssignment(t.assignmentId)
                             .then(() => {
                               setRemoving(null);
                               reload();

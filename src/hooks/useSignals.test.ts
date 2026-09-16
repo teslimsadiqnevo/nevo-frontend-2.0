@@ -16,8 +16,8 @@ interface Event {
 
 const submitBatch = vi.fn(
   async (_envelope: Envelope, _events: Event[]) => ({
-    session_id: "s",
-    accepted_events: _events.length,
+    sessionId: "s",
+    acceptedEvents: _events.length,
   }),
 );
 

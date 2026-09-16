@@ -12,6 +12,7 @@
  */
 
 import { clearSession, getSession, getToken } from "@/lib/auth/session";
+import { noteServerClock } from "./serverClock";
 import { isAdminRole } from "@/lib/constants/permissions";
 
 // Default: the same-origin catch-all proxy (`app/api/backend/[...path]`),
@@ -139,12 +140,7 @@ function handleAuthFailure(path: string, sentToken: boolean): void {
 
 /** An array repeats the key - see `buildUrl`. */
 type QueryValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | readonly (string | number)[];
+  string | number | boolean | null | undefined | readonly (string | number)[];
 
 export interface RequestOptions extends Omit<RequestInit, "body"> {
   /** JSON-serializable request body. */
@@ -237,6 +233,10 @@ export async function request<T>(
     if (isDev) console.error(`[api] network error ${url}`, cause);
     throw new ApiError(0, friendlyMessage(0), cause);
   }
+  // Read from EVERY response, success or failure - a 401 tells us the time as
+  // reliably as a 200, and a device with a bad clock is likelier to be seeing
+  // failures.
+  noteServerClock(response);
 
   if (!response.ok) {
     let detail: unknown;

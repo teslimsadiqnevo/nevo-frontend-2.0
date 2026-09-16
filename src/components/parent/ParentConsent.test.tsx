@@ -68,13 +68,13 @@ beforeEach(() => {
   // 202 with no body a screen can branch on - see `ParentCodeSent`.
   requestCode.mockResolvedValue({ sent: true, expiresAt: "2026-12-01T00:10:00Z" });
   completeConsent.mockResolvedValue({
-    invitation_id: "inv-1",
-    parent_link_id: "pl-1",
-    parent_id: "p-1",
-    student_id: "s-1",
-    confirmed_types: ["data_processing"],
-    completed_at: "2026-09-08T10:00:00Z",
-    receipt_sent_to: null,
+    invitationId: "inv-1",
+    parentLinkId: "pl-1",
+    parentId: "p-1",
+    studentId: "s-1",
+    confirmedTypes: ["data_processing"],
+    completedAt: "2026-09-08T10:00:00Z",
+    receiptSentTo: null,
   });
 });
 
@@ -192,17 +192,17 @@ describe("giving consent", () => {
 describe("the receipt line", () => {
   // This line was WITHHELD until 10 Sep, because nothing sent a copy and the
   // frame's "a copy has been sent to your phone" would have been a lie. It is
-  // rendered now, but only from `receipt_sent_to` - never assumed.
+  // rendered now, but only from `receiptSentTo` - never assumed.
 
   async function consentWith(receipt: "email" | "sms" | null) {
     completeConsent.mockResolvedValue({
-      invitation_id: "inv-1",
-      parent_link_id: "pl-1",
-      parent_id: "p-1",
-      student_id: "s-1",
-      confirmed_types: ["data_processing"],
-      completed_at: "2026-09-10T10:00:00Z",
-      receipt_sent_to: receipt,
+      invitationId: "inv-1",
+      parentLinkId: "pl-1",
+      parentId: "p-1",
+      studentId: "s-1",
+      confirmedTypes: ["data_processing"],
+      completedAt: "2026-09-10T10:00:00Z",
+      receiptSentTo: receipt,
     });
     render(<ParentConsent token={TOKEN} invitation={inv()} />);
     fireEvent.click(screen.getByRole("button", { name: /Yes, I give my consent/ }));
@@ -318,12 +318,12 @@ describe("setting up a parent account", () => {
 
   it("exchanges the code for a session", async () => {
     verifyCode.mockResolvedValueOnce({
-      access_token: "parent-tok",
-      token_type: "bearer",
-      expires_at: "2026-12-01T00:00:00Z",
-      user_id: "p-1",
+      accessToken: "parent-tok",
+      tokenType: "bearer",
+      expiresAt: "2026-12-01T00:00:00Z",
+      userId: "p-1",
       role: "parent_guardian",
-      replaced_session: false,
+      replacedSession: false,
     });
     await reachCodeStep();
     typeCode("1234");

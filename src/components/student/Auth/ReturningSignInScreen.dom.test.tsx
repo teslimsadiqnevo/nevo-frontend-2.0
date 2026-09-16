@@ -46,15 +46,21 @@ vi.mock("@/lib/api", async (importOriginal) => {
 });
 vi.mock("@/hooks", () => ({ useAuth: () => ({ signIn }) }));
 
+const { me } = vi.hoisted(() => ({ me: vi.fn() }));
+vi.mock("@/lib/api/users", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/users")>();
+  return { ...actual, usersApi: { ...actual.usersApi, me } };
+});
+
 const push = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn(), back: vi.fn() }),
 }));
 
 const SESSION = {
-  access_token: "tok",
-  expires_at: new Date(Date.now() + 3600_000).toISOString(),
-  user_id: "student-1",
+  accessToken: "tok",
+  expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+  userId: "student-1",
   role: "student",
 };
 
@@ -83,6 +89,11 @@ beforeEach(() => {
   loginPin.mockReset();
   signIn.mockReset();
   push.mockReset();
+  me.mockReset();
+  // Most cases do not care who the child turns out to be; the ones that do set
+  // their own. A never-settling default keeps the name read OUT of the way, so
+  // a test that does not mention it cannot accidentally depend on it.
+  me.mockReturnValue(new Promise(() => {}));
   clearSession();
   window.localStorage.clear();
 });
@@ -101,8 +112,8 @@ describe("ReturningSignInScreen — signing back in", () => {
     await signInNow();
 
     expect(loginPin).toHaveBeenCalledWith({
-      school_code: "751A1136",
-      login_identifier: "amara.k",
+      schoolCode: "751A1136",
+      loginIdentifier: "amara.k",
       pin: "123456",
     });
   });
@@ -231,5 +242,150 @@ describe("ReturningSignInScreen — the child who really is new", () => {
     fireEvent.click(screen.getByRole("button", { name: /new to Nevo/i }));
 
     expect(push).toHaveBeenCalledWith("/student/onboarding");
+  });
+});
+
+/**
+ * A child was renamed to their own username, permanently.
+ *
+ * This screen had no way to learn a name - a PIN login returns a session, not
+ * a profile - so it stored the LOGIN IDENTIFIER as the display name. From then
+ * on the lock screen read "Welcome back, amara.k", and so did every surface
+ * that reads the remembered profile.
+ *
+ * Two things are wrong with that, and the second is the serious one:
+ *
+ *   1. On a product for SEND learners, on the one screen written to feel
+ *      personal, the child is addressed by a machine-generated string.
+ *   2. That string is half a credential. It sits on a PRE-AUTHENTICATION
+ *      screen, next to a school code every child in the building knows, where
+ *      anyone who picks the tablet up can read it. The only thing still
+ *      standing between them and the account is a six-digit PIN.
+ */
+describe("what the device remembers a child as", () => {
+  const ME = {
+    userId: "student-1",
+    role: "student",
+    firstName: "Amara",
+    lastName: "Kalu",
+    displayName: "Amara Kalu",
+    email: null,
+    school: null,
+  };
+
+  /** Let the un-awaited name read settle, as it does a moment after sign-in. */
+  const nameToLand = async () => {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+  };
+
+  it("never stores the username as the child's name", async () => {
+    // THE DEFECT. Everything else in this block is a consequence of it.
+    loginPin.mockResolvedValue(SESSION);
+    me.mockRejectedValue(new ApiError(500, "Server"));
+    render(<ReturningSignInScreen />);
+    fill();
+
+    await signInNow();
+    await nameToLand();
+
+    expect(getRememberedProfile()?.displayName).not.toBe("amara.k");
+  });
+
+  it("learns their real first name and remembers that", async () => {
+    loginPin.mockResolvedValue(SESSION);
+    me.mockResolvedValue(ME);
+    render(<ReturningSignInScreen />);
+    fill();
+
+    await signInNow();
+    await nameToLand();
+
+    expect(getRememberedProfile()?.displayName).toBe("Amara");
+  });
+
+  it("keeps the surname off the lock screen", async () => {
+    // First name only. The lock screen is pre-authentication and visible to
+    // whoever is holding the tablet.
+    loginPin.mockResolvedValue(SESSION);
+    me.mockResolvedValue(ME);
+    render(<ReturningSignInScreen />);
+    fill();
+
+    await signInNow();
+    await nameToLand();
+
+    expect(getRememberedProfile()?.displayName).not.toMatch(/Kalu/);
+  });
+
+  it("remembers them namelessly when it cannot find out", async () => {
+    /*
+     * The honest state, and the one the username was papering over. A device
+     * that does not know who this is says so, rather than falling back to a
+     * string that identifies the account.
+     */
+    loginPin.mockResolvedValue(SESSION);
+    me.mockRejectedValue(new ApiError(0, "Network"));
+    render(<ReturningSignInScreen />);
+    fill();
+
+    await signInNow();
+    await nameToLand();
+
+    const profile = getRememberedProfile();
+    expect(profile).not.toBeNull();
+    expect(profile?.displayName).toBeUndefined();
+  });
+
+  it("still remembers the device when the name read fails", async () => {
+    // The sign-in must survive it. Losing the remembered device would put the
+    // child back on this form tomorrow, which is the bug this screen exists
+    // to fix.
+    loginPin.mockResolvedValue(SESSION);
+    me.mockRejectedValue(new ApiError(0, "Network"));
+    render(<ReturningSignInScreen />);
+    fill();
+
+    await signInNow();
+    await nameToLand();
+
+    expect(getRememberedProfile()).toMatchObject({
+      loginIdentifier: "amara.k",
+    });
+  });
+
+  it("does not make the child wait on the name read", async () => {
+    /*
+     * The first version of this fix awaited `users/me` before remembering
+     * anything, which put a profile read between a child and the door they had
+     * just unlocked. On a slow connection they sat on a form they had already
+     * passed. Two of this file's existing tests caught it.
+     *
+     * `me` never settles here, which is the pathological case.
+     */
+    loginPin.mockResolvedValue(SESSION);
+    me.mockReturnValue(new Promise(() => {}));
+    render(<ReturningSignInScreen />);
+    fill();
+
+    await signInNow();
+
+    expect(getRememberedProfile()).not.toBeNull();
+    expect(signIn).toHaveBeenCalled();
+  });
+
+  it("does not pass the username into the session as a name", async () => {
+    // The same leak by the other route: `AuthUser.name` feeds the shell.
+    loginPin.mockResolvedValue(SESSION);
+    me.mockRejectedValue(new ApiError(0, "Network"));
+    render(<ReturningSignInScreen />);
+    fill();
+
+    await signInNow();
+
+    expect(signIn).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "amara.k" }),
+    );
   });
 });

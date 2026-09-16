@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { classesApi, type AssignedClass } from "@/lib/api/classes";
 import { teachersApi, type TeacherDetail, type TeacherSummary } from "@/lib/api/teachers";
 import { cn } from "@/lib/utils";
+import { isActive } from "./status";
 import {
+  CheckIcon,
   FailureLine,
   GHOST_BTN,
   PRIMARY_BTN,
@@ -48,7 +50,22 @@ type Resolution =
   | { kind: "reassign"; toTeacherId: string }
   | { kind: "remove" };
 
-type Phase = "idle" | "working" | "failed" | "partial";
+type Phase = "idle" | "working" | "failed" | "partial" | "done";
+
+/**
+ * THE STAFF READ HAS THREE OUTCOMES AND THIS SHEET COLLAPSED THEM INTO ONE.
+ *
+ * `staff: []` is the value on first render, the value after a failure, and the
+ * value for a school that genuinely has nobody else active - and all three
+ * rendered the same thing: every select showing only its placeholder, the
+ * commit permanently disabled, and not a word on screen about why. An admin
+ * removing a teacher mid-term met a sheet that could not be completed and did
+ * not say so.
+ *
+ * `AssignTeacherSheet` already learned this lesson and carries exactly this
+ * three-way read; the same hole was left open here.
+ */
+type StaffRead = "loading" | "ready" | "failed";
 
 export function RemoveAccessSheet({
   teacher,
@@ -63,20 +80,46 @@ export function RemoveAccessSheet({
 }) {
   const [staff, setStaff] = useState<TeacherSummary[]>([]);
   const [plan, setPlan] = useState<Record<string, Resolution>>(() =>
-    Object.fromEntries(held.map((h) => [h.assignment_id, { kind: "unresolved" } as Resolution])),
+    Object.fromEntries(held.map((h) => [h.assignmentId, { kind: "unresolved" } as Resolution])),
   );
   const [phase, setPhase] = useState<Phase>("idle");
   const [applied, setApplied] = useState(0);
+  const [read, setRead] = useState<StaffRead>("loading");
 
-  useEffect(() => {
+  const loadStaff = useCallback(() => {
+    /*
+     * ACTIVE STAFF ONLY. This filtered on identity alone, so the select
+     * offered every teacher in the school including deactivated and invited
+     * ones - and handing a class to someone who cannot sign in produces
+     * exactly the orphaned class this sheet exists to prevent. `isActive` was
+     * already written and unit-tested next door; it simply was not called.
+     */
     teachersApi
       .list()
-      .then((rows) => setStaff(rows.filter((t) => t.id !== teacher.id)))
-      .catch(() => setStaff([]));
+      .then((rows) => {
+        setStaff(rows.filter((t) => t.id !== teacher.id && isActive(t.status)));
+        setRead("ready");
+      })
+      .catch(() => {
+        // "There is nobody else to hand these to" is a claim about the
+        // school's staff, and a failed GET does not license it.
+        setStaff([]);
+        setRead("failed");
+      });
   }, [teacher.id]);
 
+  /** Pressing Try again must visibly do something, even if it fails again. */
+  const retryStaff = () => {
+    setRead("loading");
+    loadStaff();
+  };
+
+  useEffect(() => {
+    loadStaff();
+  }, [loadStaff]);
+
   const firstName = teacher.name.split(" ").filter(Boolean).slice(-1)[0] ?? teacher.name;
-  const outstanding = held.filter((h) => plan[h.assignment_id]?.kind === "unresolved").length;
+  const outstanding = held.filter((h) => plan[h.assignmentId]?.kind === "unresolved").length;
   const ready = outstanding === 0;
 
   const apply = async () => {
@@ -86,20 +129,30 @@ export function RemoveAccessSheet({
       // Classes first, always. Only once every one of them has a teacher does
       // the console access go.
       for (const h of held) {
-        const r = plan[h.assignment_id];
+        const r = plan[h.assignmentId];
         if (r.kind === "reassign") {
-          await classesApi.reassign(h.assignment_id, {
-            new_teacher_id: r.toTeacherId,
+          await classesApi.reassign(h.assignmentId, {
+            newTeacherId: r.toTeacherId,
             role: h.role,
           });
         } else if (r.kind === "remove") {
-          await classesApi.removeAssignment(h.assignment_id);
+          await classesApi.removeAssignment(h.assignmentId);
         }
         done += 1;
         setApplied(done);
       }
       await teachersApi.revoke(teacher.id);
-      onRemoved();
+      /*
+       * THE SHEET HOLDS FOR ITS CONFIRMATION, and it used to close straight
+       * onto a list where the teacher was still present - the reload happens
+       * in the parent, after this - so an admin who had just spent four
+       * selects handing over four classes was returned to a screen that looked
+       * exactly as it had before, with nothing saying it had worked.
+       */
+      setPhase("done");
+      // Let the confirmation be read before the sheet goes, matching the
+      // assign flow's own settle.
+      setTimeout(onRemoved, 1400);
     } catch {
       // Nothing was revoked - that call is last and only runs if the loop
       // completed. Say which it is rather than claiming nothing changed.
@@ -120,6 +173,15 @@ export function RemoveAccessSheet({
             <div className="flex flex-1 items-center justify-center gap-2.5 py-3">
               <Spinner />
               <span className="text-sm text-nevo-near-black/60">Removing access…</span>
+            </div>
+          ) : phase === "done" ? (
+            <div className="flex flex-1 items-center justify-center gap-2.5 py-3">
+              <span className="flex size-[26px] flex-none items-center justify-center rounded-full bg-nevo-navy text-nevo-cream motion-safe:animate-nevo-pop">
+                <CheckIcon />
+              </span>
+              <span className="text-[14.5px] font-semibold text-nevo-navy">
+                {firstName} can no longer open their console
+              </span>
             </div>
           ) : phase === "failed" ? (
             <>
@@ -169,6 +231,16 @@ export function RemoveAccessSheet({
             <Spinner />
             <span className="text-sm text-nevo-near-black/60">
               Handing over {applied} of {held.length}…
+            </span>
+          </div>
+        ) : phase === "done" ? (
+          <div className="flex flex-1 items-center justify-center gap-2.5 py-3">
+            <span className="flex size-[26px] flex-none items-center justify-center rounded-full bg-nevo-navy text-nevo-cream motion-safe:animate-nevo-pop">
+              <CheckIcon />
+            </span>
+            <span className="text-[14.5px] font-semibold text-nevo-navy">
+              {held.length} {held.length === 1 ? "class" : "classes"} handed
+              over. {firstName} can no longer open their console.
             </span>
           </div>
         ) : phase === "partial" ? (
@@ -226,31 +298,66 @@ export function RemoveAccessSheet({
         and we&rsquo;ll hand them over as they go.
       </p>
 
+      {/*
+        * SAY WHICH OF THE THREE IT IS. An empty `staff` used to render the
+        * same silent, uncompletable sheet whether the read was still in
+        * flight, had failed, or had honestly come back with nobody - so an
+        * admin sat in front of selects that would not open and a commit that
+        * would not enable, with nothing to act on.
+        */}
+      {read === "loading" ? (
+        <p className="m-0 flex items-center gap-2.5 text-[13.5px] text-nevo-near-black/60">
+          <Spinner />
+          Loading your staff list…
+        </p>
+      ) : read === "failed" ? (
+        <div className="rounded-[10px] bg-nevo-violet/[0.18] px-4 py-3">
+          <p className="m-0 text-[13.5px] leading-[1.5] text-nevo-navy">
+            We couldn&rsquo;t load your staff list just now, so there is nobody
+            to choose from. Nothing has changed for {firstName}.
+          </p>
+          <button
+            type="button"
+            onClick={retryStaff}
+            className="mt-2 cursor-pointer text-[13.5px] font-semibold text-nevo-navy hover:underline"
+          >
+            Try again
+          </button>
+        </div>
+      ) : staff.length === 0 ? (
+        <p className="m-0 rounded-[10px] bg-nevo-violet/[0.18] px-4 py-3 text-[13.5px] leading-[1.5] text-nevo-navy">
+          There is no one else active to hand these classes to. You can still
+          remove {firstName} from each class below &ndash; they will be left
+          without a teacher until you assign one.
+        </p>
+      ) : null}
+
       <div className="flex flex-col gap-3">
         {held.map((h) => {
-          const r = plan[h.assignment_id];
+          const r = plan[h.assignmentId];
           const value =
             r.kind === "reassign" ? r.toTeacherId : r.kind === "remove" ? "__remove" : "";
           return (
             <div
-              key={h.assignment_id}
+              key={h.assignmentId}
               className="rounded-xl border-[1.5px] border-nevo-near-black/14 bg-nevo-cream-elevated px-4 py-3.5"
             >
               <div className="flex items-center gap-3">
                 <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-nevo-near-black">
-                  {h.class_name}
+                  {h.className}
                 </span>
                 <RolePill role={h.role} />
               </div>
               <label className="mt-3 block">
-                <span className="sr-only">Who takes {h.class_name}?</span>
+                <span className="sr-only">Who takes {h.className}?</span>
                 <select
                   value={value}
+                  disabled={read === "loading"}
                   onChange={(e) => {
                     const v = e.target.value;
                     setPlan((prev) => ({
                       ...prev,
-                      [h.assignment_id]:
+                      [h.assignmentId]:
                         v === ""
                           ? { kind: "unresolved" }
                           : v === "__remove"
