@@ -6,6 +6,7 @@ import {
   readPendingBaseline,
 } from "./pendingBaseline";
 import { baselineApi } from "@/lib/api/baseline";
+import { consentsApi } from "@/lib/api/consents";
 import { clearSession, setSession } from "@/lib/auth/session";
 
 /**
@@ -131,6 +132,63 @@ describe("a baseline waiting for its account", () => {
     expect(submit).toHaveBeenCalledWith("sess-a", FEATURES);
   });
 
+  it("does not send a parked vector once consent has been withdrawn", async () => {
+    // The case the capture-side gates cannot reach: parked while consent
+    // stood, flushed after it was withdrawn.
+    const submit = vi
+      .spyOn(baselineApi, "submitWithRetry")
+      .mockResolvedValue(true);
+    vi.spyOn(consentsApi, "myConsentGate").mockResolvedValue({
+      studentId: "child-a",
+      granted: false,
+      requiredType: "data_processing",
+      status: "withdrawn",
+    });
+    holdBaseline("sess-1", FEATURES, "child-a");
+    signInAs("child-a");
+
+    await expect(flushPendingBaseline("child-a")).resolves.toBe(false);
+
+    expect(submit).not.toHaveBeenCalled();
+    // Discarded, not kept: retaining it would leave the measurements on the
+    // device after the moment we were told to stop processing them.
+    expect(readPendingBaseline()).toBeNull();
+  });
+
+  it("still sends where consent was never granted but was not withdrawn", async () => {
+    // Three of the four statuses are `granted: false`, and only one of them
+    // means stop. Reading `granted` instead of `status` would stop all three.
+    const submit = vi
+      .spyOn(baselineApi, "submitWithRetry")
+      .mockResolvedValue(true);
+    vi.spyOn(consentsApi, "myConsentGate").mockResolvedValue({
+      studentId: "child-a",
+      granted: false,
+      requiredType: "data_processing",
+      status: "pending",
+    });
+    holdBaseline("sess-1", FEATURES, "child-a");
+    signInAs("child-a");
+
+    await expect(flushPendingBaseline("child-a")).resolves.toBe(true);
+    expect(submit).toHaveBeenCalled();
+  });
+
+  it("treats a failed consent read as consent, not as withdrawal", async () => {
+    // A bad minute at the backend must not silently stop delivering a
+    // measurement for a guardian who did consent.
+    const submit = vi
+      .spyOn(baselineApi, "submitWithRetry")
+      .mockResolvedValue(true);
+    vi.spyOn(consentsApi, "myConsentGate").mockRejectedValue(
+      new Error("offline"),
+    );
+    holdBaseline("sess-1", FEATURES, "child-a");
+    signInAs("child-a");
+
+    await expect(flushPendingBaseline("child-a")).resolves.toBe(true);
+    expect(submit).toHaveBeenCalled();
+  });
   it("refuses an anonymous vector when no run is named", async () => {
     const submit = vi
       .spyOn(baselineApi, "submitWithRetry")

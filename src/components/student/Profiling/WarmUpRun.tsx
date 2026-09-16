@@ -9,6 +9,7 @@ import { cn, randomId } from "@/lib/utils";
 import { baselineApi } from "@/lib/api";
 import { holdBaseline } from "@/lib/profiling/pendingBaseline";
 import { getSession } from "@/lib/auth/session";
+import { useConsentGate } from "@/hooks/useConsentGate";
 import {
   BASELINE_DIMENSIONS,
   type BaselineDimension,
@@ -69,6 +70,19 @@ export function WarmUpRun({
   // mock back for the whole time the read was in flight - see the hook.
   const todaysLesson = useNextLessonHref();
   const [capture] = useState(() => new BaselineCapture(`warmup-${randomId()}`));
+  /*
+   * Withdrawal, read once per mount. A child here is always signed in, so the
+   * answer is always available - unlike the onboarding run, where a school-code
+   * child has no session to ask with until their account exists.
+   *
+   * False until the read answers and false if it fails: a flaky network is not
+   * a withdrawal. The effect empties whatever accumulated in the window before
+   * the answer arrived.
+   */
+  const { withdrawn } = useConsentGate();
+  useEffect(() => {
+    if (withdrawn) void capture.purge();
+  }, [withdrawn, capture]);
   const startedAt = useRef(0);
   const submitted = useRef(false);
 
@@ -80,6 +94,24 @@ export function WarmUpRun({
   const finish = useCallback(() => {
     if (!submitted.current) {
       submitted.current = true;
+      if (withdrawn) {
+        /*
+         * A WITHDRAWN GUARDIAN STOPS THE WARM-UP TOO, and this one recurs
+         * daily where the onboarding run happens once.
+         *
+         * BEFORE the reduction, not after: deriving a feature vector and then
+         * declining to send it is still processing the child's interactions.
+         * Nothing is derived, nothing is parked, nothing is sent, and the raw
+         * stream goes the same way it always does.
+         *
+         * `saved` is left null rather than set false. False renders "we
+         * couldn't save it just now - that's on us, not you", and that is not
+         * what happened: we chose not to. A child is not told their work
+         * failed when it did not.
+         */
+        void capture.purge();
+        return;
+      }
       const durationMs = Math.round(performance.now() - startedAt.current);
       /*
        * SUBMIT WHAT THE CHILD ACTUALLY DID.
@@ -144,7 +176,10 @@ export function WarmUpRun({
         .finally(() => void capture.purge());
     }
     setDone(true);
-  }, [capture, dimension]);
+    // `withdrawn` belongs here: without it this closes over the value from the
+    // first render, which is always false, and a withdrawal that resolved
+    // mid-run would be read as consent.
+  }, [capture, dimension, withdrawn]);
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-nevo-cream text-nevo-near-black">

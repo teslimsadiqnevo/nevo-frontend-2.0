@@ -1,4 +1,5 @@
 import { baselineApi } from "@/lib/api/baseline";
+import { consentsApi, processingWithdrawn } from "@/lib/api/consents";
 import { getSession } from "@/lib/auth/session";
 
 /**
@@ -148,6 +149,33 @@ export async function flushPendingBaseline(
     pending.sessionId === runSessionId;
   if (!ownedByThisChild && !parkedByThisRun) return false;
 
+  /*
+   * A WITHDRAWN GUARDIAN STOPS THIS, and this is the last place it can be
+   * stopped.
+   *
+   * Withdrawal is the one consent answer the frontend is entitled to act on,
+   * and until now nothing in the baseline path asked: the run measured, the
+   * vector parked, and the flush sent it. `LearningNotice` said so in a
+   * comment - "NOT HANDLED HERE: withdrawal" - and no other caller picked it
+   * up. The capture surfaces now gate themselves, but a vector parked BEFORE
+   * a withdrawal would still be sitting here afterwards, so the send has to
+   * ask too.
+   *
+   * REFUSED AND DISCARDED, not refused and kept. Keeping it would leave a
+   * child's cognitive measurements on the device after the moment we were
+   * told to stop processing them, which is the thing withdrawal asks us not
+   * to do.
+   *
+   * A FAILED READ IS NOT A WITHDRAWAL. Same ruling as `useConsentGate`: a bad
+   * minute at the backend or a child on 3G must not silently stop delivering
+   * measurements for a guardian who did consent. Only an answer that says
+   * withdrawn stops anything.
+   */
+  if (await processingWithdrawnNow()) {
+    clearPendingBaseline();
+    return false;
+  }
+
   const ok = await baselineApi.submitWithRetry(
     pending.sessionId,
     pending.features,
@@ -156,4 +184,10 @@ export async function flushPendingBaseline(
   return ok;
 }
 
-
+async function processingWithdrawnNow(): Promise<boolean> {
+  try {
+    return processingWithdrawn(await consentsApi.myConsentGate());
+  } catch {
+    return false;
+  }
+}
