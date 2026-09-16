@@ -331,23 +331,97 @@ change for a day. **Re-fetch before trusting a pinned copy**, and treat a
 contract-check failure on `main` as a finding rather than noise: it was correct
 here and would have been dismissed as a false positive on the path matcher.
 
-## ~~ACTION NEEDED — student and admin sessions~~ CLOSED 16 Sep
+## ACTION NEEDED — student and admin sessions. NOT CLOSED, 16 Sep
 
 **Wrap your fixture fallbacks in `<SampleRegion>`.** Ten minutes each, and the
 end-to-end suite is worthless without it.
 
-**DONE — both lanes, verified 16 Sep.** The student lane wrapped nine surfaces
-(`HomeDashboard`, `LessonsTab`, `ProgressTab`, `SubjectDetail`, `ConnectTab`,
-`AskNevo`, `StudentShell`, `LessonRoute`, `LessonEndingRoute`, plus
-`useStudentLesson`). The ADMIN lane turned out to need one: `OverviewView` is
-the console's only sample-data surface and it is wrapped. Nothing else in
-`src/components/admin/**` renders invented data on a failed read — the other
-"fixture" hits in that tree are all prose about the design frames.
+**A RETRACTION, SAME DAY.** An earlier version of this heading said CLOSED for
+both lanes. It was wrong on both halves and is withdrawn. Three independent
+passes over the code refuted it; what they found is below. The retraction is left
+visible rather than quietly edited out, because the false version sat on a branch
+headed for `main` and somebody may yet read it.
 
-**Counting note, because it nearly produced a second round of this work.**
-`grep -rln fixture src/components/admin | wc -l` returns 14 and that number
-means nothing: it counts test files and docblocks. The verdict below is what
-the question was actually asking.
+**Student lane — nine surfaces wrapped, and every wrap is real.**
+`HomeDashboard`, `LessonsTab`, `ProgressTab`, `SubjectDetail`, `ConnectTab`,
+`AskNevo`, `StudentShell`, `LessonRoute`, `LessonEndingRoute`, plus
+`useStudentLesson`. Each was opened and confirmed to enclose the fallback branch
+itself rather than a sibling. That half of the old claim stands — do not soften it.
+
+**STILL OPEN — student lane, and this one reaches a signed-in child.**
+`context/NotificationContext.tsx:135-142` returns `MOCK_NOTIFICATIONS` — "A new
+lesson is ready / Adding Fractions is waiting for you" and "Ms Okafor sent you a
+message / Lovely work on your fractions today" — with no mark.
+`NotificationBell.tsx` imports no `SampleRegion`, and `StudentShell` mounts the
+bell OUTSIDE both `MaybeSample` wrappers; those cover the identity block and the
+avatar only.
+
+It is not merely unmarked, it is **mis-gated**, and that is the half that bites.
+The provider reads `useHasSession()` (`NotificationContext.tsx:100`) with **no
+`useHydrated()` guard** — unlike every other student surface, each of which added
+one and says why in a comment. `useHasSession.ts:32` hardcodes
+`serverSnapshot = () => false`, and `NotificationProvider` is mounted in the ROOT
+layout, so this is every student page. The server markup and the first client
+frame for a genuinely signed-in child therefore carry `unreadCount = 1`: the
+violet unread dot renders with no click, and the panel lists invented rows naming
+a teacher who sent nothing. **Fix the gate and the mark together — the mark alone
+leaves the flash.** The live path is already right, and is worth preserving: a
+failed read sets `feed: []` and `failed: true`, deliberately never the fixtures.
+
+**UNMARKED AND UNGATED — student onboarding.**
+`ClassConfirmationStep.tsx:37-51` defines `DEMO_CLASSES`, fourteen invented class
+names, selected at `:78-82` whenever `verified` — `Boolean(draft?.schoolCode)` —
+is false, and rendered at `:258`. The file has **no `SampleRegion`, no
+`sampleMark`, and no session gate at all**. `getOnboardingDraft()` returns `{}`
+both when no school was verified AND when the sessionStorage write silently failed
+(`lib/auth/onboarding.ts:41-49` — `mergeOnboardingDraft` swallows that error on
+purpose, "Private mode etc."). So a child who verified their real school code in a
+private or storage-blocked browser is shown fourteen invented classes with no
+mark, and `pick()` at `:139` then writes `classId: undefined` — the exact failure
+the file's own docblock at `:24-35` claims to have fixed. The fix keyed on
+`schoolCode`; the storage-failure path does not have one.
+
+**ADMIN lane — two sample surfaces, not one, and the second is HALF wrapped.**
+`OverviewView` is correct. The second is `AdminSidebar.tsx`, which renders the
+fixture persona "Mrs. Adebayo" on every admin screen. Its
+`SampleRegion kind="admin:sidebar-identity"` at `:460` encloses the name/subtitle
+block **only** — the avatar disc's hardcoded initials `"AA"` sit at `:419`, on the
+same ternary's signed-out branch, OUTSIDE the mark, and the marked block is
+additionally gated on `expanded`. Below 1280px the rail collapses and the name
+block is not rendered at all, so on the 1024px the admin frames are drawn at, the
+entire fixture identity a viewer meets is the unmarked `"AA"`. No `hydrated` gate
+on this branch either. **S, and it is one element moved.**
+
+**UNMARKED, but the gate is currently correct** — lower priority, and the reason
+the mark exists at all is that a gate can regress:
+
+- `DownloadsTab.tsx:18` — four invented lesson titles with invented sizes. No
+  `SampleRegion` in the file.
+- `useDisplayName.ts:78-83` — `MOCK_STUDENT` "Ada"/"AK", surfaced by
+  `ProfileSettings.tsx:172` and `:214`, which is page content and so sits outside
+  `StudentShell`'s wrapper.
+
+**AND THE TEST THAT WOULD ENFORCE ANY OF THIS DOES NOT EXIST FOR EITHER LANE.**
+`e2e/` holds `landing-pinned`, `public-pages`, `route-guards` and
+`teacher-signed-in` — there is no student or admin signed-in spec at all, and
+`data-nevo-sample` is asserted on only in `public-pages.spec.ts:168` and
+`teacher-signed-in.spec.ts`. Marking is necessary and it is not sufficient: until
+a signed-in spec exists for these two lanes, a perfect set of marks is asserted
+against by nothing.
+
+**HOW THIS WENT WRONG, because the method is the actual defect.** The claim was
+built by grepping the lane for `fixture` and `sample` — which is what the
+paragraph below this one tells you to do. **Not one of the leaks above contains
+either word.** They are called `DEMO_CLASSES`, `MOCK_NOTIFICATIONS`, `ITEMS`,
+`MOCK_STUDENT`, and a bare `"AA"` string literal. The same blind spot produced the
+five teacher-lane leaks recorded in `CONSOLE_INVENTORY.md` section E on the same
+day. A count is not a verdict either: `grep -rln fixture src/components/admin | wc -l`
+returns 14 and means nothing, because it counts test files and docblocks.
+
+**Grep for the SHAPE instead:** every branch that returns invented data when a
+read fails or is still in flight, then check each one is gated on
+`hydrated && !signedIn` rather than `!signedIn` alone, and that the mark encloses
+the whole fallback rather than the half of it that happens to be prose.
 
 The rest of this section is kept as the record of why the mark exists.
 
@@ -381,8 +455,13 @@ The planned E2E signs in and asserts no mark appears anywhere. **An unmarked fal
 is invisible to it** — the test walks past reporting success, which is worse than not
 having the test at all.
 
-Teacher lane is done: `ClassRoute`, `LessonRoute`, `StudentRoute`. Find yours by
-grepping your lane for `fixture` and for `sample`.
+Teacher lane is NOT done either — `CONSOLE_INVENTORY.md` section E found five
+unmarked teacher surfaces on 16 Sep. Wrapped so far: `ClassRoute`, `LessonRoute`,
+`StudentRoute`, `TeacherHome`, `InsightsView` — five files, not the three this
+line used to name.
+
+**Do NOT find yours by grepping for `fixture` and `sample`.** That is the method
+that produced the retraction above; see "Grep for the SHAPE instead".
 
 ---
 
@@ -1005,14 +1084,19 @@ what closed, because two of them were wrong about _why_ they mattered:
   against the deployed API.
 - ~~`messagesApi.reply` unused~~ — **#250**.
 
-~~**Still open for the student session:** wrap the student lane's fixture
-fallbacks in `<SampleRegion>`.~~ **DONE — nine surfaces, verified 16 Sep.**
+**Still open for the student session:** wrap the student lane's fixture
+fallbacks in `<SampleRegion>`. **PARTLY DONE — nine surfaces wrapped and each wrap
+verified real, but the lane is NOT closed.** The notification bell and the
+onboarding class list are both unmarked, and the bell is mis-gated on top of it —
+a signed-in child gets an invented unread dot on the first frame of every page.
+See the retraction under ACTION NEEDED above for the sites and the reason the
+grep everyone used could not find them.
 
-### FOR THE ADMIN SESSION — four items, 16 Sep. One is landed, three are yours.
+### FOR THE ADMIN SESSION — five items, 16 Sep. One is landed, four are yours.
 
 Written by the teacher/cross-cutting session after a status pass over your
 console. **Everything the console-wide lists called "still buildable" really is
-empty** — these four are what is left that is neither built nor blocked on an
+empty** — these five are what is left that is neither built nor blocked on an
 endpoint, and none of them is a screen.
 
 **1. The sign-in door is FIXED — #405. Do not build it again.**
@@ -1059,6 +1143,12 @@ those markers were written**, and today two whole rows came off the blocked
 table for exactly that reason (see the correction above). Budget an afternoon
 against `node scripts/api-audit.mjs`, not against the markers' own text.
 
+A free demonstration rather than a count, from the teacher lane's own sweep:
+`EditProfileModal.tsx:89` still reads `TODO(api): photo upload - the frame draws
+the affordance only`, while `POST /api/v1/users/me/profile-photo` is deployed and
+`ProfilePatch.profileImageUrl` exists. The marker outlived its blocker and nobody
+noticed, which is the whole shape.
+
 **4. Your blocked list is three items, not five, and one ask has never been
 sent.** `docs/api-requests-admin.md` now carries a 16 Sep addendum: what
 shipped, what is still open with today's evidence, and a NEW ask for
@@ -1066,6 +1156,19 @@ shipped, what is still open with today's evidence, and a NEW ask for
 lapsing locks out every teacher and every child at that school on one morning,
 and nothing in the contract can see it coming — it is the one predictable
 lockout in the product. D17's card stays absent until that field exists.
+
+**5. The sidebar identity block is HALF marked, and the unmarked half is the one
+your frames actually render.** Found while verifying — and disproving — a claim
+of mine that this console's sample-data work was finished; see the retraction
+under ACTION NEEDED above. `AdminSidebar.tsx:460` wraps the fixture persona
+"Mrs. Adebayo" in `SampleRegion kind="admin:sidebar-identity"`, but that block is
+gated on `expanded` and the avatar disc's hardcoded `"AA"` sits at `:419`,
+OUTSIDE the mark. **Below 1280px the rail collapses and the name block is not
+drawn at all** — and every admin frame is drawn at 1024. So on the console's own
+target viewport the entire fixture identity a viewer meets is an unmarked `"AA"`,
+which the E2E's `[data-nevo-sample]` assertion cannot see. No `hydrated` gate on
+that branch either, so a real signed-in admin takes it on SSR and the first client
+frame. **S — one element moved inside the mark, plus the gate.**
 
 **For any session:** `npm run contract` now fails the build when the client and the
 deployed spec disagree. It runs in CI on every push and PR. If it fails on your
@@ -1356,16 +1459,37 @@ triggers it?**
 
 ---
 
-## Teacher console
+## Teacher console — SUPERSEDED, see the inventory
 
-### Done 5 Sep
+**The per-screen record for this console moved to
+[`docs/CONSOLE_INVENTORY.md`](./CONSOLE_INVENTORY.md) and the narrative that used to sit here
+has been pruned (16 Sep) because it was actively misleading**, not merely old. It was written
+5-7 Sep and every list in it had rotted in the same direction: it named as blocked a set of
+things that had since shipped.
 
-- `/teacher` root redirects to `/teacher/dashboard` (was a 404).
-- `/teacher/students` redirects to `/teacher/classes` (was a placeholder string).
-- Bulk ingestion shows the parse's `lessonTitle` with the filename beneath.
-- Split a staged unit into lessons; named segment rows under each section.
+Kept as a record of HOW it rotted, because the pattern repeats:
 
-### UNBLOCKED 7 Sep — per-student consent. FOR THE ADMIN SESSION.
+- Its NEEDS BACKEND table listed seven blocked screens. **Five of those seven are now
+  delivered and built** — teacher-to-SENCo escalation, profile photo upload, the per-student
+  session read, a note on an assignment, and teacher-initiated SSO all landed on 15 Sep. Two
+  of the seven were never true as stated: "Recommend a lesson" was blocked on a POST that was
+  not needed (`assignmentsApi.create` was reused), and variant review renders off the lesson
+  read.
+- Its NEEDS DESIGN list said "Specific students in the assign wizard has no frame; the wizard
+  errors". It was built on 15 Sep on ids the wizard already held.
+- The 5 Sep "Done" list is still true and is now unremarkable.
+
+**The generalisable bit: a section dated by when it was WRITTEN, holding claims about what is
+blocked, decays into a list of work people think they cannot start.** The inventory carries a
+commit SHA rather than a date for this reason, and every blocker in it is re-tested against
+the deployed spec before it is written down. Do not restore a per-screen list here.
+
+The one part of that section worth keeping is below, because it is addressed to the admin
+session rather than the teacher one and its facts were re-checked when it was written.
+
+---
+
+## Per-student consent — UNBLOCKED 7 Sep. FOR THE ADMIN SESSION.
 
 **This was in NEEDS BACKEND and is now buildable.** The old entry said "no GET returns
 consent for any student but the child themselves". That is no longer true. `consent` is
@@ -1390,26 +1514,6 @@ consent card, and the D5b roster pill.**
 
 One caution carried over: **do not derive consent from the student's `status` field.**
 An account being active is a different fact from a parent having agreed.
-
-### NEEDS BACKEND
-
-| screen                  | why                                                                                                                                                                                       |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C08c Recommend a lesson | Recommendations are **read-only** — `GET /api/intelligence/recommendations/{id}` only, returning prose (`recommendationText`), not selectable lesson options. No POST exists to send one. |
-| C08d Session detail     | Needs a section-by-section breakdown nothing serves.                                                                                                                                      |
-| C16d Variant Review     | No lesson read carries the variant objects.                                                                                                                                               |
-| Escalate to SENCo       | No transport for a teacher-to-SENCo note. The button is disabled rather than lying.                                                                                                       |
-| Teacher SSO connect     | **Not the slug problem.** Nothing in the API enrols a school; all ten SSO operations presuppose a connection that exists. The two `start` endpoints are pre-login user handovers.         |
-| Profile photo upload    | The frame draws the affordance only.                                                                                                                                                      |
-| Drive / OneDrive import | Blocked on per-school credentials.                                                                                                                                                        |
-
-### NEEDS DESIGN
-
-- Help & support — a sidebar item with nowhere to go; no frame draws it.
-- Pulse banding — the Strong/Steady/Building cutoffs are a frontend invention.
-- ~12 undrawn sections: C09's written summary, C06b's stat cards, the C03 flag
-  sparkline (deferred to v1.5), the noticing banner, subject filter pills.
-- "Specific students" in the assign wizard has no frame; the wizard errors.
 
 ---
 
@@ -2704,6 +2808,12 @@ fixture render carries a mark:
 Applied at the teacher lane's three fixture handoffs: `ClassRoute`, `LessonRoute`,
 `StudentRoute`. The detector has its own tests, because an E2E built on a broken
 detector would pass while the thing it guards against was happening.
+
+**Three was never all of them — corrected 16 Sep.** `TeacherHome` and
+`InsightsView` wrap too, and `CONSOLE_INVENTORY.md` section E found five teacher
+surfaces still unmarked. No lane is finished; see the retraction under ACTION
+NEEDED, which also explains why the grep everyone used to check could not find
+them.
 
 **The single most valuable E2E is therefore not a flow test.** It is:
 
