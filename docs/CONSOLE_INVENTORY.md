@@ -1,6 +1,6 @@
 # Console inventory — what is undone
 
-**Teacher and parent consoles. Verified 15 Sep 2026 against `main` @ `3795640` and the
+**Teacher and parent consoles. Re-verified 16 Sep 2026 against `main` @ `8162152` and the
 deployed spec (v2.0.0, 188 paths, 343 schemas).**
 
 ## Why this file exists
@@ -40,6 +40,25 @@ notifications, now a product question rather than a backend one). Ten new items 
 list A as a result — see *Unblocked 15 Sep*. The teacher console is no longer
 meaningfully waiting on backend; it is waiting on us, and in a few places on design.
 
+**Re-verified 16 Sep, and this file was wrong in nine places.** Every open item was read
+back against `origin/main` and the deployed spec, and every verdict of "done", "blocked"
+or a changed size was then adversarially checked; three of those checks overturned the
+first answer. What it found:
+
+- **Four items were already done** — the paused-teacher message (teacher half), Home's
+  sample marks, the variant-review entry point, and the expired parent consent token. One
+  had been finished for two days. Four afternoons would have gone on rediscovering them.
+- **Two real blockers were not written down anywhere.** Session detail is blocked on
+  ADDRESSING, not shape (list B, item 0b). Help & support is blocked on CONTENT: two of
+  design's three facts — the WhatsApp number and the support response time — exist nowhere
+  in the repo, and neither can be borrowed without inventing a commitment.
+- **Six sizes were wrong**, in both directions.
+- **Two recorded blockers had expired**: the class-code route's DESIGN attribution, and the
+  design blocker on the revoked session-end state (the frame was added 10 Sep).
+
+*The lesson generalises: this file drifts the same way the code comments do, and re-reading
+it against the repo is itself work that has to be repeated.*
+
 ---
 
 ## Teacher console
@@ -53,32 +72,32 @@ meaningfully waiting on backend; it is waiting on us, and in a few places on des
 | Upload scope + file | LIVE | — | NONE | — |
 | Teacher activation | LIVE | — (copy signed off 14 Sep) | NONE | — |
 | Password reset | LIVE | Error states unsigned-off | DESIGN | S |
-| Session expired door | LIVE | Only the "expired" variant. Backend now sends four codes (`session_expired`, `session_revoked`, `session_replaced`, `account_paused`); **none is consumed anywhere**, and `ConsoleSessionExpired` takes only `signInHref`. Carrying a reason means changing `client.ts`, which all three consoles route through | FRONTEND | **M** |
-| Lesson library | LIVE | Subject pills hidden. `subject` landed on the upload body 15 Sep, so this is ours now | FRONTEND | S |
+| Session expired door | LIVE | Only the "expired" variant. Backend now sends four codes (`session_expired`, `session_revoked`, `session_replaced`, `account_paused`); **none is consumed anywhere**, and `ConsoleSessionExpired` takes only `signInHref`. Carrying a reason means changing `client.ts`, which all three consoles route through. Design HAS drawn revoked (`student/28a Session Ended - Revoked`, 10 Sep) — only `session_replaced` and `account_paused` remain undrawn for the console | FRONTEND | **M** |
+| Lesson library | LIVE | Subject pills hidden. `subject` landed on the upload body 15 Sep, so this is ours now — but it is **M**: the field has to be sent, stored, read back and filtered on, and two code comments still assert the endpoint cannot take it | FRONTEND | **M** |
 | Notifications panel | LIVE | — | NONE | — |
 | Feedback panel copy | LIVE | — (counter already present at the last 200 chars; design to confirm the threshold) | NONE | — |
-| Class code / QR | LIVE | No standalone route; dialog only | DESIGN | S |
-| Sign-in | PARTIAL | A paused or rate-limited teacher is told their password is wrong | FRONTEND | S |
+| Class code / QR | LIVE | No standalone route; dialog only. Design ruled 15 Sep to build it (recorded in section C below), so this is ours | FRONTEND | S |
+| Sign-in | LIVE | — (`classifyLoginFailure` wired 14 Sep: a paused account is told the account is not open, a throttled one to wait. Re-verified 16 Sep.) **The ADMIN door still has this bug** — `AdminSignIn.tsx` maps 401/403 to "check your details" | NONE (admin console owns its half) | — |
 | Console shell + nav rail | PARTIAL | Role label is `MOCK_TEACHER.role` unconditionally; Help & support has no destination | FRONTEND; DESIGN | S |
 | My Classes list | PARTIAL | Card carries no subjects, headcount or summary line | FRONTEND | S |
 | Class detail + roster | PARTIAL | No Lessons or Activity tab. (Chips, seat and the two markers built 15 Sep; the header already carried the headcount) | BACKEND (activity); DESIGN (a Lessons tab) | M |
 | Compose message | PARTIAL | Deep link resolves against fixtures in **three** places (`ConnectView:108`, `ComposeModal:69` and `:108`) and the profile link carries no query at all; cannot address a class | FRONTEND | **M** |
-| Home dashboard | PARTIAL | **Emits no sample marks at all**; class trio subject/status; activity counts (`completedCount`/`totalCount` landed 15 Sep, both nullable); "Good to know" | FRONTEND; DESIGN (cutoffs) | M |
+| Home dashboard | PARTIAL | class trio subject/status; activity counts (`completedCount`/`totalCount` landed 15 Sep, both nullable); "Good to know" | FRONTEND; DESIGN (cutoffs) | M |
 | Insights | PARTIAL | Written summary and "Looking ahead" both landed 15 Sep at `/classes/{class_id}/insights`; per-student recommendations still fan out | FRONTEND | M |
 | Student profile | PARTIAL | 3 of 4 drawn actions now (recommend and share both added 15 Sep); session detail remains, now unblocked; no noticing banner | FRONTEND | M |
-| Lesson detail | PARTIAL | No entry point to variant review; multi-class reports first class only | FRONTEND; DESIGN | S |
+| Lesson detail | PARTIAL | Multi-class reports first class only. (The variant-review entry point shipped 14 Sep — re-verified 16 Sep, it renders once per section) | FRONTEND; DESIGN | S |
 | Lesson assignment wizard | PARTIAL | "Specific students" refused by a guard whose stated reason is false | FRONTEND | M |
-| Variant review | PARTIAL | Live and correct but **no entry point**; no 5th-variant tab; no audio player | FRONTEND; DESIGN; CONTENT | S |
+| Variant review | PARTIAL | No 5th-variant tab; no audio player. (Reachable since 14 Sep — the "no entry point" line was stale for two days) | FRONTEND; DESIGN; CONTENT | S |
 | Parse fallback | PARTIAL | 2 of 4 states live; `partial`/`noBoundary` unreachable signed in | BACKEND | M |
 | Teacher onboarding | PARTIAL | Redirect covers password only; join-confirm + profile-setup unbuilt | FRONTEND | M |
-| Profile & settings | PARTIAL | "Change photo" is a `<button>` with no `onClick`. `profileImageUrl` and the upload endpoint landed 15 Sep | FRONTEND | S |
+| Profile & settings | PARTIAL | "Change photo" is a `<button>` with no `onClick` — the only dead control in the profile menu. `profileImageUrl` and the upload endpoint landed 15 Sep | FRONTEND | **M** |
 | Parse progress ladder | LIVE | — (three rungs keyed to `UploadStage`, driven by the live stage; design ruling 14 Sep) | NONE | — |
 | Upload module / section review | FIXTURE-ONLY | Hardcoded Photosynthesis six; every control writes nothing | FRONTEND | M |
-| Structure preview (standalone) | FIXTURE-ONLY | Orphaned duplicate; no session gate | FRONTEND | S |
+| Structure preview (standalone) | FIXTURE-ONLY | Orphaned duplicate serving fixtures to signed-in teachers. **It IS session-gated** (`proxy.ts` covers `/teacher/*`) — that half of the line was false | FRONTEND | S |
 | Student observations (C16b) | LIVE | — (built 15 Sep: chips, seat, and the two markers) | NONE | — |
 | Recommend a lesson | PARTIAL | Built and live 15 Sep, note box included. The "Suggested" badge stays blocked — `Recommendation` is prose with no lesson id. The note is sent and stored; **no student screen renders it yet**, so the confirmation stops short of C08c's "She'll see your note when she opens it" | BACKEND (badge); STUDENT CONSOLE (render) | S |
 | Share with Learning Support | LIVE | — (built 15 Sep on `POST /api/v1/escalations`: `LiveShareSheet`, confirmed per C14 B5. The SENCo cannot yet SEE what arrives — see below) | NONE | — |
-| Session detail | NOT BUILT | The per-student session read landed 15 Sep with `sittings`, `narrative` and unscored `sections` | FRONTEND | M/L |
+| Session detail | NOT BUILT | The read landed 15 Sep, but **nothing hands a teacher a session id** to call it with — see list B. C08d's panel is frame-complete and mounted only for signed-out visitors | BACKEND (addressing) | M |
 | SSO callback | NOT BUILT | Component complete and live-wired; `slug` landed on `SchoolCodeResponse` 15 Sep, so the signed-out door can now reach it | FRONTEND | M |
 | Notifications page | NOT BUILT | Deliberate redirect — C13 is a popover | NONE | — |
 | Students index | NOT BUILT | Deliberate redirect to Classes | NONE | — |
@@ -124,44 +143,83 @@ the end of the road.
 
 ## A. Buildable today — priority order
 
-1. **Paused teacher told their password is wrong.** `classifyLoginFailure` is written and
-   tested and used on both student doors; `TeacherSignIn.tsx:127` and `AdminSignIn.tsx:152`
-   still map 401/403 to "check your details". **S**
+1. ~~**Paused teacher told their password is wrong.**~~ **TEACHER HALF DONE 14 Sep**,
+   re-verified 16 Sep: `TeacherSignIn.tsx` calls `classifyLoginFailure` and carries both
+   the paused and the throttled message. **The ADMIN half is still live**, mapping 401/403
+   to "check your details" — same bug, same fix, and it locks a proprietor or IT admin out
+   of their own school with the correct password. **S, admin console** — flagged to that
+   session rather than taken here.
 2. ~~**Parent sign-in (D03).**~~ **DONE 14 Sep.** Built at `/parent-sign-in`; the portal's
    signed-out screen offers it rather than pointing at a link that may have expired.
 3. ~~**Student observations (C16b).**~~ **DONE 15 Sep.** Chips imported from
    `lib/constants/observations.ts` rather than restated; seat context shown; the two
    markers labelled rather than coloured.
-4. **Home sample marks.** Until Home emits them the one E2E assertion cited as proof no
-   teacher sees invented data is vacuous on the dashboard. **S**
-5. **Variant review entry point.** One prop; a finished, tested screen is URL-only. **S**
+4. ~~**Home sample marks.**~~ **DONE 15 Sep**, re-verified 16 Sep. The four regions
+   (`teacher:home-pulse`, `-flags`, `-activity`, `-good-to-know`) are on main, so the E2E
+   assertion cited as proof that no teacher sees invented data is no longer vacuous on the
+   dashboard. It would now fail if Home stopped marking.
+5. ~~**Variant review entry point.**~~ **DONE 14 Sep**, re-verified 16 Sep. The screen is
+   reachable from lesson detail, once per section. This line stayed open for two days after
+   the work landed, which is the same failure this file exists to stop.
 6. **"Specific students" in the assign wizard.** Swap `ClassOption.roster` for
    `useClassRoster`, key on `studentId`. **M**
 7. ~~**Recommend a lesson.**~~ **DONE 15 Sep.** Reused `assignmentsApi.create` rather
    than wrapping a second path. Note field and "Suggested" badge both wait on backend.
 8. **Class headcount** — a join on `classId` against data rendered two sections up. **S**
-9. **Revoked session-end variant.** **M, not S** — re-sized 14 Sep on inspection. The
+9. **Revoked session-end variant.** **M** — re-sized 14 Sep, re-verified 16 Sep. The
    four codes are consumed nowhere, `ConsoleSessionExpired` has no reason prop, and the
    plumbing runs through `client.ts`, which student and admin share.
+   **Not design-blocked.** `student/28a Session Ended - Revoked` was added 10 Sep and its
+   headline is verbatim what `ConsoleSessionExpired` already renders, so the revoked state
+   composes by DELETING the inactivity sentence. `session_replaced` and `account_paused`
+   console copy are genuinely undrawn; revoked is not, and can ship first.
+   **Do `client.ts` first, not last.** The student "expired" door is already live and
+   routed, so a student-only change delivers nothing visible — the code at `client.ts:244`
+   is the only place any of the four reasons exists, and everything else waits on it.
 10. **Connect deep link.** **M, not S** — re-sized 14 Sep. The preset is fixture-bound in
     three places across two components, and the profile link sends no query at all, so
     this is a preset-resolution change rather than a one-line href.
-11. **Delete or re-point `/teacher/lessons/upload/structure`.** **S**
+11. **Delete or re-point `/teacher/lessons/upload/structure`.** **S** — confirmed 16 Sep
+    after a re-size to M was itself refuted. C07e draws "Open and steer" as a *button with an
+    onClick*, not a link: the standalone URL was this repo's invention, so the honest
+    re-point is a prop on `ParseProgress` flipping to the `LiveStructureTree` the wizard
+    already renders one branch away. No new route, no resumable hook, no shared seam.
 12. **Calculation variant tab (SCRUM-136).** Ruled 14 Sep. The fifth form a student can
     receive, which a teacher currently cannot preview at all. **M**
 13. **D02 SMS and email copy**, to design's exact strings, plus "Send it again". **S**
 14. **Teacher-side active/inactive indicator.** The dependency the no-consent-column
-    ruling now rests on. **M**
-15. **Help & support screen** — email, WhatsApp, response time. **S**
+    ruling now rests on. **M** — re-verified 16 Sep; a re-size to S was refuted.
+    **No backend work at all.** `ClassStudentResponse.status` is a REQUIRED property of
+    `GET /api/v1/classes/{class_id}/students`, typed `UserStatus` = `active | invited |
+    deactivated`. It is already fetched, already typed, and thrown away at render:
+    `student.status` appears nowhere in `LiveClassDetail.tsx`, while `profileStatus`,
+    `seatContext`, `observations` and `flags` are all read. The comment at
+    `classes.ts:80-82` is false on both halves. Today two rows look identical whether or
+    not the child can actually use Nevo.
+15. **Help & support screen** — email, WhatsApp, response time. **S to build, but
+    CONTENT-BLOCKED.** Re-verified 16 Sep: the support email exists
+    (`support@nevolearning.com`, hardcoded in five places). The WhatsApp number does NOT —
+    every `+234` string in the repo is school or parent fixture data, and there is no
+    `wa.me` link anywhere. Nor does a support response time: the two response-time strings
+    that exist are a landing-page sales promise and an NDPA 48-hour data-objection SLA, and
+    borrowing either would invent a commitment Nevo has not made. **Someone has to supply
+    the number and the turnaround.** Until then the nav item closes the menu and does
+    nothing, which is the one route out of the console when something goes wrong.
 16. **Standalone class-code route**, and the assign-wizard class selector. **M**
 17. **Parent polish** — name the recipient in D01c, school attribution on D15d, link
-    `/parent-portal` from somewhere. **S**
+    `/parent-portal` from somewhere. **M, not S** — re-sized 16 Sep. Three independent legs
+    across two lanes, and one of them (D01c's recipient) needs a content answer first: the
+    frame names an email address, but the payload field is `parentContact`, which may hold
+    a phone number. Naming an address for an SMS-only parent is not a frontend decision.
 
 ### Unblocked 15 Sep — these were list B this morning
 
-Sizes are first-pass, read off the shape of the endpoint rather than a written plan.
-Ten items; the eleventh delivery (gender-neutral growth statements) needs no frontend
-work at all.
+~~Sizes are first-pass, read off the shape of the endpoint rather than a written plan.~~
+**Re-verified 16 Sep against the code, so the sizes below are now measured rather than
+guessed** — and three of the ten moved: two were re-sized S to M, one (27) was already
+done, and one (26) turned out to be blocked on addressing rather than buildable. Of the
+eleven deliveries, **two of the eleven need no frontend work**: gender-neutral growth
+statements, and the expired consent token, which was already handled.
 
 18. **Teacher→SENCo escalation.** `POST /api/v1/escalations`. The most-asked-for missing
     action on the teacher console, and the one with a child's welfare behind it.
@@ -180,21 +238,47 @@ work at all.
     renders it — so the confirmation says the note went with the lesson rather than
     C08c's "She'll see your note when she opens it", and a test guards that wording.
     Raised as a student-console task; when it lands, the copy and that test change.
-20. **Class Insights narrative.** `weeklySummary` and `lookingAhead` replace fixture
-    prose on a screen that is currently `FIXTURE-ONLY`. **M**
+20. **Class Insights narrative.** `weeklySummary` and `lookingAhead` at
+    `GET /api/v1/classes/{class_id}/insights`. **M** — re-verified 16 Sep. The endpoint is
+    live and unwrapped; there is no backend blocker. The real obstacle is a SHAPE MISMATCH
+    between what the frame draws and what the endpoint returns, plus no signal for when the
+    narrative should be shown at all. That is a **design ruling**, not a backend ask. The
+    screen is not wholly fixture-backed either — three sections already render real data.
 21. **Per-row completion on recent activity.** `completedCount` / `totalCount`, both
-    nullable — so the row must still render when they are absent. **S**
-22. **`failedPages`.** Makes `retryPages` sourceable; the retry control currently asks for
-    page numbers nobody can supply. **S**
-23. **`subject` on upload.** **S**
-24. **Profile photo.** Read `profileImageUrl`, then the upload endpoint. **M**
-25. **Teacher-initiated SSO.** `slug` on `SchoolCodeResponse` completes the signed-out
-    door. **M**
-26. **Per-student session detail.** `sittings`, `narrative`, unscored `sections`. The
-    largest of the ten, and the one whose copy is in a colleague's voice — it renders
-    verbatim, so it cannot be paraphrased client-side. **M/L**
-27. **Expired parent consent token.** 404 for unknown, revoked and expired is now
-    documented, so D03's terminal screen can be built against it rather than guessed. **S**
+    nullable — so the row must still render when they are absent. **S**, confirmed 16 Sep:
+    clean, no blocker, and the field has to go onto `ActivityRow` in `teacherHome.ts` or a
+    missing client type will silently drop it, exactly as `note` was dropped on
+    `Assignment`. Today Home's LIVE activity list is strictly poorer than the sample one
+    the same screen shows when the read fails.
+22. **`failedPages`.** **M, not S** — re-sized 16 Sep, **and the premise above is false**:
+    there is no `retryPages` control asking for page numbers nobody can supply. The field
+    and the retry endpoint are both deployed; what is missing is the whole seam from poll to
+    a per-page retry affordance. Today a teacher whose PDF was partly unreadable gets either
+    a structure tree with pages silently missing, or a flat "we could not read that one".
+23. **`subject` on upload.** **M, not S** — re-sized 16 Sep. Five files and a seam: the
+    field has to be sent on the multipart body, carried into the lesson, read back and
+    filtered on, or the subject pills stay hidden and nothing is gained. Two code comments
+    (`useLessonLibrary.ts:36-38` and one in `content.ts`) still assert the endpoint cannot
+    take a subject; both are now false.
+24. **Profile photo.** Read `profileImageUrl`, then `POST /api/v1/users/me/profile-photo`
+    (multipart, key `file`). **M**, confirmed 16 Sep, no blocker. "Change photo" is the only
+    dead control in the profile menu — a `<button>` with no `onClick`.
+25. **Teacher-initiated SSO.** `slug` on `SchoolCodeResponse`. **M**, confirmed 16 Sep,
+    with two caveats that are real but not fatal: the teacher door has **no school-code step
+    at all** today, and `AuthMethod` is `email_password | pin | sso` — so the response says
+    a school uses SSO but not WHICH provider, and the client has to branch on that. Today an
+    SSO-school teacher is simply told school sign-in is not set up.
+26. **Per-student session detail.** ~~**M/L**~~ **BLOCKED — moved to list B, item 0b.**
+    Re-verified 16 Sep and this is the one item on this list that cannot start. The response
+    SHAPE landed; the ADDRESSING did not. `GET /students/{student_id}/sessions/{session_id}`
+    wants a session uuid, and **nothing a teacher can read returns one**: the recent-sessions
+    row type has no session id, `ClassStudentResponse.latestSessionAt` is a timestamp, and
+    the activity-feed id is an untyped string with no stated relation to a session. The
+    panel itself is frame-complete and mounted only for signed-out visitors, so once the id
+    exists this is **M**, mostly wiring.
+27. ~~**Expired parent consent token.**~~ **ALREADY DONE** — re-verified 16 Sep. Whoever
+    built the parent portal handled the 404 before backend documented it, and the deployed
+    spec has since caught up. Nothing to build; a parent already gets the terminal screen.
 
 ## B. Blocked on backend — the exact ask
 
@@ -220,7 +304,22 @@ Note the path parameters above: they are `{student_id}` and `{class_id}`, still
 snake_case, while every property those endpoints return is now camelCase. That is the
 wire, not a typo.
 
-**Three remain** — two from this morning, and one created by shipping the teacher half of escalations.
+**Four remain** — two from 15 Sep, one created by shipping the teacher half of escalations,
+and one found on 16 Sep by re-verifying a delivery that was recorded as complete.
+
+0b. **Nothing hands a teacher a session id.** Found 16 Sep. The per-student session read
+    was delivered on 15 Sep and ticked off, but only its RESPONSE shape was checked. The
+    ADDRESSING is missing: `GET /api/v1/students/{student_id}/sessions/{session_id}` takes
+    a `session_id` of `format: uuid`, and every schema in the deployed spec was enumerated
+    for a session-id property — the only carriers are student-client writes, the caller's
+    own auth session, and `StudentSessionDetailResponse` itself, which you cannot read
+    without already holding the id. The list the panel would open from has no session id;
+    `ClassStudentResponse.latestSessionAt` is a timestamp; the activity-feed id is a bare
+    string with no stated relation to a session and no uuid format, so it is not a safe
+    substitute; and `lessonId` is a separate entity on the same response. **The ask is one
+    line: a session id on each recent-session row, or a
+    `GET /api/v1/students/{student_id}/sessions` list.** Everything else for C08d is
+    frontend work, and the panel is already frame-complete.
 
 0. **Nothing acknowledges an escalation.** `EscalationResponse.acknowledged` is a boolean
    on the read, but no endpoint sets it — `POST /api/intelligence/flags/{flag_id}/acknowledge`
