@@ -5,7 +5,7 @@ import { Check, Pause, Play } from "lucide-react";
 import { Button, NevoKeyboard } from "@/components/shared";
 import { CALC_MODALITY } from "@/lib/constants";
 import type { CalculationSegment } from "@/lib/types";
-import { isNumericStep } from "@/lib/types";
+import { isCardStep, isNumericStep, isTextStep } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -63,13 +63,30 @@ export function CalculationSolver({
 
   const done = phase === "done";
 
-  // ── Derived scaffold (fraction_add_like) ────────────────────────────────
-  const parts = calculation.scaffold.parts; // 4
-  const rows = calculation.scaffold.rows; // [1, 2]
-  const sum = rows.reduce((a, b) => a + b, 0); // 3
-  const numericAnswer = isNumericStep(steps[lastIndex])
-    ? (steps[lastIndex] as { answer: string }).answer
-    : String(sum);
+  /*
+   * ── The drawn scaffold, when there is one ──────────────────────────────
+   *
+   * `fraction_add_like` is an authored variant and carries `{parts, rows}`, so
+   * the bars and the fraction equation below are driven by it. Nothing on the
+   * deployed contract carries that shape: a generated calculation gives a
+   * `fullEquation`, a per-step `equationState` string, and at most a generated
+   * `scaffoldImage`. So a real lesson renders the equation as the words the
+   * backend wrote, and draws no bars, because there are none to draw and
+   * inventing some would be drawing a picture of a child's problem that nobody
+   * authored.
+   */
+  const scaffold = calculation.scaffold;
+  const parts = scaffold?.parts ?? 0;
+  const rows = scaffold?.rows ?? [];
+  const sum = rows.reduce((a, b) => a + b, 0);
+  const last = steps[lastIndex];
+  const numericAnswer = isNumericStep(last)
+    ? last.answer
+    : isTextStep(last)
+      ? last.answer
+      : scaffold
+        ? String(sum)
+        : (calculation.problem.answer ?? "");
 
   // Denominators highlighted while resolving them (step 0 confirmed) and step 1.
   const ring = (step === 0 && phase === "confirmed") || step === 1;
@@ -77,8 +94,23 @@ export function CalculationSolver({
   const strong = step >= 1 || done;
 
   const current = steps[step];
-  const isCardStep = phase === "ask" && !isNumericStep(current);
-  const isFinalStep = phase === "ask" && isNumericStep(current);
+  const onCards = phase === "ask" && isCardStep(current);
+  const typing = phase === "ask" && !isCardStep(current);
+  /*
+   * WHICH EQUATION THE CHILD SEES. Authored fraction content draws its own
+   * bars and fractions; generated content has `equationStates`, one per step,
+   * written by the backend to say how the equation reads at that moment. The
+   * index walks with the child - and a confirmed step shows the state it just
+   * produced, which is the whole point of showing it at all.
+   */
+  const equationLine = calculation.equationStates?.length
+    ? (calculation.equationStates[
+        Math.min(
+          phase === "ask" ? step : step + 1,
+          calculation.equationStates.length - 1,
+        )
+      ] ?? calculation.problem.expression)
+    : null;
   const kinestheticAvailable = calculation.modalities.includes(
     CALC_MODALITY.KINESTHETIC,
   );
@@ -101,7 +133,7 @@ export function CalculationSolver({
   // 1500ms confirmation hold, the value-sniff numeric advance and the
   // third-tile hop are all gone - answer-submission latency now exists.
   const commitChoice = () => {
-    if (phase !== "ask" || isNumericStep(current) || chosen == null) return;
+    if (phase !== "ask" || !isCardStep(current) || chosen == null) return;
     const correct = chosen === current.correct;
     onStepAnswered?.(correct);
     if (!correct) {
@@ -120,13 +152,44 @@ export function CalculationSolver({
     }
   };
 
+  /*
+   * THIS STEP'S ANSWER, NOT THE LAST ONE'S.
+   *
+   * `numericAnswer` is the whole calculation's finish, and comparing every
+   * typed step against it was safe only while exactly one step was ever typed.
+   * Real content types more than one: the algebra lesson answers "3x - 4",
+   * then "3x", then 5, and checking any of the first two against 5 fails a
+   * child who is right. It is the same mistake as mapping the variant's answer
+   * onto every step, one layer down.
+   *
+   * A typed step that carries no answer of its own cannot be marked at all -
+   * `fromContent` refuses to build one - so the fallback here is only ever
+   * reached by the authored fraction content, whose single typed step IS the
+   * finish.
+   */
+  const expectedForCurrent = isNumericStep(current)
+    ? current.answer
+    : isTextStep(current)
+      ? current.answer
+      : numericAnswer;
+
   const commitNum = () => {
-    const correct = numVal.trim() === numericAnswer;
+    // Trimmed on both sides and case-folded: "3X - 4" is the same answer as
+    // "3x - 4", and a child who capitalised is not wrong about algebra.
+    const correct =
+      numVal.trim().toLowerCase() === String(expectedForCurrent).trim().toLowerCase();
     onStepAnswered?.(correct);
-    if (correct) finish();
-    else {
+    if (!correct) {
       setAttempts((a) => a + 1);
       setShowHint(true);
+      return;
+    }
+    // Only the LAST step finishes the calculation. A typed step in the middle
+    // advances like any other, which is what a multi-step solve needs.
+    if (step === lastIndex) finish();
+    else {
+      setNumVal("");
+      goNext();
     }
   };
 
@@ -156,6 +219,16 @@ export function CalculationSolver({
       {audioAvailable && <NarrationBar onReplay={onReplay} />}
 
       {/* SCAFFOLD — persistent; highlights per step, fills as the answer assembles */}
+      {/*
+        DRAWN ONLY WHERE THERE IS ONE. `fraction_add_like` carries the parts
+        and rows these bars are made of; the deployed contract carries no such
+        field for anything else. A generated calculation therefore shows its
+        equation and its steps and no picture, which is honest - the
+        alternative was drawing bars from numbers that mean something else.
+        `scaffoldImage` on the wire is a generated illustration and a separate
+        question; it is not this.
+      */}
+      {scaffold && (
       <div className="rounded-[12px] bg-nevo-cream-elevated p-[18px] shadow-elevation-1 sm:p-6">
         <span className="font-mono text-[10px] tracking-[0.06em] text-nevo-near-black/50 uppercase">
           Picture it
@@ -192,10 +265,25 @@ export function CalculationSolver({
           )}
         </div>
       </div>
+      )}
 
       {/* EQUATION — updates in place, assembles to the answer on completion */}
       <div className="mt-[18px] flex min-h-[52px] items-center justify-center">
-        {isFinalStep && !done ? (
+        {equationLine ? (
+          /*
+           * GENERATED CONTENT WRITES ITS OWN EQUATION. `equationState` is a
+           * string the backend composed for this moment of this calculation -
+           * "3x - 4 = 11" - and it is the only honest thing to show for a
+           * problem that is not two like fractions. The fraction rendering
+           * below stays for the authored variant that has the parts to draw.
+           */
+          <div
+            key={equationLine}
+            className="text-center text-[26px] font-medium tracking-[-0.01em] text-nevo-navy sm:text-[34px] motion-safe:animate-nevo-reveal"
+          >
+            {equationLine}
+          </div>
+        ) : typing && !done ? (
           <div className="flex items-center gap-2.5 text-[30px] font-medium tracking-[-0.01em] text-nevo-navy sm:text-[40px] motion-safe:animate-nevo-reveal">
             <span>{rows[0]}</span>
             <span className="text-nevo-navy/70">+</span>
@@ -228,7 +316,7 @@ export function CalculationSolver({
 
       {/* RESPONSE — the one thing the student does, per step */}
       <div className="mt-5">
-        {phase === "confirmed" && !isNumericStep(current) && (
+        {phase === "confirmed" && isCardStep(current) && (
           <div className="flex flex-col gap-3.5 motion-safe:animate-nevo-reveal">
             <div className="flex items-center justify-between rounded-[12px] border-2 border-nevo-navy bg-nevo-cream-elevated px-[18px] py-4 text-base font-semibold text-nevo-near-black shadow-elevation-1 sm:text-[18px]">
               <span>{current.choices[current.correct]}</span>
@@ -256,7 +344,7 @@ export function CalculationSolver({
           </p>
         )}
 
-        {isCardStep && (
+        {onCards && (
           <>
             <p className="text-center text-[19px] font-semibold leading-[1.35] text-nevo-near-black sm:text-[22px]">
               {current.prompt}
@@ -301,7 +389,7 @@ export function CalculationSolver({
           </>
         )}
 
-        {isFinalStep && (
+        {typing && (
           <>
             <p className="text-center text-[19px] font-semibold leading-[1.35] text-nevo-near-black sm:text-[22px]">
               {manip
@@ -333,16 +421,34 @@ export function CalculationSolver({
                 )}
               >
                 <input
-                  // A.12: suppress the native OS keyboard on web — the Nevo
-                  // Keyboard drives entry on touch; a hardware keyboard still
-                  // types normally (desktop), where the on-screen one is hidden.
-                  inputMode="none"
+                  // A.12 suppresses the native OS keyboard for a NUMBER,
+                  // because the Nevo pad drives entry on touch. An EXPRESSION
+                  // needs letters and an operator, which that pad does not
+                  // have, so a text step takes the device's own keyboard
+                  // rather than a field a child cannot type into.
+                  inputMode={isTextStep(current) ? "text" : "none"}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={numVal}
                   onChange={(e) => setNumVal(e.target.value)}
                   placeholder="-"
                   aria-label={current.prompt}
-                  className="h-[52px] w-[120px] rounded-[10px] border-2 border-nevo-near-black/18 bg-nevo-cream-elevated text-center text-[26px] font-semibold text-nevo-navy shadow-elevation-1 outline-none transition-colors focus:border-nevo-navy"
+                  className={cn(
+                    "h-[52px] rounded-[10px] border-2 border-nevo-near-black/18 bg-nevo-cream-elevated text-center font-semibold text-nevo-navy shadow-elevation-1 outline-none transition-colors focus:border-nevo-navy",
+                    isTextStep(current)
+                      ? "w-[220px] text-[22px]"
+                      : "w-[120px] text-[26px]",
+                  )}
                 />
+                {"unit" in current && current.unit ? (
+                  // The wire gives a unit where it is what makes the step
+                  // answerable - "naira", "years", "%". Beside the field, not
+                  // inside it: a child types the number, not the noun.
+                  <span className="ml-2.5 self-center text-[15px] text-nevo-near-black/60">
+                    {current.unit}
+                  </span>
+                ) : null}
               </div>
             )}
 
@@ -352,7 +458,8 @@ export function CalculationSolver({
               </Button>
             )}
 
-            {!manip && (
+            {/* The pad is for digits. A text step uses the device keyboard. */}
+            {!manip && !isTextStep(current) && (
               <NevoKeyboard
                 layout="pad"
                 onKey={(d) => setNumVal(numVal + d)}

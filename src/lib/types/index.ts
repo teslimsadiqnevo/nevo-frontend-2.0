@@ -19,4 +19,4 @@ export type {
   SegmentAdaptation,
   AdaptationPlan,
 } from "./lesson";
-export { isNumericStep } from "./lesson";
+export { isCardStep, isNumericStep, isTextStep } from "./lesson";
