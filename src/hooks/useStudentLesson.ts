@@ -10,6 +10,10 @@ import { lessonFromContent } from "@/lib/lessons/fromContent";
 import { getMockAdaptation, getMockLesson } from "@/lib/mocks";
 import type { AdaptationPlan, Lesson } from "@/lib/types";
 import { useAccommodations } from "./useAccommodations";
+import {
+  unavailableReason,
+  type Unavailable,
+} from "@/lib/lessons/availability";
 import { useAdaptation } from "./useAdaptation";
 import { useHasSession } from "./useHasSession";
 import { useHydrated } from "./useHydrated";
@@ -90,6 +94,21 @@ export interface StudentLessonState {
    * has never seen.
    */
   adaptSegments: AdaptSegment[] | undefined;
+  /**
+   * Why this child may not do this lesson right now, or null when they may.
+   *
+   * A teacher could call a lesson off and the child still opened it, worked
+   * through it and had their progress written against it. The assignment row
+   * saying so was already in memory - this hook reads the dashboard for the
+   * child's saved place - and was simply never consulted.
+   *
+   * Null for a lesson that was never assigned at all, which is deliberate and
+   * is NOT the same as "allowed": it means we have nothing a teacher said
+   * about it. See `isOpenToStudent`.
+   */
+  unavailable: Unavailable | null;
+  /** When a `not_yet` lesson opens, for a screen that has to say so. */
+  opensAt: string | null;
 }
 
 export function useStudentLesson(
@@ -256,12 +275,34 @@ export function useStudentLesson(
       ? Math.max(0, Math.min(saved.segmentPosition, live.segments.length - 1))
       : null;
 
+  /*
+   * THE ASSIGNMENT FOR THIS LESSON, WHICH WAS IN MEMORY AND NEVER READ.
+   *
+   * Only for a LIVE lesson: the two authored walkthrough lessons have invented
+   * ids that no assignment can match, and a signed-out visitor has no teacher
+   * to have been assigned anything by.
+   *
+   * A lesson with no matching assignment yields null - not blocked. A child can
+   * still open any id their school's library holds, exactly as before; this
+   * acts only on what a teacher explicitly said about a lesson they set.
+   */
+  const assignment = live
+    ? // `?.` on the array as well as the object: `assignments` is required on
+      // the contract, but a response that arrives without it must not take a
+      // child's lesson down with a TypeError. Absent reads as "nothing a
+      // teacher said", which is the same as an unassigned lesson.
+      dashboard?.assignments?.find((a) => a.lesson.id === lessonId)
+    : undefined;
+  const unavailable = assignment ? unavailableReason(assignment) : null;
+
   return {
     lesson,
     live: Boolean(live),
     resumeAt,
     lastWorkedAt: saved?.updatedAt ?? null,
     adaptSegments: live ? state.adaptSegments : undefined,
+    unavailable,
+    opensAt: assignment?.availableFrom ?? null,
     // A live lesson gets the engine's plan; a mock keeps its authored one.
     // Never crossed: a mock must not borrow a live plan, and a live lesson
     // must not borrow another lesson's authored one.

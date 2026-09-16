@@ -11,6 +11,27 @@ import { LessonPlayer } from "./LessonPlayer";
 const LESSONS_HREF = "/student/lessons";
 
 /**
+ * When a not-yet-open lesson opens, said plainly, or nothing at all.
+ *
+ * A date the child can act on is worth giving. But `availableFrom` is nullable
+ * and can be unparseable, and a line reading "It opens on Invalid Date" is
+ * worse than a line that simply does not promise a day - so the sentence
+ * shrinks rather than guesses.
+ */
+function opensLine(opensAt: string | null): string {
+  const when = opensAt ? new Date(opensAt) : null;
+  if (!when || Number.isNaN(when.getTime())) {
+    return "Your teacher has set it for later on. It will be here when it opens.";
+  }
+  const day = when.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  return `Your teacher has set it for ${day}. It will be here then.`;
+}
+
+/**
  * Resolves a lesson route, live first.
  *
  * Same shape as the teacher side's `LessonRoute`, and for the same two
@@ -43,12 +64,53 @@ export function LessonRoute({
     resumeAt,
     lastWorkedAt,
     adaptSegments,
+    unavailable,
+    opensAt,
   } = useStudentLesson(lessonId);
   const hydrated = useHydrated();
 
   // The server cannot read the token, so it cannot yet know whether this
   // lesson resolves. Draw the skeleton rather than deciding wrongly.
   if (!hydrated || loading) return <LessonLoadingSkeleton />;
+
+  /*
+   * A LESSON THE TEACHER CALLED OFF, OR ONE THAT HAS NOT OPENED YET.
+   *
+   * Before the lesson branch, because the lesson loads perfectly well - it is
+   * the child's permission to do it that is missing, not the content. A
+   * cancelled lesson played identically to a live one and wrote the child's
+   * progress against it.
+   *
+   * The two reasons are told apart on purpose. "Your teacher took this off your
+   * list" and "this opens on Friday" are different facts, and only the second
+   * gives a child something to do about it. Neither blames them, and both keep
+   * the way back to their lessons that every state on this screen carries.
+   *
+   * Nothing is said about the work they may already have done: cancelling
+   * removes what is ahead, and a child's record of what they finished is still
+   * theirs. The summary and review screens are deliberately NOT gated for the
+   * same reason.
+   */
+  if (unavailable === "cancelled") {
+    return (
+      <LessonMessage
+        title="This one isn’t on your list any more"
+        body="Your teacher took it off. Anything you already did on it is still saved."
+        actionLabel="Back to my lessons"
+        onAction={() => router.push(LESSONS_HREF)}
+      />
+    );
+  }
+  if (unavailable === "not_yet") {
+    return (
+      <LessonMessage
+        title="This one isn’t open yet"
+        body={opensLine(opensAt)}
+        actionLabel="Back to my lessons"
+        onAction={() => router.push(LESSONS_HREF)}
+      />
+    );
+  }
 
   if (lesson) {
     const player = (
