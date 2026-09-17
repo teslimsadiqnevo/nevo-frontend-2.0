@@ -3496,34 +3496,25 @@ there. Manual transfers go through `manual-transfer`.
   uses `firstname.initial` with an optional digit (`amara.k`, `amara.k7`), and
   design is holding the child's keyboard layout on the answer.
 
-- **What should carry monotonic timing on a signal event?** (asked 17 Sep, and
-  this is rule 4 against the deployed contract, so it needs an answer rather
-  than a decision from this side.) Frontend §2 and rule 4 require
-  `performance.now()` for anything timed and sent to the engine, because clock
-  skew corrupts latency and latency is the primary signal for three of the four
-  affective states. **There is nowhere on the wire to put it.**
-  `SignalEventRequest` is `{sessionId, eventType, timestamp, eventData}` and
-  `timestamp` is `{"type":"string","format":"date-time"}` — a wall clock string.
-  `performance.now()` is a monotonic float measured from page load. Re-checked
-  against today's document (17 Sep, 192 paths): no schema anywhere carries an
-  elapsed, monotonic or time-origin field.
-  **The tempting fix is the dangerous one.**
-  `new Date(performance.timeOrigin + performance.now()).toISOString()` satisfies
-  the gate, keeps the contract, and changes nothing: it is still derived from
-  the wall clock, still moves if the device clock is adjusted mid-session, and
-  still cannot be compared across devices. It would look fixed and read as
-  noise, which is worse than the current state because nobody would look again.
-  That is the frontend synthesising the difference, which §7 rules out, so it
-  has not been done.
-  **What the engine needs to say:** whether it derives latency only from deltas
-  within one device's stream — in which case the wall clock is adequate and rule
-  4 needs a stated carve-out for this field — or whether it compares across
-  devices or against server time, in which case the wire needs somewhere for a
-  monotonic value. `eventData` is `additionalProperties: true`, so there is room
-  without a schema change, but putting it there unilaterally is picking a format
-  and hoping the engine reads it. `useSignals.ts:178` and `:188` are the two
-  sites and they are flagged by `npm run architecture` until this is answered.
-
+- ~~**What should carry monotonic timing on a signal event?**~~ **WITHDRAWN 17 Sep,
+  and it was my error.** I filed this as blocked on backend on the grounds that
+  `SignalEventRequest.timestamp` is `format: date-time` and a `performance.now()`
+  float has nowhere to go. That much is true; the conclusion was not. What the
+  contract cannot take is the RAW monotonic value, not a timestamp DERIVED from
+  one. I also wrote that `performance.timeOrigin + performance.now()` is "still
+  wall-clock-derived, still moves if the device clock is adjusted mid-session" -
+  false. `timeOrigin` is captured once and does not move, so anything derived
+  from it is monotonic. The admin session caught both in the handoff above.
+  **Fixed in the student lane, contract unchanged:** events are dated from a
+  per-session anchor (`wall + (performance.now() - perf)`), so every
+  within-session delta is the difference of two monotonic readings. A test
+  drives the device clock backwards an hour mid-session and asserts a 250ms gap
+  still measures 250ms; mutating the stamp back to `new Date()` fails it.
+  **One question does remain, and it is for whoever owns the engine, not for
+  backend:** ISO 8601 bottoms out at 1ms. Tap dwell, response latency and idle
+  all live at 100ms and up, so 1ms reads as ample - but if affective inference
+  needs finer, THAT is a contract ask for a numeric monotonic field, and the
+  anchor above becomes its origin rather than its replacement.
 - **`CalculationVariant` carries no manipulative structure, and §4 says it
   should.** (asked 17 Sep) Frontend §4: *"Backend supplies structure: kind,
   parts, rows. You render the manipulative. Do not substitute a static scaffold
