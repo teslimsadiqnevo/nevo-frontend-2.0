@@ -6,23 +6,24 @@ export const metadata: Metadata = {
 };
 
 // Review session (37d): spaced retrieval that reuses the whole lesson player as
-// a variant. The backend schedules these and will link students in when a
-// concept is due; the route renders whatever lesson it is pointed at.
+// a variant. The backend schedules these and links the child in when a concept
+// is due; the route renders whatever lesson it is pointed at.
 //
-// Resolution goes through `LessonRoute` exactly as the ordinary player does.
-// This route kept the mock-only `getMockLesson` + `notFound()` shape after the
-// main one moved off it, so a real lesson id 404'd here - the same bug, left
-// behind in the file next door.
+// `?concept=` is which concept the review is FOR, carried from the due-review
+// chip on Subject Detail. `GET /api/scheduler/due-reviews/{student_id}` returns
+// concept ids and the lesson each one can be practised in, so the id exists at
+// the entrance and used to be dropped at the door - which is why the review's
+// own outcome was never recorded.
 //
-// `GET /api/scheduler/due-reviews/{student_id}` is what sends a child here, via
-// the "Ready for another look" chips on Subject Detail. Those chips were plain
-// text until the entrance was wired, so this route rendered correctly and was
-// reachable only by typing the URL.
+// Next.js 16: `searchParams` is a Promise and must be awaited.
 export default async function ReviewSessionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ lessonId: string }>;
+  searchParams: Promise<{ concept?: string }>;
 }) {
   const { lessonId } = await params;
-  return <LessonRoute lessonId={lessonId} review />;
+  const { concept } = await searchParams;
+  return <LessonRoute lessonId={lessonId} review reviewConceptId={concept} />;
 }

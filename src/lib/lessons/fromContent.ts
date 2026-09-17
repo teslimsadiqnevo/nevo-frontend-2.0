@@ -497,12 +497,23 @@ export function lessonFromContent(
  */
 function assessmentFor(res: LessonDetailResponse): Assessment | undefined {
   const questions = (res.assessment ?? [])
-    .map((checkpoint) => toQuickCheck(checkpoint))
-    .filter((q): q is NonNullable<typeof q> => q !== null)
-    .map((q) => ({
-      prompt: q.question,
-      options: q.options,
-      correctId: q.correctId,
+    // Zipped with the checkpoint it came from: `toQuickCheck` returns the
+    // markable shape and deliberately keeps none of the checkpoint's identity,
+    // so the concept has to be read from the source rather than recovered.
+    .map((checkpoint) => ({ checkpoint, quick: toQuickCheck(checkpoint) }))
+    .filter(
+      (
+        pair,
+      ): pair is { checkpoint: (typeof pair)["checkpoint"]; quick: NonNullable<(typeof pair)["quick"]> } =>
+        pair.quick !== null,
+    )
+    .map(({ checkpoint, quick }) => ({
+      prompt: quick.question,
+      options: quick.options,
+      correctId: quick.correctId,
+      // Omitted rather than null: every consumer tests for presence, and a
+      // question with no concept simply cannot inform a review.
+      ...(checkpoint.conceptId ? { conceptId: checkpoint.conceptId } : {}),
     }));
 
   return questions.length > 0 ? { questions } : undefined;

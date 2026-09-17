@@ -216,6 +216,15 @@ export interface AssessmentQuestion {
   correctId: string;
   /** Soft-violet recovery note (never a score). */
   recoveryNote?: string;
+  /**
+   * The concept this question is about, straight from the checkpoint.
+   *
+   * Carried so a REVIEW session can tell the scheduler how recall went for the
+   * concept it was opened for, rather than crediting it with an answer about
+   * something else. Never rendered as a label on the child's own screen - a
+   * concept name beside a right-or-wrong mark is a finding about the child.
+   */
+  conceptId?: string;
 }
 
 /** Low-stakes after-lesson assessment — growth framing, no score. */

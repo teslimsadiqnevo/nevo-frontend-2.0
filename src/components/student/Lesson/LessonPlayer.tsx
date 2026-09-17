@@ -44,6 +44,8 @@ import {
 } from "./AffectiveLayer";
 import { AfterLessonAssessment } from "./AfterLessonAssessment";
 import { LESSON_STATUS } from "@/lib/api/lessons";
+import { schedulerApi } from "@/lib/api/scheduler";
+import { getSession } from "@/lib/auth/session";
 import { useLessonProgress } from "@/hooks/useLessonProgress";
 import { AudioSegment } from "./AudioSegment";
 import { BreakOfferPill } from "./BreakOfferPill";
@@ -133,6 +135,7 @@ export function LessonPlayer({
   lesson,
   plan,
   review = false,
+  reviewConceptId,
   live = false,
   startAt = 0,
   lastWorkedAt = null,
@@ -166,6 +169,8 @@ export function LessonPlayer({
    * quick checks are the recall).
    */
   review?: boolean;
+  /** The concept a review session is for; absent on an ordinary lesson. */
+  reviewConceptId?: string;
 }) {
   const router = useRouter();
   const total = lesson.segments.length;
@@ -229,6 +234,15 @@ export function LessonPlayer({
 
   // Segments whose Quick Check has been answered correctly — only a correct
   // answer spends the check (a miss offers Try again / See it explained).
+  /*
+   * FIRST answers in a review session, kept only to tell the scheduler how
+   * recall went. Cleared with the session; never rendered to the child.
+   *
+   * First and not final, because a missed inline check re-opens until it is
+   * passed - so "passed" is true of everyone by the end and would report
+   * perfect recall for a child who got it wrong twice.
+   */
+  const firstAnswers = useRef<Map<number, boolean>>(new Map());
   const [passedChecks, setPassedChecks] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -296,6 +310,51 @@ export function LessonPlayer({
     if (phase !== "complete") return;
     markComplete();
   }, [phase, markComplete]);
+
+  /*
+   * TELL THE SCHEDULER HOW THE REVIEW WENT. Once, at the end, and only when
+   * there is something true to say.
+   *
+   * `POST /api/scheduler/record-review` was deliberately unwired on the
+   * grounds that `recallSuccessful` needs a question and there was none to
+   * ask. Lessons now carry checkpoints and a four-question assessment, so a
+   * review asks and the answers are marked - and the concept it was opened for
+   * arrives on the URL from the due-review chip.
+   *
+   * ONLY THE QUESTIONS ABOUT THE CONCEPT UNDER REVIEW COUNT. A review is
+   * spaced retrieval on ONE concept; crediting it with a right answer about a
+   * different one is inventing a signal in a smaller shape. If none of the
+   * questions was tagged with it - or the child was never asked - nothing is
+   * sent at all, because there is no evidence either way and a cheerful `true`
+   * for reaching the end is exactly what Zero-Tag exists to stop.
+   *
+   * Failure is swallowed. The scheduler missing one outcome costs a slightly
+   * wrong interval; telling a child their review did not count would be worse
+   * and is not true - they did the work.
+   */
+  const reviewRecorded = useRef(false);
+  useEffect(() => {
+    if (phase !== "complete" || !review || !reviewConceptId) return;
+    if (reviewRecorded.current) return;
+    const studentId = getSession()?.userId;
+    if (!studentId) return;
+
+    const questions = lesson.assessment?.questions ?? [];
+    const onThisConcept = questions
+      .map((q, i) => ({ conceptId: q.conceptId, answered: firstAnswers.current.get(i) }))
+      .filter((q) => q.conceptId === reviewConceptId && q.answered !== undefined);
+    if (onThisConcept.length === 0) return;
+
+    reviewRecorded.current = true;
+    void schedulerApi
+      .recordReview({
+        studentId,
+        conceptId: reviewConceptId,
+        // Every question about this concept, right first time.
+        recallSuccessful: onThisConcept.every((q) => q.answered === true),
+      })
+      .catch(() => {});
+  }, [phase, review, reviewConceptId, lesson]);
   // SCRUM-101: the segment index the player is about to enter across a module
   // boundary. Non-null takes over the screen with the boundary landing; the
   // student's continue (or break + "I'm ready") completes the move.
@@ -775,6 +834,11 @@ export function LessonPlayer({
             questionIndex,
             correct,
           });
+          // The first answer to each question, for the scheduler. `Map.set` is
+          // guarded so a re-answer cannot overwrite what they knew first time.
+          if (!firstAnswers.current.has(questionIndex)) {
+            firstAnswers.current.set(questionIndex, correct);
+          }
           // Record the pick (first per question) for the Review Answers screen.
           reviewAnswers.current = [
             ...reviewAnswers.current.filter(
