@@ -47,6 +47,54 @@ Keep this current. Three rules make it useful rather than decorative:
 > grep and memory. Read and update that file rather than rebuilding the answer. The
 > sections below remain the narrative record; the inventory is the current state.
 
+## THE ARCHITECTURE CHANGED UNDER ALL THREE SESSIONS. 17 Sep.
+
+Product issued **v3.0 of the cognitive architecture** on 16 Sep. Both documents are
+now in the repo as markdown, and they are binding:
+
+- [`docs/architecture/cognitive-architecture-shared.md`](./architecture/cognitive-architecture-shared.md)
+  — what the product is and why. Shared with backend and product, so a change to it
+  is a three-way conversation, not a frontend decision.
+- [`docs/architecture/frontend-architecture.md`](./architecture/frontend-architecture.md)
+  — what this codebase is allowed to do.
+
+**They supersede `docs/architecture.md` and the specs in `context/`.** Those still
+exist and still read as authoritative, which is the trap — `architecture.md` cites a
+"Design System v2" and a Frontend Architecture spec that v3.0 replaces wholesale.
+Do not build from either again.
+
+`AGENTS.md` now carries the ten rules and a read-before-you-build table, so every
+session loads them without anyone having to remember to say so.
+
+### The gate, and the three findings standing on main
+
+`npm run architecture` (`scripts/architecture-check.mjs`) checks the rules a parser
+can check: Zero-Tag names, a modality on a person-shaped type, the wall clock on a
+signal, a result shown to a child, reward mechanics, gendered pronouns in copy. It is
+**warn-only in CI until these three are closed** — gating now would make every
+session's first merge red for something they did not write, which is how a gate earns
+a permanent `--warn` and stops meaning anything. Close them, then delete the flag.
+
+| | |
+|---|---|
+| `hooks/useSignals.ts:178` and `:188` | Every interaction event is stamped `new Date().toISOString()`. Frontend §2 requires `performance.now()`: clock skew across devices corrupts every latency measurement, and latency is the primary signal for three of the four affective states. **Not a one-line fix** — it needs agreement with backend on what the engine expects on the wire, so it is a conversation with Teslim before it is a commit. |
+| `teacher/Student/SessionPanel.tsx:126` | `title="Took her time here"` — a tooltip a teacher reads about a specific child, using a pronoun no field stores. One line. |
+
+Zero-Tag itself is **clean**: no learner type, learning style or per-child modality
+anywhere in `src/`. The gate now holds that true rather than trusting it stays true.
+
+### One contract question nobody has asked yet
+
+`GET /api/session/state/:student_id` — the single endpoint the entire frontend
+document is built on, returning next content, scaffold level, affective intervention,
+accommodations, review queue and module position in one payload — has **zero
+references in `src/lib/api/`**. It may exist under another name, or it may be a
+contract that was never cut. Re-derive it against the deployed spec
+(`node scripts/api-audit.mjs`) before anyone builds to it, and per frontend §7, if the
+contract and the document disagree, say so before building either one.
+
+---
+
 ## SHIPPED AND UNCONSUMED — check this before you check anything else. 16 Sep.
 
 **Six deployed capabilities have zero consumers in `src/`.** Nothing is blocked

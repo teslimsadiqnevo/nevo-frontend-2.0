@@ -82,6 +82,16 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Needs no network, and runs in the contract job because it asks the same
+      # question: is this client still the thing the architecture describes?
+      #
+      # WARN-ONLY, DELIBERATELY AND TEMPORARILY. Three findings stand on `main`
+      # at the time of writing (two in useSignals, one pronoun in SessionPanel).
+      # Gating before they are closed would mean every session's first merge is
+      # red for something they did not write, which is how a gate gets a
+      # permanent `--warn` and stops meaning anything. Close those three, then
+      # DELETE the flag. docs/BUILD_STATUS.md carries the list.
+      - run: npm run architecture:warn
       # Reaches the live API to fetch its OpenAPI document, so it fails when
       # the backend is down as well as when we disagree with it. That is
       # deliberate for now - a silent skip would let real drift through - but
