@@ -7,6 +7,16 @@
  * the class list via `classesApi.myClasses()` (`useTeacherClasses`). What is
  * below backs the SIGNED-OUT walkthrough only - see `TeacherHome.tsx:28-45`
  * for which surfaces are live and which still are not.
+ *
+ * "VERBATIM FROM THE FRAME" NO LONGER HOLDS, and it is the point of the
+ * 17 Sep sweep. The frame's storyboard copy said what these children are like:
+ * that a stall is "really not like him", that Amara "tends to settle faster
+ * when she can hear it first", that Chisom "keeps doing better when a lesson
+ * leads with audio". Design corrected all three in the frames on 17 Sep and
+ * the corrections never reached this file, which is the only copy of them a
+ * visitor can actually read. The rule: copy about a child may say what Nevo
+ * did or what happened, and may never say what the child is, prefers, tends
+ * to do, is better at, struggles with or responds well to.
  */
 
 /** One evidence mini-bar: height % + emphasis. */
@@ -33,12 +43,16 @@ export const HOME_FLAGS: HomeFlag[] = [
     name: "Tunde Adeyemi",
     context: "JSS 2A · Mathematics",
     isSudden: true,
-    note: "Tunde stalled halfway through Tuesday's lesson and didn't come back to it - that's really not like him. His week before was completely steady, so it's likely something outside the work.",
+    // Three things went: "that's really not like him" (a claim about the
+    // child), the pronouns, and "it's likely something outside the work" - a
+    // guess about a child's life, which is the furthest thing from what Nevo
+    // saw. What Nevo saw is the whole note now.
+    note: "Tunde stopped halfway through Tuesday's lesson and has not come back to it. The four sessions before were steady.",
     evidence: [[60, ""], [68, ""], [64, ""], [70, ""], [22, "accent"]],
     evidenceLabel: "Completion · last 5 sessions · Tuesday marked",
     actionLabel: "Have a quiet word before class",
     actionHref: "/teacher/connect",
-    secondaryLabel: "See his week",
+    secondaryLabel: "See this week",
     secondaryHref: "/teacher/students/tunde-adeyemi",
   },
   {
@@ -46,12 +60,15 @@ export const HOME_FLAGS: HomeFlag[] = [
     name: "Amara Okafor",
     context: "JSS 2A · Mathematics",
     isSudden: false,
-    note: "Amara's been taking noticeably longer on the written segments - three sessions running now. She's getting there, just slower, and she tends to settle faster when she can hear it first.",
+    note: "Amara has been taking noticeably longer on the written segments - three sessions running now.",
     evidence: [[38, ""], [42, ""], [68, "soft"], [74, "soft"], [80, "soft"]],
     evidenceLabel: "Time on written parts · last 5 sessions",
-    actionLabel: "Recommend the listen-first version",
+    // Design's own change in the frame (17 Sep): the action names a lesson,
+    // not a format, because a format in the action is the claim restated as a
+    // button.
+    actionLabel: "Recommend a lesson",
     actionHref: "/teacher/students/amara-okafor",
-    secondaryLabel: "Open her profile",
+    secondaryLabel: "Open the profile",
     secondaryHref: "/teacher/students/amara-okafor",
   },
   {
@@ -69,8 +86,15 @@ export const HOME_FLAGS: HomeFlag[] = [
   },
 ];
 
+/*
+ * The worst line in the sweep, and it was on the signed-out Home: "keeps
+ * doing better when a lesson leads with audio" is the meshing hypothesis in
+ * one sentence, about a named child, on the surface a prospective school is
+ * walked through. What is left is what happened and what Nevo will do, which
+ * is all the card was ever entitled to say.
+ */
 export const GOOD_TO_KNOW =
-  "Chisom Eze keeps doing better when a lesson leads with audio - she's finished the last four that way. Nevo will keep offering her the listen-first version.";
+  "Chisom Eze has finished the last four lessons that led with audio. Nevo will keep offering that version.";
 
 export interface HomeClass {
   name: string;
@@ -109,9 +133,9 @@ export const HOME_ACTIVITY: HomeActivity[] = [
 export function teacherAnswerFor(question: string): string {
   const k = question.toLowerCase();
   if (k.includes("attention") || k.includes("today"))
-    return "Three things, all on your Home now: Tunde stalled on Tuesday and it's worth a quiet word, Amara's taking longer on written parts so listen-first may help, and eight in JSS 2A slowed on the same fractions step. Everything else is steady.";
+    return "Three things, all on your Home now: Tunde stalled on Tuesday and it's worth a quiet word, Amara has been taking longer on written parts, and eight in JSS 2A slowed on the same fractions step. Everything else is steady.";
   if (k.includes("why") || k.includes("flag"))
-    return "Tunde's is a sudden change: four steady sessions, then he stopped halfway on Tuesday and didn't come back to it. His pattern before was fine, so it's likely something outside the work.";
+    return "Tunde's is a sudden change: four steady sessions, then a stop halfway through Tuesday's and no return to it. Nevo cannot tell you why, which is why the flag is a prompt to ask rather than an answer.";
   if (
     k.includes("prioritise") ||
     k.includes("prioritize") ||

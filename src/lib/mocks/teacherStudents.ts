@@ -46,10 +46,16 @@ import { TEACHER_CLASSES, type TeacherClass } from "./teacherClasses";
  * child.
  *
  * The confidence rating is gone entirely, per the same ruling.
+ *
+ * AND THE CONCEPT GOES WITH IT (design, 17 Sep, second ruling the same day).
+ * Replacing the sentences inside `dimensions` treated the symptom: the
+ * structure existed to characterise a child, and confidence-rated claims about
+ * how a child learns is what it was for. There is no version of it that
+ * survives rule 1, and `LearnerObservationPattern` already exists, is closed,
+ * and is the sanctioned vocabulary - so a parallel structure doing the same
+ * job worse had no reason to exist. The field is `observations` now, typed on
+ * the enum directly, with no local alias standing between them.
  */
-
-/** What Nevo has noticed, named by pattern rather than restated. */
-export type Dimension = ObservationPattern;
 
 export interface ConceptMastery {
   name: string;
@@ -136,7 +142,8 @@ export interface StudentProfileData {
    * (`RecommendSheet`) interpolated it into copy a teacher reads about a named
    * child. Copy uses the NAME.
    */
-  dimensions: Dimension[];
+  /** The sanctioned patterns, straight off the enum. Never local prose. */
+  observations: ObservationPattern[];
   concepts: ConceptMastery[];
   evidence: EvidenceItem[];
   sessions: SessionRow[];
@@ -205,7 +212,7 @@ const AMARA: Omit<StudentProfileData, "classId" | "className"> = {
   // `tried_another_format` is the line design named as the replacement for the
   // modality claim. It says a child has worked in more than one way and names
   // no format, which is the whole point.
-  dimensions: ["tried_another_format", "steadier_pace", "completed_lessons"],
+  observations: ["tried_another_format", "steadier_pace", "completed_lessons"],
   // None of these four trip the component's auto-flag thresholds, so no flag
   // pill renders on this data - that is the frame's intent, not a gap.
   concepts: [
@@ -276,17 +283,19 @@ const AMARA: Omit<StudentProfileData, "classId" | "className"> = {
       date: "3 Jul",
       dateLong: "3 July",
       lesson: "Comprehension: Things Fall Apart",
-      note: "Strong on this - finished early and answered the stretch question.",
+      // "Strong on this" was a strength indicator attached to a child, which
+      // the copy rule rules out however mild it reads. What is left is what
+      // happened, which was the substance anyway.
+      note: "Finished early and answered the stretch question.",
     },
   ],
 };
 
-/** The early state's two dimension cards, both at level 1. */
 // The early picture, in the sanctioned wording. "May prefer shorter segments"
 // was a preference claim hedged with "still early to say", and a hedge does not
 // stop it being one. `no_recent_pattern` is the vocabulary's own reading for
 // not-enough-yet, and it says so without implying anything about the child.
-const EARLY_DIMENSIONS: Dimension[] = ["no_recent_pattern"];
+const EARLY_OBSERVATIONS: ObservationPattern[] = ["no_recent_pattern"];
 
 const initialsOf = (name: string) =>
   name
@@ -324,7 +333,7 @@ export function getStudentProfile(slug: string): StudentProfileData | null {
     // Opening clause deleted: "Still learning how X learns best" is the same
     // modality framing in a hedge, and a hedge does not stop it being a claim.
     earlyNote: `A few more sessions and this will fill in - for now, here's the early picture.`,
-    dimensions: EARLY_DIMENSIONS,
+    observations: EARLY_OBSERVATIONS,
     concepts: [],
     evidence: [],
     sessions: [],

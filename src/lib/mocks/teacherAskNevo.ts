@@ -69,21 +69,30 @@ export const ASK_NEVO_CONTEXTS: Record<AskNevoContext, AskNevoContextData> = {
     ],
     question: "How is this class doing overall?",
     answer:
-      "JSS 2A is mostly settled, with three students worth a glance - Amara, Tunde, and Chisom. The pattern is a slow-down on written segments rather than understanding; the class handles audio-led material comfortably.",
+      "JSS 2A is mostly settled, with three students worth a glance - Amara, Tunde, and Chisom. The pattern is a slow-down on the written segments rather than on the understanding underneath.",
     action: { label: "See the roster", href: "/teacher/classes" },
   },
   student: {
     strip: "You're viewing: Amara Okafor",
     lead: "Ask me about Amara.",
-    sub: "Her recent sessions, what suits her now, how her confidence is tracking.",
+    // ALL THREE OF THESE FAILED THE RULE, and the middle one twice. "What
+    // suits her now" asks Nevo what a child prefers; "how her confidence is
+    // tracking" attaches a confidence reading to a named child, which is the
+    // one thing the rule names outright. A prompt chip is copy: it teaches a
+    // teacher what Nevo is for.
+    sub: "Amara's recent sessions, and what Nevo has noticed.",
     chips: [
       "What's going on with Amara?",
-      "What kind of lesson suits her now?",
-      "How is her confidence building?",
+      "What has Nevo noticed this week?",
+      "Which lesson comes next for Amara?",
     ],
     question: "What's going on with Amara?",
+    // Four findings in one paragraph: "engagement has been strong", "which
+    // usually means the content is landing" (an inference), "slower than the
+    // class average" (a child ranked against peers), and "not struggling",
+    // which is still a claim about struggle. What is left is the sessions.
     answer:
-      "Amara's audio engagement has been strong - she replays segments less than before, which usually means the content is landing. Her written pace is still slower than the class average, but her comprehension after those segments is solid. She's working through it, not struggling.",
+      "Amara has taken longer on the written segments in each of the last three sessions, and finished all three. Nothing else has changed this week.",
     action: {
       label: "Recommend a lesson",
       href: "/teacher/students/amara-okafor/recommend",
@@ -96,11 +105,14 @@ export const ASK_NEVO_CONTEXTS: Record<AskNevoContext, AskNevoContextData> = {
     chips: [
       "Is this lesson right for my class?",
       "How will Nevo adapt this lesson?",
-      "Which students might struggle with this?",
+      // Was "Which students might struggle with this?" - a prompt asking Nevo
+      // to predict which children will struggle, which is a finding about each
+      // of them before the lesson has run.
+      "Who slowed on this concept last time?",
     ],
     question: "Is this lesson right for my class?",
     answer:
-      "It's a good fit. The concept lines up with where JSS 2A is now, and the lesson leads with a real-world framing that tends to land with this group. I'll offer Chisom the listen-first version, since audio has been working for her.",
+      "It's a good fit. The concept lines up with where JSS 2A is now, and the lesson opens with a real-world framing. Nevo will offer each student whichever version fits the moment.",
     action: { label: "Preview lesson", href: "/teacher/lessons" },
   },
   lesson: {
@@ -110,11 +122,11 @@ export const ASK_NEVO_CONTEXTS: Record<AskNevoContext, AskNevoContextData> = {
     chips: [
       "Is this lesson right for my class?",
       "How will Nevo adapt this lesson?",
-      "Which students might struggle with this?",
+      "Who slowed on this concept last time?",
     ],
     question: "Is this lesson right for my class?",
     answer:
-      "It's a good fit for JSS 2A. The concept matches where they are, and it opens with a real-world framing they respond to. I'll adapt the written-heavy middle section into an audio-led path for the students who've been slowing there.",
+      "It's a good fit for JSS 2A. The concept matches where they are, and it opens with a real-world framing. I'll adapt the written-heavy middle section into an audio-led path for the students who have been slowing there.",
     action: { label: "Assign to JSS 2A", href: "/teacher/lessons/assign" },
   },
   insights: {
@@ -128,7 +140,7 @@ export const ASK_NEVO_CONTEXTS: Record<AskNevoContext, AskNevoContextData> = {
     ],
     question: "What should I prioritise for this class?",
     answer:
-      "Three students slowed significantly on the algebraic fractions segment - Tunde, Chisom, and Bello. It's worth revisiting that concept before moving on. A hands-on lesson tends to work better than text for this topic with this class.",
+      "Three students slowed significantly on the algebraic fractions segment - Tunde, Chisom, and Bello. It's worth revisiting that concept before moving on. There is a hands-on lesson on the same concept if you would rather come at it another way.",
     action: { label: "Find a hands-on lesson", href: "/teacher/lessons" },
   },
   connect: {
@@ -143,14 +155,17 @@ export const ASK_NEVO_CONTEXTS: Record<AskNevoContext, AskNevoContextData> = {
     sub: "I can help you frame progress, tone, and where to start.",
     chips: [
       "How should I frame this message?",
-      "How should I talk about her progress?",
+      "How should I talk about this week's progress?",
       "What's the best way to approach this conversation?",
     ],
     question: "How should I frame this message?",
-    // The draft is addressed to the student now, so the register moves with it -
-    // "her comprehension is holding strong" is adult-to-adult language.
+    // The draft is addressed to the student, so the register moves with it.
+    // The closing line used to read "You take your time with written work -
+    // that's care, not struggle", which tells a child what they are and
+    // mentions struggle to deny it. A teacher may of course say that; Nevo
+    // must not draft it for them.
     answer:
-      "Keep it progress-focused rather than concern-focused. Something like: “You've put in real effort this week, Amara, and it's showing in how well you're following things. You take your time with written work - that's care, not struggle.”",
+      "Keep it progress-focused rather than concern-focused. Something like: “You've put real effort in this week, Amara, and it's showing in the work.”",
     action: { label: "Use this as a draft", href: "/teacher/connect" },
   },
 };

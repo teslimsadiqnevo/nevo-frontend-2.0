@@ -97,7 +97,10 @@ export const LESSON_DETAILS: Record<string, LessonDetailData> = {
     stats: { assignedTo: "JSS 2A · JSS 2B", assignedToShort: "JSS 2A · 2B", finished: "18 of 28 · JSS 2A", opened: "Yesterday, 8:00 AM" },
     dipNote: "The one dip is section 4 - worth a few minutes together before the next lesson.",
     aiNote:
-      "Nevo read section 4 aloud for the students who prefer to hear it first. If the slowdown continues next lesson, it may be worth reworking that explanation.",
+      // Design removed the preference attribution from C06b on 17 Sep; this
+      // is the same note in code. What Nevo did stays, the claim about who
+      // the children are goes.
+      "Nevo read section 4 aloud this time. If the slowdown continues next lesson, it may be worth reworking that explanation.",
     sections: [
       sec("What an equation is", "Explanatory", 18, 18),
       sec("Keeping both sides balanced", "Worked example", 18, 18),
