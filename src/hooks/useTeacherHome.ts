@@ -77,10 +77,31 @@ export interface HomeActivity {
   when: string;
   /** Only set when `actionTarget` is an in-app path we can actually open. */
   href: string | null;
+  /**
+   * How far the class got, when the server said. Both nullable on the wire, so
+   * a row must still render without them - which is why this is a pair of
+   * separate values rather than a formatted "3 of 28" string. Frontend section
+   * 6: "values that may be null render as separate elements that disappear when
+   * absent."
+   */
+  completedCount: number | null;
+  totalCount: number | null;
 }
 
 /** Exported for tests only - the band boundaries are the thing worth pinning. */
 export const __bandForTest = (v: number | null) => band(v);
+/**
+ * Exported for its test, like `band` above.
+ *
+ * The mapper is where `completedCount` and `totalCount` were being dropped -
+ * they were absent from `ActivityRow`, so the poll discarded them before any
+ * component could ask. A component test cannot see that: it mocks this hook,
+ * so the mapper never runs. A mutation run proved it - deleting the
+ * passthrough failed nothing at the component level, and fails three tests
+ * here.
+ */
+export const __toActivityForTest = (row: Parameters<typeof toActivity>[0]) =>
+  toActivity(row);
 
 function band(v: number | null): string | null {
   if (v === null || Number.isNaN(v)) return null;
@@ -127,6 +148,10 @@ function toActivity(row: ActivityRow): HomeActivity {
     // An absolute URL or an opaque token is not something this app can open,
     // and a row that navigates nowhere is worse than one that does not offer.
     href: row.actionTarget?.startsWith("/") ? row.actionTarget : null,
+    // Passed through, never defaulted to 0. "We were not told" and "none of
+    // them" are different facts about a class's week.
+    completedCount: row.completedCount ?? null,
+    totalCount: row.totalCount ?? null,
   };
 }
 

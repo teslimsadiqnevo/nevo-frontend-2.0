@@ -199,3 +199,86 @@ describe("a signed-out visitor", () => {
     ).toBeGreaterThan(0);
   });
 });
+
+/**
+ * How far the class got, on the LIVE activity list.
+ *
+ * `completedCount` and `totalCount` were missing from `ActivityRow`, so the
+ * poll discarded them and this list showed a title and a date where the SAMPLE
+ * list beside it drew a progress bar and "{done} of {total} done". The live
+ * surface was strictly poorer than its own fallback.
+ *
+ * Third instance of the same shape: a delivered field absent from a client
+ * type, silently dropped. `note` on `Assignment` was the first.
+ *
+ * Both fields are NULLABLE, which is why they render as a separate element that
+ * disappears rather than being interpolated into the line above - frontend
+ * section 6, and the reason the "null times" bug happened.
+ */
+describe("the activity counts", () => {
+  const withActivity = (over: Record<string, unknown>) => {
+    useTeacherFlags.mockReturnValue({ flags: [], live: true, failed: false });
+    useCurrentUser.mockReturnValue({ name: "Ms A", school: "E2E Probe School" });
+    useHasSession.mockReturnValue(true);
+    // `classes()`, not empty lists. The whole lower half of Home is wrapped in
+    // `!noClasses`, so a teacher with no classes renders no activity section at
+    // all - my first draft passed empty arrays and the rows never mounted,
+    // which looked like the counts failing to render.
+    useTeacherClasses.mockReturnValue(classes());
+    useTeacherHome.mockReturnValue({
+      pulse: [],
+      activity: [
+        {
+          id: "a-1",
+          title: "Fractions 3",
+          detail: "E2E Probe Class",
+          when: "Today",
+          href: null,
+          ...over,
+        },
+      ],
+      live: true,
+      failed: false,
+    });
+  };
+
+  it("shows the fraction when the server sent both", () => {
+    withActivity({ completedCount: 12, totalCount: 28 });
+
+    const { getByText } = render(<TeacherHome />);
+
+    expect(getByText("12 of 28 done")).toBeInTheDocument();
+  });
+
+  it("shows nothing when the server sent neither", () => {
+    // Both nullable. "We were not told" and "none of them" are different facts
+    // about a class's week.
+    withActivity({ completedCount: null, totalCount: null });
+
+    const { container, getByText } = render(<TeacherHome />);
+
+    expect(getByText("Fractions 3")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/done/);
+    expect(container.textContent).not.toMatch(/null|undefined|NaN/);
+  });
+
+  it("shows nothing on a half-answer, which is not a fraction", () => {
+    withActivity({ completedCount: 12, totalCount: null });
+
+    const { container } = render(<TeacherHome />);
+
+    expect(container.textContent).not.toMatch(/done/);
+    expect(container.textContent).not.toMatch(/null|undefined|NaN/);
+  });
+
+  it("draws no broken bar for a class of nobody", () => {
+    // 0/0 is NaN, and a NaN width renders as a broken bar rather than an
+    // empty one.
+    withActivity({ completedCount: 0, totalCount: 0 });
+
+    const { container, getByText } = render(<TeacherHome />);
+
+    expect(getByText("0 of 0 done")).toBeInTheDocument();
+    expect(container.innerHTML).not.toMatch(/NaN/);
+  });
+});
