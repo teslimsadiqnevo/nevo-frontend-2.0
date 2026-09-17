@@ -54,6 +54,16 @@ const STUDENT_SIGN_IN = "/auth/login";
  */
 const STUDENT_RETURNING_SIGN_IN = "/auth/sign-in";
 const STUDENT_HOME = "/student/dashboard";
+/**
+ * The first screen of the flow that CREATES an account, and the only onboarding
+ * route a signed-in child has no business on.
+ *
+ * The root only, deliberately. Onboarding ends by calling `completeAccount`,
+ * which stores the session before routing the child on, so the later steps are
+ * legitimately reached WITH a session and bouncing them would break the end of
+ * the flow for every new child.
+ */
+const STUDENT_ONBOARDING_ROOT = "/student/onboarding";
 
 /** The invite link lands here with no session - it is how you get one. */
 /**
@@ -107,6 +117,40 @@ export function proxy(request: NextRequest) {
   }
 
   if (pathname.startsWith("/student")) {
+    /*
+     * A SIGNED-IN CHILD DOES NOT START ONBOARDING AGAIN.
+     *
+     * This is the door a baseline reached the wrong child's account through.
+     * The flow collects a name, a school and a class and then runs the motor
+     * baseline, and none of that knows a session is already live - so the
+     * measurements were taken from whoever was holding the tablet and written
+     * against whoever was still signed in. The ownership guard added to the
+     * parked baseline on 16 Sep stops the send; this stops the walk that
+     * produces it, which is the half that a child actually experiences.
+     *
+     * It is also plainly wrong on its own terms: a child who already has an
+     * account being asked to make one is the product forgetting them.
+     *
+     * A JOIN LINK IS LET THROUGH. `?token=` is a different child arriving on a
+     * device someone is signed into - the shared-classroom-tablet case, which
+     * is frame 28c's to answer and has no frame yet. Bouncing it would discard
+     * the link in silence and drop the new child into the signed-in child's
+     * dashboard, which is a worse version of the bug this fixes. Redeeming the
+     * token replaces the session, so that path attributes correctly; it is only
+     * the pickerless hand-over that is still open, and it is not ours.
+     *
+     * Safe to bounce for the same reason the PIN screen below is: signing out
+     * is a HARD navigation, so the cookie clear has settled before this runs.
+     */
+    if (
+      isStudent &&
+      // A trailing slash would otherwise fall straight through to the pre-auth
+      // allowance below and render the very screen this is closing.
+      pathname.replace(/\/+$/, "") === STUDENT_ONBOARDING_ROOT &&
+      !request.nextUrl.searchParams.has("token")
+    ) {
+      return NextResponse.redirect(new URL(STUDENT_HOME, request.url));
+    }
     if (PRE_AUTH_STUDENT_ROUTES.some((p) => pathname.startsWith(p))) {
       return NextResponse.next();
     }
