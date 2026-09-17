@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useStudentSessions } from "@/hooks/useStudentSessions";
+import { LiveSessionPanel } from "./LiveSessionPanel";
 import { LiveRecommendSheet } from "./LiveRecommendSheet";
 import { LiveShareSheet } from "./LiveShareSheet";
 import type { StudentProfileState } from "@/hooks/useStudentProfile";
@@ -80,14 +83,31 @@ function initialsOf(first: string | null, last: string | null): string {
 
 export function LiveStudentProfile({
   state,
+  studentId,
   classHref,
   recommendOpen = false,
 }: {
   state: StudentProfileState;
+  /**
+   * The route already has it, and the sessions hook needs it BEFORE `profile`
+   * is destructured - hooks cannot run after the `if (!profile) return null`
+   * that guards everything below.
+   */
+  studentId: string;
   classHref?: string;
   recommendOpen?: boolean;
 }) {
+  const router = useRouter();
   const [recommending, setRecommending] = useState(recommendOpen);
+  /*
+   * C08d, finally reachable (17 Sep). This was the fourth of the four actions
+   * the frame draws and the only one that could not be built: the panel has
+   * been complete for weeks and nothing handed a teacher a session id. Backend
+   * shipped the sessions list and this is the id it hands over.
+   */
+  const [openSession, setOpenSession] = useState<string | null>(null);
+  const { sessions: realSessions, failed: sessionsFailed } =
+    useStudentSessions(studentId);
   const [sharing, setSharing] = useState(false);
   /**
    * C14 B5's two halves, both driven only by a stored escalation.
@@ -115,7 +135,11 @@ export function LiveStudentProfile({
     concepts,
     recommendations,
     adaptations,
-    sessions,
+    // `state.sessions` is deliberately NOT read here any more. It is
+    // `progress.lessons` - one row per LESSON, with no session id and no way
+    // to tell a second visit from a first - and this screen now reads the real
+    // session list instead. The field stays on the state for the fixture
+    // profile next door, which has no live read to replace it with.
     accommodations,
     observed,
   } = state;
@@ -317,29 +341,63 @@ export function LiveStudentProfile({
           </>
         )}
 
-        {sessions.length > 0 && (
+        {/*
+          REAL SESSIONS, NOT LESSON PROGRESS.
+          
+          This list used to be built from `progress.lessons` - one row per
+          LESSON, keyed by lessonId, with no session behind it. It could not
+          open C08d because it had no session id, and it could not tell a
+          second visit from a first, which is the thing backend was explicit
+          about: "a child's second visit to the same lesson means something
+          their first doesn't."
+          
+          `GET /api/v1/students/{id}/sessions` carries the id and enough to
+          render the row without opening it.
+        */}
+        {realSessions.length > 0 && (
           <>
             <h3 className={cn(SECTION_H, "mt-8")}>Recent sessions</h3>
             <div className="mt-3.5 divide-y divide-nevo-near-black/7 overflow-hidden rounded-[12px] bg-nevo-cream-elevated shadow-elevation-1">
-              {sessions.slice(0, 8).map((l) => (
-                <div key={l.lessonId} className="flex gap-[18px] px-[22px] py-4">
+              {realSessions.map((sn) => (
+                <button
+                  key={sn.sessionId}
+                  type="button"
+                  onClick={() => setOpenSession(sn.sessionId)}
+                  className="flex w-full cursor-pointer gap-[18px] px-[22px] py-4 text-left transition-[filter] hover:brightness-[0.985]"
+                >
                   <span className="w-[70px] shrink-0 pt-0.5 text-[13.5px] text-nevo-near-black/55">
-                    {new Date(l.updatedAt).toLocaleDateString("en-GB", {
+                    {new Date(sn.occurredAt).toLocaleDateString("en-GB", {
                       day: "numeric",
                       month: "short",
                     })}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] font-semibold text-nevo-near-black">
-                      {l.title}
+                      {sn.lessonTitle}
                     </span>
                     <span className="mt-[5px] block text-[14px] leading-[1.5] text-nevo-near-black/72">
-                      {SESSION_NOTE[l.status] ?? l.status.replace(/_/g, " ")}
+                      {SESSION_NOTE[sn.completionStatus] ??
+                        sn.completionStatus.replace(/_/g, " ")}
+                      {/* Only from the second visit on. "Visit 1" says nothing
+                          a teacher did not already assume. */}
+                      {sn.sitting > 1 && ` · visit ${sn.sitting}`}
                     </span>
                   </span>
-                </div>
+                </button>
               ))}
             </div>
+          </>
+        )}
+
+        {/* A failed read is not "no sessions". Saying nothing here would tell a
+            teacher this child has never worked, which is a claim about a named
+            child made from our own network trouble. */}
+        {realSessions.length === 0 && sessionsFailed && (
+          <>
+            <h3 className={cn(SECTION_H, "mt-8")}>Recent sessions</h3>
+            <p className="mt-3 text-[14px] leading-[1.55] text-nevo-near-black/68">
+              {`We couldn${"’"}t load these just now. Nothing has changed for ${student.firstName ?? "them"}, so you can try again in a moment.`}
+            </p>
           </>
         )}
 
@@ -388,6 +446,25 @@ export function LiveStudentProfile({
             Share with Learning Support
           </button>
         </div>
+
+        {/*
+          C08d. The panel makes no request while `openSession` is null, so a
+          profile nobody has clicked into costs nothing extra.
+        */}
+        <LiveSessionPanel
+          studentId={studentId}
+          sessionId={openSession}
+          studentName={name}
+          onClose={() => setOpenSession(null)}
+          onRecommend={() => {
+            setOpenSession(null);
+            setRecommending(true);
+          }}
+          onMessage={() => {
+            setOpenSession(null);
+            router.push("/teacher/connect");
+          }}
+        />
 
         {recommending && (
           <LiveRecommendSheet

@@ -49,6 +49,7 @@ export function StudentRoute({
     return (
       <LiveStudentProfile
         state={state}
+        studentId={studentId}
         classHref={classHref}
         /* DROPPED UNTIL 15 SEP. `/teacher/students/{id}/recommend` passes this,
            and the live branch ignored it - so the route existed, resolved, and
