@@ -13,7 +13,11 @@ import { api } from "./client";
  * both are typed below and both are optional - an older row may still arrive
  * without them. The correction is left visible rather than quietly swapped in.
  *
- * `flagType` still has no enum, so anything unrecognised must still render.
+ * `flagType` DOES have an enum now - `AttentionFlagType`, two values:
+ * `engagement_decline` and `sudden_change`, read off the deployed spec on
+ * 17 Sep. This file said it had none. It stays typed as a string all the same:
+ * backend adds enum values ahead of us by design, and an unrecognised one
+ * must still render rather than crash a teacher's screen.
  *
  * Zero-Tag holds here: `description` is about behaviour in the moment, never a
  * diagnosis. Nothing on this route may be rendered as a label about a child.
@@ -24,7 +28,10 @@ import { api } from "./client";
 export interface AttentionFlag {
   id: string;
   studentId: string;
-  /** No enum in the spec; treat as an opaque label. */
+  /**
+   * `AttentionFlagType`, deliberately widened to a string - see above. Never
+   * rendered as a label about a child: `description` is the substance.
+   */
   flagType: string;
   description: string;
   generatedAt: string;

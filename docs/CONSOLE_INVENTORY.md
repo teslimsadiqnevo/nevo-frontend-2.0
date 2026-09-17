@@ -116,10 +116,10 @@ the contradiction survived a re-verification specifically looking for it.
 | Compose message | PARTIAL | **Reasons corrected 16 Sep; the M stands.** Two of the three fixture sites were already fixed — `ComposeModal:69` and `:108` are both gated on `signedIn`, so only `ConnectView:108` survives. The deep-link defect is WORSE than "carries no query": `ConnectView.tsx:113-115` derives `composeOpen` from `Boolean(params.get("student"))`, so with no query **compose does not open at all** and "Send them a message" is a bare nav to the Connect index. Second call site, unrecorded until now: `LiveFlagCard.tsx:106` has the same query-less href, and `LiveFlagCard.test.tsx:126` asserts it as correct — a test locks the bug in. The fix is not a prop: fixture ids are name slugs resolved by `studentSlug(s.name)`, a live id is a roster UUID, so the resolver has to move to `useStudentDirectory` | FRONTEND | **M** |
 | Home dashboard | PARTIAL | class trio subject/status; activity counts (`completedCount`/`totalCount` landed 15 Sep, both nullable); "Good to know" | FRONTEND; DESIGN (cutoffs) | M |
 | Insights | PARTIAL | **Design ruled 16 Sep and the ruling cannot be built on the current contract — see the note below this table.** The engine is to own the threshold, `weeklySummary`/`lookingAhead` nullable, absence meaning "render the empty state". Both are **required, non-nullable `string`** on the deployed `ClassInsightsNarrativeResponse`, so the engine has no way to send nothing. Per-student recommendations still fan out | **BACKEND (nullability)**; FRONTEND | M |
-| Student profile | PARTIAL | 3 of 4 drawn actions live (message, recommend, share). The 4th is a session row opening C08d and it is **not startable** — backend addressing, list B item 0b. ~~"now unblocked"~~ was wrong and optimistic: it was written on 15 Sep when only the response SHAPE had been checked, and survived the 16 Sep pass. No noticing banner; the live banner is the `openFlagCount` callout to `/teacher/dashboard`, not C08's per-student prose | FRONTEND (banner); **BACKEND (session detail)** | M |
-| Lesson detail | PARTIAL | Multi-class reports first class only. (The variant-review entry point shipped 14 Sep — re-verified 16 Sep, it renders once per section) | FRONTEND; DESIGN | S |
+| Student profile | LIVE | **All 4 drawn actions live 17 Sep** (message, recommend, share, open a session). The session row became startable when backend shipped `students/{id}/sessions` — list B item 0b is closed. **The noticing banner is live 17 Sep** from `flags?studentId=` (`useStudentFlags`); the row that said it wanted an endpoint was wrong, the route has taken `studentId` all along. It renders Nevo's own sentences, one per open flag, each dated — no "This week", which the contract cannot support. The `openFlagCount` callout survives as the fallback for a failed flags read. C08's evidence list stays out under the 30 Aug aggregate-only ruling, with `helpSeeking` shipping in its place | — | — |
+| Lesson detail | PARTIAL | **Reclassified 17 Sep: DESIGN-blocked, not a small.** The misleading half is already fixed — `classCount > 1` renders "progress shown for one class", so the screen no longer passes one class off as the whole picture. Showing ALL classes needs a layout the frame does not draw, and it sits beside C06b's unsettled mastery display. (The variant-review entry point shipped 14 Sep — re-verified 16 Sep, it renders once per section) | **DESIGN** | M |
 | Lesson assignment wizard | LIVE | — ("Specific students" built 15 Sep on `useStudentDirectory`, keyed by `studentId`) | NONE | — |
-| Variant review | PARTIAL | No 5th-variant tab; no audio player. (Reachable since 14 Sep — the "no entry point" line was stale for two days) | FRONTEND; DESIGN; CONTENT | S |
+| Variant review | PARTIAL | **Audio player built 17 Sep** — it recovers a dead signed URL once through `contentApi.mediaUrl` on the element's own `onError`. What is left is the 5th-variant tab (SCRUM-136, list item 12). Approval also landed 17 Sep, per segment, with assignment gated behind it | DESIGN; CONTENT | M |
 | Parse fallback | PARTIAL | 2 of 4 states live; `partial`/`noBoundary` unreachable signed in | BACKEND | M |
 | Teacher onboarding | PARTIAL | Redirect covers password only; join-confirm + profile-setup unbuilt | FRONTEND | M |
 | Profile & settings | PARTIAL | "Change photo" is a `<button>` with no `onClick` — the only dead control in the profile menu. `profileImageUrl` and the upload endpoint landed 15 Sep | FRONTEND | **M** |
@@ -129,7 +129,7 @@ the contradiction survived a re-verification specifically looking for it.
 | Student observations (C16b) | LIVE | — (built 15 Sep: chips, seat, and the two markers) | NONE | — |
 | Recommend a lesson | PARTIAL | Built and live 15 Sep, note box included. The "Suggested" badge stays blocked — `Recommendation` is prose with no lesson id. The note is sent and stored; **no student screen renders it yet**, so the confirmation stops short of C08c's "She'll see your note when she opens it". **Fixture leak fixed 16 Sep**: the sheet offered eight invented lessons on a failed read, and its honest-empty copy was unreachable | BACKEND (badge); STUDENT CONSOLE (render) | S |
 | Share with Learning Support | LIVE | — (built 15 Sep on `POST /api/v1/escalations`: `LiveShareSheet`, confirmed per C14 B5. The SENCo cannot yet SEE what arrives — see below) | NONE | — |
-| Session detail | NOT BUILT | The read landed 15 Sep, but **nothing hands a teacher a session id** to call it with — see list B. C08d's panel is frame-complete and mounted only for signed-out visitors | BACKEND (addressing) | M |
+| Session detail | LIVE | Built 17 Sep. Backend shipped `GET /api/v1/students/{id}/sessions`, which carries the id the panel needed; `useStudentSessions` reads the list, `LiveSessionPanel` opens one. The list also distinguishes a second visit from a first, which `progress.lessons` never could | — | — |
 | SSO callback | NOT BUILT | Component complete and live-wired; `slug` landed on `SchoolCodeResponse` 15 Sep, so the signed-out door can now reach it | FRONTEND | M |
 | Notifications page | NOT BUILT | Deliberate redirect — C13 is a popover | NONE | — |
 | Students index | NOT BUILT | Deliberate redirect to Classes | NONE | — |
@@ -410,10 +410,16 @@ Note the path parameters above: they are `{student_id}` and `{class_id}`, still
 snake_case, while every property those endpoints return is now camelCase. That is the
 wire, not a typo.
 
-**Four remain** — two from 15 Sep, one created by shipping the teacher half of escalations,
-and one found on 16 Sep by re-verifying a delivery that was recorded as complete.
+**Three remain** (0b closed 17 Sep) — two from 15 Sep and one created by shipping the
+teacher half of escalations. The fourth was found on 16 Sep by re-verifying a delivery that
+was recorded as complete, and backend closed it the next day.
 
-0b. **Nothing hands a teacher a session id.** Found 16 Sep. The per-student session read
+0b. ~~**Nothing hands a teacher a session id.**~~ **CLOSED 17 Sep** — backend shipped the
+    `GET /api/v1/students/{student_id}/sessions` list named as the ask below, and the
+    teacher half is built on it (`useStudentSessions`, `LiveSessionPanel`). The record of
+    the blocker is kept because the way it was missed is the lesson: a delivery was ticked
+    off on its response shape alone, and nothing checked that a caller could address it.
+    Found 16 Sep. The per-student session read
     was delivered on 15 Sep and ticked off, but only its RESPONSE shape was checked. The
     ADDRESSING is missing: `GET /api/v1/students/{student_id}/sessions/{session_id}` takes
     a `session_id` of `format: uuid`, and every schema in the deployed spec was enumerated
@@ -565,10 +571,10 @@ for failure. Worth one sweep rather than five fixes.
   `LiveClassInsights.tsx:13-16`, `teacherInsights.ts:14-22` ("NO SUCH ENDPOINT WAS EVER
   ADDED, and none is needed"). All three are false against the deployed spec. Anyone starting
   that task from the code concludes it is blocked.
-- **The variant audio player's blocker has expired.** `LiveVariantReview.tsx:47-51` defers it
-  until "there is a refresh path through `POST /api/content/media/url`". That path is
-  deployed, `contentApi.mediaUrl` exists (`content.ts:155-156`), and `mediaUrlExpired` exists
-  (`variants.ts:153`). Nothing calls any of them. Unwritten frontend work, not a dependency.
+- ~~**The variant audio player's blocker has expired.**~~ **BUILT 17 Sep** —
+  `AudioVariantPlayer.tsx` mounts in `LiveVariantReview` and recovers an expired signed URL
+  once via `contentApi.mediaUrl`. The stale deferral comment is gone with it. It was
+  unwritten frontend work, never a dependency, and it sat behind a comment for three days.
 - **`VariantReviewRoute.tsx:27-33`** still says "Nothing consumes `variantsApi` yet, which is
   why this still renders" and carries a `TODO(fe)` to build what is built 40 lines below. The
   named export does not exist at all.
@@ -600,9 +606,8 @@ for failure. Worth one sweep rather than five fixes.
   can say which category it is in.** Item 10 and section D both frame this as purely a
   filter-control question and neither mentions that the enum shipped on the preferences side.
   That inconsistency is on the wire today.
-- **Item 0b understates itself: there is no client wrapper either.** `GET /api/v1/students/
-  {student_id}/sessions/{session_id}` is unconsumed and no api-client function for it exists.
-  The addressing is the blocker, but it is not the only thing between a teacher and C08d.
+- ~~**Item 0b understates itself: there is no client wrapper either.**~~ Closed 17 Sep with
+  0b itself: `studentsApi.session` and `studentsApi.sessions` both exist and are consumed.
 - **A genuinely open blocker, written down nowhere: nothing in the spec ENROLS a school in
   SSO.** Every sso path presupposes an existing connection. So even once the teacher door
   reads `slug`, `start` fails for any school that has never connected. (The slug half is
