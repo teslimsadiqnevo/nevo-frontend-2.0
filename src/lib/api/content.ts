@@ -102,7 +102,7 @@ export interface ParseAccepted {
 }
 
 /**
- * 200 of `GET /api/content/parse-runs/{parseRunId}` - how a run is going.
+ * 200 of `GET /api/content/parse-runs/{parse_run_id}` - how a run is going.
  *
  * POLL `finished`, NOT `status`. It is true for `completed`,
  * `completed_with_review` and `failed` alike, so a caller never has to
@@ -170,7 +170,7 @@ export const contentApi = {
   regenerate: (lessonId: string) =>
     api.post<ParseAccepted>(`/api/content/lessons/${lessonId}/regenerate`),
 
-  /** How a run is going. GET /api/content/parse-runs/{parseRunId} */
+  /** How a run is going. GET /api/content/parse-runs/{parse_run_id} */
   parseRun: (parseRunId: string) =>
     api.get<ParseRunStatus>(`/api/content/parse-runs/${parseRunId}`),
 

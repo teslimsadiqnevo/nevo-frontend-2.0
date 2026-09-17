@@ -40,10 +40,7 @@ export function LeaveLessonDialog({
             You can pick up where you left off
           </p>
 
-          <Button
-            className="mt-6 w-full"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button className="mt-6 w-full" onClick={() => onOpenChange(false)}>
             Keep learning
           </Button>
           <Button

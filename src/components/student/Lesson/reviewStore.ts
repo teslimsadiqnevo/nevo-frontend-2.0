@@ -15,7 +15,10 @@ export interface ReviewAnswer {
 
 const key = (lessonId: string) => `nevo:review:${lessonId}`;
 
-export function saveReviewAnswers(lessonId: string, answers: ReviewAnswer[]): void {
+export function saveReviewAnswers(
+  lessonId: string,
+  answers: ReviewAnswer[],
+): void {
   try {
     sessionStorage.setItem(key(lessonId), JSON.stringify(answers));
   } catch {

@@ -47,13 +47,15 @@ export function ReviewAnswersScreen({ lesson }: { lesson: Lesson }) {
             A look back at the check-in
           </h1>
           <p className="mt-2.5 text-base leading-[1.6] text-nevo-near-black/72 sm:text-[17px]">
-            Nothing to fix here - this is just to look back over. Your progress is
-            saved.
+            Nothing to fix here - this is just to look back over. Your progress
+            is saved.
           </p>
 
           <div className="mt-6 flex flex-col gap-3">
             {questions.map((q, i) => {
-              const picked = answers.find((a) => a.questionIndex === i)?.selectedId;
+              const picked = answers.find(
+                (a) => a.questionIndex === i,
+              )?.selectedId;
               const answered = picked != null;
               const isCorrect = picked === q.correctId;
               return (
@@ -77,8 +79,16 @@ export function ReviewAnswersScreen({ lesson }: { lesson: Lesson }) {
                   <div className="mt-3.5 flex flex-col gap-2">
                     {answered && !isCorrect ? (
                       <>
-                        <AnswerRow tone="dot" label="YOU CHOSE" text={labelFor(q, picked)} />
-                        <AnswerRow tone="check" label="THE IDEA" text={labelFor(q, q.correctId)} />
+                        <AnswerRow
+                          tone="dot"
+                          label="YOU CHOSE"
+                          text={labelFor(q, picked)}
+                        />
+                        <AnswerRow
+                          tone="check"
+                          label="THE IDEA"
+                          text={labelFor(q, q.correctId)}
+                        />
                       </>
                     ) : (
                       <AnswerRow

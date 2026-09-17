@@ -3495,3 +3495,52 @@ there. Manual transfers go through `manual-transfer`.
   prose anywhere in the document describes the format. Every fixture we have
   uses `firstname.initial` with an optional digit (`amara.k`, `amara.k7`), and
   design is holding the child's keyboard layout on the answer.
+
+- **What should carry monotonic timing on a signal event?** (asked 17 Sep, and
+  this is rule 4 against the deployed contract, so it needs an answer rather
+  than a decision from this side.) Frontend §2 and rule 4 require
+  `performance.now()` for anything timed and sent to the engine, because clock
+  skew corrupts latency and latency is the primary signal for three of the four
+  affective states. **There is nowhere on the wire to put it.**
+  `SignalEventRequest` is `{sessionId, eventType, timestamp, eventData}` and
+  `timestamp` is `{"type":"string","format":"date-time"}` — a wall clock string.
+  `performance.now()` is a monotonic float measured from page load. Re-checked
+  against today's document (17 Sep, 192 paths): no schema anywhere carries an
+  elapsed, monotonic or time-origin field.
+  **The tempting fix is the dangerous one.**
+  `new Date(performance.timeOrigin + performance.now()).toISOString()` satisfies
+  the gate, keeps the contract, and changes nothing: it is still derived from
+  the wall clock, still moves if the device clock is adjusted mid-session, and
+  still cannot be compared across devices. It would look fixed and read as
+  noise, which is worse than the current state because nobody would look again.
+  That is the frontend synthesising the difference, which §7 rules out, so it
+  has not been done.
+  **What the engine needs to say:** whether it derives latency only from deltas
+  within one device's stream — in which case the wall clock is adequate and rule
+  4 needs a stated carve-out for this field — or whether it compares across
+  devices or against server time, in which case the wire needs somewhere for a
+  monotonic value. `eventData` is `additionalProperties: true`, so there is room
+  without a schema change, but putting it there unilaterally is picking a format
+  and hoping the engine reads it. `useSignals.ts:178` and `:188` are the two
+  sites and they are flagged by `npm run architecture` until this is answered.
+
+- **`CalculationVariant` carries no manipulative structure, and §4 says it
+  should.** (asked 17 Sep) Frontend §4: *"Backend supplies structure: kind,
+  parts, rows. You render the manipulative. Do not substitute a static scaffold
+  image, because the interaction is the mechanism."* The deployed
+  `CalculationVariant` is `{type, fullEquation, answer, steps, scaffoldImage,
+  completionStatement}`, and **no schema in the document has `parts` and `rows`**
+  — checked across all 192 paths on 17 Sep. The only scaffold-shaped thing on the
+  wire is `ScaffoldImage` (`imageUrl, storagePath, prompt, caption`), which is
+  exactly the static image §4 forbids substituting.
+  **What it costs.** `CalculationStep.expectedInput` includes `drag`, which is
+  the tap-to-build input, and `fromContent`'s adapter refuses drag steps because
+  there is nothing to build them on — the existing tray is constructed from the
+  authored fraction variant's `parts`. So on generated content there is no
+  manipulative at all, and §4's *"the one place modalities layer rather than
+  switch"* cannot happen: there is no tap-to-build layer to run alongside the
+  audio and the equation.
+  **The ask is `kind`, `parts` and `rows` on `CalculationVariant`**, as §4
+  already describes them. Until then the solver renders the equation and the
+  steps and draws no manipulative, which is the honest reduced form rather than
+  a picture built from numbers that mean something else.
