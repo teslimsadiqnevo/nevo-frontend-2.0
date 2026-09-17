@@ -2225,6 +2225,19 @@ bundle. Without it, a school accepts "version X" and the words they read came
 from whatever our build contained. **Worth landing at the same time as counsel's
 copy, and pointless before it.**
 
+**The DPA is one of six items with counsel, and they are now in one place:
+[`docs/waiting-on-counsel.md`](./waiting-on-counsel.md).** Compiled 17 Sep from a
+sweep of every `TODO(legal)`, every "counsel" mention in `src/`, and
+`open-questions-consent.md`. Two things worth knowing from it without opening it:
+**DPA clause 5 is the only open item that can invalidate merged work** — if
+counsel reads Nevo as a controller rather than a processor, SCRUM-80 reverses and
+the consent-gate correction shipped across the admin console on 11 Sep inverts.
+And **Privacy/Terms have a gap counsel cannot close**: teachers tick an
+activation-gating "I agree" at `SetPasswordForm.tsx:412`, the tick is never
+transmitted, and no endpoint exists to record it — so when that version moves
+there is no way to know who must re-consent. That one is a backend ask and can be
+built now.
+
 #### v1.5 — DEFERRED, DELIBERATELY
 
 These are real and none is urgent. They are recorded so nobody re-derives them,

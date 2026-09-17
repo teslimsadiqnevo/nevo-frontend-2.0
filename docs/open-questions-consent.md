@@ -1,3 +1,10 @@
+> **For what is still outstanding with counsel, read
+> [`docs/waiting-on-counsel.md`](./waiting-on-counsel.md).** This file is the
+> chronological record — questions asked, answers received, rulings applied — and
+> two of its counsel questions have since come back. You cannot see the open set
+> from here without reading all of it and cancelling the answered items in your
+> head. That file is the register; update it when an answer lands.
+
 # Two consent questions, 11 September 2026
 
 Both came out of correcting the admin console, which had been telling schools
