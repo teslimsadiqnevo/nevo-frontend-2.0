@@ -32,6 +32,8 @@ export interface Identity {
   /** The school's display name, not its id. */
   school: string | null;
   subjects: string[];
+  /** Their own photo, or null - every avatar falls back to initials. */
+  photoUrl: string | null;
 }
 
 function initialsFrom(name: string): string | null {
@@ -59,6 +61,7 @@ function toIdentity(user: CurrentUser): Identity {
     email: user.email,
     school: user.school?.name ?? null,
     subjects: user.subjects ?? [],
+    photoUrl: user.profileImageUrl ?? null,
   };
 }
 
@@ -92,6 +95,46 @@ export function publishIdentity(user: CurrentUser): void {
   const next = toIdentity(user);
   cache = { userId: next.userId, promise: Promise.resolve(next) };
   listeners.forEach((fn) => fn(next));
+}
+
+/**
+ * Replace just the photo, after an upload.
+ *
+ * The photo endpoint answers with `profileImageUrl` and nothing else, so
+ * re-reading `users/me` to publish a whole identity would be a second round
+ * trip that can fail on its own - and if it did, a teacher would have
+ * uploaded a photo and watched their old one stay put. This keeps everything
+ * else the identity already knows.
+ */
+export function publishPhoto(profileImageUrl: string | null): void {
+  if (!cache) return;
+  const updated = cache.promise.then((current) =>
+    current ? { ...current, photoUrl: profileImageUrl } : current,
+  );
+  cache = { userId: cache.userId, promise: updated };
+  void updated.then((next) => listeners.forEach((fn) => fn(next)));
+}
+
+/**
+ * Send a new photo and tell every mounted avatar about it.
+ *
+ * ONE FUNCTION, NOT TWO CALL SITES. The upload and the publish belong
+ * together: a screen that uploaded and forgot to publish would leave the
+ * sidebar on the old initials until a reload, which is the exact split
+ * `publishIdentity` exists to close. Keeping them here also means the
+ * behaviour is testable without rendering the profile screen.
+ *
+ * Null means it did not land, and the caller says the old photo is still
+ * there - which it is.
+ */
+export async function uploadPhoto(file: File): Promise<string | null> {
+  try {
+    const { profileImageUrl } = await usersApi.uploadProfilePhoto(file);
+    publishPhoto(profileImageUrl);
+    return profileImageUrl;
+  } catch {
+    return null;
+  }
 }
 
 export function useCurrentUser(): Identity | null {
