@@ -11,6 +11,8 @@ import {
 import { notificationsApi, type Notification } from "@/lib/api/notifications";
 import { getToken } from "@/lib/auth/session";
 import { useHasSession } from "@/hooks/useHasSession";
+import { useHydrated } from "@/hooks/useHydrated";
+import { SAMPLE_NOTIFICATIONS } from "@/lib/mocks/sampleNotifications";
 
 export interface NotificationItem {
   id: string;
@@ -47,29 +49,6 @@ export const NotificationContext = createContext<
   NotificationContextValue | undefined
 >(undefined);
 
-/**
- * Board 28's demo items - the signed-out designed screens only.
- *
- * A signed-in student whose feed fails sees NOTHING rather than these. "Ms
- * Okafor sent you a message" is a claim about a real teacher and a message
- * that does not exist; an empty bell is merely quiet, which is the same rule
- * the teacher console follows.
- */
-const MOCK_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: "n1",
-    title: "A new lesson is ready",
-    text: "Adding Fractions is waiting for you",
-    ago: "2h",
-  },
-  {
-    id: "n2",
-    title: "Ms Okafor sent you a message",
-    text: "Lovely work on your fractions today",
-    ago: "1d",
-    read: true,
-  },
-];
 
 /** The frame's compact stamp: "2h", "1d". */
 function ago(iso: string): string {
@@ -98,6 +77,7 @@ function toItem(n: Notification): NotificationItem {
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const signedIn = useHasSession();
+  const hydrated = useHydrated();
   const [feed, setFeed] = useState<Notification[] | null>(null);
   const [unread, setUnread] = useState(0);
   const [failed, setFailed] = useState(false);
@@ -132,10 +112,29 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
 
   const value = useMemo<NotificationContextValue>(() => {
+    /*
+     * NOTHING UNTIL THE CLIENT CAN SEE THE TOKEN, and this is the half that
+     * made the fixtures reach real children.
+     *
+     * `useHasSession` reads localStorage, which no server can see, so its
+     * server snapshot is hardcoded false. This provider is mounted in the root
+     * layout, so EVERY student page's server markup and first client frame ran
+     * the signed-out branch - for a genuinely signed-in child. The violet
+     * unread dot rendered with nothing behind it, and opening the bell in that
+     * window listed rows about a teacher who had sent nothing.
+     *
+     * Every other student surface added this guard and says so in a comment;
+     * the provider was missed because it returns a VALUE rather than a screen,
+     * so there was no skeleton branch to hang it on. The nothing-state is the
+     * skeleton here.
+     */
+    if (!hydrated) {
+      return { notifications: [], unreadCount: 0, failed: false, refresh };
+    }
     if (!signedIn) {
       return {
-        notifications: MOCK_NOTIFICATIONS,
-        unreadCount: MOCK_NOTIFICATIONS.filter((n) => !n.read).length,
+        notifications: SAMPLE_NOTIFICATIONS,
+        unreadCount: SAMPLE_NOTIFICATIONS.filter((n) => !n.read).length,
         failed: false,
         refresh,
       };
@@ -146,7 +145,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       failed,
       refresh,
     };
-  }, [signedIn, feed, unread, failed, refresh]);
+  }, [hydrated, signedIn, feed, unread, failed, refresh]);
 
   return (
     <NotificationContext.Provider value={value}>
