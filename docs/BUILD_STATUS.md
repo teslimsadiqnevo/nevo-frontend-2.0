@@ -2205,6 +2205,15 @@ pre-launch and is not backend's at all. The rest are v1.5.**
 
 #### PRE-LAUNCH — three backend asks, and they are small
 
+**Send order, set 17 Sep: SSO certificate → IEP shares read → term cap.** The
+term cap held first place on the grounds that it is the only one actively
+destroying something a school typed, and it lost to a fact — **no four-term
+school is onboarded yet**, so it is damaging nobody today. The certificate is the
+one failure here that is invisible until the morning it happens. **A quiet loss
+you can still discover ranks below a silent one you cannot see coming.** If a
+four-term school onboards before this lands, the cap moves back to first the same
+day. Full reasoning in `api-requests-admin.md`.
+
 | | |
 |---|---|
 | **`AcademicConfig.termStartDates` has `maxItems: 3`, and it LOSES DATA** | A four-term school has its fourth term start silently dropped — no 422, no warning — and is then invoiced on a calendar it did not choose. `SchoolSettings.tsx:508` renders an "Add a term" control for exactly that case, per SCRUM-99's "a quiet action for schools running four terms". Underneath it is a **product disagreement, not a schema nit**: the field description says *"Nigerian schools run three terms"*. Either answer is fine — raise the cap, or return a 422 and we pull the control. Silent truncation is the only outcome we cannot handle. |
