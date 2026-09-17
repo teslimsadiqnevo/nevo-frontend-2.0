@@ -417,6 +417,10 @@ export function UploadWizard() {
               setParsed(null);
               setPhase("file");
             }}
+            /* In place: the re-read lesson replaces this one, same id, same
+               row in the library. That is the whole point of regenerate over
+               re-upload. */
+            onRegenerated={setParsed}
           />
         ) : (
           <SectionReview
