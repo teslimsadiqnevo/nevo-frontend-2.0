@@ -340,13 +340,24 @@ launch** — they are written down so nobody re-derives them, not so they queue.
 
 | # | ask | why it cannot wait | size |
 |---|---|---|---|
-| 1 | **Raise `AcademicConfig.termStartDates`' `maxItems: 3`, or 422 on the fourth** (§7a) | It **loses data today**. A four-term school's fourth term start is silently discarded and the school is then invoiced on a calendar it never chose. Silent truncation is the only outcome we cannot handle on our side. | one constraint |
+| 1 | **`SsoConnectionHealthResponse.certificateExpiresAt: string \| null`** (Addendum 1 §5) | A lapsed signing certificate does not degrade SSO, it **stops** it — every teacher and child at that school locked out on one morning, with nothing having said it was coming. The only fully predictable lockout in the product, and currently invisible to us. | one nullable field |
 | 2 | **`GET /api/v1/exports/iep/{export_id}/shares`** (§7b) | **Safety.** A SENCo cannot tell whether a child's SEN report already reached a guardian, so the screen can neither confirm a send nor prevent a second disclosure. The record is already written by your own `POST`; nothing reads it back. | no new schema |
-| 3 | **`SsoConnectionHealthResponse.certificateExpiresAt: string \| null`** (Addendum 1 §5) | A lapsed signing certificate does not degrade SSO, it **stops** it — every teacher and child at that school locked out on one morning, with nothing having said it was coming. The only fully predictable lockout in the product, and currently invisible to us. | one nullable field |
+| 3 | **Raise `AcademicConfig.termStartDates`' `maxItems: 3`, or 422 on the fourth** (§7a) | Loses data whenever a four-term school configures its year: the fourth term start is silently discarded and the school is then invoiced on a calendar it never chose. Silent truncation is the only outcome we cannot handle on our side. | one constraint |
 
-**Suggested order is exactly that order**, cheapest-with-teeth first. If only one
-lands before launch, make it #1: it is the only one of the three that is actively
-destroying something a school typed.
+**Suggested order is exactly that order.** If only one lands before launch, make
+it **#1**.
+
+**That ordering changed on 17 Sep, and the reasoning is worth keeping.** The term
+cap was #1 on the grounds that it is the only one actively destroying something a
+school typed — which is true, and it lost the argument to a fact: **no four-term
+school is onboarded yet.** So the cap is damaging nobody today, while the
+certificate is the one failure here that is *invisible until the morning it
+happens* — a whole school unable to sign in, with no warning anywhere in the
+product, most likely on a Monday in January to our first paying customer.
+
+The general rule that produced the swap: **a quiet loss you can still discover
+ranks below a silent one you cannot see coming.** If a four-term school is
+onboarded before this lands, #3 moves back to #1 the same day.
 
 **Explicitly NOT asking for before launch:** D09 Reports, IEP/profile PDF routes,
 notification `category`, compliance erasure and subprocessors, the D19 invitation
