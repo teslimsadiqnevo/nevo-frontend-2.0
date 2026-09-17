@@ -5,6 +5,7 @@ import type {
 } from "@/lib/api/intelligence";
 import type { LessonSegment as ContentSegment } from "@/lib/api/lessons";
 import { MODALITY, type Modality } from "@/lib/constants";
+import { asAdjustmentAction } from "@/lib/constants/affect";
 import { SCAFFOLD_LEVELS, type ScaffoldLevel } from "@/lib/constants/scaffold";
 import type { AdaptationPlan, Lesson, SegmentAdaptation } from "@/lib/types";
 
@@ -108,6 +109,16 @@ export function toAdaptationPlan(
 ): AdaptationPlan {
   const offered = new Map(lesson.segments.map((s) => [s.id, s.modalities]));
   const suggested = asModality(res.modalitySuggestion?.suggested);
+  /*
+   * The engine's instruction, carried for the first time.
+   *
+   * `proactiveAdjustment` has been on this response and typed in this client
+   * for weeks with no reader. `reason`, `confidence` and `triggerSignals` ride
+   * the same object and are deliberately NOT carried: frame 38 says the
+   * learner is never shown the reasoning, and a confidence number is an engine
+   * parameter that rule 3 keeps off every screen. Only the instruction crosses.
+   */
+  const adjustment = asAdjustmentAction(res.proactiveAdjustment?.action);
 
   const segments: SegmentAdaptation[] = res.segments.flatMap((row) => {
     const modalities = offered.get(row.segmentId);
@@ -141,5 +152,11 @@ export function toAdaptationPlan(
     ];
   });
 
-  return { lessonId: res.lessonId, segments };
+  // Omitted rather than null when there is no instruction, so a consumer's
+  // presence test reads the same as every other optional field on the plan.
+  return {
+    lessonId: res.lessonId,
+    segments,
+    ...(adjustment ? { adjustment } : {}),
+  };
 }

@@ -3548,3 +3548,68 @@ there. Manual transfers go through `manual-transfer`.
   already describes them. Until then the solver renders the equation and the
   steps and draws no manipulative, which is the honest reduced form rather than
   a picture built from numbers that mean something else.
+
+### Affect and density — corrected 17 Sep, and most of it was not blocked
+
+**"There is no affective transport" was wrong, and the error was the search.**
+Recorded after grepping all 192 paths for `affect`, `emotion`, `frustration`,
+`boredom`, `anxiety`, `confusion` and `socratic` and finding zero. Frontend §4
+says the frontend *receives an instruction and never knows which state is
+active* — so the absence of those words is the design working, not a gap.
+
+The transport is **`AdaptResponse.proactiveAdjustment.action`**, which has been
+on the wire and typed at `intelligence.ts:151` with no reader. §4 names six
+actions: `no_action`, `modulate_density`, `increase_difficulty`, `offer_hint`,
+`offer_break`, `show_socratic_panel`.
+
+**Built:** the plan now carries the instruction, and the two actions that need
+nothing the wire lacks are applied — `modulate_density` (secondary UI to 40%,
+slower transitions) and `increase_difficulty` (the step-up pill, whose copy is
+already §4's exact sentence). `offer_break` already had its own richer seam
+through `breakSuggestion`.
+
+**Deliberately NOT carried across:** `reason`, `confidence` and
+`triggerSignals` ride the same object. Frame 38 — *"the learner is never shown
+any of this reasoning, no score, no label, no 'you seem frustrated'"* — and
+`confidence` is an engine parameter rule 3 keeps off every screen. A test
+asserts none of the three reaches the plan.
+
+**Two asks remain, and they are content rather than transport:**
+
+- **`offer_hint` has no hint to show.** `ProactiveAdjustmentResponse` is
+  `{action, reason, confidence, triggerSignals}`; no field carries child-facing
+  hint text, and `reason` is not a substitute — it is the reasoning §4 forbids
+  showing. The player's `FrustrationHint` takes a string and there is nothing
+  to give it, so the action currently renders nothing.
+- **`show_socratic_panel` has no questions.** `ConfusionSupport` takes 2-3
+  guided prompts and no field carries them. Same outcome: nothing renders.
+
+**One documentation ask.** `action` is a bare `string` with no enum, so the six
+above are §4's list rather than the contract's. Unrecognised values resolve to
+null and the interface does nothing, which is safe — but confirming the
+vocabulary would turn a guess into a contract.
+
+### The density entry above conflated two different things
+
+**`modulate_density` is not the child's Simplify / Expand / Slower control**,
+and filing them as one blocked item was the mistake.
+
+- **The engine instruction** is a UI treatment — opacity, transition speed,
+  gentler copy. It needs no new content and is built, above.
+- **The child's pace control** (17 Lesson Player §C2) switches between
+  *authored reshapes* of the same segment, and `TextVariant` is `{body,
+  keyPoints}` with no reshape field. That half is still a genuine content ask
+  and remains the one that matters most for the no-labels position, because it
+  is how a learner asks the lesson to change without being told anything about
+  themselves.
+
+### The build models a state where §4 models an instruction
+
+`SegmentAdaptation.affect` is a per-segment `AffectiveState`
+(`anxiety | boredom | frustration | confusion`) and the components are named
+for those states — `FrustrationHint`, `BoredomOfferPill`, `ConfusionSupport`.
+§4 is explicit that the frontend never knows the state. Only the authored demo
+ever sets `affect`, so nothing is currently wrong on screen, but the types
+encode knowing something we are told we must not know. Worth a rename to the
+instruction vocabulary when someone is next in that file; not urgent, and not
+worth a churn commit on its own.

@@ -43,6 +43,7 @@ import {
   FrustrationHint,
 } from "./AffectiveLayer";
 import { AfterLessonAssessment } from "./AfterLessonAssessment";
+import { ADJUSTMENT_ACTIONS } from "@/lib/constants/affect";
 import { LESSON_STATUS } from "@/lib/api/lessons";
 import { schedulerApi } from "@/lib/api/scheduler";
 import { getSession } from "@/lib/auth/session";
@@ -601,7 +602,33 @@ export function LessonPlayer({
   // modulates while it holds and returns to default when it passes.
   const segPlan = planFor(segment.id);
   const affect = segPlan?.affect ?? AFFECTIVE_STATES.NONE;
-  const anxious = affect === AFFECTIVE_STATES.ANXIETY;
+  /*
+   * THE ENGINE'S INSTRUCTION, which is what a signed-in child's interface
+   * actually moves on.
+   *
+   * `segPlan.affect` is a per-segment STATE and only the authored demo ever
+   * sets it - §4 is explicit that the frontend never knows the state. The wire
+   * carries one lesson-level `proactiveAdjustment.action`, which nothing read
+   * until now, so every intervention below was dead for every real child.
+   *
+   * Two of §4's six are applied here because they need nothing the wire does
+   * not carry. `offer_break` already has its own richer seam through
+   * `breakSuggestion`. `offer_hint` and `show_socratic_panel` need hint text
+   * and guided questions that no field carries, so they are deliberately not
+   * faked - an empty hint card is worse than no hint, and rule 5 says render
+   * the nothing-state.
+   */
+  const action = plan?.adjustment ?? null;
+  // §4: "Secondary UI to 40% opacity, transitions slow, gentler copy variants."
+  const softened =
+    action === ADJUSTMENT_ACTIONS.MODULATE_DENSITY ||
+    affect === AFFECTIVE_STATES.ANXIETY;
+  const anxious = softened;
+  // §4: "'Ready for something harder?' pill, scaffold withdraws." The pill
+  // already carries that exact sentence.
+  const stepUpOffered =
+    action === ADJUSTMENT_ACTIONS.INCREASE_DIFFICULTY ||
+    affect === AFFECTIVE_STATES.BOREDOM;
   // UDL accommodations (37c) - cross-session delivery themes from the plan.
   const readingOn = Boolean(plan?.accommodations?.reading);
   const attentionOn = Boolean(plan?.accommodations?.attention);
@@ -997,7 +1024,7 @@ export function LessonPlayer({
           <ScaffoldIndicator
             key={`scaf-${segment.id}`}
             level={segPlan?.scaffold ?? "light"}
-            pulse={affect === AFFECTIVE_STATES.BOREDOM}
+            pulse={stepUpOffered}
           />
         </div>
         {/* Frame: the density toggle sits alone on its own right-aligned row.
@@ -1087,13 +1114,11 @@ export function LessonPlayer({
             // the real stylesheet at 375 / 700 / 1280, giving 88 / 32 / 40px -
             // because their media rules come after the base utility.
             "mx-auto w-full max-w-full p-6 pb-[88px] sm:max-w-[620px] sm:p-8 lg:max-w-[680px] lg:p-10",
-            affect === AFFECTIVE_STATES.BOREDOM &&
-              "rounded-[12px] border-2 border-nevo-violet/45",
+            stepUpOffered && "rounded-[12px] border-2 border-nevo-violet/45",
           )}
         >
           {feedback && <FeedbackStrip message={feedback} />}
-          {affect === AFFECTIVE_STATES.BOREDOM &&
-            !spentEscalations.has(segment.id) && (
+          {stepUpOffered && !spentEscalations.has(segment.id) && (
               <BoredomOfferPill
                 key={`boredom-${segment.id}`}
                 onSpent={() => {
