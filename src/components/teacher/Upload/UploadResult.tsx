@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLessonRegenerate } from "@/hooks/useLessonRegenerate";
 import type { LessonDetailResponse } from "@/lib/api/lessons";
 import type {
   ContentModality,
@@ -27,6 +28,18 @@ import { cn } from "@/lib/utils";
  * 1 Sep, so the module-grouping half of C07g is built - on the block path,
  * in `LiveStructureTree`. This screen is the SINGLE-lesson outcome and stays
  * as it is.
+ *
+ * WHAT A TEACHER CAN DO WHEN NEVO GETS IT WRONG (design ruled it into v1,
+ * 17 Sep). "Try that again" re-runs the reading over the lesson's own stored
+ * text, IN PLACE. That matters more than it sounds: re-uploading was the only
+ * remedy before it, and re-uploading leaves two assignable lessons with the
+ * same title and nothing to tell them apart, on a product with no delete on
+ * any lesson route. Regenerating removes the duplicate rather than adding one,
+ * so it is the primary remedy and re-upload is the fallback.
+ *
+ * The approval gate is the other half of the same answer: since 17 Sep a newly
+ * parsed lesson cannot be assigned until a teacher approves every segment, so
+ * nothing a teacher has not read reaches a child.
  */
 
 const TYPE_LABEL: Record<LessonContentType, string> = {
@@ -117,15 +130,20 @@ export function UploadResult({
   lesson,
   fileName,
   onUploadAnother,
+  onRegenerated,
 }: {
   lesson: LessonDetailResponse;
   fileName: string;
   onUploadAnother: () => void;
+  /** The re-read lesson, which replaces this one in place. */
+  onRegenerated?: (lesson: LessonDetailResponse) => void;
 }) {
+  const regenerate = useLessonRegenerate((next) => onRegenerated?.(next));
   const segments = [...lesson.segments].sort(
     (a, b) => a.sequenceOrder - b.sequenceOrder,
   );
   const review = lesson.reviewSegmentCount;
+  const rereading = regenerate.state === "running";
 
   return (
     <div className="mx-auto w-full max-w-[860px] px-6 pb-10">
@@ -186,6 +204,19 @@ export function UploadResult({
         >
           Open the lesson
         </Link>
+        {/* Only where a caller can take the new lesson. No handler means no
+            control, rather than a button that reads the lesson again and
+            throws the result away. */}
+        {onRegenerated && (
+          <button
+            type="button"
+            onClick={() => regenerate.run(lesson.id)}
+            disabled={rereading}
+            className="inline-flex h-[50px] cursor-pointer items-center rounded-[10px] border-[1.5px] border-nevo-navy/35 px-[22px] text-[15px] font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6 disabled:cursor-default disabled:opacity-55"
+          >
+            {rereading ? "Reading it again…" : "Try that again"}
+          </button>
+        )}
         <button
           type="button"
           onClick={onUploadAnother}
@@ -194,6 +225,20 @@ export function UploadResult({
           Upload another
         </button>
       </div>
+
+      {rereading && (
+        <p className="mt-3 max-w-[62ch] text-[14px] leading-[1.55] text-nevo-near-black/68">
+          Nevo is reading the same lesson again. It replaces what is above when
+          it finishes, so you will not end up with two copies.
+        </p>
+      )}
+
+      {regenerate.state === "failed" && (
+        <p className="mt-3 max-w-[62ch] text-[14px] leading-[1.55] text-nevo-near-black/68">
+          That did not go through, and nothing about the lesson has changed.
+          You can try again, or upload the file once more.
+        </p>
+      )}
     </div>
   );
 }

@@ -683,10 +683,15 @@ deactivate and restore — no create. Also unwired: `POST /students/{id}/pin/res
 the compliance record `DpaStep.tsx` says it cannot persist.
 
 **FOR THE TEACHER SESSION:** `PATCH` and `DELETE /api/v1/assignments/{id}` are both
-unused, so an assignment can be created and never edited or cancelled. And
-`POST /api/content/lessons/{lesson_id}/regenerate` — the only endpoint in the spec
-carrying its own description — would turn a failed lesson parse from a dead end into a
-retry.
+unused, so an assignment can be created and never edited or cancelled.
+~~`POST /api/content/lessons/{lesson_id}/regenerate`~~ **is wired as of 17 Sep** —
+"Try that again" on the parse result, via `useLessonRegenerate`. Design ruled it into
+v1 rather than as a cheap upgrade, on the grounds that it fixes the lesson IN PLACE:
+re-uploading was the only remedy before it, and re-uploading leaves two assignable
+lessons with the same title on a product with **no delete on any lesson or upload
+route**. That missing delete is still real and is written down here rather than carried
+in anyone's head; regenerate reduces its urgency because the main route to a duplicate
+WAS the workaround for not having a retry.
 
 ### 17 markers to simply delete
 
