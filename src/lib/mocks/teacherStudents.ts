@@ -1,3 +1,4 @@
+import type { ObservationPattern } from "@/lib/api/classes";
 import { OBSERVATION_COPY } from "@/lib/constants/observations";
 import { TEACHER_CLASSES, type TeacherClass } from "./teacherClasses";
 
@@ -27,12 +28,28 @@ import { TEACHER_CLASSES, type TeacherClass } from "./teacherClasses";
  *    keep declaring these orphaned.
  */
 
-export type ConfidenceLevel = 1 | 2 | 3;
+/*
+ * WHAT THIS SCREEN SAYS ABOUT A CHILD COMES FROM ONE PLACE, and it is not here.
+ *
+ * C08 used to carry its own sentences with a confidence rating beside each:
+ * "Prefers to hear an explanation before reading it herself" at "Clear
+ * pattern". Three violations of rule 1 in one card - a stored preference about
+ * a named child, a modality claim, and a confidence rating that turns an
+ * observation into a finding.
+ *
+ * Design ruled on 17 Sep that rule 1 wins, that the frame predates the
+ * solution, and that C08 uses the sanctioned observation vocabulary from C16b
+ * instead - naming `tried_another_format` as the line that replaces the
+ * modality one. So the profile now holds PATTERNS and the wording lives in
+ * `lib/constants/observations.ts`, shared with the roster chips. One source,
+ * so the two screens cannot drift into saying different things about the same
+ * child.
+ *
+ * The confidence rating is gone entirely, per the same ruling.
+ */
 
-export interface Dimension {
-  statement: string;
-  level: ConfidenceLevel;
-}
+/** What Nevo has noticed, named by pattern rather than restated. */
+export type Dimension = ObservationPattern;
 
 export interface ConceptMastery {
   name: string;
@@ -127,11 +144,7 @@ export interface StudentProfileData {
   recommend?: RecommendData;
 }
 
-export const CONFIDENCE_LABEL: Record<ConfidenceLevel, string> = {
-  3: "Clear pattern",
-  2: "Emerging",
-  1: "Early signal",
-};
+
 
 /** Matches the roster links already in place: name -> "amara-okafor". */
 export const studentSlug = (name: string) =>
@@ -170,17 +183,29 @@ const AMARA: Omit<StudentProfileData, "classId" | "className"> = {
       },
     ],
   },
+  /*
+   * TWO CLAUSES DELETED, not reworded.
+   *
+   * "She settles faster when she can hear it first" is a modality claim about a
+   * named child, which rule 1 forbids wherever it appears - and this is the
+   * same frame design corrected on 17 Sep, so it is the same defect rather than
+   * a second one. "She's getting there" guesses a pronoun, which section 6
+   * rules out for the reason the deleted `pronoun` field above records: nothing
+   * stores one and no field could make it right.
+   *
+   * Deleting a claim is not inventing a replacement. What is left is the
+   * observation design wrote, minus the two parts that were not theirs to
+   * assert. If design would rather word it differently, this is one string.
+   */
   noticing: {
     desktop:
-      "Amara's been taking longer on the written segments - three sessions running. Getting there, just slower. Settles faster after hearing it first.",
-    tablet:
-      "longer on written segments, three sessions running. Settles faster after hearing it first.",
+      "Amara has been taking longer on the written segments - three sessions running.",
+    tablet: "longer on written segments, three sessions running",
   },
-  dimensions: [
-    { statement: "Prefers to hear an explanation before reading it herself", level: 3 },
-    { statement: "Stays with a task longer when there's a clear finish line", level: 2 },
-    { statement: "Comes back sharper after a short movement break", level: 2 },
-  ],
+  // `tried_another_format` is the line design named as the replacement for the
+  // modality claim. It says a child has worked in more than one way and names
+  // no format, which is the whole point.
+  dimensions: ["tried_another_format", "steadier_pace", "completed_lessons"],
   // None of these four trip the component's auto-flag thresholds, so no flag
   // pill renders on this data - that is the frame's intent, not a gap.
   concepts: [
@@ -257,10 +282,11 @@ const AMARA: Omit<StudentProfileData, "classId" | "className"> = {
 };
 
 /** The early state's two dimension cards, both at level 1. */
-const EARLY_DIMENSIONS: Dimension[] = [
-  { statement: "Seems to settle into practice questions quickly", level: 1 },
-  { statement: "May prefer shorter segments - still early to say", level: 1 },
-];
+// The early picture, in the sanctioned wording. "May prefer shorter segments"
+// was a preference claim hedged with "still early to say", and a hedge does not
+// stop it being one. `no_recent_pattern` is the vocabulary's own reading for
+// not-enough-yet, and it says so without implying anything about the child.
+const EARLY_DIMENSIONS: Dimension[] = ["no_recent_pattern"];
 
 const initialsOf = (name: string) =>
   name
@@ -295,7 +321,9 @@ export function getStudentProfile(slug: string): StudentProfileData | null {
     classId: klass.id,
     className: klass.name,
     meta: `${klass.name} · joined 6 days ago`,
-    earlyNote: `Still learning how ${student.name.split(" ")[0]} learns best. A few more sessions and this will fill in - for now, here's the early picture.`,
+    // Opening clause deleted: "Still learning how X learns best" is the same
+    // modality framing in a hedge, and a hedge does not stop it being a claim.
+    earlyNote: `A few more sessions and this will fill in - for now, here's the early picture.`,
     dimensions: EARLY_DIMENSIONS,
     concepts: [],
     evidence: [],
