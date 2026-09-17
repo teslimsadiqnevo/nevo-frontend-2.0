@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { roleLabel } from "@/lib/constants/permissions";
 import { MOCK_TEACHER, TEACHER_NAV, type TeacherNavItem } from "./teacherNav";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -390,15 +391,31 @@ export function TeacherSidebar() {
                   {signedIn ? identity?.name : MOCK_TEACHER.name}
                 </span>
               )}
-              <span
-                className={
-                  signedIn && !identity?.name
-                    ? "text-sm font-semibold whitespace-nowrap text-nevo-near-black"
-                    : "text-xs whitespace-nowrap text-nevo-near-black/55"
-                }
-              >
-                {MOCK_TEACHER.role}
-              </span>
+              {/*
+                THE REAL ROLE, or nothing.
+                
+                This read `MOCK_TEACHER.role` unconditionally - the only
+                ungated use of that fixture in the repo - while the initials
+                and the name immediately above it were both correctly gated on
+                `signedIn`. It went unnoticed because the literal "Teacher" is
+                accidentally right for everyone who can reach this console:
+                `proxy.ts` admits only `teacher`. Accidentally correct is still
+                not read from the session.
+                
+                `roleLabel` returns null for a role it does not recognise, so an
+                unfamiliar value shows nothing rather than a guess.
+              */}
+              {(signedIn ? roleLabel(identity?.role) : MOCK_TEACHER.role) && (
+                <span
+                  className={
+                    signedIn && !identity?.name
+                      ? "text-sm font-semibold whitespace-nowrap text-nevo-near-black"
+                      : "text-xs whitespace-nowrap text-nevo-near-black/55"
+                  }
+                >
+                  {signedIn ? roleLabel(identity?.role) : MOCK_TEACHER.role}
+                </span>
+              )}
             </span>
           )}
         </button>

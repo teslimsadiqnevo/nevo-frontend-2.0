@@ -106,6 +106,14 @@ export function BulkIngestion() {
     }
   };
   const [batchError, setBatchError] = useState("");
+  /**
+   * Whether this is the signed-out designed beat. Only `runDemo` advances
+   * `sorted`, and `TOTAL` is the frame's hardcoded 13, so both belong to the
+   * demo and neither describes a real batch.
+   */
+  const [demo, setDemo] = useState(false);
+  /** How many files the teacher actually submitted. Known; the rest is not. */
+  const [submitted, setSubmitted] = useState(0);
   const [committing, setCommitting] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -118,6 +126,7 @@ export function BulkIngestion() {
   /** The designed demo beat - signed-out only. */
   const runDemo = () => {
     setPhase("parsing");
+    setDemo(true);
     setSorted(0);
     let n = 0;
     const tick = () => {
@@ -138,6 +147,12 @@ export function BulkIngestion() {
       return;
     }
     setPhase("parsing");
+    // Not the demo, so the counted progress bar below stays off. `sorted` is
+    // only ever advanced by `runDemo`; leaving the bar on meant a signed-in
+    // teacher watched "0 of 13 lessons sorted" at 0% for the whole batch,
+    // however many files they actually dropped.
+    setDemo(false);
+    setSubmitted(files.length);
     setBatch(null);
     setTitles({});
     setBatchError("");
@@ -337,15 +352,39 @@ export function BulkIngestion() {
               This one&rsquo;s a bigger read - a term&rsquo;s worth. Feel free
               to carry on elsewhere; we&rsquo;ll have it ready shortly.
             </p>
-            <div className="mt-[22px] h-1.5 w-[300px] overflow-hidden rounded-full bg-nevo-navy/14 xl:mt-6 xl:w-[320px]">
-              <span
-                className="block h-full rounded-full bg-nevo-navy transition-[width] duration-[300ms] ease-out"
-                style={{ width: `${Math.round((sorted / TOTAL) * 100)}%` }}
-              />
-            </div>
-            <span className="mt-[11px] text-[13px] text-nevo-near-black/55 xl:mt-3 xl:text-[13.5px]">
-              {sorted} of {TOTAL} lessons sorted
-            </span>
+            {/*
+              A COUNTED BAR ONLY WHERE THERE IS A COUNT.
+              
+              `TOTAL` is the frame's 13 and `sorted` is advanced only by
+              `runDemo`, so on the live path this rendered "0 of 13 lessons
+              sorted" at 0% for the entire batch - a number belonging to
+              neither the teacher's files nor their progress.
+              
+              The batch endpoint reports FILES accepted, not lessons sorted, and
+              there is no per-lesson progress on the wire. So the live path says
+              what it knows - how many files went - and lets the spinner above
+              carry the waiting. Inventing a denominator is how the fixture got
+              here in the first place.
+            */}
+            {demo ? (
+              <>
+                <div className="mt-[22px] h-1.5 w-[300px] overflow-hidden rounded-full bg-nevo-navy/14 xl:mt-6 xl:w-[320px]">
+                  <span
+                    className="block h-full rounded-full bg-nevo-navy transition-[width] duration-[300ms] ease-out"
+                    style={{ width: `${Math.round((sorted / TOTAL) * 100)}%` }}
+                  />
+                </div>
+                <span className="mt-[11px] text-[13px] text-nevo-near-black/55 xl:mt-3 xl:text-[13.5px]">
+                  {sorted} of {TOTAL} lessons sorted
+                </span>
+              </>
+            ) : (
+              submitted > 0 && (
+                <span className="mt-[22px] text-[13px] text-nevo-near-black/55 xl:mt-6 xl:text-[13.5px]">
+                  {`${submitted} ${submitted === 1 ? "file" : "files"} sent for reading`}
+                </span>
+              )
+            )}
           </div>
         </div>
       )}

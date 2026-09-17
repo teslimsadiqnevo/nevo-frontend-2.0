@@ -268,6 +268,41 @@ export function TeacherHome() {
                           {[a.detail, a.when].filter(Boolean).join(" · ")}
                         </span>
                       </div>
+                      {/*
+                        HOW FAR THE CLASS GOT, which this row could not show
+                        until 17 Sep because both fields were missing from the
+                        client type and the poll dropped them. The sample row
+                        below has drawn a bar and "{done} of {total} done"
+                        throughout, so the LIVE list was strictly poorer than
+                        the fallback.
+                        
+                        A SEPARATE ELEMENT, not interpolated into the line
+                        above. Both values are nullable, and frontend section 6
+                        is explicit: "values that may be null render as separate
+                        elements that disappear when absent." Interpolating them
+                        is how "null times" happened.
+                        
+                        Both or neither: a total with no completed count, or the
+                        reverse, is not a fraction and must not be drawn as one.
+                      */}
+                      {a.completedCount != null && a.totalCount != null && (
+                        <div className="flex shrink-0 items-center gap-3.5">
+                          <div className="h-1.5 w-[130px] overflow-hidden rounded-full bg-nevo-navy/14">
+                            <span
+                              className="block h-full rounded-full bg-nevo-navy"
+                              style={{
+                                // Guarded: a class of nobody is 0/0 on the
+                                // wire, and 0/0 is NaN, which renders as a
+                                // broken bar rather than an empty one.
+                                width: `${a.totalCount > 0 ? Math.round((a.completedCount / a.totalCount) * 100) : 0}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="w-[120px] text-right text-sm text-nevo-near-black/68">
+                            {`${a.completedCount} of ${a.totalCount} done`}
+                          </span>
+                        </div>
+                      )}
                     </Row>
                   );
                 })}

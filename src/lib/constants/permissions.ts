@@ -67,3 +67,30 @@ export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
 export function isAdminRole(role: string | undefined | null): boolean {
   return role === USER_ROLES.SENCO_ADMIN || role === USER_ROLES.OTHER_ADMIN;
 }
+
+/**
+ * A role, as something to show a person.
+ *
+ * The teacher sidebar rendered `MOCK_TEACHER.role` - the literal "Teacher" -
+ * unconditionally, while the two lines beside it were correctly gated on
+ * `signedIn`. The value happened to be right for anyone who can reach that
+ * console, since `proxy.ts` admits only `teacher`, which is exactly why it went
+ * unnoticed: a fixture that is accidentally correct is still not read from the
+ * session.
+ *
+ * Returns null for anything unrecognised rather than falling back to a guess.
+ * Telling someone they hold a role they do not is worse than saying nothing,
+ * and the set has grown before.
+ */
+const ROLE_LABELS: Record<string, string> = {
+  [USER_ROLES.TEACHER]: "Teacher",
+  [USER_ROLES.SENCO_ADMIN]: "Learning support admin",
+  [USER_ROLES.OTHER_ADMIN]: "School admin",
+  [USER_ROLES.STUDENT]: "Student",
+  [USER_ROLES.PARENT_GUARDIAN]: "Parent or guardian",
+};
+
+export function roleLabel(role: string | undefined | null): string | null {
+  if (!role) return null;
+  return ROLE_LABELS[role] ?? null;
+}

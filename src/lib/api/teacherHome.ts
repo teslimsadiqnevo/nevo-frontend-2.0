@@ -34,6 +34,19 @@ export interface ActivityRow {
   lessonId: string | null;
   /** Where the row leads. Only followed when it is an in-app path. */
   actionTarget: string;
+  /**
+   * How far the class got. BOTH NULLABLE, and both were missing from this type
+   * until 17 Sep - so the poll dropped them before any screen could read them,
+   * and Home's LIVE activity list was strictly poorer than the SAMPLE one
+   * beside it, which draws a progress bar and "{done} of {total} done".
+   *
+   * This is the third instance of the same shape: a delivered field absent from
+   * a client type, silently discarded. `note` on `Assignment` and
+   * `completedCount` here were both found the same way, and `failedPages` on
+   * `UploadStatusResponse` is still outstanding.
+   */
+  completedCount: number | null;
+  totalCount: number | null;
 }
 
 export interface TeacherHomeIntelligence {
