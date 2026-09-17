@@ -1,27 +1,59 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { AvatarDisc } from "@/components/shared/AvatarDisc";
 import type { TeacherProfile } from "@/lib/mocks/teacherProfile";
 
 /**
  * C11 Edit profile. Name and subjects are the teacher's to change; the email
  * is school-managed and shown read-only rather than as a disabled input, so
  * it reads as "not yours to edit" instead of "broken".
+ *
+ * "CHANGE PHOTO" WAS THE ONE DEAD CONTROL in the whole profile menu - a
+ * button with no `onClick`, carrying `TODO(api): photo upload - the frame
+ * draws the affordance only`. `POST /api/v1/users/me/profile-photo` has been
+ * deployed all along and `profileImageUrl` is required on `users/me`; the
+ * client type simply never named the field, so nothing could render a photo
+ * and nothing could send one.
+ *
+ * THE UPLOAD IS THE PARENT'S, like the save. This owns the picker and what a
+ * teacher sees while it runs; the screen above owns the write and whether
+ * there is a live session to write with. No handler means no control, rather
+ * than a button that opens a picker and drops the file.
  */
 export function EditProfileModal({
   profile,
+  photoUrl,
   onCancel,
   onSave,
+  onPhotoPicked,
 }: {
   profile: TeacherProfile;
+  /** The photo already on the account, if any. */
+  photoUrl?: string | null;
   onCancel: () => void;
   /** Resolves true once the write has actually landed. */
   onSave: (next: TeacherProfile) => Promise<boolean> | boolean;
+  /** Uploads the file and resolves the new URL, or null if it did not land. */
+  onPhotoPicked?: (file: File) => Promise<string | null>;
 }) {
   const [name, setName] = useState(profile.name);
   const [subjects, setSubjects] = useState(profile.subjects);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [photo, setPhoto] = useState<string | null>(photoUrl ?? null);
+  const [photoState, setPhotoState] = useState<"idle" | "sending" | "failed">(
+    "idle",
+  );
+
+  const pickPhoto = async (file: File | undefined) => {
+    if (!file || !onPhotoPicked || photoState === "sending") return;
+    setPhotoState("sending");
+    const url = await onPhotoPicked(file);
+    setPhotoState(url ? "idle" : "failed");
+    if (url) setPhoto(url);
+  };
 
   /**
    * Nothing closes until the write lands. The modal used to call `onSave` and
@@ -83,17 +115,54 @@ export function EditProfileModal({
         </div>
 
         <div className="mt-[22px] flex items-center gap-4">
-          <span className="flex size-[60px] shrink-0 items-center justify-center rounded-full bg-nevo-navy text-xl font-semibold text-nevo-cream">
+          <AvatarDisc photoUrl={photo} className="size-[60px] text-xl font-semibold">
             {profile.initials}
-          </span>
-          {/* TODO(api): photo upload - the frame draws the affordance only. */}
-          <button
-            type="button"
-            className="inline-flex h-[38px] cursor-pointer items-center rounded-[10px] border-[1.5px] border-nevo-navy/35 px-[15px] text-[13.5px] font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6"
-          >
-            Change photo
-          </button>
+          </AvatarDisc>
+          {onPhotoPicked && (
+            <>
+              {/* The button is the control; the input is how the browser
+                  opens a picker. Hidden rather than styled, because a styled
+                  file input is a different control on every platform. */}
+              <input
+                ref={fileInput}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                aria-hidden
+                tabIndex={-1}
+                onChange={(e) => {
+                  void pickPhoto(e.target.files?.[0]);
+                  /*
+                   * So picking the same file twice still fires a change. A
+                   * teacher who uploads a photo, crops it and picks the same
+                   * filename again gets no event at all without this.
+                   *
+                   * NOT COVERED, AND IT CANNOT BE: jsdom never sets `value`
+                   * from a `change` event carrying files, and refuses to let a
+                   * test set it - so removing this line fails nothing. A
+                   * mutation run proved that rather than a reviewer noticing.
+                   */
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInput.current?.click()}
+                disabled={photoState === "sending"}
+                className="inline-flex h-[38px] cursor-pointer items-center rounded-[10px] border-[1.5px] border-nevo-navy/35 px-[15px] text-[13.5px] font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6 disabled:cursor-default disabled:opacity-55"
+              >
+                {photoState === "sending" ? "Sending…" : "Change photo"}
+              </button>
+            </>
+          )}
         </div>
+
+        {photoState === "failed" && (
+          <p className="mt-3 text-[13px] leading-[1.5] text-nevo-near-black/70">
+            That photo didn&rsquo;t upload, so your old one is still there. You
+            can try again, or pick a different file.
+          </p>
+        )}
 
         <div className="mt-5 flex flex-col gap-4">
           <label className="block">
@@ -114,7 +183,7 @@ export function EditProfileModal({
           </label>
           {failed && (
             <p className="rounded-[10px] bg-nevo-violet/14 px-3.5 py-3 text-[13px] leading-[1.5] text-nevo-near-black/78">
-              We couldn&rsquo;t save that just now. Nothing has changed.
+              We couldn&rsquo;t save that just now. Nothing has changed, and
               your edits are still here, so you can try again.
             </p>
           )}

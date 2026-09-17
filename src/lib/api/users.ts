@@ -30,6 +30,21 @@ export interface CurrentUser {
   school: SchoolSummary | null;
   /** Optional in the contract, so absent rather than empty is possible. */
   subjects?: string[];
+  /**
+   * The teacher's own photo, when they have set one.
+   *
+   * REQUIRED ON `CurrentUserResponse` AND MISSING FROM THIS TYPE until
+   * 18 Sep - the fourth time a delivered field was dropped because the client
+   * type did not name it (after `note` on `Assignment`, `completedCount` on
+   * the activity row, and `failedPages`, which is still open). Nothing could
+   * render a photo because nothing could see one.
+   */
+  profileImageUrl?: string | null;
+}
+
+/** 201 of `POST /api/v1/users/me/profile-photo`. */
+export interface ProfilePhoto {
+  profileImageUrl: string;
 }
 
 export const usersApi = {
@@ -66,4 +81,20 @@ export const usersApi = {
     lastName?: string | null;
     subjects?: string[] | null;
   }) => api.patch<CurrentUser>("/api/v1/users/me", payload),
+
+  /**
+   * Replace the signed-in user's photo. Multipart, one field named `file`,
+   * exactly like `contentApi.upload`.
+   *
+   * NO CLIENT-SIDE SIZE OR TYPE LIMIT, deliberately. The contract states
+   * none - `Body_authentication_upload_profile_photo` is one required file
+   * and nothing else - so a limit invented here would reject files the server
+   * would have taken, and would be wrong the day the server changes its mind.
+   * The picker asks for an image; the server's answer is the answer.
+   */
+  uploadProfilePhoto: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.post<ProfilePhoto>("/api/v1/users/me/profile-photo", form);
+  },
 };

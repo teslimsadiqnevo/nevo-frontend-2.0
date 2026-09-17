@@ -10,11 +10,12 @@ import {
   type TeacherProfile,
 } from "@/lib/mocks/teacherProfile";
 import { cn } from "@/lib/utils";
-import { publishIdentity } from "@/hooks/useCurrentUser";
+import { publishIdentity, uploadPhoto } from "@/hooks/useCurrentUser";
 import { usersApi } from "@/lib/api/users";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTeacherSettings } from "@/hooks/useTeacherSettings";
+import { AvatarDisc } from "@/components/shared/AvatarDisc";
 import { EditProfileModal } from "./EditProfileModal";
 import { SignOutModal } from "./SignOutModal";
 
@@ -165,7 +166,10 @@ export function ProfileSettings() {
 
         {/* Identity */}
         <div className="mt-5 flex items-center gap-4 rounded-xl bg-nevo-cream-elevated px-[22px] py-5 shadow-[0_2px_8px_rgba(0,0,0,0.06)] xl:mt-6 xl:gap-[18px] xl:px-[26px] xl:py-6">
-          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-nevo-navy text-xl font-semibold text-nevo-cream xl:size-16 xl:text-[22px]">
+          <AvatarDisc
+            photoUrl={signedIn ? identity?.photoUrl : null}
+            className="size-14 text-xl font-semibold xl:size-16 xl:text-[22px]"
+          >
             {signedIn && identity?.initials ? (
               identity.initials
             ) : signedIn ? (
@@ -176,7 +180,7 @@ export function ProfileSettings() {
             ) : (
               profile.initials
             )}
-          </span>
+          </AvatarDisc>
           <div className="min-w-0 flex-1">
             <span className="text-[17px] font-semibold text-nevo-near-black xl:text-[19px]">
               {signedIn ? (identity?.name ?? "Teacher") : profile.name}
@@ -308,6 +312,12 @@ export function ProfileSettings() {
                 }
               : profile
           }
+          photoUrl={signedIn ? identity?.photoUrl : null}
+          /* Signed out there is no account to put a photo on, so there is no
+             control - rather than one that opens a picker and drops the file.
+             The upload is here because this screen owns the session; the
+             dialog owns the picker and what a teacher sees while it runs. */
+          onPhotoPicked={signedIn ? uploadPhoto : undefined}
           onCancel={() => setEditOpen(false)}
           onSave={async (next) => {
             setProfile(next);

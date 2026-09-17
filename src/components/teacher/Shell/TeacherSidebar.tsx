@@ -9,6 +9,7 @@ import { MOCK_TEACHER, TEACHER_NAV, type TeacherNavItem } from "./teacherNav";
 import { useHasSession } from "@/hooks/useHasSession";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTeacherNotifications } from "@/hooks/useTeacherNotifications";
+import { AvatarDisc } from "@/components/shared/AvatarDisc";
 // Lives under Profile/ because that page owned it first; it is generic.
 import { SignOutModal } from "@/components/teacher/Profile/SignOutModal";
 import { FeedbackPanel } from "./FeedbackPanel";
@@ -361,7 +362,10 @@ export function TeacherSidebar() {
             menuOpen && "bg-nevo-navy/5",
           )}
         >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-nevo-navy text-[13px] font-semibold tracking-[0.02em] text-nevo-cream">
+          <AvatarDisc
+            photoUrl={signedIn ? identity?.photoUrl : null}
+            className="size-9 text-[13px] font-semibold tracking-[0.02em]"
+          >
             {signedIn && identity?.initials ? (
               identity.initials
             ) : signedIn ? (
@@ -383,7 +387,7 @@ export function TeacherSidebar() {
             ) : (
               MOCK_TEACHER.initials
             )}
-          </span>
+          </AvatarDisc>
           {expanded && (
             <span className="flex min-w-0 flex-col text-left">
               {(!signedIn || identity?.name) && (
