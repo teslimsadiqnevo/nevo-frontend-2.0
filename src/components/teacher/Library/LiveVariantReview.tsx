@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { lessonsApi } from "@/lib/api/lessons";
+import { AudioVariantPlayer } from "./AudioVariantPlayer";
 import { IllustrationWrapper } from "@/components/shared/IllustrationWrapper";
 import type { LessonSegment } from "@/lib/api/lessons";
 import type { SegmentReviewReason } from "@/lib/api/lessons";
@@ -45,11 +46,11 @@ import { cn } from "@/lib/utils";
  *  - `interactiveVariant.answerKey`. The frame draws nothing for it, and a
  *    teacher reviewing whether a variant reads well does not need the answer to
  *    do that. Easy to add if design asks.
- *  - An audio PLAYER. `AudioVariant.requiresAuthentication` is true for private
- *    storage URLs, and `urlExpiresInSeconds` means a URL can age out, so a bare
- *    `<audio src>` would render a control that silently fails. The script is
- *    what tells a teacher whether the narration is any good; the player can come
- *    when there is a refresh path through `POST /api/content/media/url`.
+ *  - ~~An audio PLAYER.~~ BUILT 17 Sep. The reason it was deferred expired:
+ *    `POST /api/content/media/url` is deployed, `contentApi.mediaUrl` was
+ *    already wrapped, and nothing called it. `AudioVariantPlayer` recovers a
+ *    dead URL through it once, on the element's own error, which is the only
+ *    reliable signal that a signed URL has aged out.
  */
 
 /**
@@ -212,8 +213,23 @@ function VariantBody({
     return (
       <div className="flex flex-col gap-2.5">
         <Para>{v.script}</Para>
+        {/*
+          THE PLAYER, at last. This screen showed the script alone and its own
+          comment explained why: an expiring, sometimes-authenticated URL made a
+          bare `<audio src>` a control that could silently fail, and it would
+          wait for "a refresh path through POST /api/content/media/url". That
+          path is deployed and was uncalled.
+          
+          A teacher approving narration for a class cannot judge it from a
+          transcript - whether the voice is right, whether it stumbles over
+          "denominator", whether the pace suits a nine-year-old.
+        */}
+        <AudioVariantPlayer variant={v} />
         {seconds > 0 && (
           <p className="text-[12.5px] text-nevo-near-black/55">
+            {/* Still "about": `durationMs` is un-computed metadata, and the
+                element above knows the real length. Kept because it is useful
+                before anyone presses play. */}
             {`About ${Math.max(1, Math.round(seconds / 60))} minute${
               seconds >= 90 ? "s" : ""
             } of narration.`}

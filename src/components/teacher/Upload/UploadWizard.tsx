@@ -17,6 +17,7 @@ import {
 import { PARSE_STAGES, ParseProgress, rungFor } from "./ParseProgress";
 import { SectionReview } from "./SectionReview";
 import { LiveStructureTree } from "./LiveStructureTree";
+import { StructureTree } from "./StructureTree";
 import { UploadResult } from "./UploadResult";
 
 /**
@@ -79,6 +80,17 @@ type Phase =
   | "review"
   | "done"
   | "blockParsed"
+  /**
+   * The DEMO's structure tree, shown in place.
+   *
+   * "Review the structure" used to be a `<Link>` to
+   * `/teacher/lessons/upload/structure`, a standalone route this repo invented -
+   * C07e draws the control as a button - which served a hardcoded P5 Science
+   * fixture and, on the live path, discarded the in-flight poll on the way. The
+   * route is deleted; the signed-out walkthrough now opens the same tree here,
+   * without leaving the wizard.
+   */
+  | "demoStructure"
   | "fallback";
 
 const SCOPES: {
@@ -217,6 +229,9 @@ export function UploadWizard() {
     review: 3,
     done: 3,
     blockParsed: 4,
+    // Same step as the result it opens from: reviewing the structure IS step 4,
+    // not a fifth one. The frame numbers the flow, not the screens.
+    demoStructure: 4,
     fallback: 3,
   }[phase];
   const progress = {
@@ -226,6 +241,7 @@ export function UploadWizard() {
     review: "85%",
     done: "100%",
     blockParsed: "80%",
+    demoStructure: "90%",
     fallback: "55%",
   }[phase];
 
@@ -239,6 +255,7 @@ export function UploadWizard() {
     review: "How should this lesson be split up?",
     done: "Added to your library",
     blockParsed: "Here's how we've broken it up",
+    demoStructure: "Adjust anything before it goes to your library",
     fallback: FALLBACK_HEADINGS[fallbackKind],
   }[phase];
 
@@ -570,6 +587,15 @@ export function UploadWizard() {
             </div>
           )}
 
+          {/* The designed structure tree, in place of the route it used to
+              live at. Signed-out only by construction: `blockParsed` is
+              reached from the mocked beats. */}
+          {phase === "demoStructure" && (
+            <div className="w-full">
+              <StructureTree />
+            </div>
+          )}
+
           {/* A REAL staged upload takes over the block path. `ParseProgress`
               keeps driving the signed-out demo, which still walks its beats. */}
           {phase === "processing" && isBlock && staged.uploadId && (
@@ -731,12 +757,13 @@ export function UploadWizard() {
                 </div>
               </div>
               <div className="mt-6 flex gap-3">
-                <Link
-                  href="/teacher/lessons/upload/structure"
+                <button
+                  type="button"
+                  onClick={() => setPhase("demoStructure")}
                   className="inline-flex h-12 cursor-pointer items-center rounded-[10px] bg-nevo-navy px-[22px] text-[15px] font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
                 >
                   Review the structure
-                </Link>
+                </button>
                 <button
                   type="button"
                   onClick={reset}
