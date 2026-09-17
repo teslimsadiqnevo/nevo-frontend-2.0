@@ -1218,10 +1218,66 @@ a signed-in child gets an invented unread dot on the first frame of every page.
 See the retraction under ACTION NEEDED above for the sites and the reason the
 grep everyone used could not find them.
 
+### FOR THE STUDENT SESSION — the signals wall clock. 17 Sep.
+
+`npm run architecture` flags two sites and will keep flagging them:
+`hooks/useSignals.ts:178` and `:188` — `new Date().toISOString()` on the
+`SESSION_CONTEXT` event and on **every** event queued to the engine.
+
+`hooks/**` is the shared collision zone rather than a lane, but this file is
+yours in practice: its last three commits are all student, and every consumer is
+a student surface (`LessonPlayer`, five Onboarding screens, `SsoCallback`,
+`LessonContext`). Written up here by the admin session rather than taken, per the
+coordination rule at the top of this section.
+
+**WHY IT IS WORTH YOUR AFTERNOON.** Frontend §2: latency is the primary signal
+for three of the four affective states, and *"there is no way for the engine to
+recover precision you did not send."* Unlike a rendering bug this one corrupts
+data at the source — every hour it runs on device wall clocks is an hour of
+affective inference drawn from noise, firing at children who were concentrating
+and missing children who were struggling. On a cohort of unsynced Android
+devices that is not hypothetical.
+
+**DO NOT CONCLUDE IT IS BLOCKED ON BACKEND. I did, and I was wrong.**
+`SignalEventRequest.timestamp` is `format: date-time`, so the raw
+`performance.now()` float has nowhere to go — which looks like a rule 4 / rule 10
+deadlock and is not one. What the contract forbids is sending the raw monotonic
+value, not *deriving* a skew-free timestamp from one.
+
+**The fix, and the anchor already exists.** `startedAtRef` (`:95`) is a single
+wall-clock reading, reset per session id and already sent as the envelope's
+`startedAt`. Take a `performance.now()` reading at the same instant you set it,
+then emit each event as `anchorWallClock + (performance.now() − anchorPerf)`,
+serialised to ISO. **The contract does not change.** Every within-session delta
+then becomes the difference of two `performance.now()` readings: monotonic,
+immune to device clock skew, and immune to an NTP correction landing mid-lesson —
+which the current code is not, and which would silently reorder a child's events.
+
+**ONE QUESTION TO SETTLE FIRST, AND IT IS NOT BACKEND'S.** ISO 8601 bottoms out
+at millisecond resolution; `performance.now()` offers sub-millisecond. So ask
+whoever owns the engine: **does affective inference need finer than 1ms?**
+
+- **No** → the above is the whole fix, contained in your lane, no contract change.
+- **Yes** → then it IS a backend ask: a numeric monotonic field on
+  `SignalEventRequest` alongside the existing `timestamp`.
+
+My read is that 1ms is ample — tap dwell, response latency and idle periods all
+live at 100ms and up — but that is a judgement about the engine's model and not
+mine to make. It is a cheap question and it decides between an afternoon and a
+contract change.
+
+**The tempting wrong answer, named so nobody ships it:** `timestamp` is not in
+the `required` set and `eventData` is `additionalProperties: true`, so a
+monotonic value *can* be smuggled through. Don't. Backend would not read it, the
+gate would go quiet, and everyone would believe it was fixed — the same
+"accepts and ignores" trap the parent-objection `reason` field already set.
+
 ### FOR THE ADMIN SESSION — five items, 16 Sep. One is landed, four are yours.
 
-Written by the teacher/cross-cutting session after a status pass over your
-console. **Everything the console-wide lists called "still buildable" really is
+Written by the admin session itself, after a status pass over its own console.
+(This line used to credit "the teacher/cross-cutting session" — wrong: that
+session's own lane note was stale, which is a small instance of exactly what the
+rest of this file is about.) **Everything the console-wide lists called "still buildable" really is
 empty** — these five are what is left that is neither built nor blocked on an
 endpoint, and none of them is a screen.
 
