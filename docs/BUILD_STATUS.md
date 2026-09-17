@@ -3676,6 +3676,46 @@ have swapped fourteen invented classes for one invented connection. It has its
 own copy on the same layout: we do not have your school yet, here is the
 class-code route - which is also the honest forward path, because sending a
 storage-blocked child back to the school step is a loop.
+### Slower shipped, and `slowerSteps` had been unreachable the whole time
+
+Design split the pace control on 17 Sep rather than dropping it, and the split
+was right: *"Slower I do not think is a text reshape at all. Slower is about how
+much arrives at once, which is segmentation and pacing rather than wording."*
+
+The mechanism already existed. `TextSegment`'s chunked flow - one short part at
+a time behind a tap-to-continue, with a calm four-second pause - regroups
+sentences the lesson already has. It was reachable only through the `attention`
+accommodation. It now also serves a child picking Slower, so the control works
+on live parsed content with no authored content at all. Extracted to
+`lib/lessons/chunk.ts` so the renderer and the player's gate share one
+definition, and the component is `ChunkedBody` rather than
+`AttentionChunkedBody` because it no longer belongs to one caller.
+
+**THE BUG UNDERNEATH IT, which is the part worth reading.** The density bar
+offered a density when `segment.text.body[density]` existed. **No authored
+lesson has ever declared `body.slower`** - the mocks carry `default`,
+`simplify` and `expand` - so Slower was never offered on any screen in the
+product, demo included. Meanwhile **seven segments across the two authored
+lessons carry `slowerSteps`**, complete with lead lines and numbered cards, and
+nothing could render them. The gate asked for the wrong field. This is the
+"written but never read" pattern again, and the first time it has been authored
+CONTENT rather than a wire field: somebody wrote three careful steps for
+"Inside the leaf" and no child could ever see them. Verified on screen after
+the fix - the cards render, and the authored form still wins over chunking
+where it exists, because doing both makes a child read the same idea twice.
+
+**Honest about what was verified how.** The authored path was checked in a real
+browser. The chunked path only appears on live parsed content, which needs an
+account this lane does not have, so it is covered by DOM tests built against a
+live-shaped lesson - one body, no reshapes - and mutation-checked.
+
+**Two rules this deliberately respects.** It never writes `segment_length`:
+that accommodation is engine-owned and applied before the first screen, while a
+child asking is a control, and the two are separate inputs to the same
+renderer. And the chunked flow keeps reporting how much of the body was
+actually shown, because a chunk always fits the column - without it, a child who
+asked for less at a time would be reported to the engine as having read all of
+it. Asking for help must not cost a child the accuracy of what the engine knows.
 
 ### The state vocabulary is gone from the code, 17 Sep — and one word could not go
 
