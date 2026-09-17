@@ -3,6 +3,17 @@ import { fireEvent, render, screen } from "@testing-library/react";
 
 const { create } = vi.hoisted(() => ({ create: vi.fn() }));
 vi.mock("@/lib/api/escalations", () => ({ escalationsApi: { create } }));
+// Added when the session panel gave this profile its first navigation. Without
+// it every test here dies on "invariant expected app router to be mounted".
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+}));
+// The sessions list loads with the profile; these tests are about the share
+// sheet, so it stays empty rather than adding rows they would have to ignore.
+vi.mock("@/hooks/useStudentSessions", () => ({
+  useStudentSessions: () => ({ sessions: [], total: 0, loading: false, failed: false }),
+  useStudentSession: () => ({ detail: null, loading: false, failed: false }),
+}));
 
 import { LiveStudentProfile } from "./LiveStudentProfile";
 import type { StudentProfileState } from "@/hooks/useStudentProfile";
@@ -60,7 +71,7 @@ beforeEach(() => {
 
 describe("the quiet note", () => {
   it("is absent before a teacher has shared anything", () => {
-    render(<LiveStudentProfile state={STATE} />);
+    render(<LiveStudentProfile studentId="s-1" state={STATE} />);
 
     // The action is offered; the claim is not made.
     expect(
@@ -70,7 +81,7 @@ describe("the quiet note", () => {
   });
 
   it("appears once the escalation is stored, with the toast", async () => {
-    render(<LiveStudentProfile state={STATE} />);
+    render(<LiveStudentProfile studentId="s-1" state={STATE} />);
     openSheet();
     note("She has gone very quiet in group work.");
     send();
@@ -83,7 +94,7 @@ describe("the quiet note", () => {
 
   it("is NOT shown when the send failed", async () => {
     create.mockRejectedValueOnce(new Error("500"));
-    render(<LiveStudentProfile state={STATE} />);
+    render(<LiveStudentProfile studentId="s-1" state={STATE} />);
     openSheet();
     note("Please take a look.");
     send();
@@ -96,7 +107,7 @@ describe("the quiet note", () => {
   });
 
   it("carries no dash, per the 15 Sep copy ruling", async () => {
-    render(<LiveStudentProfile state={STATE} />);
+    render(<LiveStudentProfile studentId="s-1" state={STATE} />);
     openSheet();
     note("A note.");
     send();
@@ -108,7 +119,7 @@ describe("the quiet note", () => {
 
 describe("the sheet, from this screen", () => {
   it("sends about THIS student, not a fixture", () => {
-    render(<LiveStudentProfile state={STATE} />);
+    render(<LiveStudentProfile studentId="s-1" state={STATE} />);
     openSheet();
     note("Something is worrying me.");
     send();
@@ -120,7 +131,7 @@ describe("the sheet, from this screen", () => {
   });
 
   it("closes without sending when cancelled", () => {
-    render(<LiveStudentProfile state={STATE} />);
+    render(<LiveStudentProfile studentId="s-1" state={STATE} />);
     openSheet();
     note("Half a thought.");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));

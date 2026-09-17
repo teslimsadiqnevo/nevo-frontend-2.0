@@ -289,6 +289,59 @@ export interface ParentLink {
   accountCreated: boolean;
 }
 
+
+/**
+ * ONE ROW IN A CHILD'S SESSION HISTORY (17 Sep).
+ *
+ * The detail read has existed since 15 Sep and was unreachable for two days,
+ * because nothing handed a teacher a `sessionId`: the recent-lesson rows carry
+ * a lessonId, `latestSessionAt` is a timestamp, and the activity-feed id has no
+ * stated relation to a session. This list is the addressing that was missing.
+ *
+ * It carries enough to render the row WITHOUT opening it, deliberately. Note
+ * `sitting`: backend's point is that a child's second visit to the same lesson
+ * means something their first does not, so it is not a detail-only field.
+ */
+export interface StudentSessionSummary {
+  sessionId: string;
+  lessonId: string;
+  lessonTitle: string;
+  occurredAt: string;
+  endedAt: string | null;
+  completionStatus: string;
+  exitPosition: string | null;
+  /** Which visit to this lesson this was. 1 is the first. */
+  sitting: number;
+  signalCount: number;
+}
+
+export interface StudentSessionList {
+  studentId: string;
+  sessions: StudentSessionSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** One section of a session, as the engine described it. */
+export interface StudentSessionSection {
+  title: string;
+  note: string;
+  /** The engine's own flag. Never derived here from a duration. */
+  tookTime: boolean;
+}
+
+export interface StudentSessionDetail {
+  sessionId: string;
+  lessonId: string;
+  lessonTitle: string;
+  occurredAt: string;
+  sittings: number;
+  narrative: string;
+  sections: StudentSessionSection[];
+}
+
+
 export const studentsApi = {
   /**
    * The school roster. Deactivated students are excluded by default and
@@ -394,6 +447,21 @@ export const studentsApi = {
     }),
 
   /** Lessons this student has worked through, newest activity first. */
+  /** A child's sessions, newest first. The addressing the detail read needed. */
+  sessions: (studentId: string, options?: { limit?: number; offset?: number }) =>
+    api.get<StudentSessionList>(`/api/v1/students/${studentId}/sessions`, {
+      params: {
+        ...(options?.limit ? { limit: options.limit } : {}),
+        ...(options?.offset ? { offset: options.offset } : {}),
+      },
+    }),
+
+  /** One session, section by section, in the engine's words. */
+  session: (studentId: string, sessionId: string) =>
+    api.get<StudentSessionDetail>(
+      `/api/v1/students/${studentId}/sessions/${sessionId}`,
+    ),
+
   progress: (studentId: string) =>
     api.get<StudentProgress>(`/api/students/${studentId}/progress`),
 
