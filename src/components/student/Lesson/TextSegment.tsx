@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DENSITY, type Density } from "@/lib/constants";
+import { chunkBody } from "@/lib/lessons/chunk";
 import type { TextContent } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,20 @@ const PAUSE_REVEAL_MS = 4_000;
  *   line-height 2, +0.02em letter-spacing, 95% opacity).
  * - `attention`: multi-sentence bodies become short tap-to-continue parts with
  *   a calm breathing pause between them - no timer pressure anywhere.
+ *
+ * SLOWER REACHES THAT SAME FLOW WHEN NOTHING IS AUTHORED (17 Sep). Design:
+ * "Slower is about how much arrives at once, which is segmentation and pacing
+ * rather than wording." A parsed lesson has one body and no `slowerSteps`, so
+ * the control used to be absent on every live lesson - the child had no way to
+ * ask for less at a time. Chunking regroups sentences the lesson already has,
+ * so it needs no authored content and invents none.
+ *
+ * TWO THINGS THIS IS NOT. It is not the `attention` accommodation: that is
+ * engine-owned, applied before the first screen, and never written from here.
+ * And it is not the engine's `modulate_density` instruction. This is the child
+ * asking, which is the whole point of the control - the one place a learner
+ * has any agency in a system that deliberately tells them nothing about what
+ * it is doing, and asking is not a disclosure about themselves.
  */
 export function TextSegment({
   content,
@@ -46,6 +61,12 @@ export function TextSegment({
   const callout = content.callouts?.[density ?? "default"];
   const steps = density === DENSITY.SLOWER ? content.slowerSteps : undefined;
   const keyTerms = density === DENSITY.EXPAND ? content.keyTerms : undefined;
+  /*
+   * The authored numbered cards are the richer Slower and win where they
+   * exist; chunking is the form that needs no content. Never both, or the
+   * child reads the same idea twice and the second time in pieces.
+   */
+  const chunkedForSlower = density === DENSITY.SLOWER && !steps;
 
   const bodyType = cn(
     reading
@@ -53,8 +74,8 @@ export function TextSegment({
       : "text-base leading-[1.75] text-nevo-near-black/82 sm:text-[18px] lg:text-[19px]",
   );
 
-  const bodyBlock = attention ? (
-    <AttentionChunkedBody
+  const bodyBlock = attention || chunkedForSlower ? (
+    <ChunkedBody
       key={body}
       body={body}
       className={bodyType}
@@ -131,25 +152,17 @@ export function TextSegment({
   );
 }
 
-/** Split into sentences, grouped into at most three short parts. */
-function chunk(body: string): string[] {
-  const sentences = body.split(/(?<=[.!?])\s+/).filter(Boolean);
-  if (sentences.length < 2) return [body];
-  const parts = Math.min(3, sentences.length);
-  const per = Math.ceil(sentences.length / parts);
-  const out: string[] = [];
-  for (let i = 0; i < sentences.length; i += per)
-    out.push(sentences.slice(i, i + per).join(" "));
-  return out;
-}
-
 /**
- * The attention accommodation's chunked reading flow (37c): one short part at
- * a time behind a "Tap to continue", with the calm 4-second breathing pause
- * between parts. The continue control simply surfaces when the pause is over -
- * never a countdown, never pressure.
+ * The chunked reading flow: one short part at a time behind a "Tap to
+ * continue", with the calm 4-second breathing pause between parts. The
+ * continue control simply surfaces when the pause is over - never a countdown,
+ * never pressure.
+ *
+ * TWO CALLERS, so it is not named for either: the `attention` accommodation
+ * (37c), which the engine owns, and the child picking Slower, which the child
+ * owns. The flow on screen is the same; what differs is who asked.
  */
-function AttentionChunkedBody({
+function ChunkedBody({
   body,
   className,
   reading,
@@ -160,7 +173,7 @@ function AttentionChunkedBody({
   reading: boolean;
   onReadProgress?: (pct: number) => void;
 }) {
-  const parts = chunk(body);
+  const parts = chunkBody(body);
   const [part, setPart] = useState(0);
   const [pausing, setPausing] = useState(false);
   const [pauseReady, setPauseReady] = useState(false);

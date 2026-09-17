@@ -43,6 +43,7 @@ import {
 } from "./AffectiveLayer";
 import { AfterLessonAssessment } from "./AfterLessonAssessment";
 import { ADJUSTMENT_ACTIONS } from "@/lib/constants/affect";
+import { isChunkable } from "@/lib/lessons/chunk";
 import { LESSON_STATUS } from "@/lib/api/lessons";
 import { schedulerApi } from "@/lib/api/scheduler";
 import { getSession } from "@/lib/auth/session";
@@ -771,13 +772,25 @@ export function LessonPlayer({
   // sparkle rides the unfollowed system chip (AdaptiveToggleBar).
   const systemDensity: Density = segPlan?.density ?? DENSITY.SIMPLIFY;
   const effectiveDensity: Density = density ?? systemDensity;
-  // Only the densities this segment can actually reshape into. Parsed backend
-  // content carries one body and no variants, so a live lesson offers none -
-  // and an offered density that re-renders identical prose is the player
-  // telling a child it adapted when it did not. Authored lessons carry all
-  // three and are unaffected.
-  const densitySegments: ToggleSegment[] = DENSITIES.filter(
-    ({ id }) => segment.text?.body[id] !== undefined,
+  /*
+   * Only the densities this segment can actually deliver.
+   *
+   * An offered density that re-renders identical prose is the player telling a
+   * child it adapted when it did not, so Simplify and Expand still require an
+   * authored reshape to switch to - parsed content has one body and neither.
+   *
+   * SLOWER IS DIFFERENT, as of 17 Sep, because it is not a rewording. Design:
+   * "Slower is about how much arrives at once, which is segmentation and
+   * pacing rather than wording." Chunking regroups sentences the lesson
+   * already has, so it is available on live content, and the gate is whether
+   * chunking would change anything - a one-sentence segment still offers
+   * nothing rather than a control that does nothing.
+   */
+  const densitySegments: ToggleSegment[] = DENSITIES.filter(({ id }) =>
+    id === DENSITY.SLOWER
+      ? segment.text?.body[id] !== undefined ||
+        isChunkable(segment.text?.body.default)
+      : segment.text?.body[id] !== undefined,
   ).map(({ id, label }) => ({
     id,
     label,
