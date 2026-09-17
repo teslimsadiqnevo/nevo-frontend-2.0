@@ -4,9 +4,30 @@ import type {
   LessonSegment as ContentSegment,
 } from "@/lib/api/lessons";
 import { toQuickCheck } from "@/lib/api/checkpoints";
-import { MODALITY, type Modality } from "@/lib/constants";
+/*
+ * ALIASED ON IMPORT, and this is not tidiness.
+ *
+ * `CalculationVariant` and `CalculationStep` exist in BOTH `api/variants.ts`
+ * and `types/lesson.ts` with different meanings. On the wire a variant is the
+ * whole payload object; in the player it is a string naming which calculation
+ * this is. Importing both unaliased compiles, and then every property access
+ * is checked against the wrong one - which is how `variant.answer` came back
+ * as "does not exist" on a type that plainly has it.
+ */
+import type {
+  CalculationVariant as WireCalculationVariant,
+  CalculationStep as WireCalculationStep,
+} from "@/lib/api/variants";
+import {
+  CALC_MODALITY,
+  MODALITY,
+  type CalcModality,
+  type Modality,
+} from "@/lib/constants";
 import type {
   Assessment,
+  CalculationSegment,
+  CalculationStep,
   CompletionSummary,
   Lesson,
   LessonModule,
@@ -79,7 +100,25 @@ const RENDERABLE: readonly Modality[] = [
  * narrowed to what we can draw. Never empty - a segment with no recognised
  * modality still reads as text, which is what `body` is.
  */
-function modalitiesFor(segment: ContentSegment): Modality[] {
+function modalitiesFor(
+  segment: ContentSegment,
+  calculation: CalculationSegment | undefined,
+): Modality[] {
+  /*
+   * A CALCULATION IS AN INTERACTIVE CHANNEL, and offering it is what makes the
+   * solver reachable at all. The player routes the Interactive modality to the
+   * solver when the segment carries a calculation, so a segment that never
+   * offers Interactive can never open one however good its payload is.
+   *
+   * Gated on the BUILT calculation rather than on `availableModalities`,
+   * because the same rule applies here as to visual and audio: a segment can
+   * claim a modality it has no payload for, and claiming is not having. If
+   * `calculationFor` refused the variant, there is nothing to open and the
+   * channel is not offered.
+   */
+  if (calculation) {
+    return [MODALITY.TEXT, MODALITY.INTERACTIVE];
+  }
   const offered = segment.availableModalities.filter(
     (m): m is Modality =>
       (RENDERABLE as readonly string[]).includes(m) &&
@@ -202,6 +241,150 @@ function quickCheckFor(segment: ContentSegment): QuickCheck | undefined {
   return undefined;
 }
 
+/**
+ * The co-construction solver's content, when the segment carries a calculation
+ * this app can honestly mark.
+ *
+ * NOTHING MAPPED THIS UNTIL NOW. `calculationVariant` has been on the wire and
+ * typed in this client for weeks, and no code anywhere read it into a
+ * `CalculationSegment` - so `LessonPlayer`'s `segment.calculationVariant &&
+ * segment.calculation` was false for every lesson that has ever existed, and
+ * the product's most distinctive screen rendered as plain text. The JSS3 maths
+ * lesson's two calculation segments are the first content that can reach it.
+ *
+ * REFUSES WHOLE, NEVER IN PART. If any one step cannot be built, the whole
+ * variant is dropped and the segment stays text. Half a solve is worse than
+ * none: a child who works two steps and meets a dead third has been walked
+ * into a locked door, and the text they would otherwise have read is still
+ * the whole lesson.
+ */
+function calculationFor(
+  segment: ContentSegment,
+): CalculationSegment | undefined {
+  const variant = segment.calculationVariant;
+  if (!variant || variant.steps.length === 0) return undefined;
+
+  const steps: CalculationStep[] = [];
+  for (const step of variant.steps) {
+    const built = calcStepFor(step);
+    if (!built) return undefined;
+    steps.push(built);
+  }
+
+  /*
+   * The equation as it reads at each moment, opening state first.
+   *
+   * `fullEquation` is where the child starts and each step's `equationState`
+   * is where that step leaves it, so the states run one longer than the steps.
+   * Dropped entirely if the backend wrote none, because a blank line under the
+   * prompt says less than no line at all.
+   */
+  const states = [variant.fullEquation, ...variant.steps.map((s) => s.equationState)]
+    .map((s) => s?.trim())
+    .filter((s): s is string => Boolean(s));
+
+  return {
+    variant: variant.type?.trim() || "generated",
+    problem: {
+      expression: variant.fullEquation,
+      // The variant's own answer, and ONLY as the whole calculation's answer.
+      // It is not a step's answer - for `5x - 4 = 2x + 11` it is "5" while the
+      // steps answer "3x - 4", "3x" and 5 - so it never reaches a step here.
+      ...(variant.answer != null && String(variant.answer).trim()
+        ? { answer: String(variant.answer).trim() }
+        : {}),
+    },
+    // No scaffold. `{kind, parts, rows}` is the authored fraction variant's
+    // shape and the deployed contract has nothing like it; `scaffoldImage` is
+    // a generated picture and a different question. The solver draws no bars
+    // rather than bars made from numbers that mean something else.
+    ...(states.length > 1 ? { equationStates: states } : {}),
+    steps,
+    completion: variant.completionStatement,
+    modalities: calcModalitiesFor(variant),
+  };
+}
+
+/**
+ * One step, or nothing.
+ *
+ * `answer` is PER STEP and landed 16 Sep. Mapping the variant's answer onto
+ * every step renders "5" for all three steps of `5x - 4 = 2x + 11`, where only
+ * the last is right - and a number stays a number while a string stays a
+ * string, so `3/4` does not stop being a fraction on the way through.
+ *
+ * `answer`, `options` and `unit` are all OPTIONAL in the deployed schema, and
+ * a lesson parsed before the 0057 migration carries none of them. A step with
+ * no answer cannot be marked, so it is refused rather than drawn.
+ */
+function calcStepFor(step: WireCalculationStep): CalculationStep | undefined {
+  const answer = step.answer;
+  const hasAnswer = answer != null && String(answer).trim() !== "";
+
+  if (step.expectedInput === "selection") {
+    const options = step.options ?? [];
+    // Backend now rejects a selection step with fewer than two options, but
+    // older content is already parsed and this app must not draw a prompt with
+    // one choice or none.
+    if (options.length < 2 || !hasAnswer) return undefined;
+    const correct = options.findIndex(
+      (o) => String(o.value).trim() === String(answer).trim(),
+    );
+    // A key matching none of its own options is the same defect `toQuickCheck`
+    // refuses on a comprehension checkpoint, for the same reason.
+    if (correct < 0) return undefined;
+    return {
+      prompt: step.prompt,
+      choices: options.map((o) => o.label),
+      correct,
+      hint: step.hint,
+      ...(step.confirmationText?.trim()
+        ? { onCorrect: { confirm: step.confirmationText.trim() } }
+        : {}),
+    };
+  }
+
+  if (step.expectedInput === "numeric" || step.expectedInput === "text") {
+    if (!hasAnswer) return undefined;
+    return {
+      prompt: step.prompt,
+      input: step.expectedInput,
+      answer: String(answer).trim(),
+      hint: step.hint,
+      ...(step.unit?.trim() ? { unit: step.unit.trim() } : {}),
+    };
+  }
+
+  /*
+   * `drag` has no player equivalent yet and is deliberately not faked.
+   *
+   * It is a manipulative - the child builds the answer by placing pieces - and
+   * the solver's tray is built for the fraction scaffold's parts, which
+   * generated content does not have. Rendering it as a multiple choice would
+   * turn "show me how you got there" into "pick one", which is a different
+   * task and a different signal. Refusing drops the whole variant to text,
+   * which is honest. Needs the tray generalised, then a design ruling on what
+   * it is built from.
+   */
+  return undefined;
+}
+
+/**
+ * Which layers this calculation actually has.
+ *
+ * Interactive always - it IS the co-construction. Audio only where a step
+ * carries narration, which no generated content does yet. Kinesthetic is
+ * absent by construction while `drag` is refused above; the two land together
+ * or not at all.
+ */
+function calcModalitiesFor(variant: WireCalculationVariant): CalcModality[] {
+  const modalities: CalcModality[] = [CALC_MODALITY.INTERACTIVE];
+  if (variant.steps.some((s) => s.narrationAudio)) {
+    modalities.push(CALC_MODALITY.AUDIO);
+  }
+  return modalities;
+}
+
 function segmentFor(
   segment: ContentSegment,
   lessonTitle: string,
@@ -209,9 +392,10 @@ function segmentFor(
   const quickCheck = quickCheckFor(segment);
   const visual = visualFor(segment, lessonTitle);
   const audio = audioFor(segment, lessonTitle);
+  const calculation = calculationFor(segment);
   return {
     id: segment.id,
-    modalities: modalitiesFor(segment),
+    modalities: modalitiesFor(segment, calculation),
     text: textFor(segment, lessonTitle),
     // Omitted rather than null: the player's `hasContent` tests presence.
     ...(visual ? { visual } : {}),
@@ -219,6 +403,11 @@ function segmentFor(
     // Omitted rather than set undefined: the player tests `segment.quickCheck`
     // for presence, and an absent check must not gate progress.
     ...(quickCheck ? { quickCheck } : {}),
+    // Both, because the player gates the solver on BOTH: the tag says a
+    // calculation is here, the payload is what it draws.
+    ...(calculation
+      ? { calculationVariant: calculation.variant, calculation }
+      : {}),
   };
 }
 

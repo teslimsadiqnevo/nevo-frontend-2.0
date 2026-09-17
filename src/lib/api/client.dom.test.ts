@@ -78,6 +78,46 @@ describe("sessionExpiredDoor", () => {
     expect(sessionExpiredDoor(undefined)).toBe("/auth/session-expired");
     expect(sessionExpiredDoor("admin")).toBe("/auth/session-expired");
   });
+
+  /**
+   * THE REASON HAS TO TRAVEL ON THE URL.
+   *
+   * The door is a full page load and the session it came from is cleared one
+   * line earlier, so by the time the screen renders there is nowhere else left
+   * to read the code from. Backend documents five on every secured 401 and,
+   * until this shipped, not one survived the hop - every console landed on a
+   * screen saying the session timed out, which is true of one of them.
+   */
+  it("carries the backend's reason to the door", () => {
+    expect(sessionExpiredDoor("teacher", "session_replaced")).toBe(
+      "/auth/teacher/session-expired?reason=session_replaced",
+    );
+    expect(sessionExpiredDoor("senco_admin", "account_paused")).toBe(
+      "/auth/admin/session-expired?reason=account_paused",
+    );
+  });
+
+  it("leaves the URL untouched when the 401 carried no code", () => {
+    // The common case, and it must not grow a dangling "?reason=".
+    expect(sessionExpiredDoor("teacher", null)).toBe(
+      "/auth/teacher/session-expired",
+    );
+    expect(sessionExpiredDoor("teacher", undefined)).toBe(
+      "/auth/teacher/session-expired",
+    );
+    expect(sessionExpiredDoor("teacher", "")).toBe(
+      "/auth/teacher/session-expired",
+    );
+  });
+
+  it("encodes whatever the server sent rather than trusting it", () => {
+    // The value is server-controlled and lands in a URL. The screen resolves
+    // anything unrecognised to the ordinary state, so the worst a junk code can
+    // do is under-claim - but it should not be able to break the query string.
+    expect(sessionExpiredDoor("teacher", "a code&x=1")).toBe(
+      "/auth/teacher/session-expired?reason=a%20code%26x%3D1",
+    );
+  });
 });
 
 describe("the auth latch", () => {

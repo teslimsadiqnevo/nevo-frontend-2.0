@@ -93,11 +93,54 @@ export interface CalculationStep {
   expectedInput: CalculationStepInput;
   hint: string;
   confirmationText: string;
+  /**
+   * WHAT THIS STEP'S ANSWER IS - landed 16 Sep, and it is per STEP.
+   *
+   * The variant carries an answer too, and mapping that one onto every step is
+   * provably wrong: for `5x - 4 = 2x + 11` the variant answers "5" while the
+   * steps answer "3x - 4", "3x" and 5. Only the last happens to match.
+   *
+   * A NUMBER STAYS A NUMBER and a string stays a string, which is the reason
+   * for the union rather than `string`. Coercing would either have a caller
+   * parse `5` back out of `"5"`, or turn `"3/4"` into something that is no
+   * longer a fraction.
+   *
+   * Optional in the deployed schema, so a step can arrive with no answer -
+   * lessons parsed before the 0057 migration carry none. A step nobody can
+   * mark is not a step, and `fromContent` refuses the whole variant rather
+   * than drawing a locked door.
+   */
+  answer?: string | number | boolean | null;
+  /**
+   * The choices for a `selection` or `drag` step, empty for the other two.
+   *
+   * Same `{value,label}` type the comprehension checkpoints use, so
+   * `toQuickCheck`'s handling is the precedent. Backend now rejects a
+   * selection or drag step carrying fewer than two, rather than shipping an
+   * unanswerable prompt.
+   */
+  options?: CheckpointOption[];
+  /** "naira", "years", "%" - present where it makes the step answerable. */
+  unit?: string | null;
+  /** Per-step narration. The asset side of this does not exist yet. */
+  narrationAudio?: AudioVariant | null;
+  /** How the equation should read once this step is done. */
+  visualUpdate: string;
+  equationState: string;
 }
 
 export interface CalculationVariant {
   type: string;
   fullEquation: string;
+  /**
+   * The WHOLE calculation's answer, not any step's.
+   *
+   * Undeclared here until 16 Sep, so it was erased before a caller could read
+   * it. Worth naming precisely because the obvious use is the wrong one: for
+   * `5x - 4 = 2x + 11` this is "5" while the steps answer "3x - 4", "3x" and
+   * 5, so spreading it across the steps is right once and wrong twice.
+   */
+  answer?: string | number | boolean | null;
   steps: CalculationStep[];
   scaffoldImage: ScaffoldImage | null;
   completionStatement: string;

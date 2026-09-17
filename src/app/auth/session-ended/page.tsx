@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import { SessionEndScreen } from "@/components/student/Auth/SessionEndScreen";
 
 export const metadata: Metadata = {
-  title: "Signed in elsewhere - Nevo",
+  title: "Session ended - Nevo",
 };
 
-// Board 28: concurrent-session landing. The auth layer routes here later (TODO(api)).
+// The signed-in-elsewhere state at its own URL. `sessionExpiredDoor` routes a
+// 401 to `/auth/session-expired?reason=session_replaced` rather than here, so
+// this route exists for the designed flow and for anything that links it
+// directly; both render the same screen.
 export default function SessionEndedPage() {
-  return <SessionEndScreen variant="concurrent" />;
+  return <SessionEndScreen variant="replaced" />;
 }
