@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { PARSE_STAGES, ParseProgress, rungFor } from "./ParseProgress";
 
 /**
@@ -72,5 +72,61 @@ describe("the ladder", () => {
     // Defensive: the wizard gates on `rungFor(...) >= 0`, but a stage arriving
     // out of range must not take the screen down mid-upload.
     expect(() => render(<ParseProgress stage={9} />)).not.toThrow();
+  });
+});
+
+/**
+ * "Open and steer", and the route it used to point at.
+ *
+ * It was a `<Link>` to `/teacher/lessons/upload/structure`, a standalone route
+ * this repo invented - C07e draws the control as a BUTTON. That route served a
+ * hardcoded P5 Science fixture to signed-in teachers and, clicked mid-parse,
+ * discarded the in-flight poll: `useStagedUpload` state lives in the wizard and
+ * that page mounted a component with no API client at all.
+ *
+ * The route is deleted. The control is now a callback, so the wizard hands it
+ * its own structure tree, and a rung with nowhere to go offers nothing.
+ */
+describe("open and steer", () => {
+  it("offers nothing when the caller has nowhere to send them", () => {
+    // The old Link rendered unconditionally, which is how a control came to
+    // point at a fixture.
+    render(<ParseProgress stage={2} />);
+
+    expect(
+      screen.queryByRole("button", { name: /open and steer/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /open and steer/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("is a button, not a link, and calls back", () => {
+    const onSteer = vi.fn();
+    render(<ParseProgress stage={2} onSteer={onSteer} />);
+
+    // EVERY done rung carries one - the component's own docblock: "as soon as
+    // a level is identified the teacher can open it and start steering while
+    // later levels run". At stage 2 more than one rung is done, which is why
+    // this reads all of them rather than one.
+    const controls = screen.getAllByRole("button", { name: /open and steer/i });
+    expect(controls.length).toBeGreaterThan(1);
+
+    fireEvent.click(controls[0]);
+    expect(onSteer).toHaveBeenCalledTimes(1);
+
+    for (const c of controls) {
+      expect(c).not.toHaveAttribute("href");
+    }
+  });
+
+  it("offers it only on a rung that is done", () => {
+    const onSteer = vi.fn();
+    render(<ParseProgress stage={0} onSteer={onSteer} />);
+
+    // Rung 0 is active, not done - there is no identified level to steer yet.
+    expect(
+      screen.queryAllByRole("button", { name: /open and steer/i }),
+    ).toHaveLength(0);
   });
 });

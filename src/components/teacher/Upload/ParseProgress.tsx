@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { UploadStage } from "@/lib/api/uploads";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +46,27 @@ export function rungFor(stage: UploadStage | null | undefined): number {
   return PARSE_STAGES.findIndex((s) => s.stage === stage);
 }
 
-export function ParseProgress({ stage }: { stage: number }) {
+export function ParseProgress({
+  stage,
+  onSteer,
+}: {
+  stage: number;
+  /**
+   * What "Open and steer" does. A CALLBACK, not a URL.
+   *
+   * This was a `<Link href="/teacher/lessons/upload/structure">` into a
+   * standalone route that was this repo's invention - C07e draws the control as
+   * a button. The route it pointed at served a hardcoded P5 Science fixture to
+   * signed-in teachers, and clicking it mid-parse also discarded the in-flight
+   * poll, because `useStagedUpload` state lives in the wizard and that page
+   * mounted a component with no API client at all.
+   *
+   * So the honest re-point is the wizard's own structure tree, one branch away,
+   * which is already driven by the real parse. Omitted means no control: a rung
+   * with nowhere to go should not offer to take you there.
+   */
+  onSteer?: () => void;
+}) {
   return (
     <div className="flex min-h-full flex-col items-center justify-center">
       <div className="flex w-full max-w-[460px] flex-col items-center">
@@ -105,13 +124,14 @@ export function ParseProgress({ stage }: { stage: number }) {
                     Working&hellip;
                   </span>
                 )}
-                {done && (
-                  <Link
-                    href="/teacher/lessons/upload/structure"
+                {done && onSteer && (
+                  <button
+                    type="button"
+                    onClick={onSteer}
                     className="inline-flex cursor-pointer items-center rounded-lg border-[1.5px] border-nevo-navy/30 px-[11px] py-[5px] text-[11.5px] font-semibold whitespace-nowrap text-nevo-navy transition-colors hover:bg-nevo-navy/6"
                   >
                     Open and steer
-                  </Link>
+                  </button>
                 )}
               </div>
             );
