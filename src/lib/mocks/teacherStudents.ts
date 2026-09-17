@@ -1,3 +1,4 @@
+import { OBSERVATION_COPY } from "@/lib/constants/observations";
 import { TEACHER_CLASSES, type TeacherClass } from "./teacherClasses";
 
 /**
@@ -144,10 +145,10 @@ const AMARA: Omit<StudentProfileData, "classId" | "className"> = {
   chip: "Worth a glance",
   recommend: {
     suggestDesktop:
-      "Since Amara's been slower on written work lately, the listen-first version of \"Simplifying Expressions\" would play to how she's been learning best this week.",
+      "Since Amara's been slower on written work lately, the listen-first version of \"Simplifying Expressions\" would play to how this week has gone.",
     suggestStrong: 'listen-first version of "Simplifying Expressions"',
     suggestTablet:
-      "Since Amara's been slower on written work, the listen-first version of \"Simplifying Expressions\" fits how she's learning best this week.",
+      "Since Amara's been slower on written work, the listen-first version of \"Simplifying Expressions\" fits how this week has gone.",
     options: [
       {
         id: "simplifying-expressions-listen-first",
@@ -171,13 +172,12 @@ const AMARA: Omit<StudentProfileData, "classId" | "className"> = {
   },
   noticing: {
     desktop:
-      "Amara's been taking longer on the written segments - three sessions running. She's getting there, just slower. She settles faster when she can hear it first.",
+      "Amara's been taking longer on the written segments - three sessions running. Getting there, just slower. Settles faster after hearing it first.",
     tablet:
-      "longer on written segments, three sessions running. Settles faster when she can hear it first.",
+      "longer on written segments, three sessions running. Settles faster after hearing it first.",
   },
   dimensions: [
     { statement: "Prefers to hear an explanation before reading it herself", level: 3 },
-    { statement: "Does her best thinking when she's given a little more time", level: 3 },
     { statement: "Stays with a task longer when there's a clear finish line", level: 2 },
     { statement: "Comes back sharper after a short movement break", level: 2 },
   ],
@@ -196,7 +196,7 @@ const AMARA: Omit<StudentProfileData, "classId" | "className"> = {
       concept: "Algebraic fractions",
       badge: "Developing",
       when: "2 days ago",
-      desc: "Her method is sound; she's just slower through the written steps. It reads like reading load, not the maths.",
+      desc: OBSERVATION_COPY.steadier_pace.body("Amara"),
     },
     { concept: "Simplifying expressions", badge: "Demonstrated", when: "3 days ago" },
   ],
@@ -212,9 +212,9 @@ const AMARA: Omit<StudentProfileData, "classId" | "className"> = {
       sitting: "finished in two sittings",
       summary: {
         desktop:
-          "Amara took her time on the written practice and stepped away once, then came back the next morning and finished comfortably. Switching to the listen-first explanation seemed to help her settle.",
+          "Amara spent longer on the written practice and stepped away once, then came back the next morning and finished. The listen-first explanation seemed to help.",
         tablet:
-          "Took her time on the written practice, stepped away once, came back the next morning and finished. Listen-first seemed to help her settle.",
+          "Spent longer on the written practice, stepped away once, came back the next morning and finished. Listen-first seemed to help.",
       },
       steps: [
         { title: "What an equation is", note: "Straight through - this was familiar ground.", took: false },
@@ -222,7 +222,7 @@ const AMARA: Omit<StudentProfileData, "classId" | "className"> = {
         { title: "Solving for x", note: "Comfortable here.", took: false },
         {
           title: "Equations with x on both sides",
-          note: "Took her time - this is where she paused and came back the next day.",
+          note: "Spent longer here. This is where Amara paused and came back the next day.",
           took: true,
         },
         { title: "Word problems", note: "Switched to listen-first and it went more smoothly.", took: false },
@@ -237,7 +237,7 @@ const AMARA: Omit<StudentProfileData, "classId" | "className"> = {
       date: "8 Jul",
       dateLong: "8 July",
       lesson: "Simplifying Expressions",
-      note: "Straight through, no breaks needed. This one sat well with her.",
+      note: "Straight through, no breaks needed.",
     },
     {
       id: "5-jul",
