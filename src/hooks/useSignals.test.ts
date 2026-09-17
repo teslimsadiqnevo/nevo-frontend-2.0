@@ -58,6 +58,7 @@ const signIn = () =>
 beforeEach(() => {
   submitBatch.mockClear();
   clearSession();
+  vi.restoreAllMocks();
 });
 
 describe("useSignals", () => {
@@ -139,5 +140,80 @@ describe("useSignals", () => {
       result.current.flush();
     });
     expect(submitBatch).not.toHaveBeenCalled();
+  });
+});
+
+/*
+ * THE CLOCK. Frontend §2 and rule 4.
+ *
+ * Every event used to be stamped `new Date().toISOString()`, read fresh from
+ * the device wall clock. A clock correction landing mid-lesson - an NTP sync on
+ * an unsynced Android, a child changing the date - shifted every subsequent
+ * timestamp, corrupting every latency that spanned it and able to reorder the
+ * stream outright. Latency is the primary signal for three of the four
+ * affective states, and §2 is blunt that precision the client did not send
+ * cannot be recovered.
+ *
+ * The events are now dated from a per-session anchor: one wall reading and one
+ * `performance.now()` reading taken together, then `wall + (now - perf)`. The
+ * wire is unchanged - still `format: date-time` - and every within-session
+ * delta is now the difference of two monotonic readings.
+ */
+describe("the clock the engine measures latency from", () => {
+  it("keeps deltas true when the device clock jumps mid-session", async () => {
+    let perf = 1_000;
+    let wall = Date.parse("2026-09-17T09:00:00.000Z");
+    vi.spyOn(performance, "now").mockImplementation(() => perf);
+    vi.spyOn(Date, "now").mockImplementation(() => wall);
+
+    const { result } = renderHook(() => useSignals(UUID, LESSON));
+    signIn();
+
+    act(() => result.current.trackEvent("time_on_segment", { step: 1 }));
+    // 250ms of real time passes...
+    perf += 250;
+    // ...and the device clock is corrected backwards by an hour in the middle
+    // of it. Under the old code this event was stamped an hour BEFORE the one
+    // that preceded it.
+    wall -= 60 * 60 * 1000;
+    act(() => result.current.trackEvent("time_on_segment", { step: 2 }));
+
+    await act(async () => {
+      await result.current.flush();
+    });
+
+    const events = submitBatch.mock.calls[0]![1];
+    const timed = events.filter((e) => e.type !== "session_context");
+    const delta =
+      Date.parse(timed[1]!.timestamp) - Date.parse(timed[0]!.timestamp);
+
+    // The only number that matters: 250ms of monotonic time, measured as 250ms.
+    expect(delta).toBe(250);
+    // And the stream is still in order, which the wall clock could not promise.
+    expect(delta).toBeGreaterThan(0);
+  });
+
+  it("dates the envelope from the same anchor as its events", async () => {
+    let perf = 500;
+    const wall = Date.parse("2026-09-17T10:00:00.000Z");
+    vi.spyOn(performance, "now").mockImplementation(() => perf);
+    vi.spyOn(Date, "now").mockImplementation(() => wall);
+
+    const { result } = renderHook(() => useSignals(UUID, LESSON));
+    signIn();
+
+    act(() => result.current.trackEvent("time_on_segment", { step: 1 }));
+    perf += 40;
+    await act(async () => {
+      await result.current.flush();
+    });
+
+    const [envelope, events] = submitBatch.mock.calls[0]!;
+    // An envelope dated later than the events it carries is the defect the
+    // session-reset comment already warns about; deriving both from one anchor
+    // makes it unrepresentable.
+    expect(Date.parse(envelope.startedAt)).toBeLessThanOrEqual(
+      Date.parse(events[0]!.timestamp),
+    );
   });
 });

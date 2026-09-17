@@ -54,14 +54,40 @@ import { cn } from "@/lib/utils";
 type Step = 1 | 2 | 3 | 4;
 
 const LESSONS: { id: string; title: string; meta: string }[] = [
-  { id: "simplifying-algebraic-fractions", title: "Simplifying Algebraic Fractions", meta: "Mathematics · This term" },
-  { id: "solving-linear-equations", title: "Solving Linear Equations", meta: "Mathematics · This term" },
-  { id: "angles-triangles", title: "Angles & Triangles", meta: "Mathematics · This term" },
-  { id: "things-fall-apart", title: "Comprehension: Things Fall Apart", meta: "English · This term" },
+  {
+    id: "simplifying-algebraic-fractions",
+    title: "Simplifying Algebraic Fractions",
+    meta: "Mathematics · This term",
+  },
+  {
+    id: "solving-linear-equations",
+    title: "Solving Linear Equations",
+    meta: "Mathematics · This term",
+  },
+  {
+    id: "angles-triangles",
+    title: "Angles & Triangles",
+    meta: "Mathematics · This term",
+  },
+  {
+    id: "things-fall-apart",
+    title: "Comprehension: Things Fall Apart",
+    meta: "English · This term",
+  },
 ];
 
 const check = (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
     <path d="M20 6L9 17l-5-5" />
   </svg>
 );
@@ -92,7 +118,9 @@ function CheckCard({
       <span
         className={cn(
           "flex size-6 shrink-0 items-center justify-center rounded-[7px]",
-          on ? "bg-nevo-navy text-nevo-cream" : "border-2 border-nevo-near-black/24",
+          on
+            ? "bg-nevo-navy text-nevo-cream"
+            : "border-2 border-nevo-near-black/24",
         )}
       >
         {on && check}
@@ -134,10 +162,18 @@ function Toggle({
     );
   return (
     <div className="mt-[22px] flex rounded-[11px] bg-nevo-navy/8 p-1">
-      <button type="button" onClick={() => onChange("left")} className={seg(value === "left")}>
+      <button
+        type="button"
+        onClick={() => onChange("left")}
+        className={seg(value === "left")}
+      >
         {left}
       </button>
-      <button type="button" onClick={() => onChange("right")} className={seg(value === "right")}>
+      <button
+        type="button"
+        onClick={() => onChange("right")}
+        className={seg(value === "right")}
+      >
         {right}
       </button>
     </div>
@@ -160,7 +196,28 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
   const [who, setWho] = useState<"left" | "right">("left"); // left = whole class
   const [classes, setClasses] = useState<Set<string>>(new Set());
   // Recipients are the teacher's real assignments when a session has them.
-  const { options: myClasses, sample: classesSample } = useTeacherClasses();
+  /*
+   * `loading` WAS DROPPED HERE, and that was the hole.
+   *
+   * `useTeacherClasses` serves the six fixture classes whenever `data` is
+   * null - which includes the ENTIRE in-flight window, not just a failure. The
+   * sample notice below and the confirm guard both key on `sample`, which is
+   * only true once the read has actually FAILED. So for as long as the class
+   * list took to arrive, a signed-in teacher saw invented classes with nothing
+   * saying so, and a class picked in that window was a FIXTURE ID on its way
+   * to `POST /api/v1/assignments`.
+   *
+   * This is the same `live`-versus-`loading` confusion that put another
+   * school's name under "My Classes", and `useTeacherClasses.loading` exists to
+   * separate "not back yet" from "never coming". Signed out, `useLiveQuery`
+   * reports `loading: false` immediately, so the designed walkthrough is
+   * untouched by this.
+   */
+  const {
+    options: myClasses,
+    sample: classesSample,
+    loading: classesLoading,
+  } = useTeacherClasses();
   /*
    * The same fan-out the compose picker uses: the class list joined to each
    * class's roster. A class whose roster fails contributes nothing rather than
@@ -259,6 +316,14 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
       close();
       return;
     }
+    if (classesLoading) {
+      // Unreachable while the picker holds skeletons, kept because the cost of
+      // being wrong here is a fixture id in a real school's assignments.
+      setError(
+        "Your classes are still loading. Give it a moment and try again.",
+      );
+      return;
+    }
     if (classesSample) {
       setError(
         "We couldn’t reach your school, so we can’t assign to those classes. Nothing has been sent - try again in a moment.",
@@ -287,7 +352,9 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
     if (when === "right" && date && time) {
       const at = new Date(`${date}T${time}`);
       if (Number.isNaN(at.getTime())) {
-        setError("That date and time didn’t read properly - check them and try again.");
+        setError(
+          "That date and time didn’t read properly - check them and try again.",
+        );
         return;
       }
       availableFrom = at.toISOString();
@@ -316,7 +383,9 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
     // been assigned, and the retry it invited assigned them a second time -
     // there is no idempotency key on this endpoint.
     const results = await Promise.allSettled(
-      targets.map((t) => assignmentsApi.create({ lessonIds, ...t, availableFrom })),
+      targets.map((t) =>
+        assignmentsApi.create({ lessonIds, ...t, availableFrom }),
+      ),
     );
     setSubmitting(false);
 
@@ -364,7 +433,9 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
       // `classId` here is therefore always defined, but it is read defensively
       // rather than asserted.
       const names = failed
-        .map((t) => myClasses.find((c) => c.id === t.classId)?.name ?? "one class")
+        .map(
+          (t) => myClasses.find((c) => c.id === t.classId)?.name ?? "one class",
+        )
         .join(", ");
       setError(
         `Assigned to the other classes, but ${names} didn’t go through. Don’t redo the whole thing - reopen this for ${names} only.`,
@@ -405,13 +476,25 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
     when === "right" && date
       ? (() => {
           const d = new Date(`${date}T${time}`);
-          const day = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
-          const t = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+          const day = d.toLocaleDateString("en-GB", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          });
+          const t = d.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+          });
           return `on ${day} at ${t}`;
         })()
       : "now";
 
-  const heading = { 1: "Choose lessons", 2: "Who's this for?", 3: "When should this be available?", 4: "All set" }[step];
+  const heading = {
+    1: "Choose lessons",
+    2: "Who's this for?",
+    3: "When should this be available?",
+    4: "All set",
+  }[step];
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-nevo-cream text-nevo-near-black">
@@ -423,7 +506,17 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
           aria-label="Close"
           className="flex size-10 cursor-pointer items-center justify-center rounded-[10px] text-nevo-near-black/60 transition-colors hover:bg-nevo-near-black/5"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
         </button>
@@ -442,7 +535,11 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
             key={i}
             className={cn(
               "size-[9px] rounded-full",
-              i === step ? "bg-nevo-navy" : i < step ? "bg-nevo-navy/40" : "bg-nevo-navy/15",
+              i === step
+                ? "bg-nevo-navy"
+                : i < step
+                  ? "bg-nevo-navy/40"
+                  : "bg-nevo-navy/15",
             )}
           />
         ))}
@@ -453,7 +550,17 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-7 py-5 xl:px-8">
           <div className="flex max-w-[420px] flex-col items-center text-center xl:max-w-[440px]">
             <div className="flex size-[54px] items-center justify-center rounded-full bg-nevo-navy text-nevo-cream motion-safe:animate-nevo-pop xl:size-14">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
                 <path d="M20 6L9 17l-5-5" />
               </svg>
             </div>
@@ -461,9 +568,13 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
               All set
             </h2>
             <p className="mt-3.5 text-base leading-[1.6] text-nevo-near-black/78 xl:mt-4 xl:text-[17px]">
-              <strong className="font-semibold text-nevo-near-black">{lessonsText}</strong>{" "}
+              <strong className="font-semibold text-nevo-near-black">
+                {lessonsText}
+              </strong>{" "}
               will open for{" "}
-              <strong className="font-semibold text-nevo-near-black">{whoText}</strong>{" "}
+              <strong className="font-semibold text-nevo-near-black">
+                {whoText}
+              </strong>{" "}
               {when === "right" ? (
                 <>
                   on{" "}
@@ -472,7 +583,9 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                   </strong>
                 </>
               ) : (
-                <strong className="font-semibold text-nevo-near-black">now</strong>
+                <strong className="font-semibold text-nevo-near-black">
+                  now
+                </strong>
               )}
               .
             </p>
@@ -501,7 +614,12 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
 
             {step === 2 && (
               <>
-                <Toggle left="Whole class" right="Specific students" value={who} onChange={chooseWho} />
+                <Toggle
+                  left="Whole class"
+                  right="Specific students"
+                  value={who}
+                  onChange={chooseWho}
+                />
                 {classesSample && (
                   /* A signed-in teacher whose class list failed was shown
                      fixture classes, fixture headcounts and sixteen invented
@@ -514,19 +632,32 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                 )}
                 {who === "left" ? (
                   <div className="mt-4 flex flex-col gap-2.5 xl:mt-[18px] xl:gap-[11px]">
-                    {myClasses.map((c) => (
-                      <CheckCard
-                        key={c.id}
-                        on={classes.has(c.id)}
-                        onClick={() => setClasses((s) => togIn(s, c.id))}
-                        title={c.name}
-                        sub={
-                          c.studentCount != null
-                            ? `${c.studentCount} students`
-                            : undefined
-                        }
-                      />
-                    ))}
+                    {/*
+                      Skeletons, not fixtures. The guard at confirm is a
+                      backstop; THIS is the fix - a fixture that is never
+                      offered cannot be picked, and a teacher who never saw
+                      invented classes has nothing to un-choose.
+                    */}
+                    {classesLoading
+                      ? [0, 1, 2].map((i) => (
+                          <div
+                            key={i}
+                            className="h-[74px] animate-pulse rounded-[12px] bg-nevo-cream-elevated"
+                          />
+                        ))
+                      : myClasses.map((c) => (
+                          <CheckCard
+                            key={c.id}
+                            on={classes.has(c.id)}
+                            onClick={() => setClasses((s) => togIn(s, c.id))}
+                            title={c.name}
+                            sub={
+                              c.studentCount != null
+                                ? `${c.studentCount} students`
+                                : undefined
+                            }
+                          />
+                        ))}
                   </div>
                 ) : (
                   <div className="mt-4 flex flex-col gap-4 xl:mt-[18px]">
@@ -587,7 +718,12 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                 {/* One control for everyone: `availableFrom` is live, so a
                     real teacher gets the frame's step rather than a notice
                     explaining why they cannot have it. */}
-                <Toggle left="Available now" right="Schedule for later" value={when} onChange={chooseWhen} />
+                <Toggle
+                  left="Available now"
+                  right="Schedule for later"
+                  value={when}
+                  onChange={chooseWhen}
+                />
                 {when === "right" && (
                   <div className="mt-4 flex gap-3.5 xl:mt-[18px]">
                     <div className="flex-1">
@@ -600,7 +736,18 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                             onChange={(e) => setDate(e.target.value)}
                             className="h-[52px] w-full cursor-pointer rounded-[10px] border-[1.5px] border-nevo-near-black/16 bg-nevo-cream-elevated px-4 pr-11 text-[15.5px] font-normal text-nevo-near-black outline-none focus:border-nevo-navy [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
                           />
-                          <svg className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="rgba(43,43,47,0.5)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <svg
+                            className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2"
+                            width="19"
+                            height="19"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="rgba(43,43,47,0.5)"
+                            strokeWidth="1.9"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                          >
                             <rect x="3" y="5" width="18" height="16" rx="2" />
                             <path d="M3 9h18" />
                             <path d="M8 3v4M16 3v4" />
@@ -618,7 +765,18 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
                             onChange={(e) => setTime(e.target.value)}
                             className="h-[52px] w-full cursor-pointer rounded-[10px] border-[1.5px] border-nevo-near-black/16 bg-nevo-cream-elevated px-4 pr-11 text-[15.5px] font-normal text-nevo-near-black outline-none focus:border-nevo-navy [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
                           />
-                          <svg className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="rgba(43,43,47,0.5)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <svg
+                            className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2"
+                            width="19"
+                            height="19"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="rgba(43,43,47,0.5)"
+                            strokeWidth="1.9"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                          >
                             <circle cx="12" cy="12" r="9" />
                             <path d="M12 7v5l3 2" />
                           </svg>
