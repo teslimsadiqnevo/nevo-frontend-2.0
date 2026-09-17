@@ -130,6 +130,36 @@ export interface LessonSegment extends SegmentVariants {
   comprehensionCheckpoints: ComprehensionCheckpoint[];
   needsReview: boolean;
   reviewReasons: SegmentReviewReason[];
+  /**
+   * Whether a teacher has approved this segment for students (17 Sep).
+   *
+   * C07b: "the teacher reviews each segment's variants and approves them for
+   * the class. Approval is manual and deliberate: the teacher stays in control
+   * of what reaches students." Backend built the transport once design settled
+   * it, and ASSIGNMENT IS GATED ON IT - a lesson with an unapproved segment is
+   * refused at both assignment doors.
+   *
+   * The 104 segments that predate the gate are backfilled `approved` with NO
+   * approver recorded, because nobody did approve them. `approvedAt` may
+   * therefore be null on an approved segment, and naming a teacher who had not
+   * approved it would be a false record on a screen that shows the name.
+   */
+  approved: boolean;
+  approvedAt: string | null;
+}
+
+/**
+ * What one approval returns. Carries the lesson-level counts so the screen
+ * knows whether that was the last segment without a second read.
+ */
+export interface SegmentApproval {
+  lessonId: string;
+  segmentId: string;
+  approvedAt: string;
+  approvedBy: string;
+  approvedSegmentCount: number;
+  segmentCount: number;
+  lessonApproved: boolean;
 }
 
 export interface LessonDetailResponse extends LessonSummary {
@@ -269,6 +299,16 @@ export const lessonsApi = {
    */
   detail: (lessonId: string) =>
     api.get<LessonDetailResponse>(`/api/content/lessons/${lessonId}`),
+
+  /**
+   * Approve one segment for students. Per SEGMENT, matching how the screen
+   * walks the lesson, and per LESSON rather than per class - backend's ruling:
+   * approve once and assign anywhere.
+   */
+  approveSegment: (lessonId: string, segmentId: string) =>
+    api.post<SegmentApproval>(
+      `/api/v1/lessons/${lessonId}/segments/${segmentId}/approve`,
+    ),
 
   /** The module grouping, which only the v1 alias returns. */
   modules: (lessonId: string) =>

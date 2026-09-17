@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { ApiError } from "@/lib/api/client";
 
 const { create, useTeacherClasses, useLessonLibrary, useStudentDirectory, useHasSession, push } =
   vi.hoisted(() => ({
@@ -201,5 +202,65 @@ describe("sending to specific students", () => {
 
     await vi.waitFor(() => expect(push).toHaveBeenCalled());
     expect(create).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The approval gate (17 Sep).
+ *
+ * From this deploy a lesson cannot be assigned until a teacher has approved
+ * every one of its segments, and BOTH assignment doors share the check, so the
+ * refusal reaches this wizard whichever path the teacher took. It arrives as
+ * `409 lesson_not_approved`.
+ *
+ * "Try again" is the one instruction that cannot work: the server is not
+ * failing, it is declining, and the teacher has an action that fixes it. This
+ * is the same mistake as telling a rate-limited teacher to retry, which this
+ * console has already made once at the sign-in door.
+ */
+describe("a lesson that has not been approved", () => {
+  const refuse = () =>
+    create.mockRejectedValue(
+      new ApiError(409, "conflict", {
+        detail: { code: "lesson_not_approved", message: "2 segments remain" },
+      }),
+    );
+
+  const send = () => {
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
+  };
+
+  it("says what is actually wrong, not that something broke", async () => {
+    refuse();
+    toStudents();
+    fireEvent.click(screen.getByRole("button", { name: /Amara Okafor/ }));
+    send();
+
+    expect(
+      await screen.findByText(/waiting for your approval/i),
+    ).toBeInTheDocument();
+  });
+
+  it("never tells the teacher to try again, which cannot work", async () => {
+    refuse();
+    toStudents();
+    fireEvent.click(screen.getByRole("button", { name: /Amara Okafor/ }));
+    send();
+
+    await screen.findByText(/waiting for your approval/i);
+    expect(screen.queryByText(/try again/i)).not.toBeInTheDocument();
+  });
+
+  it("still says try again for an ordinary failure", async () => {
+    // The 409 branch must not swallow the generic one.
+    create.mockRejectedValue(new ApiError(500, "server", undefined));
+    toStudents();
+    fireEvent.click(screen.getByRole("button", { name: /Amara Okafor/ }));
+    send();
+
+    expect(await screen.findByText(/try again/i)).toBeInTheDocument();
+    expect(screen.queryByText(/waiting for your approval/i)).not.toBeInTheDocument();
   });
 });

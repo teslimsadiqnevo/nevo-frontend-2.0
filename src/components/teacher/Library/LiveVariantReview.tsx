@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { lessonsApi } from "@/lib/api/lessons";
 import { IllustrationWrapper } from "@/components/shared/IllustrationWrapper";
 import type { LessonSegment } from "@/lib/api/lessons";
 import type { SegmentReviewReason } from "@/lib/api/lessons";
@@ -259,13 +260,59 @@ export function LiveVariantReview({
   lessonTitle,
   segment,
   sectionIndex,
+  segmentCount,
 }: {
   lessonId: string;
   lessonTitle: string;
   segment: LessonSegment;
   sectionIndex: number;
+  /** How many sections this lesson has, for "Section N of M". */
+  segmentCount?: number;
 }) {
   const [tab, setTab] = useState<VariantTab>("Text");
+  /*
+   * APPROVAL, which this screen has never had (17 Sep).
+   *
+   * C07b's stated purpose is that "the teacher reviews each segment's variants
+   * and approves them for the class. Approval is manual and deliberate." There
+   * was no transport for it, so what shipped was review WITHOUT approval and
+   * the frame's purpose went unmet. Backend built it once design settled the
+   * question.
+   *
+   * It is not cosmetic any more: ASSIGNMENT IS GATED on every segment being
+   * approved, so without this control a teacher cannot assign a lesson they
+   * have just uploaded and has no way to unblock themselves.
+   *
+   * Local state, seeded from the server's `approved`, because the lesson read
+   * that produced `segment` is not refetched when a single segment is approved
+   * - and the approval response carries the lesson counts precisely so it does
+   * not have to be.
+   */
+  const [approved, setApproved] = useState(segment.approved);
+  const [counts, setCounts] = useState<{ done: number; total: number } | null>(
+    null,
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function approve() {
+    if (approved || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await lessonsApi.approveSegment(lessonId, segment.id);
+      setApproved(true);
+      setCounts({ done: res.approvedSegmentCount, total: res.segmentCount });
+    } catch {
+      // Nothing is approved until the server says so. Claiming otherwise is
+      // the shape of bug this console has shipped before.
+      setError(
+        `We couldn${"’"}t record that just now. Nothing has changed, so you can try again.`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1040px] px-[38px] py-[34px] xl:px-[52px] xl:py-11">
@@ -353,6 +400,52 @@ export function LiveVariantReview({
             <VariantBody tab={tab} segment={segment} />
           </div>
         </div>
+
+        {/*
+          C07b draws "Reviewing segment N of 5" beside the control. `of M` is
+          only rendered when the caller knows M - the count is not derivable
+          from one segment, and inventing it would be a number we did not
+          measure.
+        */}
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[13px] text-nevo-near-black/60">
+            {segmentCount
+              ? `Reviewing section ${sectionIndex} of ${segmentCount}`
+              : `Reviewing section ${sectionIndex}`}
+          </p>
+
+          {approved ? (
+            <span className="inline-flex h-11 items-center gap-2 rounded-[10px] border-[1.5px] border-nevo-navy/25 px-4 text-sm font-medium text-nevo-near-black/70">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M5 12.5l4.5 4.5L19 7.5" />
+              </svg>
+              Approved
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={approve}
+              disabled={busy}
+              className="inline-flex h-11 cursor-pointer items-center rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93 disabled:cursor-default disabled:opacity-60"
+            >
+              {busy ? "Approving…" : "Approve this section"}
+            </button>
+          )}
+        </div>
+
+        {counts && (
+          <p className="mt-2.5 text-right text-[13px] text-nevo-near-black/60">
+            {counts.done === counts.total
+              ? "Every section approved. This lesson can be assigned."
+              : `${counts.done} of ${counts.total} sections approved.`}
+          </p>
+        )}
+
+        {error && (
+          <p className="mt-2.5 text-right text-[13px] leading-[1.5] text-nevo-near-black/72">
+            {error}
+          </p>
+        )}
       </div>
     </div>
   );
