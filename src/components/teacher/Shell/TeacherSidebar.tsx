@@ -129,6 +129,7 @@ const ACCOUNT_MENU: {
   },
   {
     label: "Help & support",
+    href: "/teacher/help",
     icon: (
       <svg {...GLYPH} aria-hidden>
         <circle cx="12" cy="12" r="9" />
@@ -440,9 +441,6 @@ export function TeacherSidebar() {
                     {body}
                   </Link>
                 ) : (
-                  // TODO(screen): Help & support is the last item here with
-                  // nowhere to go - C11 does not draw it and no other frame
-                  // does either, so it needs design before it needs building.
                   <button
                     key={m.label}
                     type="button"
