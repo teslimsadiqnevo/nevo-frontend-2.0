@@ -56,7 +56,13 @@ const STUDENT_RETURNING_SIGN_IN = "/auth/sign-in";
 const STUDENT_HOME = "/student/dashboard";
 
 /** The invite link lands here with no session - it is how you get one. */
-const PRE_AUTH_TEACHER_ROUTES = ["/teacher/onboarding"];
+/**
+ * `/teacher/help` is here for the same reason its endpoint is public: a teacher
+ * who cannot sign in is exactly who needs the support details. Gating it would
+ * mean the one screen that explains how to get help is only reachable once you
+ * no longer need it.
+ */
+const PRE_AUTH_TEACHER_ROUTES = ["/teacher/onboarding", "/teacher/help"];
 /** D01 stands the workspace up before anyone can possibly have a session. */
 const PRE_AUTH_ADMIN_ROUTES = ["/admin/onboarding"];
 /**
