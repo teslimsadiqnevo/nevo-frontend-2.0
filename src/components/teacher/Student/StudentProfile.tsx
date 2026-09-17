@@ -10,10 +10,11 @@ import {
   STUDENT_ADAPTATIONS,
 } from "@/lib/mocks/teacherIntelligence";
 import {
-  CONFIDENCE_LABEL,
+
   type SessionRow,
   type StudentProfileData,
 } from "@/lib/mocks/teacherStudents";
+import { OBSERVATION_COPY } from "@/lib/constants/observations";
 import { cn } from "@/lib/utils";
 import { MasteryDualTrack } from "./MasteryDualTrack";
 import { RecommendSheet } from "./RecommendSheet";
@@ -60,22 +61,6 @@ const MENU_ITEMS: { label: string; opens?: "message" }[] = [
   // The destructive slot is navy, deliberately not red.
   { label: "Remove from class" },
 ];
-
-function Dots({ level }: { level: 1 | 2 | 3 }) {
-  return (
-    <div className="flex gap-[5px]">
-      {[1, 2, 3].map((i) => (
-        <span
-          key={i}
-          className={cn(
-            "size-2 rounded-full",
-            i <= level ? "bg-nevo-navy" : "bg-nevo-navy/18",
-          )}
-        />
-      ))}
-    </div>
-  );
-}
 
 export function StudentProfile({
   student,
@@ -250,21 +235,25 @@ export function StudentProfile({
         <h3 className="mt-[26px] text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase xl:mt-8 xl:text-sm">
           {`How ${firstName} learns`}
         </h3>
+        {/*
+          ONE SOURCE FOR THE WORDING, shared with the roster chips, so this
+          screen and that one cannot say different things about the same child.
+          No confidence rating: a rating turns an observation into a finding,
+          and design removed it from C08 on 17 Sep along with the modality
+          claim it sat under.
+        */}
         <div className="mt-3.5 flex flex-col gap-3 xl:mt-4 xl:grid xl:grid-cols-2 xl:gap-3.5">
-          {student.dimensions.map((d) => (
+          {student.dimensions.map((pattern) => (
             <div
-              key={d.statement}
+              key={pattern}
               className="rounded-xl bg-nevo-cream-elevated px-5 py-[18px] shadow-[0_2px_8px_rgba(0,0,0,0.06)] xl:p-[22px]"
             >
-              <p className="text-[15.5px] leading-[1.45] font-medium text-nevo-near-black xl:text-[16.5px]">
-                {d.statement}
+              <p className="font-mono text-[10.5px] tracking-[0.06em] text-nevo-near-black/50 uppercase">
+                {OBSERVATION_COPY[pattern].title}
               </p>
-              <div className="mt-[13px] flex items-center gap-2.5 xl:mt-4">
-                <Dots level={d.level} />
-                <span className="text-[12.5px] text-nevo-near-black/55 xl:text-[13px]">
-                  {CONFIDENCE_LABEL[d.level]}
-                </span>
-              </div>
+              <p className="mt-1.5 text-[15.5px] leading-[1.45] font-medium text-nevo-near-black xl:text-[16.5px]">
+                {OBSERVATION_COPY[pattern].body(firstName)}
+              </p>
             </div>
           ))}
         </div>
