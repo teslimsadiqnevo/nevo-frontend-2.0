@@ -6,6 +6,7 @@
  * player UI. TODO(api): reconcile with the ratified backend schema.
  */
 import type {
+  AdjustmentAction,
   AffectiveState,
   BreakType,
   CalcModality,
@@ -338,6 +339,17 @@ export interface SegmentAdaptation {
 export interface AdaptationPlan {
   lessonId: string;
   segments: SegmentAdaptation[];
+  /**
+   * The engine's proactive instruction for this lesson, or null.
+   *
+   * LESSON-LEVEL AND AN ACTION, which is what the wire and §4 both say.
+   * `SegmentAdaptation.affect` below is a per-segment STATE, and §4 is explicit
+   * that the frontend never knows the state - only the instruction. The state
+   * field predates that and still drives the authored demo; this is the seam a
+   * signed-in child's interface actually moves on, because it is the one the
+   * engine fills.
+   */
+  adjustment?: AdjustmentAction | null;
   /**
    * Active UDL accommodations (37c / SCRUM-71, backend-owned). Cross-session
    * delivery themes, never a label.
