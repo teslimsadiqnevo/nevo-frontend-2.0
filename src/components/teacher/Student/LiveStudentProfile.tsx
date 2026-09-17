@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useStudentFlags } from "@/hooks/useStudentFlags";
 import { useStudentSessions } from "@/hooks/useStudentSessions";
 import { LiveSessionPanel } from "./LiveSessionPanel";
 import { LiveRecommendSheet } from "./LiveRecommendSheet";
@@ -48,9 +49,16 @@ import { MasteryDualTrack } from "./MasteryDualTrack";
  * different thing from the engine parameters above, and reads in the same
  * register the recommendations already do.
  *
- * ALSO ABSENT, for want of an endpoint: the noticing banner and the confidence
- * dimensions. The "what Nevo has seen" evidence list has an endpoint that does
- * not fit it - see `students.ts`.
+ * THE NOTICING BANNER IS LIVE (17 Sep). This comment used to say it was
+ * absent "for want of an endpoint", and that was never true: the flags route
+ * has taken `studentId` all along and `description` is required on every flag
+ * it returns. It renders Nevo's own sentences, dated, claiming no window - see
+ * `useStudentFlags`. The confidence dimensions beside it in the frame are not
+ * deferred either; design deleted the confidence rating outright on 17 Sep.
+ *
+ * STILL ABSENT: the "what Nevo has seen" evidence list, which has an endpoint
+ * that does not fit it - see `students.ts`.
+ *
  * The early state is real: `status: not_observed_yet` is precisely the
  * student the frame's calm early profile was drawn for.
  */
@@ -108,6 +116,9 @@ export function LiveStudentProfile({
   const [openSession, setOpenSession] = useState<string | null>(null);
   const { sessions: realSessions, failed: sessionsFailed } =
     useStudentSessions(studentId);
+  /* The noticing banner's source. Like the sessions list, it needs the id
+     before `profile` is destructured. */
+  const { noticed } = useStudentFlags(studentId);
   const [sharing, setSharing] = useState(false);
   /**
    * C14 B5's two halves, both driven only by a stored escalation.
@@ -192,7 +203,44 @@ export function LiveStudentProfile({
           </div>
         </div>
 
-        {openFlagCount > 0 && (
+        {/* C08's noticing banner, in the frame's own treatment: the violet
+            left rule, Nevo's sentences, and nothing of ours added to them.
+            One line per open flag - the frame draws a single line because the
+            fixture has a single flag, and dropping the rest would hide the
+            thing this banner exists to show. */}
+        {noticed.length > 0 && (
+          <div className="mt-6 max-w-[660px] rounded-[12px] border-l-[3px] border-nevo-violet bg-nevo-violet/16 px-[18px] py-4 xl:px-5 xl:py-[18px]">
+            <span className="block text-sm font-semibold text-nevo-near-black xl:text-[15px]">
+              What Nevo noticed
+            </span>
+            <div className="mt-2 flex flex-col gap-2.5">
+              {noticed.map((n) => (
+                <p
+                  key={n.id}
+                  className="flex gap-3 text-sm leading-[1.5] text-nevo-near-black/82 xl:text-[15px] xl:leading-[1.55]"
+                >
+                  {/* Where the frame writes "This week:". The flag carries a
+                      date and the route declares no window, so this says when
+                      rather than implying a period nobody promised. */}
+                  <span className="w-[46px] shrink-0 text-nevo-near-black/55">
+                    {new Date(n.generatedAt).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </span>
+                  <span className="min-w-0">{n.note}</span>
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* The count, for when the prose is NOT in hand - a failed flags read,
+            or a count that does not agree with the list. It is the weaker of
+            the two screens: it states a number and sends the teacher somewhere
+            else to find out what it is about. So it appears only where the
+            banner cannot, and it was the whole of this screen until today. */}
+        {noticed.length === 0 && openFlagCount > 0 && (
           <div className="mt-6 flex max-w-[660px] items-start gap-3.5 rounded-[12px] bg-nevo-violet/14 px-[18px] py-4">
             <span className="mt-px shrink-0 text-nevo-navy">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -209,7 +257,11 @@ export function LiveStudentProfile({
           </div>
         )}
 
-        {early && (
+        {/* Mutually exclusive with the banner, as the frame has it: "Nevo is
+            still getting to know them" underneath a sentence about what Nevo
+            noticed contradicts it. A flag means something was observed, so the
+            banner wins and the calm note stands down. */}
+        {early && noticed.length === 0 && (
           <div className="mt-6 flex max-w-[660px] items-start gap-4 rounded-[12px] bg-nevo-cream-elevated px-[26px] py-6 shadow-elevation-1">
             <span className="mt-px shrink-0 text-nevo-violet">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

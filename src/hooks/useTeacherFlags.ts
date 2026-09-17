@@ -52,7 +52,15 @@ export interface TeacherFlag {
   isSudden: boolean;
 }
 
-/** C03 distinguishes a sudden change from a pattern; `flagType` has no enum. */
+/**
+ * C03 distinguishes a sudden change from a pattern.
+ *
+ * The enum landed since this was written - `sudden_change` and
+ * `engagement_decline` - and both deployed values come out of this correctly:
+ * a decline is a pattern, not a sudden change. It stays a match rather than a
+ * lookup because a third value will ship before we hear about it, and guessing
+ * wrong about an accent is cheaper than rendering no card.
+ */
 function suddenish(flagType: string): boolean {
   const t = flagType.toLowerCase();
   return (
