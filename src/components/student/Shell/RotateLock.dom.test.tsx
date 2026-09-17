@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { RotateLock } from "./RotateLock";
 
@@ -56,6 +56,9 @@ const app = () => document.querySelector("div[inert], div:has(> button)");
 
 beforeEach(() => {
   installMatchMedia();
+  // The continue-sideways choice is per device and persisted, so it has to be
+  // cleared or one test decides the next one.
+  window.localStorage.clear();
 });
 
 afterEach(() => {
@@ -132,5 +135,69 @@ describe("RotateLock", () => {
     const markup = renderToStaticMarkup(<Lesson />);
 
     expect(markup).not.toContain("inert");
+  });
+});
+
+/*
+ * THE WAY THROUGH.
+ *
+ * "Portrait only, v1" was a layout decision and it became an exclusion: a
+ * tablet clamped to a wheelchair tray, mounted on a stand, or with rotation
+ * locked by an accessibility setting does not turn. The prompt asked such a
+ * child for the one thing they could not do and offered nothing else, so the
+ * screen was a wall between them and the lesson rather than a nudge.
+ *
+ * The app behind it must then be genuinely usable, not merely un-inerted -
+ * verified in a 700x300 viewport, where the Welcome illustration alone filled
+ * the screen and both buttons sat below the fold.
+ */
+describe("a tablet that does not turn", () => {
+  it("offers a way through, and the app is live again once taken", async () => {
+    render(<Lesson />);
+    turn("sideways");
+
+    // Held, as before.
+    expect(app()?.hasAttribute("inert")).toBe(true);
+
+    const through = screen.getByRole("button", {
+      name: /my tablet doesn.t turn/i,
+    });
+    act(() => through.click());
+
+    // The prompt is gone and the lesson is usable, still sideways.
+    expect(screen.queryByRole("button", { name: /my tablet doesn.t turn/i })).toBeNull();
+    expect(app()?.hasAttribute("inert")).toBe(false);
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+  });
+
+  it("does not ask again on the next lesson", () => {
+    render(<Lesson />);
+    turn("sideways");
+    act(() =>
+      screen
+        .getByRole("button", { name: /my tablet doesn.t turn/i })
+        .click(),
+    );
+
+    // A fresh mount, the same device, still sideways. Asking again is the same
+    // wall arriving more often, and the child has already answered.
+    cleanup();
+    render(<Lesson />);
+    turn("sideways");
+
+    expect(screen.queryByRole("button", { name: /my tablet doesn.t turn/i })).toBeNull();
+    expect(app()?.hasAttribute("inert")).toBe(false);
+  });
+
+  it("still holds the app for a child who has not said that", () => {
+    // The guard that matters: the escape must not weaken the lock for everyone
+    // else. A child who can turn their tablet should still be stopped.
+    render(<Lesson />);
+    turn("sideways");
+
+    expect(app()?.hasAttribute("inert")).toBe(true);
+    expect(
+      screen.getByRole("button", { name: /my tablet doesn.t turn/i }),
+    ).toBeInTheDocument();
   });
 });

@@ -44,7 +44,10 @@ export function WelcomeScreen({
   }, [joinToken]);
 
   return (
-    <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-nevo-cream px-6 text-nevo-near-black">
+    // Short viewports start at the top rather than centring: centring wastes
+    // the space it does not have, and pushed both buttons below the fold on a
+    // 700x300 landscape screen. Measured, not assumed.
+    <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-nevo-cream px-6 text-nevo-near-black [@media(max-height:460px)]:justify-start [@media(max-height:460px)]:py-1">
       {/* Combined lockup — the primary brand mark for this first-arrival moment */}
       <NevoLockup
         priority
@@ -52,12 +55,23 @@ export function WelcomeScreen({
       />
 
       {/* Settling character (Design System §12 illustration) */}
-      <SettlingCharacter
-        priority
-        className="mt-7 w-[280px] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:delay-150 motion-safe:duration-500 sm:w-[340px] lg:w-[320px]"
-      />
+      {/*
+        THE WIDTH LIVES ON A WRAPPER, not on the illustration.
+        `IllustrationWrapper` merges its own classes with the caller's through
+        `cn`, and tailwind-merge treats a `[@media(max-height:...)]:w-[96px]`
+        as conflicting with `w-[280px]` and drops one of them - measured: the
+        class never reached the DOM and the illustration stayed 292px tall on a
+        300px screen. A wrapper's width cannot conflict with the image's, so
+        the short-viewport size actually applies.
+      */}
+      <div className="mt-7 w-[280px] sm:w-[340px] lg:w-[320px] [@media(max-height:460px)]:mt-2 [@media(max-height:460px)]:w-[96px]">
+        <SettlingCharacter
+          priority
+          className="w-full motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:delay-150 motion-safe:duration-500"
+        />
+      </div>
 
-      <div className="mt-8 flex w-full flex-col items-center motion-safe:animate-in motion-safe:fade-in motion-safe:delay-300 motion-safe:duration-500 sm:mt-9">
+      <div className="mt-8 flex w-full flex-col items-center motion-safe:animate-in motion-safe:fade-in motion-safe:delay-300 motion-safe:duration-500 sm:mt-9 [@media(max-height:460px)]:mt-2">
         {/* The single line of explanatory copy — warm, present-tense, no punctuation */}
         <p className="text-center text-base font-normal sm:text-[17px] lg:text-lg">
           Let&apos;s get you learning

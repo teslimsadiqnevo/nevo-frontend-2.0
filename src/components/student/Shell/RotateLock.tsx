@@ -2,6 +2,12 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { RotatePrompt } from "./RotatePrompt";
+import {
+  continuesSideways,
+  continuesSidewaysOnServer,
+  rememberContinuesSideways,
+  subscribeContinuesSideways,
+} from "./rotatePreference";
 
 /**
  * Hold the app still while the rotate prompt is up.
@@ -46,12 +52,26 @@ export function RotateLock({ children }: { children: React.ReactNode }) {
     clientSnapshot,
     serverSnapshot,
   );
+  /*
+   * Has this child already said the tablet does not turn?
+   *
+   * Read the same way as the orientation, so React owns the server/client
+   * difference rather than an effect that would render one frame of a prompt
+   * to a child who dismissed it last week.
+   */
+  const staying = useSyncExternalStore(
+    subscribeContinuesSideways,
+    continuesSideways,
+    continuesSidewaysOnServer,
+  );
+
+  const holding = sideways && !staying;
   const prompt = useRef<HTMLDivElement>(null);
   /** Where the child was before the prompt took over. */
   const returnTo = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (!sideways) return;
+    if (!holding) return;
     returnTo.current = document.activeElement as HTMLElement | null;
     prompt.current?.focus();
     return () => {
@@ -62,12 +82,20 @@ export function RotateLock({ children }: { children: React.ReactNode }) {
       returnTo.current?.focus();
       returnTo.current = null;
     };
-  }, [sideways]);
+  }, [holding]);
 
   return (
     <>
-      <div inert={sideways}>{children}</div>
-      <RotatePrompt ref={prompt} />
+      <div inert={holding}>{children}</div>
+      {/*
+        Not rendered once the child has said the tablet does not turn. The
+        prompt is shown by a media query, so hiding it has to be the absence
+        of the element rather than a class - and pre-hydration it still
+        appears, which is the behaviour that must not regress.
+      */}
+      {!staying && (
+        <RotatePrompt ref={prompt} onContinue={rememberContinuesSideways} />
+      )}
     </>
   );
 }
