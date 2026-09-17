@@ -53,7 +53,10 @@ export function BreakOfferPill({
           <button
             type="button"
             onClick={onAccept}
-            className={cn(buttonBase, "bg-nevo-navy text-nevo-cream hover:brightness-106")}
+            className={cn(
+              buttonBase,
+              "bg-nevo-navy text-nevo-cream hover:brightness-106",
+            )}
           >
             Yes, take a break
           </button>

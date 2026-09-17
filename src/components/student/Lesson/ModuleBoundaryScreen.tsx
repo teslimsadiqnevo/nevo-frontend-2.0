@@ -111,12 +111,17 @@ export function ModuleBoundaryScreen({
               <div
                 className={cn(
                   "flex w-full items-center justify-center",
-                  recap || preview ? "min-h-[150px]" : "min-h-[150px] flex-1 sm:min-h-[200px]",
+                  recap || preview
+                    ? "min-h-[150px]"
+                    : "min-h-[150px] flex-1 sm:min-h-[200px]",
                 )}
               >
                 <div className="flex size-[116px] items-center justify-center rounded-full border-2 border-nevo-violet/50 bg-nevo-violet/16 sm:size-[156px]">
                   <span className="flex size-14 items-center justify-center rounded-full bg-nevo-navy text-nevo-cream shadow-[0_8px_20px_rgba(59,63,110,0.3)] sm:size-[74px]">
-                    <ArrowRight className="size-6 sm:size-8" strokeWidth={1.9} />
+                    <ArrowRight
+                      className="size-6 sm:size-8"
+                      strokeWidth={1.9}
+                    />
                   </span>
                 </div>
               </div>
@@ -147,10 +152,18 @@ export function ModuleBoundaryScreen({
               {(recap || preview) && (
                 <div className="mt-6 flex w-full flex-col gap-3 text-left">
                   {recap && (
-                    <RecapBlock label="What you just did" text={recap} glyph="recap" />
+                    <RecapBlock
+                      label="What you just did"
+                      text={recap}
+                      glyph="recap"
+                    />
                   )}
                   {preview && (
-                    <RecapBlock label="What's coming next" text={preview} glyph="next" />
+                    <RecapBlock
+                      label="What's coming next"
+                      text={preview}
+                      glyph="next"
+                    />
                   )}
                 </div>
               )}

@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { SCAFFOLD_FILLED, SCAFFOLD_LEVELS, type ScaffoldLevel } from "@/lib/constants";
+import {
+  SCAFFOLD_FILLED,
+  SCAFFOLD_LEVELS,
+  type ScaffoldLevel,
+} from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 /**

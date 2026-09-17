@@ -11,7 +11,11 @@ import type { InteractiveContent } from "@/lib/types";
  * SHOULD SEE" outcome that resolves once every step is done. No score, no
  * right/wrong — just doing.
  */
-export function InteractiveSegment({ content }: { content: InteractiveContent }) {
+export function InteractiveSegment({
+  content,
+}: {
+  content: InteractiveContent;
+}) {
   const [done, setDone] = useState<boolean[]>(() =>
     content.steps.map(() => false),
   );
@@ -63,7 +67,10 @@ export function InteractiveSegment({ content }: { content: InteractiveContent })
                 )}
               >
                 {done[i] && (
-                  <Check className="size-[13px] text-nevo-cream" strokeWidth={2.8} />
+                  <Check
+                    className="size-[13px] text-nevo-cream"
+                    strokeWidth={2.8}
+                  />
                 )}
               </span>
               <span className="flex flex-col gap-0.5">
@@ -87,7 +94,10 @@ export function InteractiveSegment({ content }: { content: InteractiveContent })
         <div className="mt-2.5 flex items-start gap-3">
           {allDone && (
             <span className="mt-px flex size-6 shrink-0 items-center justify-center rounded-full bg-nevo-navy">
-              <Check className="size-[13px] text-nevo-cream" strokeWidth={2.8} />
+              <Check
+                className="size-[13px] text-nevo-cream"
+                strokeWidth={2.8}
+              />
             </span>
           )}
           <p

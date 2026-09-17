@@ -56,7 +56,12 @@ export function AfterLessonAssessment({
   const [gotRight, setGotRight] = useState(0);
 
   if (stage === "intro") {
-    return <Intro count={assessment.questions.length} onStart={() => setStage("questions")} />;
+    return (
+      <Intro
+        count={assessment.questions.length}
+        onStart={() => setStage("questions")}
+      />
+    );
   }
   if (stage === "result") {
     return (
@@ -103,7 +108,9 @@ export function AfterLessonAssessment({
             <span className="text-[13px] font-medium text-nevo-near-black/60">
               Question {qIndex + 1} of {total}
             </span>
-            <span className="text-[13px] text-nevo-near-black/45">No timer</span>
+            <span className="text-[13px] text-nevo-near-black/45">
+              No timer
+            </span>
           </div>
           <div
             className="h-[5px] overflow-hidden rounded-full bg-nevo-navy/12"
@@ -245,7 +252,10 @@ function GrowthResult({
   const nothingLanded = landed === 0 && assessment.questions.length > 0;
   const mastered = nothingLanded ? [] : (assessment.masteredConcepts ?? []);
   const revisit = nothingLanded
-    ? [...(assessment.masteredConcepts ?? []), ...(assessment.revisitConcepts ?? [])]
+    ? [
+        ...(assessment.masteredConcepts ?? []),
+        ...(assessment.revisitConcepts ?? []),
+      ]
     : (assessment.revisitConcepts ?? []);
 
   return (

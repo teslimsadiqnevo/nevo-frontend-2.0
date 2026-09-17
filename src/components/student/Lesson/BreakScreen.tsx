@@ -138,7 +138,11 @@ export function BreakScreen({
             aria-hidden
             className="mt-5 block size-11 rounded-full border-[3px] border-nevo-violet/35 border-t-nevo-violet sm:mt-6 sm:size-12"
           />
-          <button type="button" onClick={finish} className={cn(actionClass, "mt-7 max-w-[290px] sm:max-w-[340px]")}>
+          <button
+            type="button"
+            onClick={finish}
+            className={cn(actionClass, "mt-7 max-w-[290px] sm:max-w-[340px]")}
+          >
             I&apos;m done
           </button>
         </>
@@ -208,7 +212,11 @@ export function BreakScreen({
             Go and take a proper rest. Have a drink of water. We&apos;ll be
             right here when you&apos;re ready.
           </p>
-          <button type="button" onClick={finish} className={cn(actionClass, "mt-7 max-w-[290px] sm:max-w-[340px]")}>
+          <button
+            type="button"
+            onClick={finish}
+            className={cn(actionClass, "mt-7 max-w-[290px] sm:max-w-[340px]")}
+          >
             I&apos;m back
           </button>
         </>
