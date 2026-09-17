@@ -231,9 +231,12 @@ export function StudentProfile({
           </div>
         )}
 
-        {/* How <name> learns */}
+        {/* Retitled 17 Sep, matching design's own change in the pattern file:
+            "How <name> learns" is the learning-styles framing rule 1 exists to
+            keep out of the product, and it sat directly above the cards that
+            used to carry the modality claims. The section says what Nevo saw. */}
         <h3 className="mt-[26px] text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase xl:mt-8 xl:text-sm">
-          {`How ${firstName} learns`}
+          What Nevo has noticed
         </h3>
         {/*
           ONE SOURCE FOR THE WORDING, shared with the roster chips, so this
@@ -243,7 +246,7 @@ export function StudentProfile({
           claim it sat under.
         */}
         <div className="mt-3.5 flex flex-col gap-3 xl:mt-4 xl:grid xl:grid-cols-2 xl:gap-3.5">
-          {student.dimensions.map((pattern) => (
+          {student.observations.map((pattern) => (
             <div
               key={pattern}
               className="rounded-xl bg-nevo-cream-elevated px-5 py-[18px] shadow-[0_2px_8px_rgba(0,0,0,0.06)] xl:p-[22px]"

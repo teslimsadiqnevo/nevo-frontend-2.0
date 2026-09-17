@@ -18,6 +18,11 @@ import { getStudentProfile, studentSlug } from "./teacherStudents";
  * solution, and that C08 uses the sanctioned observation vocabulary from C16b
  * instead. These tests are the ruling, so the copy cannot drift back: a
  * fixture is exactly the kind of file somebody adds a "helpful" line to.
+ *
+ * Later the same day design ruled the `dimensions` CONCEPT out as well, not
+ * just the sentences inside it, so the field these tests walk is
+ * `observations` and it is typed on the closed enum. The checks are unchanged:
+ * they were never about the container.
  */
 
 // Every profile the screen can render: Amara's full one and the early state
@@ -29,8 +34,8 @@ const profiles = TEACHER_CLASSES.flatMap((c) => c.roster)
 
 /** Everything the screen says about a child, resolved through the vocabulary. */
 const sentencesFor = (p: (typeof profiles)[number]) => [
-  ...p.dimensions.map((d) => OBSERVATION_COPY[d].body(p.name.split(" ")[0]!)),
-  ...p.dimensions.map((d) => OBSERVATION_COPY[d].title),
+  ...p.observations.map((d) => OBSERVATION_COPY[d].body(p.name.split(" ")[0]!)),
+  ...p.observations.map((d) => OBSERVATION_COPY[d].title),
   p.noticing?.desktop ?? "",
   p.noticing?.tablet ?? "",
   p.earlyNote ?? "",
@@ -79,7 +84,7 @@ describe("what the student profile says about a child", () => {
     // the roster chips cannot say different things about the same child. A
     // fixture writing its own sentence would reopen that.
     for (const p of profiles) {
-      for (const d of p.dimensions) {
+      for (const d of p.observations) {
         expect(OBSERVATION_COPY[d], `${p.name}: ${d}`).toBeDefined();
       }
     }

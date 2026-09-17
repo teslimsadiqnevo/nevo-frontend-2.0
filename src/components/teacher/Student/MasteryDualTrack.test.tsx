@@ -6,10 +6,12 @@ import { MasteryDualTrack } from "./MasteryDualTrack";
  * One concept, two tracks: how well a child has understood it, and how much
  * the reading load is shaping that result.
  *
- * This is a judgement about a child in the strongest sense in the console -
- * "Reading support needed" is a label a teacher may act on for months, and
- * SCRUM-38 deliberately keeps the attribution TEXT-ONLY for that reason: a
- * flagged row gets words, never an alarm colour.
+ * It used to make a judgement about a child in the strongest sense in the
+ * console: "Reading support needed" is a label a teacher may act on for
+ * months, and it was computed here from two numbers and a pair of invented
+ * cutoffs. That is gone - see the component. SCRUM-38's text-only rule still
+ * governs whatever label a payload eventually carries: words, never an alarm
+ * colour.
  *
  * The values are read off the `progressbar` roles rather than the bar widths.
  * That is what a screen reader announces and what a teacher is actually being
@@ -59,41 +61,42 @@ describe("MasteryDualTrack - what the numbers say", () => {
 });
 
 describe("MasteryDualTrack - the support label", () => {
-  it("names concept support when understanding is low but reading is fine", () => {
-    render(<MasteryDualTrack concept="Fractions" understanding={30} reading={70} />);
-    expect(screen.getByText("Concept support needed")).toBeInTheDocument();
+  /*
+   * THESE TESTS USED TO ASSERT THE OPPOSITE, and that is the point of the
+   * change. Five of them pinned the computed labels - "Concept support
+   * needed" at understanding 30 / reading 70, and so on - including one that
+   * deliberately pinned the gap in the frame's own rules. They locked in a
+   * verdict about a child that this codebase computed from cutoffs it
+   * invented, on two live surfaces. A test that guards a breach makes the
+   * breach harder to remove, which is exactly what happened here for a week.
+   *
+   * What is guarded now is that no number produces a word.
+   */
+
+  it("computes no label from the numbers, at any combination", () => {
+    // The four cases that used to produce a label, plus the one that used to
+    // produce nothing. None of them may say anything about the child now.
+    for (const [u, r] of [
+      [30, 70],
+      [70, 30],
+      [30, 30],
+      [30, 50],
+      [80, 80],
+    ]) {
+      const { unmount } = render(
+        <MasteryDualTrack concept="Fractions" understanding={u} reading={r} />,
+      );
+      expect(
+        screen.queryByText(/support|needed/i),
+        `understanding ${u}, reading ${r}`,
+      ).not.toBeInTheDocument();
+      unmount();
+    }
   });
 
-  it("names reading support when the reverse is true", () => {
-    // The distinction that matters: a child who understands the concept but
-    // cannot read the question needs a different intervention entirely.
-    render(<MasteryDualTrack concept="Fractions" understanding={70} reading={30} />);
-    expect(screen.getByText("Reading support needed")).toBeInTheDocument();
-  });
-
-  it("names general support when both are low", () => {
-    render(<MasteryDualTrack concept="Fractions" understanding={30} reading={30} />);
-    expect(screen.getByText("Needs support")).toBeInTheDocument();
-  });
-
-  it("says nothing when both tracks are healthy", () => {
-    render(<MasteryDualTrack concept="Fractions" understanding={80} reading={80} />);
-    expect(screen.queryByText(/support/i)).not.toBeInTheDocument();
-  });
-
-  it("PINS THE DELIBERATE GAP: one track under 40 with the other 40-59 flags nothing", () => {
-    // Not an oversight. The component reproduces the frame's own rule rather
-    // than "correcting" it, and it is flagged to design. This test exists so
-    // that if someone closes the gap it is a DECISION with a failing test
-    // attached, not a silent change to who gets offered support.
-    render(<MasteryDualTrack concept="Fractions" understanding={30} reading={50} />);
-    expect(screen.queryByText(/support/i)).not.toBeInTheDocument();
-
-    render(<MasteryDualTrack concept="Decimals" understanding={50} reading={30} />);
-    expect(screen.queryByText(/support/i)).not.toBeInTheDocument();
-  });
-
-  it("lets an explicit flag override the computed one", () => {
+  it("renders a label only when one is handed to it", () => {
+    // The prop survives for the mastery rework design has open: when a label
+    // has a source, it arrives as a payload rather than being derived here.
     render(
       <MasteryDualTrack
         concept="Fractions"
@@ -103,12 +106,11 @@ describe("MasteryDualTrack - the support label", () => {
       />,
     );
     expect(screen.getByText("Reviewed with SENCo")).toBeInTheDocument();
-    expect(screen.queryByText("Needs support")).not.toBeInTheDocument();
   });
 
-  it('suppresses the label entirely on the literal "none"', () => {
-    // The escape hatch for a row that has been reviewed and should not carry
-    // a standing label.
+  it('suppresses the label on the literal "none"', () => {
+    // Kept as a distinct answer from saying nothing: a caller can state that
+    // this row carries no label, rather than leaving it unset.
     render(
       <MasteryDualTrack
         concept="Fractions"
@@ -117,7 +119,7 @@ describe("MasteryDualTrack - the support label", () => {
         flag="none"
       />,
     );
-    expect(screen.queryByText(/support/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("none")).not.toBeInTheDocument();
   });
 
   it("still labels its bars when the row has no concept name", () => {

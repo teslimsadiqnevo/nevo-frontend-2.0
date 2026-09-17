@@ -55,6 +55,24 @@ export interface StudentObservation {
   chips: string[];
 }
 
+/*
+ * THE COPY RULE GOVERNS EVERY CHIP BELOW (design's sweep, 17 Sep, applied to
+ * src rather than to the frames): a chip may say what Nevo did or what
+ * happened. It may never say what a child is, prefers, tends to do, is better
+ * at, struggles with or responds well to, and no strength or confidence word
+ * may be attached to it. Nineteen chips failed that and are rewritten to the
+ * event underneath them; the modality ones are deleted, because there is no
+ * event under "settles faster when she can hear it first" - the claim WAS the
+ * content.
+ *
+ * Deleting a claim is not inventing a replacement. Where a child had two chips
+ * and one was a claim, they now have one.
+ *
+ * These are still free-text fixtures, which the live path is not: the roster
+ * renders the five sanctioned patterns through `OBSERVATION_COPY`. That
+ * mismatch is logged in the audit rather than fixed here - the vocabulary
+ * being richer than the product's is design's call, not a copy breach.
+ */
 export const OBSERVATIONS_LABEL = "Student observations";
 export const OBSERVATIONS_SUBTITLE =
   "What Nevo has noticed about each student this week.";
@@ -65,50 +83,50 @@ export const CLASS_OBSERVATIONS: Record<
   Record<string, StudentObservation>
 > = {
   "jss-2a": {
-    "Adaeze Ifeanyi": { seat: 3, chips: ["Consistent engagement across all subjects"] },
+    "Adaeze Ifeanyi": { seat: 3, chips: ["Worked in every subject this week"] },
     "Aisha Abdullahi": { seat: 21, chips: ["Steady pace through this week's lessons"] },
-    "Amara Okafor": { seat: 12, chips: ["Taking longer on written segments this week", "Settles faster when she can hear it first"] },
-    "Bello Ibrahim": { seat: 7, chips: ["Prefers to work through problems step by step"] },
-    "Chisom Eze": { seat: 16, chips: ["Doing better when lessons lead with audio", "Finished the last four listen-first"] },
-    "Chukwuemeka Nwosu": { seat: 4, chips: ["Asks for the worked example first, then moves quickly"] },
-    "Damilola Akinwande": { seat: 25, chips: ["Engaging strongly with visual content this week"] },
-    "Emeka Nwachukwu": { seat: 9, chips: ["Back to full pace after a slow start to the term"] },
-    "Fatima Musa": { seat: 14, chips: ["Ready for a challenge in fractions"] },
+    "Amara Okafor": { seat: 12, chips: ["Taking longer on written segments this week"] },
+    "Bello Ibrahim": { seat: 7, chips: ["Worked the problems one step at a time"] },
+    "Chisom Eze": { seat: 16, chips: ["Finished the last four lessons that led with audio"] },
+    "Chukwuemeka Nwosu": { seat: 4, chips: ["Opened the worked example, then moved quickly through the practice"] },
+    "Damilola Akinwande": { seat: 25, chips: ["Worked through the diagrams in this week's lessons"] },
+    "Emeka Nwachukwu": { seat: 9, chips: ["Back to full pace this week"] },
+    "Fatima Musa": { seat: 14, chips: ["Finished the fractions set with time to spare"] },
     "Kolade Fashola": { seat: 22, chips: ["Moving evenly through the current sequence"] },
-    "Ngozi Obi": { seat: 6, chips: ["Strong week in comprehension work"] },
-    "Sade Olawale": { seat: 18, chips: ["Keeps a steady rhythm across longer sessions"] },
+    "Ngozi Obi": { seat: 6, chips: ["Finished every comprehension task this week"] },
+    "Sade Olawale": { seat: 18, chips: ["Steady through this week's longer sessions"] },
     "Taiwo Ogundimu": { seat: 11, chips: ["Settled quickly into the new equations work"] },
-    "Tobi Adeleke": { seat: 27, chips: ["Picks up new concepts fastest with a worked example"] },
-    "Tunde Adeyemi": { seat: 8, chips: ["Stalled partway through Tuesday's lesson - three times this week", "His week before was completely steady"] },
+    "Tobi Adeleke": { seat: 27, chips: ["Opened the worked example before the new concept, twice this week"] },
+    "Tunde Adeyemi": { seat: 8, chips: ["Stalled partway through Tuesday's lesson - three times this week", "The four sessions before were steady"] },
     "Zainab Yusuf": { seat: 15, chips: ["Finishing with time to spare this week"] },
   },
   "jss-2b": {
     "Adanna Okoye": { seat: 2, chips: ["Steady pace across both lessons this week"] },
-    "Bashir Lawal": { seat: 17, chips: ["Comprehension answers are getting sharper"] },
-    "Chiamaka Udo": { seat: 9, chips: ["Engaged well with the reading this week"] },
+    "Bashir Lawal": { seat: 17, chips: ["Answered the whole comprehension set without prompts"] },
+    "Chiamaka Udo": { seat: 9, chips: ["Worked through this week's reading"] },
     "Efe Oghenekaro": { seat: 24, chips: ["Working through practice sets without prompts"] },
-    "Halima Sani": { seat: 5, chips: ["Strong finish on the Things Fall Apart chapters"] },
-    "Ikenna Eze": { seat: 13, chips: ["Keeps an even pace through longer lessons"] },
+    "Halima Sani": { seat: 5, chips: ["Finished the Things Fall Apart chapters"] },
+    "Ikenna Eze": { seat: 13, chips: ["Even pace through this week's longer lessons"] },
     "Lola Adebayo": { seat: 28, chips: ["Settled quickly into this term's fractions work"] },
-    "Nnamdi Okafor": { seat: 11, chips: ["Prefers reading first, then the practice set"] },
+    "Nnamdi Okafor": { seat: 11, chips: ["Read the explanation before the practice set"] },
     "Rukayat Balogun": { seat: 19, chips: ["Answering stretch questions unprompted"] },
     "Segun Adewale": { seat: 7, chips: ["Steady all week - nothing worth flagging"] },
-    "Uche Nnaji": { seat: 22, chips: ["Moving comfortably through the current sequence"] },
-    "Yemi Oladipo": { seat: 15, chips: ["Finished both lessons ahead of most of the class"] },
+    "Uche Nnaji": { seat: 22, chips: ["Moving through the current sequence"] },
+    "Yemi Oladipo": { seat: 15, chips: ["Finished both lessons this week"] },
   },
   "sss-1-sciences": {
-    "Abiola Ogunleye": { seat: 4, chips: ["Working carefully through the labelled diagram"] },
-    "Chidera Anyanwu": { seat: 12, chips: ["Strong recall on organelles and their jobs"] },
+    "Abiola Ogunleye": { seat: 4, chips: ["Working through the labelled diagram"] },
+    "Chidera Anyanwu": { seat: 12, chips: ["Named the organelles and their jobs in the practice set"] },
     "Dabira Oyelaran": { seat: 20, chips: ["Steady pace through the cell structure lesson"] },
-    "Emmanuella Bassey": { seat: 8, chips: ["Revisits diagrams before practice - the intended path"] },
+    "Emmanuella Bassey": { seat: 8, chips: ["Went back to the diagram before the practice set"] },
     "Femi Alade": { seat: 26, chips: ["Moving evenly, no sections standing out"] },
-    "Ifeoma Chukwu": { seat: 15, chips: ["Engaging closely with the compare-two-cells task"] },
+    "Ifeoma Chukwu": { seat: 15, chips: ["Worked through the compare-two-cells task"] },
     "Kamsi Obiora": { seat: 3, chips: ["Finished the practice set in one sitting"] },
-    "Micheal Etim": { seat: 18, chips: ["Takes the diagram section slowly, as designed"] },
+    "Micheal Etim": { seat: 18, chips: ["Spent longer on the diagram section"] },
     "Nafisa Garba": { seat: 10, chips: ["Consistent engagement across the sciences"] },
-    "Olamide Shittu": { seat: 23, chips: ["Confident with match-and-label work"] },
-    "Tari Briggs": { seat: 6, chips: ["Steady this week - within usual pace"] },
-    "Zara Mohammed": { seat: 14, chips: ["Still to finish - within her usual rhythm"] },
+    "Olamide Shittu": { seat: 23, chips: ["Completed the match-and-label task without prompts"] },
+    "Tari Briggs": { seat: 6, chips: ["Steady this week"] },
+    "Zara Mohammed": { seat: 14, chips: ["Still to finish this week's lesson"] },
   },
 };
 

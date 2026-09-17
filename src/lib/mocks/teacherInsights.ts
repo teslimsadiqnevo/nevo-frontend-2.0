@@ -77,10 +77,13 @@ const INSIGHTS: ClassInsights[] = [
       { t: "turning algebraic fractions into a common denominator", strong: true },
       { t: ": eight students slowed right down on that single step, though the surrounding work was fine. A few minutes on just that move before Thursday would likely clear it. Separately, " },
       { t: "Tunde", strong: true },
-      { t: " had one uncharacteristic session on Tuesday - probably worth a quiet check-in rather than anything to do with the maths." },
+      // "Uncharacteristic" is a claim about the child's character, and
+      // "rather than anything to do with the maths" is a cause Nevo cannot
+      // see. The session and the week around it are what happened.
+      { t: " stalled once on Tuesday and did not return to it, with a steady week around it. Worth a quiet check-in." },
     ],
     summaryTablet:
-      "Eight students slowed on one step - common denominators in algebraic fractions. A few minutes on just that before Thursday would clear it. Tunde had one off session Tuesday; worth a quiet check-in.",
+      "Eight students slowed on one step - common denominators in algebraic fractions. A few minutes on just that before Thursday would clear it. Tunde stalled once on Tuesday; worth a quiet check-in.",
     misconception: {
       title: "Common misconception in algebraic fractions",
       desktop:
@@ -94,13 +97,13 @@ const INSIGHTS: ClassInsights[] = [
         name: "Tunde Adeyemi",
         href: `/teacher/students/${studentSlug("Tunde Adeyemi")}`,
         isSudden: true,
-        note: "One uncharacteristic session on Tuesday - stalled and didn't return to it. The week around it was steady, so likely nothing to do with the work itself.",
+        note: "Stalled once on Tuesday and did not return to it. The week around it was steady.",
       },
       {
         name: "Amara Okafor",
         href: `/teacher/students/${studentSlug("Amara Okafor")}`,
         isSudden: false,
-        note: "Taking longer on written segments for three sessions now. She's getting there, just slower - she settles faster when she can hear it first.",
+        note: "Taking longer on written segments for three sessions now.",
       },
     ],
     concepts: [
@@ -112,7 +115,9 @@ const INSIGHTS: ClassInsights[] = [
     recommendations: [
       {
         name: "Amara Okafor",
-        text: "Consider pointing her to the listen-first version of the next lesson - the last few went more smoothly that way.",
+        // Design's C08c fix in the frames was to take the modality-as-fit
+        // rationale out and leave a plain curriculum next step. Same here.
+        text: "Consider recommending the next lesson in the sequence.",
         action: "Recommend a lesson",
         href: `/teacher/students/${studentSlug("Amara Okafor")}/recommend`,
       },
@@ -124,14 +129,14 @@ const INSIGHTS: ClassInsights[] = [
       },
       {
         name: "Chisom Eze",
-        text: "She's ready for slightly longer segments - she's been finishing the audio-led lessons early.",
-        action: "Open her profile",
+        text: "Chisom has been finishing the recent lessons early.",
+        action: "Open the profile",
         href: `/teacher/students/${studentSlug("Chisom Eze")}`,
       },
       {
         name: "Tunde Adeyemi",
-        text: "A quiet check-in would tell you more than the data can here - his one off session doesn't fit his pattern.",
-        action: "See his week",
+        text: "A quiet check-in would tell you more than the data can here - the one stalled session does not match the week around it.",
+        action: "See this week",
         href: `/teacher/students/${studentSlug("Tunde Adeyemi")}`,
       },
     ],

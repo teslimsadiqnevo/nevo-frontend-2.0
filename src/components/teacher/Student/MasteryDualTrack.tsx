@@ -9,17 +9,25 @@
  * bars. The component repeats down the C08 mastery panel, so its geometry is
  * literal: 92px label column, 34px value column, 12px gaps, 8px/6px rails.
  *
- * The auto-flag rules leave a deliberate-looking gap (one track under 40 with
- * the other 40-59 flags nothing); reproduced exactly as the frame computes
- * it rather than "corrected" - flagged to design.
+ * THE AUTO-FLAG IS GONE (17 Sep). It read two engine numbers and returned
+ * "Concept support needed", "Reading support needed" or "Needs support" from
+ * cutoffs of 40 and 60 - a named verdict about a child, computed here, from
+ * thresholds this codebase invented. Three rules at once: rule 3 (compute no
+ * thresholds), rule 2 (no diagnostic label rendered) and rule 5 (`mastery/
+ * student` carries nothing of the kind, and absence is an instruction).
+ *
+ * It was not fixture copy. No caller passes `flag`, so every pill the product
+ * has ever shown was computed - on two live surfaces, the student profile and
+ * class insights, against real children's data.
+ *
+ * The comment it replaces said the rules were "reproduced exactly as the frame
+ * computes it rather than 'corrected' - flagged to design". Design has the
+ * mastery rework open in the copy audit; this half of it could not wait for
+ * that, because what the frame computes is a verdict and we were rendering it.
+ *
+ * `flag` stays. When the rework lands with a source behind it, a label arrives
+ * as a payload and this component renders it. Until then there is no label.
  */
-
-const AUTO_FLAG = (u: number, r: number): string => {
-  if (u < 40 && r >= 60) return "Concept support needed";
-  if (r < 40 && u >= 60) return "Reading support needed";
-  if (u < 40 && r < 40) return "Needs support";
-  return "";
-};
 
 /** Frame clamps to 0-100; NaN would emit `width:NaN%`, so guard it too. */
 const clamp = (v: number, fallback: number) =>
@@ -39,7 +47,9 @@ export function MasteryDualTrack({
 }) {
   const u = clamp(understanding, 72);
   const r = clamp(reading, 48);
-  const label = flag ? (flag === "none" ? "" : flag) : AUTO_FLAG(u, r);
+  // No fallback. Nothing computes a label here; "none" is kept as an explicit
+  // suppression so a caller can say "not on this row" as well as say nothing.
+  const label = !flag || flag === "none" ? "" : flag;
 
   return (
     <div className="flex w-full flex-col gap-2.5">
