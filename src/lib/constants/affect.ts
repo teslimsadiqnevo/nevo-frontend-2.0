@@ -1,31 +1,21 @@
 /**
- * Affective response states (37b, Intelligence Layer). Not new screens: the
- * same student screens change appearance and behaviour when the system infers
- * an emotional state from interaction rhythm - only on confident, multi-signal
- * confirmation, and only until the state passes. Never a diagnostic label; a
- * temporary state that shifts as the learner shifts.
+ * THE VOCABULARY THE ENGINE SPEAKS, and the only affective vocabulary this
+ * codebase is allowed to have.
+ *
+ * There used to be an `AFFECTIVE_STATES` map here - `anxiety`, `boredom`,
+ * `frustration`, `confusion` - and components named after it. It was deleted
+ * on 17 Sep, and not for tidiness. Frontend §4: "You receive an instruction
+ * and apply it as a change to the active screen. You never decide which state
+ * is active." Code named for states teaches the next person that the frontend
+ * reasons about states, and that is the drift this codebase has hit four times
+ * - the count interpolation, the insights threshold, the modality field, the
+ * client-side empty condition. Every one was a reasonable local decision by
+ * somebody reading the code rather than the architecture. Names are what the
+ * code says out loud.
  */
-export const AFFECTIVE_STATES = {
-  NONE: "none",
-  /** Softened: density reduced, secondary UI dimmed, copy gentled. */
-  ANXIETY: "anxiety",
-  /** Escalated: violet content border + a step-up offer. */
-  BOREDOM: "boredom",
-  /** Proactive support: unrequested hint, guided forward glow, then a break offer. */
-  FRUSTRATION: "frustration",
-  /** Socratic prompt: a question pill opening 2-3 guided questions. */
-  CONFUSION: "confusion",
-} as const;
-
-export type AffectiveState =
-  (typeof AFFECTIVE_STATES)[keyof typeof AFFECTIVE_STATES];
 
 /**
  * THE ENGINE'S INSTRUCTION - the only affective thing the frontend is told.
- *
- * Frontend §4: "You receive an instruction and apply it as a change to the
- * active screen. You never decide which state is active." The states above
- * describe what the interface DOES; these are what the engine SAYS.
  *
  * WHY THIS EXISTS. `AdaptResponse.proactiveAdjustment` has carried an `action`
  * all along and nothing read it - the twelfth field on this wire that the

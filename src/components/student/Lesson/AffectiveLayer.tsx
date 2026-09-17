@@ -5,15 +5,22 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Affective-state UI pieces (37b, Intelligence Layer). Not new screens - small
- * modulations the player composes onto the segment it is already showing while
- * an inferred state holds. Nothing here labels the student; every piece reads
- * as the lesson being helpful, not the system diagnosing.
+ * The pieces §4's instructions are applied WITH. Not new screens - small
+ * modulations the player composes onto the segment it is already showing.
+ * Nothing here labels the student; every piece reads as the lesson being
+ * helpful, not the system diagnosing.
+ *
+ * NAMED FOR THE INSTRUCTION, NEVER THE STATE, since 17 Sep. These were
+ * `BoredomOfferPill`, `ConfusionSupport` and `FrustrationHint`, which said out
+ * loud that the frontend knows which state a child is in - the one thing §4
+ * says it never does. Only the authored demo ever reached them, so no child
+ * saw a consequence; the cost was that the next person to read this file would
+ * learn the wrong model of the system from the names alone.
  */
 
-/** Boredom: the escalation offer above the content. TODO(api): acceptance asks
- *  the backend for a step up; until then the tap simply spends the offer. */
-export function BoredomOfferPill({ onSpent }: { onSpent: () => void }) {
+/** `increase_difficulty`: the step-up offer above the content. TODO(api):
+ *  acceptance asks the backend for a step up; until then the tap spends it. */
+export function DifficultyOfferPill({ onSpent }: { onSpent: () => void }) {
   return (
     <div className="mb-4 flex justify-center">
       <button
@@ -28,11 +35,11 @@ export function BoredomOfferPill({ onSpent }: { onSpent: () => void }) {
 }
 
 /**
- * Confusion: "Which part is unclear?" opens the Socratic panel - 2-3 guided
- * questions that think the idea through rather than handing the answer over.
- * The panel never blocks (no scrim) and carries its own visible 44px dismiss.
+ * `show_socratic_panel`: "Which part is unclear?" opens 2-3 guided questions
+ * that think the idea through rather than handing the answer over. The panel
+ * never blocks (no scrim) and carries its own visible 44px dismiss.
  */
-export function ConfusionSupport({ prompts }: { prompts: string[] }) {
+export function SocraticPanel({ prompts }: { prompts: string[] }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -87,8 +94,8 @@ export function ConfusionSupport({ prompts }: { prompts: string[] }) {
   );
 }
 
-/** Frustration: the unrequested hint - a calm card, never an alarm. */
-export function FrustrationHint({ hint }: { hint: string }) {
+/** `offer_hint`: the unrequested hint - a calm card, never an alarm. */
+export function HintOverlay({ hint }: { hint: string }) {
   return (
     <div className="mt-4 rounded-[8px] border-l-[3px] border-nevo-violet bg-[#e5dfd3] px-4 py-3.5">
       <p className="text-sm leading-[1.5] text-nevo-near-black">{hint}</p>
@@ -97,12 +104,13 @@ export function FrustrationHint({ hint }: { hint: string }) {
 }
 
 /**
- * Secondary-chrome dim: anxiety softens to 40% (37b); the attention
- * accommodation simplifies further to 30% (37c). Anxiety wins when both hold.
+ * Secondary-chrome dim: `modulate_density` softens to 40% (§4); the attention
+ * accommodation simplifies further to 30% (37c). Softening wins when both
+ * hold.
  */
-export function affectDim(anxious: boolean, attention = false): string {
+export function secondaryDim(softened: boolean, attention = false): string {
   return cn(
     "transition-opacity duration-[400ms]",
-    anxious ? "opacity-40" : attention && "opacity-30",
+    softened ? "opacity-40" : attention && "opacity-30",
   );
 }

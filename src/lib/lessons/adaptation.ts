@@ -100,8 +100,10 @@ export function adaptSegmentsFor(segments: ContentSegment[]): AdaptSegment[] {
  * - `breakAfter`. `breakSuggestion` is one suggestion for the whole lesson,
  *   not per segment, and on `lesson_load` with no runtime signals it is always
  *   `severity: "none"` with a null type. It belongs to the `in_lesson` pass.
- * - `affect`, `affectHint`, `socraticPrompts`. No field on this route carries
- *   them, and they are claims about a child.
+ * - the per-segment `adjustment`, `hint` and `socraticPrompts`. The engine's
+ *   instruction arrives once for the whole lesson on `proactiveAdjustment`,
+ *   which IS carried across (below); there is no per-segment one to read, and
+ *   no field anywhere carries hint text or guided questions.
  */
 export function toAdaptationPlan(
   res: AdaptResponse,
