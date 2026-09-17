@@ -48,4 +48,30 @@ export const schedulerApi = {
   /** Concepts the scheduler judges ready for another look. */
   dueReviews: (studentId: string) =>
     api.get<ConceptSchedule[]>(`/api/scheduler/due-reviews/${studentId}`),
+
+  /**
+   * Tell the scheduler how the review went. `POST /api/scheduler/record-review`.
+   *
+   * This was deliberately unwired, and the reason given was that `recallSuccessful`
+   * needs a question and there was none to ask. That expired when the library
+   * gained lessons carrying `comprehensionCheckpoints` and a four-question
+   * assessment: a review session now asks, and the answers are marked.
+   *
+   * WHAT `recallSuccessful` IS ALLOWED TO MEAN HERE. Only the child's FIRST
+   * answer to the questions tagged with the concept under review. Not whether
+   * they eventually passed - a missed inline check re-opens until it is passed,
+   * so "passed" is true of everyone by the end and would report perfect recall
+   * for a child who got everything wrong twice. Not the whole assessment
+   * either: a review is spaced retrieval on ONE concept, and crediting it with
+   * a question about a different one is the same invention in a smaller shape.
+   *
+   * Not sent at all when the review asked nothing about that concept. There is
+   * no evidence either way, and a cheerful `true` because the child reached the
+   * end is precisely the invented signal Zero-Tag exists to stop.
+   */
+  recordReview: (body: {
+    studentId: string;
+    conceptId: string;
+    recallSuccessful: boolean;
+  }) => api.post<unknown>("/api/scheduler/record-review", body),
 };
