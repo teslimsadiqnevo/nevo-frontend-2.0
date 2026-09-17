@@ -794,10 +794,16 @@ were filed as a backend blocker they never were.
 Nothing on this list is waiting for anybody. The first four are the ones that change what
 a child experiences rather than what a screen looks like.
 
-**Struck through are shipped. Items 1, 2 and 3 all landed on 16 Sep, along with two
+**Struck through are shipped. Items 1, 2, 3 and 10 landed on 16 Sep, along with two
 findings from the drift audit that were not on this list at all: the parked baseline now
 proves whose it is before it is sent, and a withdrawn guardian stops the profiling run.
-Item 10 shipped with the first of those. Everything unstruck below is still open.**
+Items 4 and 11 landed on 17 Sep, and so did two things this list never carried: the rotate
+prompt now has a way through (S-C 8), and the engine's proactive instruction reaches the
+screen (S-B 1). Everything unstruck below is still open.**
+
+**Priority, set by design on 17 Sep: affect and density came first and affect is done.
+Everything remaining on this list waits behind the density half — the child's Simplify /
+Expand / Slower control — which is blocked on authored content (S-B 4).**
 
 1. ~~**Store the session an invite-link child is now handed.**~~ **DONE 16 Sep (#414).** Stored at the call site, not inside `acceptJoin`, because the teacher path redeems the same link and signs in afterwards. Delivery A, today. Declare
    `session` and `consentStatus` on `acceptJoin` (`invites.ts:160`) and `setSession` from
@@ -816,10 +822,12 @@ Item 10 shipped with the first of those. Everything unstruck below is still open
    picks the control; a selection or drag step now always has at least two `options`.
    **This is the one item that turns a screen the product is sold on from unreachable
    into live.** **L**
-4. **Stop dropping `conceptId` and `explanation` in `assessmentFor`.** Two fields, one
-   function (`fromContent.ts:310-317`). It gives the after-lesson result per-concept
-   attribution and gives a child the authored teaching line when they miss — and it
-   retires a BACKEND blocker that was never real. **M**
+4. ~~**Stop dropping `conceptId` and `explanation` in `assessmentFor`.**~~ **DONE 17 Sep,
+   and it was one field rather than two.** `conceptId` was genuinely dropped and now rides
+   `AssessmentQuestion`, which retired a backend blocker that was never real. The
+   `explanation` half of this entry was WRONG: it already renders as `correctNote` on a
+   correct inline check, and the after-lesson miss copy is deliberately the product's own
+   sentence (`checkpoints.ts:129`) rather than the authored line. **M**
 5. **Render the teacher's note.** `AssignmentResponse.note` is typed and thrown away.
    When it lands, the teacher console's confirmation copy and the test guarding it change
    — coordinate with that lane. **S**
@@ -831,8 +839,9 @@ Item 10 shipped with the first of those. Everything unstruck below is still open
 9. **Send `assignmentId` on the progress write.** Already in memory. **S**
 10. ~~**Flush a parked baseline vector outside onboarding.**~~ **DONE 16 Sep (#414),** with the ownership guard that had to ship beside it. Today a returning child's
     held measurement never sends. **S**
-11. **Wire `record-review`.** Keep the `conceptId` at the review entrance instead of
-    discarding it, and type the client method. **M**
+11. ~~**Wire `record-review`.**~~ **DONE 17 Sep,** on the back of item 4: the write is
+    posted once per lesson, filtered to the questions that actually came in as review, so
+    a lesson with no review content sends nothing rather than an empty call. **M**
 12. **The Lessons tab pair** — show `subject` and `estimatedMinutes`; make "Clear search"
     clear the status chip too. **S**
 13. **Mark a thread read, and mark a notification read.** Both endpoints deployed, both
@@ -865,10 +874,10 @@ Each re-checked against the deployed spec on 16 Sep.
 
 | Blocked | The ask |
 |---|---|
-| 1. Affective adaptation | There is no affect transport: `affect`, `emotion`, `frustration`, `boredom`, `anxiety`, `confusion`, `socratic` — **zero matches across 188 paths and 343 schemas**. The whole `AffectiveLayer` is built against nothing. Either a field on `RuntimeSignalsRequest` and `AdaptResponse`, or a ruling that affective modulation is not v1 |
+| 1. ~~Affective adaptation~~ **MOSTLY WRONG, corrected 17 Sep (#441)** | The transport exists and is `AdaptResponse.proactiveAdjustment.action`, typed at `intelligence.ts:151` and read by nothing until #441. **The zero-match search was the error, not the finding:** frontend §4 says the frontend receives an INSTRUCTION and never knows which state is active, so the absence of `affect`/`frustration`/`boredom` on the wire is the design working. Do not re-run that search and re-draw this conclusion. `modulate_density` and `increase_difficulty` are applied; `offer_break` had a richer seam already. **Two narrow asks survive, as rows 13 and 14** |
 | 2. Break and boundary signals | `break_start`, `break_end`, `feeling_checkin`, `module_boundary_reached` and `module_boundary_action` are absent from `SignalEventType` (27 values). The consolidation break asks a child how they feel and the answer is discarded |
 | 3. An assessment-attempt store | Nothing in the 188 paths reads back a child's per-question answers. `POST /api/mastery/update` is a mastery update, not an attempt record. Today "Review answers" works only in the tab the child answered in |
-| 4. Reading-density reshapes | `TextVariant` is `{body, keyPoints}`. Simplify / Expand / Slower need authored reshapes or a generation endpoint; the engine's `DensityLevel` is a different axis and cannot stand in |
+| 4. Reading-density reshapes — **STILL BLOCKED, and it is one half of what this row used to say** | `TextVariant` is `{body, keyPoints}`. The CHILD's Simplify / Expand / Slower control switches between authored reshapes of the same segment and there is no reshape field, so it needs authored content or a generation endpoint. **What this row wrongly swallowed:** the ENGINE's `modulate_density` instruction is a UI treatment — opacity, transition speed, gentler copy — needs no new content, and shipped 17 Sep. Two different things; filing them as one kept a buildable item on a blocked list |
 | 5. Baseline and warm-up items | `BaselinePromptResponse` is `{dimension}`. Every stimulus and every answer is hardcoded, so the daily warm-up asks the same question each time that dimension comes round |
 | 6. A session id a child can address | Same as teacher item 0b. `GET /students/{id}/sessions/{session_id}` needs a uuid nothing returns |
 | 7. Student SSO | `SsoStartRequest` needs `provider`, and `SchoolCodeResponse.authMethod` names only the *method*, never the vendor. Children at an SSO school cannot sign in |
@@ -876,6 +885,10 @@ Each re-checked against the deployed spec on 16 Sep.
 | 9. `currentPin` on the PIN change | Frame 27 draws three steps beginning with the current PIN; no such field exists anywhere |
 | 10. A lesson description | The preview sheet's plain-language description has no field on any lesson schema |
 | 11. **Visual generation is failing** | Not a schema gap — every image 400s, so `visualVariant` is null library-wide, the visual channel is dead and the modality-suggestion pill is structurally unreachable. Backend has the diagnostic deployed |
+| 13. **`offer_hint` has no hint to show** | Added 17 Sep. `ProactiveAdjustmentResponse` is `{action, reason, confidence, triggerSignals}` and no field carries child-facing hint text. `reason` is not a substitute — it is the reasoning frame 38 forbids showing, and `confidence` is an engine parameter rule 3 keeps off every screen. `FrustrationHint` takes a string and there is nothing to give it, so the action renders the nothing-state |
+| 14. **`show_socratic_panel` has no questions** | Added 17 Sep. `ConfusionSupport` takes 2-3 guided prompts and no field carries them. Same outcome, same reason |
+| 15. **`CalculationVariant` carries no manipulative structure** | Added 17 Sep. Frontend §4: *"Backend supplies structure: kind, parts, rows."* No schema in the document has `parts` or `rows` — checked across all 192 paths. The only scaffold-shaped field is `ScaffoldImage`, which is exactly the static image §4 forbids substituting. So `expectedInput: "drag"` steps are refused on generated content and §4's *"the one place modalities layer rather than switch"* cannot happen. The ask is `kind`, `parts`, `rows` |
+| 16. **`proactiveAdjustment.action` has no enum** | Documentation, added 17 Sep. A bare `string`, so §4's six values are the design's list and not the contract's. Unrecognised values resolve to null and render nothing, which is safe — confirming the vocabulary turns a guess into a contract |
 | 12. **Zero-Tag rejects ordinary English** | Raised by backend 16 Sep: "treatment", "be patient" and "water treatment" are refused, and a lesson containing one degrades silently to deterministic splitting. Flagged as a compliance decision rather than a bug. **Not a backend ask — traced 16 Sep and the frontend half is ours: the teacher is told nothing.** See S-A item 18 |
 
 ## S-C. Blocked on design
@@ -883,20 +896,27 @@ Each re-checked against the deployed spec on 16 Sep.
 1. **Frame 28c does not exist.** The shared-classroom-tablet picker is design's own answer
    to a known defect and the frame was never delivered. Only `28` and `28a` are in the
    design repo. **This is the single most-cited student blocker and it is waiting on one
-   frame.**
-2. **What the Interactive channel IS.** The wire sends a question; the player draws
-   tickable steps. `expectedInteraction` defaults to `teacher_review`, which may mean the
-   payload is not student-facing at all. A product decision, not a mapping.
+   frame.** **Design took this on 17 Sep — "mine, and overdue". Still open, now owned.**
+2. ~~**What the Interactive channel IS.**~~ **RULED 17 Sep: do not build against
+   `expectedInteraction` either way.** The wire sends a question; the player draws tickable
+   steps; the field defaults to `teacher_review`. Design's ruling is that the frontend
+   builds no behaviour on it in either direction, and flags anything else of that shape.
+   Closed as a question, open as a standing instruction.
 3. **The calculation scaffold** for anything that is not two like fractions, and whether
    `scaffoldImage` replaces the drawn bar model.
-4. **A slot for `highlights`** — required on the wire, carried to the screen, nowhere to
-   put it that is not fabrication.
+4. ~~**A slot for `highlights`**~~ **RULED 17 Sep: do not build a surface for it.**
+   Required on the wire, carried to the screen, and it stays carried and unrendered rather
+   than being given a home that would be fabrication.
 5. **The invented class list** at a real URL, and whether the demo walkthrough should be
    reachable by typing.
 6. **QR scanning** — whether pointing a child at their device's camera app is the accepted
    path, given this is the primary button on the welcome sheet.
 7. **A system voice reading to six-year-olds** in a calibration activity.
-8. **No escape from the rotate prompt** — SEND-relevant.
+8. ~~**No escape from the rotate prompt** — SEND-relevant.~~ **RULED AND SHIPPED 17 Sep
+   (#435).** Design: *"Build it now."* A tablet clamped to a wheelchair tray does not turn,
+   so "My tablet doesn't turn" lets the child through and is remembered per device. Verified
+   in a real 700x300 viewport, where the escape was clipped below the fold and both Welcome
+   buttons behind it were too.
 9. **A done state for the daily warm-up**, which is currently re-sittable any number of
    times a day.
 10. **The nothing-landed result copy**, and **`invalid_session`** — whether it needs words
