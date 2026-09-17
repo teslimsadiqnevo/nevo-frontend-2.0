@@ -3617,6 +3617,65 @@ and filing them as one blocked item was the mistake.
   is how a learner asks the lesson to change without being told anything about
   themselves.
 
+### Two fixture leaks emptied, 18 Sep - and one of them reached signed-in children
+
+Both found in an admin-side sweep and handed over. Rule 5 in each case, not
+Zero-Tag: Zero-Tag is diagnostic labels, learner types and modality categories,
+and neither of these is one. Worth keeping straight, because the first was
+nearly triaged against the wrong checklist.
+
+**1. The bell invented a message from a named teacher.** `MOCK_NOTIFICATIONS`
+held *"Ms Okafor sent you a message - Lovely work on your fractions today"*: a
+fabricated message attributed to a real teacher, praising work the child may
+never have done. A child could have thanked her for it.
+
+It was not confined to the signed-out walkthrough. `NotificationProvider` had no
+`useHydrated` guard, `useHasSession`'s server snapshot is hardcoded false, and
+the provider is mounted in the ROOT LAYOUT - so every student page's server
+markup and first client frame ran the signed-out branch for a genuinely
+signed-in child. The violet unread dot rendered with nothing behind it.
+
+**Both halves are fixed, and the second is the one that lasts.** The array is
+empty, and the hydration guard means the branch cannot run before the client can
+see the token, whatever anybody puts there later. The samples moved to
+`lib/mocks/sampleNotifications.ts` - its own file, named `sample`, because the
+repo-wide sweep grepped for "sample" and "fixture" and missed
+`MOCK_NOTIFICATIONS` entirely.
+
+**A note on testing it, because the obvious test proves nothing.** With the
+array empty, the signed-out branch and the nothing-state return identical
+values, so a test counting rows passes with or without the guard. Extracting the
+samples is what makes the guard observable: the test mocks that module with the
+original fabricated row and asserts the unhydrated branch still yields nothing,
+and that the hydrated signed-out branch does take it. Removing the guard fails
+two tests.
+
+**Still open, deliberately not taken:** `NotificationBell` carries no
+`SampleRegion`, and `StudentShell` mounts it outside both `MaybeSample`
+wrappers, which is why the end-to-end sweep never caught this. It matters less
+with an empty array and it is the thing that would have caught it, so it is
+worth doing when someone is next in that shell.
+
+**2. Fourteen invented class names on one of the first screens a school sees.**
+`DEMO_CLASSES` - "Year 2 Wrens", "Year 5 Otters" - rendered whenever
+`Boolean(draft.schoolCode)` was false.
+
+Also not only the walkthrough. `getOnboardingDraft` returns `{}` both when no
+school was verified AND when the sessionStorage write silently failed, which
+`mergeOnboardingDraft` swallows on purpose for private mode. So a child who
+typed their real school code in a private or storage-blocked browser saw
+fourteen classes from a school that is not theirs, and picking one wrote
+`classId: undefined` - the exact failure `pick`'s docblock claims to have fixed.
+That fix keyed on `schoolCode`, and this path has no `schoolCode` to key on,
+which is why the answer is no invented list rather than a better condition.
+
+**The existing empty state was NOT reused as-is.** The verified-but-empty screen
+says *"<school> is connected, but it hasn't added any classes"*, and that is
+true only after a school code verified. Pointing the unverified path at it would
+have swapped fourteen invented classes for one invented connection. It has its
+own copy on the same layout: we do not have your school yet, here is the
+class-code route - which is also the honest forward path, because sending a
+storage-blocked child back to the school step is a loop.
 ### Slower shipped, and `slowerSteps` had been unreachable the whole time
 
 Design split the pace control on 17 Sep rather than dropping it, and the split

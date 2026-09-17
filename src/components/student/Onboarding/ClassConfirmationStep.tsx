@@ -20,36 +20,6 @@ const NEXT_STEP = "/student/onboarding/sequence";
 /** The other way into a class when the school roster cannot supply one. */
 const CLASS_CODE_STEP = "/student/onboarding/teacher-join?mode=code";
 
-/**
- * The designed screen's list, for someone who reached this step without ever
- * verifying a school code - a preview, or a direct link.
- *
- * NOT A FALLBACK FOR A REAL SCHOOL. It used to be: `classesProp ?? draftClasses
- * ?? DEMO_CLASSES`, where `classesProp` was never passed by the only page that
- * renders this and `draftClasses` was set only when verification returned a
- * non-empty roster. So a genuinely verified school that lists no classes - or
- * one whose roster came back empty - showed a real child fourteen invented
- * class names. Picking one wrote `classId: undefined`, and three screens later
- * `connectClassCode({ classId: undefined })` threw, dropping the child back to
- * the PIN row with nothing said to them. A class name we cannot join is not a
- * class, and offering it costs a child their account.
- */
-const DEMO_CLASSES = [
-  "Year 2 Wrens",
-  "Year 2 Sparrows",
-  "Year 3 Robins",
-  "Year 3 Swifts",
-  "Year 3 Larks",
-  "Year 4 Falcons",
-  "Year 4 Kingfishers",
-  "Year 4 Herons",
-  "Year 5 Otters",
-  "Year 5 Badgers",
-  "Year 5 Voles",
-  "Year 6 Foxes",
-  "Year 6 Hawks",
-  "Year 6 Ravens",
-];
 
 /**
  * Onboarding Step 3 — Class Confirmation (UI/UX spec B.2 Step 3). One class →
@@ -57,7 +27,14 @@ const DEMO_CLASSES = [
  * tapping a class highlights it and advances. Class names come from the school
  * roster verbatim (no Nevo-imposed naming).
  */
-/** A class the child can be offered. `id` is absent only on the demo list. */
+/**
+ * A class the child can be offered.
+ *
+ * `id` stays optional because the roster's own shape allows it, but every
+ * option now comes from a verified roster - the demo list that was the only
+ * other source is gone. An option without an id still cannot be joined, which
+ * is what `pick` records honestly rather than looking one up by name.
+ */
 type ClassOption = { id?: string; name: string };
 
 export function ClassConfirmationStep() {
@@ -73,21 +50,44 @@ export function ClassConfirmationStep() {
     setDraft(getOnboardingDraft());
   }, []);
 
-  // A verified school code is the only thing that makes the roster
-  // authoritative - and the only thing that makes an EMPTY roster meaningful.
+  /*
+   * A verified school code is the only thing that makes the roster
+   * authoritative - and the only thing that makes an EMPTY roster meaningful.
+   *
+   * THERE IS NO LIST TO FALL BACK TO, as of 18 Sep. This used to render
+   * fourteen invented class names - "Year 2 Wrens", "Year 5 Otters" - whenever
+   * `verified` was false. Rule 5: there was no roster, so we made one up.
+   *
+   * It was never only the signed-out walkthrough. `getOnboardingDraft` returns
+   * `{}` both when no school was verified AND when the sessionStorage write
+   * silently failed, which `mergeOnboardingDraft` swallows on purpose ("private
+   * mode etc."). So a child who typed their real school code in a private or
+   * storage-blocked browser arrived here, saw fourteen classes from a school
+   * that is not theirs, and `pick` wrote `classId: undefined` - the exact
+   * failure the docblock on `pick` says was fixed. That fix keyed on
+   * `schoolCode`; the storage-failure path has no `schoolCode` to key on.
+   *
+   * Product's framing, and it is the sharper one: this is among the first
+   * screens a school sees, and invented classes at that moment say the system
+   * does not know their school.
+   */
   const verified = Boolean(draft?.schoolCode);
-  const roster = draft?.classes ?? [];
-  const classes: ClassOption[] = verified
-    ? roster
-    : DEMO_CLASSES.map((name) => ({ name }));
+  // Memoised because `filtered` below depends on it, and `draft?.classes ?? []`
+  // is a fresh array on every render.
+  const classes: ClassOption[] = useMemo(
+    () => (verified ? (draft?.classes ?? []) : []),
+    [verified, draft],
+  );
 
   const mode = !draft
     ? "waiting"
-    : verified && roster.length === 0
-      ? "none"
-      : classes.length === 1
-        ? "autoskip"
-        : "select";
+    : !verified
+      ? "unknown-school"
+      : classes.length === 0
+        ? "none"
+        : classes.length === 1
+          ? "autoskip"
+          : "select";
   const [query, setQuery] = useState("");
   const kb = useNevoKeyboardDock();
   const [selected, setSelected] = useState<string | null>(null);
@@ -147,6 +147,54 @@ export function ClassConfirmationStep() {
     return (
       <OnboardingShell step={3} backHref="/student/onboarding/school" fill>
         <div className="flex flex-1 items-center justify-center" />
+      </OnboardingShell>
+    );
+  }
+
+  /*
+   * We never verified a school, so we know nothing about their classes.
+   *
+   * SEPARATE FROM `none` ON PURPOSE, though it wears the same layout. That
+   * screen says "<school> is connected, but it hasn't added any classes",
+   * which is true only when a school code was verified. Pointing this path at
+   * that copy would have replaced fourteen invented classes with one invented
+   * connection - a smaller lie, still a lie, and to the same child.
+   *
+   * The class code is the honest way forward rather than sending them back to
+   * the school step: in the storage-blocked case the school step cannot record
+   * an answer either, so back is a loop. `teacher-join` is the route that needs
+   * no roster.
+   */
+  if (mode === "unknown-school") {
+    return (
+      <OnboardingShell step={3} backHref="/student/onboarding/school" fill>
+        <div className="flex shrink-0 justify-center">
+          <IllustrationWrapper
+            src="/illustrations/onboarding-class.png"
+            alt="Three friendly classmates standing together"
+            width={941}
+            height={912}
+            priority
+            className="mt-2 w-[92px] sm:w-[120px] lg:w-[138px]"
+          />
+        </div>
+
+        <h2 className="mt-[18px] shrink-0 text-[23px] font-medium leading-[1.25] tracking-[-0.01em] text-nevo-near-black sm:mt-6 sm:text-[26px]">
+          Let&apos;s find your class
+        </h2>
+
+        <p className="mt-3 shrink-0 text-[15px] leading-[1.5] text-nevo-near-black/70">
+          We don&apos;t have your school yet, so we can&apos;t show your classes.
+          Ask your teacher for a class code and you can join that way.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => router.push(CLASS_CODE_STEP)}
+          className="mt-5 flex h-[52px] w-full shrink-0 cursor-pointer items-center justify-center rounded-[10px] bg-nevo-navy text-base font-medium text-nevo-cream transition-[opacity,filter] hover:brightness-106 active:scale-[0.99]"
+        >
+          Enter a class code
+        </button>
       </OnboardingShell>
     );
   }

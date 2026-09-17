@@ -1,0 +1,196 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { useContext } from "react";
+import { NotificationContext, NotificationProvider } from "./NotificationContext";
+
+/**
+ * THE BELL INVENTED A MESSAGE FROM A NAMED TEACHER.
+ *
+ * The signed-out branch returned two authored rows, and the second was "Ms
+ * Okafor sent you a message - Lovely work on your fractions today": a
+ * fabricated message attributed to a real teacher, praising work the child may
+ * never have done. A child could have thanked her for it.
+ *
+ * Rule 5 rather than Zero-Tag, and the distinction matters because it was
+ * nearly triaged against the wrong checklist. Zero-Tag is diagnostic labels,
+ * learner types and modality categories; praise is none of those. Rule 5 is
+ * "absence is an instruction - render the nothing-state, do not fill the gap".
+ *
+ * IT REACHED GENUINELY SIGNED-IN CHILDREN, which is the half that made it
+ * urgent rather than cosmetic. `useHasSession` reads localStorage and its
+ * server snapshot is hardcoded false, and this provider is mounted in the root
+ * layout - so every student page's server markup and first client frame ran the
+ * signed-out branch for a child who was signed in.
+ *
+ * Emptying the array alone would have closed the symptom and left the
+ * mechanism, so these cover both: that nothing is invented, AND that the branch
+ * cannot run before the client can see the token. The second is the one that
+ * still holds if somebody puts content back.
+ */
+
+const hasSession = vi.hoisted(() => ({ value: false }));
+vi.mock("@/hooks/useHasSession", () => ({
+  useHasSession: () => hasSession.value,
+}));
+
+const hydrated = vi.hoisted(() => ({ value: true }));
+vi.mock("@/hooks/useHydrated", () => ({
+  useHydrated: () => hydrated.value,
+}));
+
+vi.mock("@/lib/api/notifications", () => ({
+  notificationsApi: { list: () => new Promise(() => {}) },
+}));
+
+const token = vi.hoisted(() => ({ value: undefined as string | undefined }));
+vi.mock("@/lib/auth/session", () => ({ getToken: () => token.value }));
+
+/*
+ * THE SAMPLES ARE MOCKED WITH A FABRICATION ON PURPOSE.
+ *
+ * With the real array empty, the signed-out branch and the nothing-state return
+ * identical values, so a test that only counted rows would pass whether or not
+ * the hydration guard existed - it would close the symptom and prove nothing
+ * about the mechanism. Standing a row back up here is what makes the guard
+ * observable, and it is the same row that shipped.
+ */
+vi.mock("@/lib/mocks/sampleNotifications", () => ({
+  SAMPLE_NOTIFICATIONS: [
+    {
+      id: "n2",
+      title: "Ms Okafor sent you a message",
+      text: "Lovely work on your fractions today",
+      ago: "1d",
+    },
+  ],
+}));
+
+/** Everything a bell could render, flattened so a fabrication cannot hide. */
+function Probe() {
+  const ctx = useContext(NotificationContext)!;
+  return (
+    <div>
+      <span data-testid="unread">{ctx.unreadCount}</span>
+      <span data-testid="count">{ctx.notifications.length}</span>
+      <span data-testid="failed">{String(ctx.failed)}</span>
+      <span data-testid="text">
+        {ctx.notifications.map((n) => `${n.title} ${n.text ?? ""}`).join(" | ")}
+      </span>
+    </div>
+  );
+}
+
+const shown = () => ({
+  unread: screen.getByTestId("unread").textContent,
+  count: screen.getByTestId("count").textContent,
+  failed: screen.getByTestId("failed").textContent,
+  text: screen.getByTestId("text").textContent ?? "",
+});
+
+const mount = () =>
+  render(
+    <NotificationProvider>
+      <Probe />
+    </NotificationProvider>,
+  );
+
+beforeEach(() => {
+  hasSession.value = false;
+  hydrated.value = true;
+  token.value = undefined;
+});
+
+afterEach(() => {
+  cleanup();
+});
+
+describe("what the bell says when nobody has told it anything", () => {
+  it("invents no notification for a signed-out visitor", async () => {
+    // The real module, not the fabrication the rest of this file stands up.
+    const actual = await vi.importActual<
+      typeof import("@/lib/mocks/sampleNotifications")
+    >("@/lib/mocks/sampleNotifications");
+
+    expect(actual.SAMPLE_NOTIFICATIONS).toEqual([]);
+  });
+
+  it("names no teacher and reports no praise", async () => {
+    // The specific failure: a message attributed to a real person, about work
+    // that may never have happened. Asserted against the REAL module, because
+    // the rest of this file deliberately stands a fabrication back up.
+    const actual = await vi.importActual<
+      typeof import("@/lib/mocks/sampleNotifications")
+    >("@/lib/mocks/sampleNotifications");
+    const text = actual.SAMPLE_NOTIFICATIONS.map(
+      (n) => `${n.title} ${n.text ?? ""}`,
+    ).join(" | ");
+
+    expect(text).not.toMatch(/okafor|lovely work|waiting for you/i);
+  });
+});
+
+describe("the branch cannot run before the client can see the token", () => {
+  it("shows nothing at all while unhydrated, signed in or not", () => {
+    /*
+     * The mechanism, not the symptom. `useHasSession` cannot tell a signed-in
+     * child from a visitor until the client is running, so the signed-out
+     * branch is not safe to take until then - whatever it happens to contain
+     * today. This is the assertion that still fails if someone puts an array
+     * back.
+     */
+    hydrated.value = false;
+    token.value = "a-real-token";
+    hasSession.value = false; // what the server snapshot always reports
+
+    mount();
+
+    expect(shown().count).toBe("0");
+    expect(shown().unread).toBe("0");
+    expect(shown().text).not.toMatch(/okafor/i);
+  });
+
+  it("DOES take the sample branch once hydrated and signed out", () => {
+    // The other side of the guard. If this passed while the one above failed,
+    // the guard would be doing nothing and the branch would simply be dead -
+    // which is not what was asked for and would rot differently.
+    hydrated.value = true;
+    hasSession.value = false;
+
+    mount();
+
+    expect(shown().count).toBe("1");
+    expect(shown().unread).toBe("1");
+  });
+
+  it("raises no unread dot on the first frame of a signed-in child", () => {
+    // The visible symptom: a violet dot with nothing behind it, on every
+    // student page, because the provider is mounted in the root layout.
+    hydrated.value = false;
+    hasSession.value = false;
+    mount();
+
+    expect(shown().unread).toBe("0");
+  });
+
+  it("does not claim the feed failed while it is simply not known yet", () => {
+    // "We could not load this" is as much a claim as "nothing new". Neither is
+    // true before the client has had a chance to ask.
+    hydrated.value = false;
+    mount();
+
+    expect(shown().failed).toBe("false");
+  });
+});
+
+describe("the live path, which was already right", () => {
+  it("shows nothing rather than samples while a real feed is in flight", () => {
+    hydrated.value = true;
+    hasSession.value = true;
+    token.value = "a-real-token";
+
+    mount();
+
+    expect(shown().count).toBe("0");
+    expect(shown().failed).toBe("false");
+  });
+});
