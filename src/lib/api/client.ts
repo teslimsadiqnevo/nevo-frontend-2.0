@@ -101,10 +101,26 @@ async function getAuthToken(): Promise<string | undefined> {
  * The backend's admin roles are `senco_admin` and `other_admin`, never a plain
  * "admin" - which is why this asks `isAdminRole` rather than comparing.
  */
-export function sessionExpiredDoor(role: string | undefined): string {
-  if (role === "teacher") return "/auth/teacher/session-expired";
-  if (isAdminRole(role)) return "/auth/admin/session-expired";
-  return "/auth/session-expired";
+export function sessionExpiredDoor(
+  role: string | undefined,
+  /**
+   * The backend's own reason code, carried to the door as `?reason=`.
+   *
+   * It has to travel on the URL: the door is a full page load
+   * (`window.location.assign`) and the session it came from has already been
+   * cleared, so there is nowhere else left to read it from. Unrecognised and
+   * absent both resolve to the ordinary screen, so an unknown value on the
+   * query string can only ever under-claim.
+   */
+  code?: string | null,
+): string {
+  const base =
+    role === "teacher"
+      ? "/auth/teacher/session-expired"
+      : isAdminRole(role)
+        ? "/auth/admin/session-expired"
+        : "/auth/session-expired";
+  return code ? `${base}?reason=${encodeURIComponent(code)}` : base;
 }
 
 /**
@@ -119,7 +135,11 @@ export function sessionExpiredDoor(role: string | undefined): string {
  */
 let redirecting = false;
 
-function handleAuthFailure(path: string, sentToken: boolean): void {
+function handleAuthFailure(
+  path: string,
+  sentToken: boolean,
+  detail?: unknown,
+): void {
   if (typeof window === "undefined" || !sentToken || redirecting) return;
   // Only the sign-in and sign-out calls own their failures. The session
   // check must NOT be exempt: it is the one call that discovers a dead
@@ -135,7 +155,7 @@ function handleAuthFailure(path: string, sentToken: boolean): void {
   // picks the door the screen offers. The backend's admin roles are
   // `senco_admin` and `other_admin`, never a plain "admin".
   redirecting = true;
-  window.location.assign(sessionExpiredDoor(role));
+  window.location.assign(sessionExpiredDoor(role, apiErrorCode(detail)));
 }
 
 /** An array repeats the key - see `buildUrl`. */
@@ -255,7 +275,7 @@ export async function request<T>(
     // route reaches a 403-able endpoint routinely, and a school with more than
     // one admin hits this on day one.
     if (response.status === 401) {
-      handleAuthFailure(path, Boolean(token));
+      handleAuthFailure(path, Boolean(token), detail);
     }
     throw new ApiError(
       response.status,

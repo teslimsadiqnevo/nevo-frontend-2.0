@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { NevoLockup } from "./NevoLockup";
+import {
+  sessionEndCopy,
+  type SessionEndReason,
+} from "@/lib/auth/sessionEndReason";
 
 /**
  * `Nevo Session Expired` - the shared teacher/admin console screen for a
@@ -18,7 +22,18 @@ import { NevoLockup } from "./NevoLockup";
  * 30px heading, 17px body capped at 420px, a 52px navy button, and the
  * security note at 13.5px / 50% on a 360px measure.
  */
-export function ConsoleSessionExpired({ signInHref }: { signInHref: string }) {
+export function ConsoleSessionExpired({
+  signInHref,
+  /**
+   * Which of the four states this is. Defaults to the ordinary one, so any
+   * caller that has not been taught about reasons keeps its current behaviour.
+   */
+  reason = "expired",
+}: {
+  signInHref: string;
+  reason?: SessionEndReason;
+}) {
+  const copy = sessionEndCopy(reason, "staff");
   return (
     <div className="relative flex min-h-[100dvh] flex-col bg-nevo-cream text-nevo-near-black">
       <div className="absolute top-9 left-11">
@@ -44,20 +59,27 @@ export function ConsoleSessionExpired({ signInHref }: { signInHref: string }) {
           </svg>
         </span>
         <h1 className="mt-7 text-[30px] font-semibold tracking-[-0.015em] text-nevo-near-black">
-          Your session has ended.
+          {copy.heading}
         </h1>
         <p className="mt-[13px] max-w-[420px] text-[17px] leading-[1.55] text-nevo-near-black/70">
-          Sign in again to continue where you left off.
+          {copy.body}
         </p>
-        <Link
-          href={signInHref}
-          className="mt-[30px] inline-flex h-[52px] cursor-pointer items-center rounded-[10px] bg-nevo-navy px-10 text-base font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
-        >
-          Sign in
-        </Link>
-        <p className="mt-[22px] max-w-[360px] text-[13.5px] leading-[1.5] text-nevo-near-black/50">
-          Sessions expire after a period of inactivity for your security.
-        </p>
+        {/* A paused account offers no button: design was explicit that
+            retrying does nothing, and a control that cannot work is worse
+            than none. The frame it mirrors has no button either. */}
+        {copy.offersSignIn && (
+          <Link
+            href={signInHref}
+            className="mt-[30px] inline-flex h-[52px] cursor-pointer items-center rounded-[10px] bg-nevo-navy px-10 text-base font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
+          >
+            Sign in
+          </Link>
+        )}
+        {copy.note && (
+          <p className="mt-[22px] max-w-[360px] text-[13.5px] leading-[1.5] text-nevo-near-black/50">
+            {copy.note}
+          </p>
+        )}
       </div>
     </div>
   );

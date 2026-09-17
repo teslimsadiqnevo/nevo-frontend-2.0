@@ -123,7 +123,19 @@ export function SessionPanel({
                       className={`mt-px flex size-6 shrink-0 items-center justify-center rounded-full text-nevo-navy ${
                         s.took ? "bg-nevo-violet/28" : "bg-nevo-navy/12"
                       }`}
-                      title={s.took ? "Took her time here" : "Steady"}
+                      /*
+                       * Describes what the software observed, not what the
+                       * child is. Frontend section 6 on both counts: no
+                       * gendered pronoun (nothing stores one, and no field
+                       * could make it right), and "Took her time" / "Steady"
+                       * characterise a person where "spent longer on this
+                       * section" reports a session.
+                       */
+                      title={
+                        s.took
+                          ? "Spent longer on this section"
+                          : "Moved straight through"
+                      }
                     >
                       {s.took ? ClockMark : CheckMark}
                     </span>

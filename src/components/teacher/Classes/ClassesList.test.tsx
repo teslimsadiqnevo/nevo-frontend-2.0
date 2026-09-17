@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { TeacherClasses } from "@/hooks/useTeacherClasses";
 
-const { useTeacherClasses, useCurrentUser } = vi.hoisted(() => ({
+const { useTeacherClasses, useCurrentUser, useTeacherHome } = vi.hoisted(() => ({
   useTeacherClasses: vi.fn(),
   useCurrentUser: vi.fn(),
+  useTeacherHome: vi.fn(),
 }));
 
 vi.mock("@/hooks/useTeacherClasses", () => ({ useTeacherClasses }));
 vi.mock("@/hooks/useCurrentUser", () => ({ useCurrentUser }));
+vi.mock("@/hooks/useTeacherHome", () => ({ useTeacherHome }));
 
 import { ClassesList } from "./ClassesList";
 import { SCHOOL_LINE, TEACHER_CLASSES } from "@/lib/mocks/teacherClasses";
@@ -44,10 +46,31 @@ const state = (over: Partial<TeacherClasses> = {}): TeacherClasses => ({
   ...over,
 });
 
+/**
+ * The home read, which this list now also makes for the headcount.
+ *
+ * Only `pulse` is read. Defaulting to empty means every existing test below
+ * exercises the no-headcount path, which is the one that has to keep the old
+ * "Synced from your school" line.
+ */
+const pulse = (rows: Array<{ classId: string; studentCount: number }> = []) => {
+  useTeacherHome.mockReturnValue({
+    pulse: rows.map((r) => ({
+      classId: r.classId,
+      className: "JSS 2A",
+      studentCount: r.studentCount,
+      tiles: [],
+      quiet: false,
+    })),
+  });
+};
+
 beforeEach(() => {
   useTeacherClasses.mockReset();
   useCurrentUser.mockReset();
+  useTeacherHome.mockReset();
   useCurrentUser.mockReturnValue(null);
+  pulse();
 });
 
 describe("the school line", () => {
@@ -98,5 +121,150 @@ describe("the school line", () => {
 
     expect(screen.getByText("E2E Probe School")).toBeInTheDocument();
     expect(screen.queryByText(SCHOOL_LINE)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The headcount on a real class card.
+ *
+ * `AssignedClassResponse` carries no studentCount, so the live card read
+ * "Synced from your school" while the SAMPLE card beside it said "28 students".
+ * The live list was strictly poorer than the fallback, on the one number a
+ * teacher opening this page is most likely to want.
+ *
+ * The count comes from `ClassLearningPulseResponse.studentCount` on the home
+ * read, keyed by the same classId. It is required on that schema, so the only
+ * absence worth handling is a class missing from the pulse altogether.
+ */
+describe("the headcount on a live class card", () => {
+  const liveOnly = (classId: string) =>
+    state({
+      classes: [],
+      liveClasses: [
+        {
+          assignmentId: "a-1",
+          classId,
+          className: "JSS 2A",
+          classCode: "NEVO-2A",
+          role: "primary",
+          assignedAt: "2026-09-01T09:00:00Z",
+        },
+      ],
+      live: true,
+    });
+
+  it("shows the count when the pulse knows this class", () => {
+    useTeacherClasses.mockReturnValue(liveOnly("c-1"));
+    pulse([{ classId: "c-1", studentCount: 28 }]);
+
+    render(<ClassesList />);
+
+    expect(screen.getAllByText("28 students").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Synced from your school")).not.toBeInTheDocument();
+  });
+
+  it("says student, not students, for a class of one", () => {
+    useTeacherClasses.mockReturnValue(liveOnly("c-1"));
+    pulse([{ classId: "c-1", studentCount: 1 }]);
+
+    render(<ClassesList />);
+
+    expect(screen.getAllByText("1 student").length).toBeGreaterThan(0);
+  });
+
+  it("keeps the old line when the pulse does not know this class", () => {
+    // A wrong number is worse than no number: "0 students" for a class that
+    // simply is not in the pulse reads as a roster that has been emptied.
+    useTeacherClasses.mockReturnValue(liveOnly("c-1"));
+    pulse([{ classId: "some-other-class", studentCount: 30 }]);
+
+    render(<ClassesList />);
+
+    expect(screen.getAllByText("Synced from your school").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/0 students/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the old line when the home read failed entirely", () => {
+    useTeacherClasses.mockReturnValue(liveOnly("c-1"));
+    pulse([]);
+
+    render(<ClassesList />);
+
+    expect(screen.getAllByText("Synced from your school").length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * The sample mark, which this screen did not have.
+ *
+ * Every other teacher fallback is wrapped in `SampleRegion` - Home in four
+ * places, class detail, insights, lesson detail, student profile - and this one
+ * was not, though it renders three invented classes with invented headcounts
+ * and flag counts. `e2e/teacher-signed-in.spec.ts` walks `/teacher/classes` and
+ * asserts zero `data-nevo-sample` nodes, so that assertion was VACUOUS here: the
+ * screen could degrade to fixtures in front of a signed-in teacher and pass.
+ *
+ * There is a visible "these are sample classes" banner, so this was a test
+ * coverage hole rather than a silent lie. The mark is what makes the existing
+ * assertion able to see it.
+ */
+describe("the sample mark", () => {
+  it("leaves no fixture card outside a sample region, in either layout", () => {
+    /**
+     * Asserted per CARD, not once per screen.
+     *
+     * The first version of this test asked only whether SOME marked region
+     * existed. This screen renders the fixture list TWICE - a desktop grid and
+     * a tablet stack, both in the DOM under jsdom because the layouts are
+     * chosen with CSS - so deleting the mark from one of them left the other
+     * satisfying the assertion. A mutation run proved it: stripping the desktop
+     * wrapper changed nothing and the test still passed.
+     *
+     * Walking up from each rendered fixture name is what actually encodes the
+     * property, and it stays true if the layouts are ever restructured.
+     */
+    useTeacherClasses.mockReturnValue(state({ sample: true }));
+
+    render(<ClassesList />);
+
+    const names = TEACHER_CLASSES.flatMap((c) => screen.getAllByText(c.name));
+    expect(names.length).toBeGreaterThanOrEqual(TEACHER_CLASSES.length * 2);
+
+    for (const node of names) {
+      expect(node.closest("[data-nevo-sample]")).not.toBeNull();
+    }
+  });
+
+  it("marks nothing when the teacher is seeing their own classes", () => {
+    // An empty marked wrapper would fail the E2E assertion on a screen that is
+    // behaving correctly, which is how a mark like this gets deleted.
+    useTeacherClasses.mockReturnValue(
+      state({
+        classes: [],
+        liveClasses: [
+          {
+            assignmentId: "a-1",
+            classId: "c-1",
+            className: "JSS 2A",
+            classCode: "NEVO-2A",
+            role: "primary",
+            assignedAt: "2026-09-01T09:00:00Z",
+          },
+        ],
+        live: true,
+      }),
+    );
+
+    const { container } = render(<ClassesList />);
+
+    expect(container.querySelector("[data-nevo-sample]")).toBeNull();
+  });
+
+  it("marks nothing while the read is still in flight", () => {
+    useTeacherClasses.mockReturnValue(state({ loading: true }));
+
+    const { container } = render(<ClassesList />);
+
+    expect(container.querySelector("[data-nevo-sample]")).toBeNull();
   });
 });

@@ -9,6 +9,7 @@ import {
   getOnboardingDraft,
   rememberOnboardedStudent,
 } from "@/lib/auth/onboarding";
+import { setSession } from "@/lib/auth/session";
 import { useNextLessonHref } from "@/hooks/useNextLessonHref";
 import { flushPendingBaseline } from "@/lib/profiling/pendingBaseline";
 import { randomId } from "@/lib/utils";
@@ -68,6 +69,15 @@ export function ObservedInteractionSequence() {
    */
   const [deviceRemembered, setDeviceRemembered] = useState(true);
   const [index, setIndex] = useState(0);
+  /**
+   * The capture session the profiling run parked its vector under.
+   *
+   * Handed to `flushPendingBaseline` so the vector has to be THIS run every
+   * time, not merely whatever is parked. Before the join path stored a
+   * session, a mismatched token was doing that job by accident; it is not
+   * doing it any more.
+   */
+  const parkedRunRef = useRef<string | null>(null);
 
   if (phase === "transition") {
     return (
@@ -82,7 +92,15 @@ export function ObservedInteractionSequence() {
   const advance = () => setIndex((i) => i + 1);
 
   if (index === 0) {
-    return <ProfilingFlow track={trackEvent} onDone={advance} />;
+    return (
+      <ProfilingFlow
+        track={trackEvent}
+        onDone={(runSessionId) => {
+          parkedRunRef.current = runSessionId;
+          advance();
+        }}
+      />
+    );
   }
 
   if (index === 1) {
@@ -115,12 +133,39 @@ export function ObservedInteractionSequence() {
               lastName,
             });
             identifierRef.current = res.loginIdentifier;
-            // The baseline this child sat in phase 0 is parked, waiting for an
-            // account to belong to. It only goes out if the stored session is
-            // provably theirs - `acceptJoin` does not store one, so on this
-            // path it usually stays parked rather than being written to
-            // whoever's token happens to be on the device.
-            await flushPendingBaseline(res.userId);
+            /*
+             * SIGN THEM IN. Backend put `session` on this response on 16 Sep
+             * and this client dropped it, so redeeming an invitation created
+             * an account and left the child holding nothing: their first
+             * lesson, their progress and their parked baseline all belonged to
+             * nobody. It was the recorded launch blocker and it was a field
+             * nothing read.
+             *
+             * Stored exactly as `authApi.completeAccount` stores its own, and
+             * guarded because the field is absent on any deployment older than
+             * today - then the child is where they were before, not worse off.
+             */
+            if (res.session) {
+              setSession({
+                token: res.session.accessToken,
+                expiresAt: res.session.expiresAt,
+                userId: res.session.userId,
+                role: res.session.role,
+              });
+            }
+            /*
+             * The baseline this child sat in phase 0 can now reach them.
+             *
+             * READ THE SECOND ARGUMENT BEFORE CHANGING ANY OF THIS. Until the
+             * line above, this path had no session, and that absence was doing
+             * the safety work: a parked vector simply could not be sent. Now
+             * that a session exists, `session.userId === res.userId` is true by
+             * construction and would happily send whatever is parked -
+             * including a vector the PREVIOUS child on a shared tablet left
+             * behind when their warm-up submit failed. So the flush is told
+             * which run parked it, and sends only that one.
+             */
+            await flushPendingBaseline(res.userId, parkedRunRef.current);
             return;
           }
 
@@ -171,7 +216,7 @@ export function ObservedInteractionSequence() {
           // left behind by the previous child on a shared tablet cannot satisfy
           // it, which is what stops one child's assessment landing on another's
           // record.
-          await flushPendingBaseline(res.userId);
+          await flushPendingBaseline(res.userId, parkedRunRef.current);
 
           flush();
         }}

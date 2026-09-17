@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   OBSERVATION_COPY,
   observationCount,
@@ -8,6 +9,7 @@ import {
 import { rosterMarker } from "@/lib/constants/accountStatus";
 import { useTeacherFlags } from "@/hooks/useTeacherFlags";
 import { useState } from "react";
+import { useClassLessons } from "@/hooks/useClassLessons";
 import type { AssignedClass } from "@/lib/api";
 import {
   lastSeenLine,
@@ -15,7 +17,7 @@ import {
   useClassRoster,
 } from "@/hooks/useClassRoster";
 import { cn } from "@/lib/utils";
-import { ClassQrDialog, ClassQrScreen } from "./ClassQr";
+import { ClassQrDialog } from "./ClassQr";
 
 /**
  * A class the school assigned, drawn from what the backend actually serves:
@@ -42,8 +44,18 @@ import { ClassQrDialog, ClassQrScreen } from "./ClassQr";
  * design says what an observation row looks like here.
  */
 export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
-  const [qr, setQr] = useState<"none" | "dialog" | "screen">("none");
+  const [qr, setQr] = useState<"none" | "dialog">("none");
+  /**
+   * TWO TABS, NOT THREE. Design ruled on 16 Sep: the Lessons tab ships because
+   * the library cannot be filtered by class, so nothing else answers "what has
+   * this class been given". ACTIVITY IS OUT either way, in design's words "a
+   * per-class activity feed is a surveillance surface by default and we have
+   * nothing that needs it" - so the sample screen next door, which still drew
+   * three, was changed to match rather than this one grown to meet it.
+   */
+  const [tab, setTab] = useState<"roster" | "lessons">("roster");
   const role = klass.role === "co_teacher" ? "Co-teacher" : "Primary teacher";
+  const router = useRouter();
   const { students, loading, failed } = useClassRoster(klass.classId);
   const observed = students.filter(
     (s) => s.profileStatus === "observed",
@@ -118,7 +130,30 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
           )}
         </div>
 
-        {loading && (
+
+        {/* Roster / Lessons. Read-only on the Lessons side: design was explicit
+            that "Library stays the only place a lesson is created". */}
+        <div className="mt-6 flex gap-1.5" role="tablist" aria-label="Class views">
+          {(["roster", "lessons"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              onClick={() => setTab(t)}
+              className={cn(
+                "h-9 cursor-pointer rounded-[9px] px-3.5 text-[13.5px] font-medium capitalize transition-colors",
+                tab === t
+                  ? "bg-nevo-navy text-nevo-cream"
+                  : "text-nevo-near-black/65 hover:bg-nevo-navy/8",
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {tab === "roster" && loading && (
           <div className="mt-6 flex flex-col gap-2">
             {[0, 1, 2].map((i) => (
               <div
@@ -129,7 +164,7 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
           </div>
         )}
 
-        {!loading && students.length > 0 && (
+        {tab === "roster" && !loading && students.length > 0 && (
           <>
             <h3 className="mt-7 text-[13.5px] font-semibold tracking-[0.04em] text-nevo-near-black/55 uppercase xl:mt-8 xl:text-sm">
               Student observations
@@ -311,7 +346,7 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
           </>
         )}
 
-        {!loading && students.length === 0 && (
+        {tab === "roster" && !loading && students.length === 0 && (
           <div className="mt-6 flex max-w-[620px] items-start gap-3.5 rounded-[12px] bg-nevo-cream-elevated px-[22px] py-5 shadow-elevation-1">
             <span className="mt-px shrink-0 text-nevo-navy">
               <svg
@@ -345,6 +380,7 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
             </div>
           </div>
         )}
+        {tab === "lessons" && <LessonsPanel classId={klass.classId} />}
       </div>
 
       {qr === "dialog" && klass.classCode && (
@@ -352,16 +388,96 @@ export function LiveClassDetail({ klass }: { klass: AssignedClass }) {
           className={klass.className}
           code={klass.classCode}
           onClose={() => setQr("none")}
-          onProject={() => setQr("screen")}
+          /*
+           * Projecting now NAVIGATES, where it used to swap local state for an
+           * overlay with no URL. Design's ruling for the standalone route is
+           * that teachers "project it, read it aloud and return to it", and a
+           * projection you cannot link or reopen fails the third of those: the
+           * teacher who closed it had to walk back through class detail and
+           * the dialog to get it up again.
+           *
+           * The route renders the same `ClassQrScreen`, so nothing about what
+           * is projected changes - only that it now has an address.
+           */
+          onProject={() => router.push(`/teacher/classes/${klass.classId}/code`)}
         />
       )}
-      {qr === "screen" && klass.classCode && (
-        <ClassQrScreen
-          className={klass.className}
-          code={klass.classCode}
-          onClose={() => setQr("none")}
-        />
-      )}
+    </div>
+  );
+}
+
+/**
+ * What this class has been given. Read-only, per design's 16 Sep ruling:
+ * "a read-only list of lessons assigned to that class with status. No authoring
+ * on that surface. Library stays the only place a lesson is created."
+ *
+ * So there is no assign control here and no row action. Rows link to the
+ * lesson, which is where a teacher acts on it.
+ */
+function LessonsPanel({ classId }: { classId: string }) {
+  const { lessons, loading, failed } = useClassLessons(classId);
+
+  if (loading) {
+    return (
+      <div className="mt-5 flex flex-col gap-2">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-[62px] animate-pulse rounded-[12px] bg-nevo-cream-elevated"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (failed) {
+    return (
+      <p className="mt-5 text-sm leading-[1.55] text-nevo-near-black/68">
+        We couldn&rsquo;t load what this class has been given. Nothing has
+        changed for your students, so you can try again in a moment.
+      </p>
+    );
+  }
+
+  if (lessons.length === 0) {
+    return (
+      <p className="mt-5 text-sm leading-[1.55] text-nevo-near-black/68">
+        Nothing has been set for this class yet. Lessons you assign from your
+        library will appear here.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-5 flex flex-col gap-2">
+      {lessons.map((l) => (
+        <Link
+          key={l.lessonId}
+          href={`/teacher/lessons/${l.lessonId}`}
+          className="flex cursor-pointer items-center justify-between gap-4 rounded-[12px] bg-nevo-cream-elevated px-[18px] py-4 shadow-elevation-1 transition-[filter] hover:brightness-[0.985]"
+        >
+          <div className="min-w-0">
+            <span className="block truncate text-[15px] font-semibold text-nevo-near-black">
+              {l.title}
+            </span>
+            <span className="mt-0.5 block text-[13px] text-nevo-near-black/60">
+              {l.cancelled
+                ? "Called off"
+                : `${l.studentCount} ${l.studentCount === 1 ? "student" : "students"}`}
+            </span>
+          </div>
+          {/*
+           * Words, not a colour. The roster beside this already uses violet for
+           * "has a learning profile", and a second meaning on one colour is how
+           * a teacher acts on the wrong one.
+           */}
+          {l.opensAt && !l.cancelled && (
+            <span className="shrink-0 rounded-[7px] border border-nevo-navy/25 px-2 py-1 text-[12px] text-nevo-near-black/65">
+              Opens later
+            </span>
+          )}
+        </Link>
+      ))}
     </div>
   );
 }

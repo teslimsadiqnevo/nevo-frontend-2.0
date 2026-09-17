@@ -10,6 +10,8 @@ import {
 } from "@/lib/api/team";
 import type { PermissionScope } from "@/lib/constants/permissions";
 import { cn } from "@/lib/utils";
+import { feedbackApi } from "@/lib/api/feedback";
+import { CheckIcon } from "../Roster/primitives";
 import { readOnboarding, schoolApi } from "@/lib/api/school";
 import { NoAccess, failureKind } from "../NoAccess";
 import {
@@ -281,6 +283,24 @@ function TeamList({
   onInvite: () => void;
 }) {
   const atAllowance = seats !== null && team.length >= seats;
+  const [requested, setRequested] = useState<
+    "idle" | "sending" | "sent" | "failed"
+  >("idle");
+
+  const requestAccount = () => {
+    if (requested === "sending" || requested === "sent") return;
+    setRequested("sending");
+    feedbackApi
+      .submit({
+        type: "account_request",
+        note: `Requesting an additional admin account. All ${seats ?? team.length} admin accounts are in use.`,
+        // Ops' first question about any request is which screen it came from.
+        context: "/admin/team",
+      })
+      .then(() => setRequested("sent"))
+      .catch(() => setRequested("failed"));
+  };
+
   return (
     <>
       <div className="flex items-start justify-between gap-6">
@@ -315,18 +335,49 @@ function TeamList({
             billing one: the fewer accounts that can reach student data, the
             smaller the risk.
           </p>
+          {/*
+            * THIS BUTTON DID NOTHING. It was `<button type="button">` with no
+            * onClick, no handler and no form anywhere in this file to catch a
+            * submit - styled as the primary navy CTA, under copy promising
+            * "we'll add it at no charge, just ask", and inert when asked. It
+            * broke this console's own law, stated at `SettingsView.tsx`: a
+            * screen that appears to act and does not is worse than one that
+            * admits the control is not built.
+            *
+            * The old marker said "TODO(api): no endpoint requests an extra
+            * account", which was true and beside the point. No BESPOKE
+            * endpoint is needed: `POST /api/v1/feedback` is deployed,
+            * consumed, and carries `context` so whoever triages it knows
+            * which school and which screen. The ask is a sentence to a human,
+            * not a seat mutation - nothing here should provision an account.
+            */}
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            {/* TODO(api): no endpoint requests an extra account. */}
-            <button
-              type="button"
-              className="h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93"
-            >
-              Request another account
-            </button>
-            <span className="text-[13px] text-nevo-near-black/55">
-              Added at no charge, usually the same day. Admin accounts are
-              always free.
-            </span>
+            {requested === "sent" ? (
+              <p className="m-0 flex items-center gap-2.5 text-sm font-semibold text-nevo-navy">
+                <span className="flex size-[22px] flex-none items-center justify-center rounded-full bg-nevo-navy text-nevo-cream motion-safe:animate-nevo-pop">
+                  <CheckIcon size={12} />
+                </span>
+                Asked. We&rsquo;ll be in touch, usually the same day.
+              </p>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled={requested === "sending"}
+                  onClick={requestAccount}
+                  className="h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-110 active:brightness-93 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:brightness-100"
+                >
+                  {requested === "sending"
+                    ? "Sending…"
+                    : "Request another account"}
+                </button>
+                <span className="text-[13px] text-nevo-near-black/55">
+                  {requested === "failed"
+                    ? "That didn’t send. Nothing has changed — try again, or email support@nevolearning.com."
+                    : "Added at no charge, usually the same day. Admin accounts are always free."}
+                </span>
+              </>
+            )}
           </div>
         </div>
       )}

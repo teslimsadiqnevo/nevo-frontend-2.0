@@ -10,18 +10,19 @@
  * round-trip this comment used to describe is gone, and the two timing
  * constants that drove it went with it - nothing in `src/` referenced them.
  *
- * What survives is `TEACHER_INVITE.school`, used as a display string while an
- * SSO hand-back resolves (`TeacherSsoCallback.tsx:133`). Note the activate
- * page deliberately does NOT use the email or name here - see the comment at
+ * `TEACHER_INVITE` IS GONE (16 Sep). Its last reader was the SSO callback's
+ * "Signing you in through {school}", which meant a teacher of any school was
+ * told they were being signed in through Corona Secondary School. The callback
+ * now says "your school", so nothing consumes this fixture.
+ *
+ * It is deleted rather than left unused on purpose: a fixture identity sitting
+ * next to an auth screen is how the last two of these happened. The activate
+ * page had already refused it for the same reason - see the comment at
  * `app/auth/teacher/activate/page.tsx:13`.
+ *
+ * If a screen ever needs the real school name, it comes from `users/me` after
+ * sign-in, or from a pre-auth lookup that does not exist yet. Not from here.
  */
-export const TEACHER_INVITE = {
-  school: "Corona Secondary School",
-  location: "Lagos",
-  email: "a.adeyemi@coronaschools.edu.ng",
-  name: "Adunni Adeyemi",
-  subjects: ["Mathematics", "English"],
-};
 
 
 const COUNT_WORDS = [

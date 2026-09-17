@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useConsentGate } from "@/hooks/useConsentGate";
 import { holdBaseline } from "@/lib/profiling/pendingBaseline";
 import { ONBOARDING_SIGNAL_TYPES } from "@/lib/constants";
 import { bandForAge, gridSpanConfig } from "@/lib/profiling/bands";
@@ -35,9 +36,18 @@ export function ProfilingFlow({
   onDone,
 }: {
   track?: TrackEvent;
-  /** The whole flow is complete - carry on to the Consent Gate. */
-  onDone: () => void;
+  /**
+   * The whole flow is complete - carry on to the Consent Gate.
+   *
+   * `runSessionId` is the capture session this run parked its vector under, or
+   * null if nothing was parked. The caller hands it back to
+   * `flushPendingBaseline`, which is what proves the vector belongs to the
+   * child who just sat it rather than to whoever used this device last.
+   */
+  onDone: (runSessionId: string | null) => void;
 }) {
+  /** The capture session this run parked, if it parked one. */
+  const parkedRunRef = useRef<string | null>(null);
   const [phase, setPhase] = useState<
     | "intro"
     | "m1"
@@ -78,6 +88,31 @@ export function ProfilingFlow({
   );
   const submitted = useRef(false);
   /*
+   * A WITHDRAWN GUARDIAN STOPS THE MEASUREMENT.
+   *
+   * This run never asked. An SSO child is signed in throughout the sequence,
+   * so the answer was knowable and was not sought: their baseline was
+   * captured, reduced and parked whatever their guardian had said. Withdrawal
+   * is the one consent state the frontend is entitled to act on, so this is
+   * the gap that mattered most.
+   *
+   * `withdrawn` is false until the read answers, and false if it fails - a
+   * flaky network is not a withdrawal. So there is a window, early in the run,
+   * where the raw stream is still accumulating on the device. The effect below
+   * empties it the moment the answer arrives, and `finishRun` derives nothing
+   * and parks nothing. Blocking the whole run behind a consent read would
+   * delay every child for a state almost none of them are in.
+   *
+   * THE SCREENS ARE UNCHANGED, deliberately. What a withdrawn child should
+   * actually SEE is an open design question, and inventing an answer here
+   * would put unreviewed copy in front of the child this protects. Stopping
+   * the processing needs no ruling; changing the flow does.
+   */
+  const { withdrawn } = useConsentGate();
+  useEffect(() => {
+    if (withdrawn) void capture.purge();
+  }, [withdrawn, capture]);
+  /*
    * The completion screen's `saved` is left null - "still resolving" - because
    * that is now literally what it is: the vector is parked and goes out when
    * the account exists, a screen or two later. This run cannot know the answer
@@ -93,6 +128,14 @@ export function ProfilingFlow({
   const finishRun = () => {
     if (!submitted.current) {
       submitted.current = true;
+      if (withdrawn) {
+        // Nothing is derived from the stream and nothing is parked. The raw
+        // capture goes the same way it always does, and no signal is tracked
+        // either - "baseline submitted" would not be true.
+        void capture.purge();
+        setPhase("complete");
+        return;
+      }
       const features = [
         reduceGridSpan(capture),
         reduceTrialModule(capture, "pattern_flanker"),
@@ -118,6 +161,9 @@ export function ProfilingFlow({
        * is still purged the moment it has been reduced.
        */
       holdBaseline(c.sessionId, features);
+      // Remembered so the account this run goes on to create can prove the
+      // vector is its own. Nothing else may send it.
+      parkedRunRef.current = c.sessionId;
       void c.purge();
       track?.(ONBOARDING_SIGNAL_TYPES.BASELINE_SUBMITTED, {
         modules: features.map((f) => f.module),
@@ -243,5 +289,10 @@ export function ProfilingFlow({
     );
   }
 
-  return <ProfilingIntro mode="complete" onContinue={onDone} />;
+  return (
+    <ProfilingIntro
+      mode="complete"
+      onContinue={() => onDone(parkedRunRef.current)}
+    />
+  );
 }

@@ -73,6 +73,9 @@ export function VariantReviewRoute({
         lessonTitle={lesson.title}
         segment={segment}
         sectionIndex={sectionIndex}
+        // The route already sorted the full segment list to index into it, so
+        // the count is known here and nowhere further down.
+        segmentCount={segments.length}
       />
     );
   }

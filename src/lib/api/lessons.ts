@@ -83,13 +83,34 @@ export interface LessonSummary {
  * Was `string[]`, which typechecked against anything and would have let exactly
  * that happen.
  */
+/**
+ * All 15 values the deployed enum carries, re-polled 16 Sep. This listed 6 for
+ * long enough that NINE live reasons rendered as "a reason this console doesn't
+ * recognise yet" - and eight of the nine are calculation reasons, on exactly the
+ * variant the review screen does not draw a tab for yet (SCRUM-136). A teacher
+ * whose worked steps came through broken was told twice that Nevo had nothing
+ * to say about it.
+ *
+ * Keep this in step with the spec. The `Record<SegmentReviewReason, string>` in
+ * the variant review screen is what makes that a compile error rather than a
+ * silent fallback: adding a value here without copy fails `tsc`.
+ */
 export type SegmentReviewReason =
   | "deterministic_parse_used"
   | "fewer_than_two_modalities"
   | "audio_generation_failed"
   | "calculation_audio_generation_failed"
   | "visual_generation_failed"
-  | "visual_variant_image_generation_failed";
+  | "visual_variant_image_generation_failed"
+  | "calculation_variant_malformed"
+  | "calculation_variant_missing_answer"
+  | "calculation_variant_too_few_steps"
+  | "calculation_step_missing_prompt"
+  | "calculation_step_unknown_input_type"
+  | "calculation_step_missing_answer"
+  | "calculation_step_missing_options"
+  | "calculation_segment_has_no_interactive_delivery"
+  | "model_flagged_for_review";
 
 export interface LessonSegment extends SegmentVariants {
   id: string;
@@ -109,6 +130,36 @@ export interface LessonSegment extends SegmentVariants {
   comprehensionCheckpoints: ComprehensionCheckpoint[];
   needsReview: boolean;
   reviewReasons: SegmentReviewReason[];
+  /**
+   * Whether a teacher has approved this segment for students (17 Sep).
+   *
+   * C07b: "the teacher reviews each segment's variants and approves them for
+   * the class. Approval is manual and deliberate: the teacher stays in control
+   * of what reaches students." Backend built the transport once design settled
+   * it, and ASSIGNMENT IS GATED ON IT - a lesson with an unapproved segment is
+   * refused at both assignment doors.
+   *
+   * The 104 segments that predate the gate are backfilled `approved` with NO
+   * approver recorded, because nobody did approve them. `approvedAt` may
+   * therefore be null on an approved segment, and naming a teacher who had not
+   * approved it would be a false record on a screen that shows the name.
+   */
+  approved: boolean;
+  approvedAt: string | null;
+}
+
+/**
+ * What one approval returns. Carries the lesson-level counts so the screen
+ * knows whether that was the last segment without a second read.
+ */
+export interface SegmentApproval {
+  lessonId: string;
+  segmentId: string;
+  approvedAt: string;
+  approvedBy: string;
+  approvedSegmentCount: number;
+  segmentCount: number;
+  lessonApproved: boolean;
 }
 
 export interface LessonDetailResponse extends LessonSummary {
@@ -248,6 +299,16 @@ export const lessonsApi = {
    */
   detail: (lessonId: string) =>
     api.get<LessonDetailResponse>(`/api/content/lessons/${lessonId}`),
+
+  /**
+   * Approve one segment for students. Per SEGMENT, matching how the screen
+   * walks the lesson, and per LESSON rather than per class - backend's ruling:
+   * approve once and assign anywhere.
+   */
+  approveSegment: (lessonId: string, segmentId: string) =>
+    api.post<SegmentApproval>(
+      `/api/v1/lessons/${lessonId}/segments/${segmentId}/approve`,
+    ),
 
   /** The module grouping, which only the v1 alias returns. */
   modules: (lessonId: string) =>

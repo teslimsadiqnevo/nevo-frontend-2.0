@@ -200,6 +200,19 @@ export interface DashboardProgressRow {
  * drifts, and the half that was wrong made `status === "withdrawn"` a type
  * error, so the name stays for its callers and the values come from one place.
  */
+/**
+ * What comes back from issuing a child a new PIN. The `pin` is the only time
+ * this value is ever visible to anyone - it is not readable again afterwards,
+ * by us or by the contract.
+ */
+export interface PinIssueResponse {
+  studentId: string;
+  pin: string;
+  issuedAt: string;
+  /** The server's own instruction that this must not travel electronically. */
+  mustShareSecurely: boolean;
+}
+
 export type ConsentState = ConsentStatus;
 
 /**
@@ -223,8 +236,25 @@ export interface AdminStudentRow {
   /** "active" | "deactivated" in practice; the schema does not narrow it. */
   status: string;
   ageBand: string | null;
-  /** Absent on older reads; treated as unknown rather than as "not sent". */
-  consent?: StudentConsent | null;
+  /**
+   * REQUIRED AND NON-NULL, confirmed against the deployed spec on 16 Sep.
+   *
+   * This was `consent?: StudentConsent | null`, on the belief that an older
+   * read might omit it - and a whole branch of compliance copy hung off that:
+   * a row without a record was reported as "unknown", distinct from "not
+   * sent". `StudentSummaryResponse` now lists `consent` in its `required` set
+   * and refs the object directly with no null member, and backend confirmed
+   * the behaviour: a student with no record comes back `status: "not_sent"`,
+   * never a missing object.
+   *
+   * So "we were not told" is no longer a state this screen can be in, and the
+   * copy describing it has gone rather than sitting there unreachable.
+   *
+   * NOTE the invitation row's `consentStatus` is a DIFFERENT field on a
+   * different schema, and it is still optional and nullable - see
+   * `Invitation.consentStatus`. Do not generalise this change onto it.
+   */
+  consent: StudentConsent;
 }
 
 export interface AdminStudentDetail {
@@ -237,7 +267,8 @@ export interface AdminStudentDetail {
   ageBand: string | null;
   classIds: string[];
   firstUse: boolean;
-  consent?: StudentConsent | null;
+  /** Required and non-null - see the note on `AdminStudentRow.consent`. */
+  consent: StudentConsent;
 }
 
 /**
@@ -302,6 +333,29 @@ export const studentsApi = {
   /** Undo a deactivation - they pick up exactly where they left off. */
   restore: (studentId: string) =>
     api.post<void>(`/api/v1/students/${studentId}/restore`),
+
+  /**
+   * Issue a new PIN for a child who cannot get in, and return it ONCE.
+   *
+   * THE PRODUCT PROMISED THIS AND NOTHING PERFORMED IT. `ForgotPinScreen`
+   * carries the frame's own note - "No self-service reset, points gently to
+   * the teacher, never a dead end" - and tells a locked-out child to ask an
+   * adult. No surface in any console could issue one, and
+   * `NotificationType.pin_reset_requested` delivered the child's request to a
+   * screen with no action on it. This is the missing half.
+   *
+   * IT RESETS RATHER THAN REVEALS. The old PIN stops working the moment this
+   * returns, so the child is locked out harder until someone hands them the
+   * new one. That is why the sheet confirms before it calls, and why nothing
+   * calls this speculatively to "look up" a PIN - there is nothing to look up.
+   *
+   * `mustShareSecurely` is the server telling us how the result may travel.
+   * The response is not stored, not logged and not put on the clipboard: the
+   * frame's instruction is that an adult hands it over in person, and a copy
+   * button exists to paste into somewhere that is not in person.
+   */
+  issuePin: (studentId: string) =>
+    api.post<PinIssueResponse>(`/api/v1/students/${studentId}/pin/reset`),
 
   /**
    * Step two of two, and the only permanent deletion in the admin set. Only

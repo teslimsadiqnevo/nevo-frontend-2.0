@@ -222,6 +222,93 @@ describe("a signed-in teacher's own lesson", () => {
     expect(screen.queryByText(/some_future_reason/)).not.toBeInTheDocument();
   });
 
+  /**
+   * The nine reasons backend added after this map was written.
+   *
+   * They were LIVE on the wire while `SegmentReviewReason` listed six, so every
+   * one of them fell to the unknown-reason fallback. That fallback is the right
+   * behaviour for a reason nobody has written copy for; it is the wrong
+   * behaviour for a reason that has been deployed for days.
+   *
+   * Eight of the nine are calculation reasons, which is the sharp end: the
+   * review screen draws four tabs and no calculation tab (SCRUM-136), so a
+   * teacher whose worked steps came through broken could not see the steps AND
+   * was told Nevo had no reason. This test holds the copy half of that.
+   */
+  const CALCULATION_AND_MODEL_REASONS: Array<[string, RegExp]> = [
+    ["calculation_variant_malformed", /form Nevo could use/i],
+    ["calculation_variant_missing_answer", /without a final answer/i],
+    ["calculation_variant_too_few_steps", /nothing was skipped/i],
+    ["calculation_step_missing_prompt", /does not ask the student/i],
+    ["calculation_step_unknown_input_type", /form Nevo does not recognise/i],
+    ["calculation_step_missing_answer", /no answer to check a student against/i],
+    ["calculation_step_missing_options", /no options to choose from/i],
+    [
+      "calculation_segment_has_no_interactive_delivery",
+      /nothing came through for the student to do/i,
+    ],
+    ["model_flagged_for_review", /asked for a person to look at it/i],
+  ];
+
+  it.each(CALCULATION_AND_MODEL_REASONS)(
+    "renders its own copy for %s, not the unknown-reason fallback",
+    (reason, expected) => {
+      useLessonDetail.mockReturnValue(
+        state({
+          lesson: {
+            id: "l-1",
+            title: "Solving linear equations",
+            segments: [
+              seg({
+                needsReview: true,
+                reviewReasons: [reason] as LessonSegment["reviewReasons"],
+              }),
+            ],
+          },
+        }),
+      );
+
+      render(<VariantReviewRoute fixture={null} lessonId="l-1" sectionIndex={1} />);
+
+      expect(screen.getByText(expected)).toBeInTheDocument();
+      // The two failures this guards, in order of how badly they read:
+      expect(
+        screen.queryByText(/doesn’t recognise yet/i),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText(new RegExp(reason))).not.toBeInTheDocument();
+    },
+  );
+
+  it("writes every review reason to the house copy rule", () => {
+    // "No dashes in Nevo copy, anywhere. Full stops or commas." Applied 14 Sep
+    // across the teacher and parent consoles. New copy has reintroduced them
+    // before, and a dash reads as a different voice on a screen a teacher is
+    // already reading because something went wrong.
+    for (const [reason] of CALCULATION_AND_MODEL_REASONS) {
+      useLessonDetail.mockReturnValue(
+        state({
+          lesson: {
+            id: "l-1",
+            title: "Solving linear equations",
+            segments: [
+              seg({
+                needsReview: true,
+                reviewReasons: [reason] as LessonSegment["reviewReasons"],
+              }),
+            ],
+          },
+        }),
+      );
+
+      const { unmount, container } = render(
+        <VariantReviewRoute fixture={null} lessonId="l-1" sectionIndex={1} />,
+      );
+
+      expect(container.textContent ?? "").not.toMatch(/[—–]|\s-\s/);
+      unmount();
+    }
+  });
+
   it("shows no review banner when nothing is flagged", () => {
     useLessonDetail.mockReturnValue(state());
 

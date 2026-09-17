@@ -58,7 +58,7 @@ const students: AdminStudentRow[] = [
     loginIdentifier: "amara",
     status: "active",
     ageBand: "11-14",
-    consent: null,
+    consent: { status: "not_sent", actorId: null, actorName: null, timestamp: null, channel: null },
   },
   {
     id: "s2",
@@ -66,7 +66,7 @@ const students: AdminStudentRow[] = [
     loginIdentifier: "chisom",
     status: "active",
     ageBand: "11-14",
-    consent: null,
+    consent: { status: "not_sent", actorId: null, actorName: null, timestamp: null, channel: null },
   },
 ];
 

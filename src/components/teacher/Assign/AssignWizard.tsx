@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ApiError, apiErrorCode } from "@/lib/api/client";
 import { assignmentsApi } from "@/lib/api/assignments";
 import { useLessonLibrary } from "@/hooks/useLessonLibrary";
 import { useStudentDirectory } from "@/hooks/useStudentDirectory";
@@ -325,8 +326,33 @@ export function AssignWizard({ preselect }: { preselect?: string }) {
       0,
     );
 
+    /*
+     * A 409 IS NOT A FAILURE TO RETRY.
+     *
+     * From 17 Sep a lesson cannot be assigned until a teacher has approved
+     * every one of its segments, and both assignment doors share the check.
+     * The refusal is `409 lesson_not_approved`.
+     *
+     * "Try again" is the one instruction that cannot work here, and it is the
+     * same class of mistake as telling a rate-limited teacher to retry: the
+     * server is not failing, it is declining, and the teacher has an action
+     * that fixes it. So this names the action and points at the screen that
+     * performs it.
+     */
+    const notApproved = results.some(
+      (r) =>
+        r.status === "rejected" &&
+        r.reason instanceof ApiError &&
+        r.reason.status === 409 &&
+        apiErrorCode(r.reason.detail) === "lesson_not_approved",
+    );
+
     if (failed.length === targets.length) {
-      setError("We couldn’t assign that just now. Nothing has been sent - try again.");
+      setError(
+        notApproved
+          ? "This lesson still has sections waiting for your approval, so it cannot go to students yet. Open it from My Lessons and approve each section, then assign it."
+          : "We couldn’t assign that just now. Nothing has been sent - try again.",
+      );
       return;
     }
     if (failed.length > 0) {

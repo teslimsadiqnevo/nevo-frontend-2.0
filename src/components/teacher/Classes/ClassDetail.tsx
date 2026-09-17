@@ -24,7 +24,17 @@ import { ClassQrDialog, ClassQrScreen } from "./ClassQr";
  * drop - flagged to design).
  */
 
-const TABS = ["Roster", "Lessons", "Activity"] as const;
+/**
+ * TWO TABS, matching what the product actually ships.
+ *
+ * This drew three while the live screen drew none, so a stakeholder shown the
+ * signed-out walkthrough was promised an Activity feed that does not exist and
+ * is not coming. Design, 16 Sep: "a sample screen is a promise, so either it
+ * matches what we ship or it changes", and separately that a per-class activity
+ * feed "is a surveillance surface by default and we have nothing that needs
+ * it." So Activity is removed here rather than built there.
+ */
+const TABS = ["Roster", "Lessons"] as const;
 type Tab = (typeof TABS)[number];
 
 function statusDotClass(status: StudentStatus, small = false): string {
@@ -252,13 +262,6 @@ export function ClassDetail({ klass }: { klass: TeacherClass }) {
           </div>
         )}
 
-        {tab === "Activity" && (
-          <div className="mt-4 rounded-[12px] bg-nevo-cream-elevated px-6 py-[22px] shadow-elevation-1">
-            <p className="text-[15px] leading-[1.6] text-nevo-near-black/78">
-              {klass.activitySummary}
-            </p>
-          </div>
-        )}
       </div>
 
       {qr === "dialog" && (
