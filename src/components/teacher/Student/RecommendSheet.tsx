@@ -45,14 +45,26 @@ export function RecommendSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, sent]);
 
-  const { possessive } = student.pronoun;
-  const subject = student.pronoun.subject;
+  /*
+   * THE NAME, NEVER A PRONOUN.
+   *
+   * This read `student.pronoun` and interpolated "her" and "She" into copy a
+   * teacher reads about a named child. Frontend section 6: no pronoun is stored
+   * for any child and there is no field that could make it right - and the
+   * deployed spec carries no pronoun property on any schema, so the field this
+   * read was a fixture invention with nothing behind it. It is deleted.
+   *
+   * The gate could not see this one: it matches pronoun string LITERALS, and
+   * these arrived through a variable.
+   *
+   * `LiveRecommendSheet` - the sheet a signed-in teacher actually gets - had
+   * already solved it the right way, with the child's name. This is the same
+   * shape, so the two now read alike.
+   */
   const lessonClause = chosen.version
-    ? `"${chosen.lesson}" - the ${chosen.version} version - is now waiting in ${possessive} lessons.`
-    : `"${chosen.lesson}" is now waiting in ${possessive} lessons.`;
-  const noteClause = note.trim()
-    ? ` ${subject}'ll see your note when ${subject.toLowerCase()} opens it.`
-    : "";
+    ? `"${chosen.lesson}" - the ${chosen.version} version - is now waiting in ${firstName}'s lessons.`
+    : `"${chosen.lesson}" is now waiting in ${firstName}'s lessons.`;
+  const noteClause = note.trim() ? " Your note went with it." : "";
 
   // The desktop reason bolds the lesson-and-version run, per the frame.
   const [before, after] = rec.suggestDesktop.split(rec.suggestStrong);

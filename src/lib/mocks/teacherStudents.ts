@@ -53,7 +53,8 @@ export interface EvidenceItem {
 export interface SessionStep {
   title: string;
   note: string;
-  /** true = "took her time here" (violet clock), false = steady (navy check). */
+  /** true = spent longer on this section (violet clock), false = moved straight
+   *  through (navy check). Describes the session, never the child. */
   took: boolean;
 }
 
@@ -105,9 +106,18 @@ export interface StudentProfileData {
   noticing?: { desktop: string; tablet: string };
   /** The early state's calm callout; mutually exclusive with `noticing`. */
   earlyNote?: string;
-  /** Carried explicitly so the designed copy stays exact; never inferred
-   *  from a name. Students without a recorded pronoun read as they/them. */
-  pronoun: { subject: string; possessive: string };
+  /*
+   * `pronoun` IS DELETED (17 Sep). It read: "Carried explicitly so the designed
+   * copy stays exact; never inferred from a name. Students without a recorded
+   * pronoun read as they/them."
+   *
+   * v3.0 frontend section 6 overturns the premise: "No pronoun is stored for
+   * any child and there is no field that could make it right." There is no
+   * recorded pronoun to carry - the deployed spec has no pronoun property on
+   * any schema - so this field was a fixture invention, and its one reader
+   * (`RecommendSheet`) interpolated it into copy a teacher reads about a named
+   * child. Copy uses the NAME.
+   */
   dimensions: Dimension[];
   concepts: ConceptMastery[];
   evidence: EvidenceItem[];
@@ -132,7 +142,6 @@ const AMARA: Omit<StudentProfileData, "classId" | "className"> = {
   initials: "AO",
   meta: "JSS 2A · Mathematics & English",
   chip: "Worth a glance",
-  pronoun: { subject: "She", possessive: "her" },
   recommend: {
     suggestDesktop:
       "Since Amara's been slower on written work lately, the listen-first version of \"Simplifying Expressions\" would play to how she's been learning best this week.",
@@ -286,7 +295,6 @@ export function getStudentProfile(slug: string): StudentProfileData | null {
     classId: klass.id,
     className: klass.name,
     meta: `${klass.name} · joined 6 days ago`,
-    pronoun: { subject: "They", possessive: "their" },
     earlyNote: `Still learning how ${student.name.split(" ")[0]} learns best. A few more sessions and this will fill in - for now, here's the early picture.`,
     dimensions: EARLY_DIMENSIONS,
     concepts: [],
