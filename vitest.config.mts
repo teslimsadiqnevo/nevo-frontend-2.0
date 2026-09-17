@@ -33,7 +33,9 @@ export default defineConfig({
         test: {
           name: "node",
           environment: "node",
-          include: ["src/lib/**/*.test.ts"],
+          // `proxy.ts` is request-in, response-out and belongs here rather
+          // than in jsdom, but it does not live under `lib/`.
+          include: ["src/lib/**/*.test.ts", "src/proxy.test.ts"],
           // `.dom.test.ts` opts a lib file into jsdom. Some of `lib/` is not
           // pure - the session store is localStorage and document.cookie -
           // and running it here fails on `window is not defined` rather than
