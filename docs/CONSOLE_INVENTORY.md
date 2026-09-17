@@ -34,6 +34,118 @@ Three rules that keep it honest:
 `FIXTURE-ONLY` renders, but a real user gets sample data or "not available" ·
 `NOT BUILT` no component, or the route dead-ends.
 
+## The 44 PARTIAL rows, split by who hits them — 18 Sep
+
+Product could not plan from a flat list of 44, and was right not to try: a missing
+export button sat beside a missing step in a lesson. Asked for three buckets — the
+child's normal lesson path, the admin or teacher first hour, everything else.
+
+**It needed four.** Eight rows are the CHILD'S first hour — onboarding and the
+baseline — and they fit neither "normal lesson" nor "admin or teacher first hour".
+Collapsing them into the long tail would have buried the baseline, which the
+architecture calls not optional and which every later adaptation is seeded from.
+Flagged rather than filed silently.
+
+**Launch set: 35. Long tail: 9.** Each row keeps its verdict and evidence in the
+console sections below; this is a view over them, not a second source of truth.
+
+### A · The child's normal lesson path — 20
+
+Sign in, pick a lesson, play it, finish it. Everything here is on the path a child
+walks every day.
+
+| row | blocked by | size |
+|---|---|---|
+| Home — pick back up and today's lessons (the teacher's note is on the wire and discarded) | FRONTEND | S |
+| Lessons tab — the grid | FRONTEND | S |
+| Lessons tab — empty states (a status chip tells the child their *search* found nothing) | FRONTEND | S |
+| Lesson preview sheet | FRONTEND; BACKEND (description) | S |
+| Module boundary screen (`modules` erased by our own type) | FRONTEND | S |
+| Break offer + break screen (what it observes is discarded) | BACKEND | M |
+| Modality suggestion pill (structurally unreachable today) | BACKEND | M |
+| "No such lesson" — one branch, already written | FRONTEND | S |
+| Check-in — a miss (the authored teaching line is thrown away one step from the screen) | FRONTEND | S |
+| Growth result — per concept | FRONTEND | S |
+| Growth result — nothing landed | DESIGN | S |
+| Summary — live lesson with no recap | FRONTEND | S |
+| Review answers — without them (new tab, next day) | BACKEND | M |
+| Review session (spaced retrieval) | FRONTEND | M |
+| Ask Nevo — a child stuck *inside* a lesson cannot scope an answer to it | FRONTEND | S |
+| Notification bell and feed — nothing marks anything read | FRONTEND | S |
+| Shell — sidebar, bottom nav, top bar (inert avatar where the frame makes it the profile entry) | FRONTEND | S |
+| Daily warm-up card — no done state; a child can re-sit and re-submit | DESIGN | S |
+| Daily warm-up run — one fixed stimulus per dimension | BACKEND | M |
+| Completion write — `assignmentId` typed and sent by nothing | FRONTEND | S |
+
+**14 of 20 are FRONTEND-only and 13 are S.** This is the cheapest bucket per unit
+of child-facing improvement, and the one where "partial" most often means a field
+already on the wire and thrown away before it reaches the screen.
+
+### B · The child's first hour — onboarding and baseline — 8
+
+The bucket product did not ask for. Everything a child touches before their first
+lesson exists.
+
+| row | blocked by | size |
+|---|---|---|
+| Teacher Join — QR scan: the **primary** button opens no camera | FRONTEND | M |
+| PIN creation — "that didn't save" names the PIN for three failures that have nothing to do with it | FRONTEND | S |
+| "You're In" — device cannot remember (built on a premise that has since expired) | FRONTEND | S |
+| Shared classroom tablet — second child to sign in displaces the first | FRONTEND; DESIGN | M |
+| Module 2B — Arrow Flanker: two trials tagged incongruent with no flankers on screen | FRONTEND | S |
+| Module 3 — a **system** `speechSynthesis` voice reads to six-year-olds | DESIGN | S |
+| Module 4 — Domain Probe: no item transport exists | BACKEND | M |
+| Baseline complete — the honest failure state exists and is unreachable | FRONTEND | S |
+
+**Two are worth reading twice.** The QR scan is the primary button on the welcome
+sheet and opens nothing. The shared-tablet row matters more in a Nigerian
+classroom than the size suggests — one device, many children, and the second child
+displaces the first.
+
+### C · The admin or teacher first hour — 7
+
+Setup, onboarding, uploading, assigning.
+
+| row | blocked by | size |
+|---|---|---|
+| Teacher onboarding — join-confirm and profile-setup unbuilt; the redirect covers password only | FRONTEND | M |
+| Console shell + nav rail — role label is `MOCK_TEACHER.role` unconditionally | FRONTEND; DESIGN | S |
+| Home dashboard — the first screen after sign-in | FRONTEND; DESIGN (cutoffs) | M |
+| My Classes list — no subjects, headcount or summary line | BACKEND (subjects) | ask |
+| Profile & settings — "Change photo" is a `<button>` with no `onClick` | FRONTEND | M |
+| Parse fallback — 2 of 4 states live | BACKEND | M |
+| Variant review | DESIGN; CONTENT | M |
+
+**The role label is a fixture leak on the first screen a teacher ever sees**, and
+belongs with the sweep in section E rather than being costed separately.
+
+### D · Everything else — 9. The long tail a school will not find in term one.
+
+| row | console | blocked by | size |
+|---|---|---|---|
+| Insights | teacher | BACKEND (nullability); FRONTEND | M |
+| Lesson detail | teacher | DESIGN | M |
+| Compose message | teacher | FRONTEND | M |
+| Recommend a lesson — the "Suggested" badge only | teacher | BACKEND (badge) | S |
+| Parent account setup | parent | DESIGN | M |
+| Progress tab — `highlights` | student | DESIGN | S |
+| Progress tab — "nothing to show yet" | student | FRONTEND | S |
+| Connect — unread dot | student | FRONTEND | S |
+| Change PIN | student | BACKEND; DESIGN | S |
+
+**Five of the nine are blocked on design rather than engineering**, so the tail is
+shorter in build terms than it looks — but it will not shrink by being worked at,
+only by being decided on.
+
+### What the split says
+
+- **The launch set is 35 of 44**, so the flat list was not hiding a small core.
+- **Bucket A is where the cheap wins are**: 14 frontend-only rows, 13 of them S.
+- **Design, not backend, is the binding constraint on the tail** — and on three
+  rows in the launch set too.
+- **Nothing in bucket B is a demo problem.** It is the hour that seeds every
+  adaptation afterwards, and it has the product's only dead primary button in it.
+
 ## The headline
 
 **Roughly a third of what this repo files under NEEDS BACKEND is not blocked at all.**
