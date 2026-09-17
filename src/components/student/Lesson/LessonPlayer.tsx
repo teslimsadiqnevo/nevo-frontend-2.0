@@ -9,7 +9,6 @@ import {
   type ToggleSegment,
 } from "@/components/shared";
 import {
-  AFFECTIVE_STATES,
   BREAK_TYPES,
   BUSY_PHASE,
   BUSY_REASON,
@@ -37,10 +36,10 @@ import {
   positionLine,
 } from "@/lib/utils/modules";
 import {
-  affectDim,
-  BoredomOfferPill,
-  ConfusionSupport,
-  FrustrationHint,
+  secondaryDim,
+  DifficultyOfferPill,
+  HintOverlay,
+  SocraticPanel,
 } from "./AffectiveLayer";
 import { AfterLessonAssessment } from "./AfterLessonAssessment";
 import { ADJUSTMENT_ACTIONS } from "@/lib/constants/affect";
@@ -369,13 +368,13 @@ export function LessonPlayer({
   // "offer" returns to the same segment. Trigger travels into `break_start`.
   const breakOrigin = useRef<"advance" | "offer">("advance");
   const breakTrigger = useRef<string>("adaptation_plan");
-  // Break OFFERS (B.7/37b): spent per segment for affect offers, once per
+  // Break OFFERS (B.7/§4): spent per segment for offered breaks, once per
   // session for the 20-minute monitor. Declining spends; never re-asks.
   const [spentBreakOffers, setSpentBreakOffers] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
   const [timeOfferSpent, setTimeOfferSpent] = useState(false);
-  // Boredom escalation offers, spent per segment by acting on them.
+  // Step-up offers, spent per segment by acting on them.
   const [spentEscalations, setSpentEscalations] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -597,59 +596,55 @@ export function LessonPlayer({
     return () => window.removeEventListener("nevo-scrim-tap", onScrimTap);
   }, [trackEvent]);
 
-  // ── Affective state (37b) ───────────────────────────────────────────────
-  // Server-inferred later; the plan seam carries it today. The interface
-  // modulates while it holds and returns to default when it passes.
+  // ── The engine's instruction (§4) ───────────────────────────────────────
   const segPlan = planFor(segment.id);
-  const affect = segPlan?.affect ?? AFFECTIVE_STATES.NONE;
   /*
-   * THE ENGINE'S INSTRUCTION, which is what a signed-in child's interface
-   * actually moves on.
+   * ONE INSTRUCTION, AND NEVER A STATE.
    *
-   * `segPlan.affect` is a per-segment STATE and only the authored demo ever
-   * sets it - §4 is explicit that the frontend never knows the state. The wire
-   * carries one lesson-level `proactiveAdjustment.action`, which nothing read
-   * until now, so every intervention below was dead for every real child.
+   * This read a per-segment `affect` until 17 Sep - `anxiety`, `boredom`,
+   * `frustration`, `confusion` - which is the one thing §4 says the frontend
+   * never knows. Only the authored demo set it, so no child saw a consequence;
+   * what it cost was that every branch below described a state the product is
+   * not allowed to have an opinion about.
    *
-   * Two of §4's six are applied here because they need nothing the wire does
-   * not carry. `offer_break` already has its own richer seam through
-   * `breakSuggestion`. `offer_hint` and `show_socratic_panel` need hint text
-   * and guided questions that no field carries, so they are deliberately not
-   * faked - an empty hint card is worse than no hint, and rule 5 says render
-   * the nothing-state.
+   * The engine's instruction is LESSON-level and wins. The per-segment one is
+   * the authored seam, and it now speaks the same six words, because a demo
+   * with a private vocabulary is how the old one would have survived this.
+   *
+   * Two of §4's six are applied because they need nothing the wire lacks.
+   * `offer_break` has its own richer seam through `breakSuggestion`.
+   * `offer_hint` and `show_socratic_panel` need hint text and guided questions
+   * that no field carries, so they render the nothing-state rather than an
+   * empty card - rule 5, and an empty hint is worse than no hint.
    */
-  const action = plan?.adjustment ?? null;
+  const action = plan?.adjustment ?? segPlan?.adjustment ?? null;
   // §4: "Secondary UI to 40% opacity, transitions slow, gentler copy variants."
-  const softened =
-    action === ADJUSTMENT_ACTIONS.MODULATE_DENSITY ||
-    affect === AFFECTIVE_STATES.ANXIETY;
-  const anxious = softened;
+  const softened = action === ADJUSTMENT_ACTIONS.MODULATE_DENSITY;
   // §4: "'Ready for something harder?' pill, scaffold withdraws." The pill
   // already carries that exact sentence.
-  const stepUpOffered =
-    action === ADJUSTMENT_ACTIONS.INCREASE_DIFFICULTY ||
-    affect === AFFECTIVE_STATES.BOREDOM;
+  const stepUpOffered = action === ADJUSTMENT_ACTIONS.INCREASE_DIFFICULTY;
   // UDL accommodations (37c) - cross-session delivery themes from the plan.
   const readingOn = Boolean(plan?.accommodations?.reading);
   const attentionOn = Boolean(plan?.accommodations?.attention);
 
-  // Break OFFERS (B.7): frustration persisting offers the plan's break type;
+  // Break OFFERS (B.7): the plan names a break type to OFFER on this segment;
   // the 20-minute monitor primes a micro one. One ask on screen at a time -
   // an offered break outranks (and suppresses) the modality suggestion.
-  const affectOfferType =
-    affect === AFFECTIVE_STATES.FRUSTRATION
-      ? (segPlan?.offerBreak ?? null)
-      : null;
-  const showAffectBreakOffer =
-    affectOfferType !== null && !spentBreakOffers.has(segment.id);
+  //
+  // `offerBreak` BEING PRESENT IS THE INSTRUCTION now. It used to be gated on
+  // the frustration state as well, so the plan could name a break and be
+  // ignored because the frontend disagreed about why - rule 5 read backwards.
+  const offeredBreakType = segPlan?.offerBreak ?? null;
+  const showOfferedBreak =
+    offeredBreakType !== null && !spentBreakOffers.has(segment.id);
   // The engine's own call, or the client's 20-minute prime as the fallback it
   // was always meant to be. Either can raise the offer; the engine chooses the
   // TYPE when it is the one asking.
   const showTimeBreakOffer =
-    !showAffectBreakOffer &&
+    !showOfferedBreak &&
     (runtime.offeredBreak !== null || approachingThreshold) &&
     !timeOfferSpent;
-  const showBreakOffer = showAffectBreakOffer || showTimeBreakOffer;
+  const showBreakOffer = showOfferedBreak || showTimeBreakOffer;
 
   // Offer the plan's suggestion only while it's renderable and not already
   // showing. Rate-limits: never on consecutive segments, never on the first
@@ -723,11 +718,14 @@ export function LessonPlayer({
 
   /** Accept/decline the offered break; either way the offer is spent. */
   const acceptBreakOffer = () => {
-    if (showAffectBreakOffer) {
+    if (showOfferedBreak) {
       setSpentBreakOffers((prev) => new Set(prev).add(segment.id));
+      // NOT RENAMED, deliberately. This string is sent to the engine as the
+      // `trigger` on a BREAK_START signal, so it is wire vocabulary and not
+      // ours to tidy. Raised with backend instead - see BUILD_STATUS.
       breakTrigger.current = "affect_offer";
       breakOrigin.current = "offer";
-      setBreakActive(affectOfferType);
+      setBreakActive(offeredBreakType);
       return;
     }
     setTimeOfferSpent(true);
@@ -739,7 +737,7 @@ export function LessonPlayer({
   };
 
   const dismissBreakOffer = () => {
-    if (showAffectBreakOffer) {
+    if (showOfferedBreak) {
       setSpentBreakOffers((prev) => new Set(prev).add(segment.id));
       return;
     }
@@ -994,11 +992,11 @@ export function LessonPlayer({
   return (
     <div className="flex min-h-[100dvh] flex-col bg-nevo-cream text-nevo-near-black">
       {/* Top bar: exit + title, then the density toggle (present in every modality).
-          Frame: 10/14/12 padding, whole bar carries the secondary affect dim. */}
+          Frame: 10/14/12 padding, whole bar carries the secondary dim. */}
       <header
         className={cn(
           "flex shrink-0 flex-col gap-2.5 px-3.5 pt-2.5 pb-3",
-          affectDim(anxious, attentionOn),
+          secondaryDim(softened, attentionOn),
         )}
       >
         <div className="flex items-center gap-2.5">
@@ -1045,7 +1043,7 @@ export function LessonPlayer({
       <div
         className={cn(
           "shrink-0 px-4 pb-[7px]",
-          affectDim(anxious, attentionOn),
+          secondaryDim(softened, attentionOn),
         )}
       >
         <span className="block min-w-0 truncate font-mono text-[11px] tracking-[0.02em] text-nevo-near-black/50">
@@ -1057,7 +1055,7 @@ export function LessonPlayer({
           module boundaries; the text above carries the module breakdown. */}
       <ProgressBar
         value={(index + 1) / total}
-        className={cn("shrink-0", affectDim(anxious, attentionOn))}
+        className={cn("shrink-0", secondaryDim(softened, attentionOn))}
         aria-label={positionLine(lesson, index)}
       />
 
@@ -1070,7 +1068,7 @@ export function LessonPlayer({
         {showBreakOffer ? (
           <BreakOfferPill
             key={`break-offer-${segment.id}`}
-            trigger={showAffectBreakOffer ? "affect" : "time"}
+            trigger={showOfferedBreak ? "instruction" : "time"}
             onAccept={acceptBreakOffer}
             onDismiss={dismissBreakOffer}
           />
@@ -1119,18 +1117,18 @@ export function LessonPlayer({
         >
           {feedback && <FeedbackStrip message={feedback} />}
           {stepUpOffered && !spentEscalations.has(segment.id) && (
-              <BoredomOfferPill
-                key={`boredom-${segment.id}`}
+              <DifficultyOfferPill
+                key={`stepup-${segment.id}`}
                 onSpent={() => {
                   setSpentEscalations((prev) => new Set(prev).add(segment.id));
                   setFeedback("Noted - we'll step things up.");
                 }}
               />
             )}
-          {affect === AFFECTIVE_STATES.CONFUSION &&
+          {action === ADJUSTMENT_ACTIONS.SHOW_SOCRATIC_PANEL &&
             (segPlan?.socraticPrompts?.length ?? 0) > 0 && (
-              <ConfusionSupport
-                key={`confusion-${segment.id}`}
+              <SocraticPanel
+                key={`socratic-${segment.id}`}
                 prompts={segPlan!.socraticPrompts!}
               />
             )}
@@ -1200,9 +1198,9 @@ export function LessonPlayer({
               }
             />
           </div>
-          {/* 37b frustration: the unrequested hint under the content. */}
-          {affect === AFFECTIVE_STATES.FRUSTRATION && segPlan?.affectHint && (
-            <FrustrationHint hint={segPlan.affectHint} />
+          {/* §4 `offer_hint`: the unrequested hint under the content. */}
+          {action === ADJUSTMENT_ACTIONS.OFFER_HINT && segPlan?.hint && (
+            <HintOverlay hint={segPlan.hint} />
           )}
         </div>
       </div>
@@ -1253,7 +1251,7 @@ export function LessonPlayer({
       <nav
         className={cn(
           "flex shrink-0 items-center justify-center gap-8 px-3.5 pt-2 pb-6",
-          affectDim(anxious, attentionOn),
+          secondaryDim(softened, attentionOn),
         )}
       >
         <ChevronButton
@@ -1266,7 +1264,7 @@ export function LessonPlayer({
           disabled={nextDisabled}
           onClick={handleNext}
           className={cn(
-            affect === AFFECTIVE_STATES.FRUSTRATION &&
+            action === ADJUSTMENT_ACTIONS.OFFER_HINT &&
               !nextDisabled &&
               "motion-safe:animate-nevo-glow-guide",
           )}

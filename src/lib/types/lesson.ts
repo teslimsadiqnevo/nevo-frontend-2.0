@@ -7,7 +7,6 @@
  */
 import type {
   AdjustmentAction,
-  AffectiveState,
   BreakType,
   CalcModality,
   Density,
@@ -318,14 +317,22 @@ export interface SegmentAdaptation {
    */
   scaffold?: ScaffoldLevel;
   /**
-   * Affective response state (37b) - inferred from interaction rhythm on
-   * confident multi-signal confirmation, server-side. The interface modulates
-   * while it holds and returns to default when it passes.
+   * The engine's instruction for this segment, in §4's own vocabulary.
+   *
+   * THIS USED TO BE A STATE (`affect: anxiety | boredom | frustration |
+   * confusion`), which is the one thing §4 says the frontend never knows. The
+   * authored demo was the only thing that ever set it, so nothing was wrong on
+   * screen - but a demo speaking a vocabulary the product does not is how that
+   * vocabulary survives a rename, so it speaks instructions now too.
+   *
+   * The engine's own instruction is LESSON-level (`AdaptationPlan.adjustment`,
+   * from `proactiveAdjustment.action`) and wins over this. Nothing on the live
+   * adapt route fills a per-segment one; this is the authored seam.
    */
-  affect?: AffectiveState;
-  /** Frustration: the unrequested, content-specific hint (Gemini-generated). */
-  affectHint?: string;
-  /** Confusion: the Socratic panel's 2-3 guided questions. */
+  adjustment?: AdjustmentAction | null;
+  /** `offer_hint`: the unrequested, content-specific hint. */
+  hint?: string;
+  /** `show_socratic_panel`: its 2-3 guided questions. */
   socraticPrompts?: string[];
   /**
    * Frustration persisting past two adaptations: the system OFFERS this break

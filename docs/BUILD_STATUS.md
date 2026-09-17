@@ -3603,6 +3603,33 @@ and filing them as one blocked item was the mistake.
   is how a learner asks the lesson to change without being told anything about
   themselves.
 
+### The state vocabulary is gone from the code, 17 Sep — and one word could not go
+
+Design ruled the rename in rather than deferring it: *"Code named for states
+teaches the next person that the frontend reasons about states, and that is the
+exact drift we have hit four times."* `AFFECTIVE_STATES` and `AffectiveState`
+are deleted, `SegmentAdaptation.affect` is now `adjustment` in §4's own
+vocabulary, `affectHint` is `hint`, and the three components are `HintOverlay`,
+`DifficultyOfferPill` and `SocraticPanel`. The authored demo passes instructions
+too, because a demo with a private vocabulary is how the old one survives a
+rename. A test fails the build on any of the eight state words appearing in
+code in the nine files that author, choose or render an instruction.
+
+**One string stayed, and it is a backend ask.** `breakTrigger.current =
+"affect_offer"` is sent to the engine as the `trigger` on a `BREAK_START`
+signal, so it is wire vocabulary rather than ours to tidy — renaming it
+unilaterally would change what the engine receives. It is also the only place
+this app still says an affective state out loud, and it says it *to* the engine.
+**The ask: is `trigger` a free-text field or does the engine key on these
+values, and if it keys on them, can `affect_offer` become `instruction_offer`?**
+Low urgency — `break_start` is still absent from `SignalEventType`'s 27 values
+(list S-B row 2), so this event is very likely being rejected today anyway.
+
+**One thing the rename fixed that was not cosmetic.** The break offer was gated
+on `affect === FRUSTRATION` *as well as* on the plan naming a break type, so a
+plan could name a break and be ignored because the frontend disagreed about
+why. Rule 5 read backwards. `offerBreak` being present is the instruction now.
+
 ### The build models a state where §4 models an instruction
 
 `SegmentAdaptation.affect` is a per-segment `AffectiveState`

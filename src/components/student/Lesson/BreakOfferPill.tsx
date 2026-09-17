@@ -6,14 +6,15 @@ import { cn } from "@/lib/utils";
 /** Opens a beat after the segment settles, like the modality suggestion. */
 const OPEN_DELAY_MS = 1500;
 
-const COPY: Record<"affect" | "time", string> = {
-  affect: "That one's been a lot of work. Want to take a break?",
+const COPY: Record<"instruction" | "time", string> = {
+  instruction: "That one's been a lot of work. Want to take a break?",
   time: "You've been at this a while. Want to take a break?",
 };
 
 /**
- * The system's break OFFER (B.7 / 37b) - frustration persisting past two
- * adaptations, or the 20-minute monitor priming. Same contract as the
+ * The system's break OFFER (B.7 / §4) - the plan naming a break to offer, or
+ * the 20-minute monitor priming. The two keys below select COPY only; neither
+ * claims to know why the engine asked. Same contract as the
  * modality suggestion pill (SCRUM-94.5): two discrete 44px peer buttons,
  * the card itself inert, and **no auto-dismiss** - a self-dismissing offer
  * is indistinguishable from a declined one in the signal record. Declining
@@ -24,7 +25,7 @@ export function BreakOfferPill({
   onAccept,
   onDismiss,
 }: {
-  trigger: "affect" | "time";
+  trigger: "instruction" | "time";
   onAccept: () => void;
   onDismiss: () => void;
 }) {

@@ -4,7 +4,7 @@
  * the lesson-detail endpoint / `intelligenceApi.getAdaptation` later is a data-source
  * swap, not a UI change. Content here is illustrative, not curriculum-reviewed.
  */
-import { AFFECTIVE_STATES, BREAK_TYPES, MODALITY, DENSITY, SCAFFOLD_LEVELS } from "@/lib/constants";
+import { ADJUSTMENT_ACTIONS, BREAK_TYPES, MODALITY, DENSITY, SCAFFOLD_LEVELS } from "@/lib/constants";
 import type { AdaptationPlan, Lesson } from "@/lib/types";
 
 export const PHOTOSYNTHESIS: Lesson = {
@@ -293,38 +293,39 @@ export const PHOTOSYNTHESIS_PLAN: AdaptationPlan = {
   // Affective states (37b) are spread so no segment ever stacks two asks.
   segments: [
     { segmentId: "intro", startModality: MODALITY.TEXT, density: null, suggestModality: MODALITY.VISUAL, scaffold: SCAFFOLD_LEVELS.MODERATE },
-    // Confusion: the Socratic prompt, with the intelligence boards' exact
-    // guided questions for this idea.
+    // `show_socratic_panel`, with the intelligence boards' exact guided
+    // questions for this idea.
     {
       segmentId: "inside-leaf",
       startModality: MODALITY.TEXT,
       density: null,
       suggestModality: null,
       scaffold: SCAFFOLD_LEVELS.LIGHT,
-      affect: AFFECTIVE_STATES.CONFUSION,
+      adjustment: ADJUSTMENT_ACTIONS.SHOW_SOCRATIC_PANEL,
       socraticPrompts: [
         "Where does the plant get its energy from?",
         "What do you think the leaf does with sunlight?",
         "What might the plant make from it?",
       ],
     },
-    // Frustration: proactive support - the unrequested hint, the guided
-    // forward glow, and (persisting) the OFFERED consolidation break with its
-    // feeling check-in. Offered, never forced.
+    // `offer_hint`: the unrequested hint and the guided forward glow. The
+    // OFFERED consolidation break rides its own field, because §4 keeps
+    // `offer_break` as a separate action and one segment carries one
+    // instruction. Offered, never forced.
     {
       segmentId: "experiment",
       startModality: MODALITY.INTERACTIVE,
       density: null,
       suggestModality: null,
       scaffold: SCAFFOLD_LEVELS.FULL,
-      affect: AFFECTIVE_STATES.FRUSTRATION,
-      affectHint:
+      adjustment: ADJUSTMENT_ACTIONS.OFFER_HINT,
+      hint:
         "Start with where the light lands: the leaf. What do you think it does with it?",
       offerBreak: BREAK_TYPES.CONSOLIDATION,
     },
-    // Anxiety: softened - density already reduced by the plan, secondary
-    // chrome dims. No offer stacked on an anxious segment.
-    { segmentId: "recap", startModality: MODALITY.TEXT, density: DENSITY.SLOWER, suggestModality: null, scaffold: SCAFFOLD_LEVELS.MODERATE, affect: AFFECTIVE_STATES.ANXIETY },
+    // `modulate_density`: softened - density already reduced by the plan,
+    // secondary chrome dims. No offer stacked on a softened segment.
+    { segmentId: "recap", startModality: MODALITY.TEXT, density: DENSITY.SLOWER, suggestModality: null, scaffold: SCAFFOLD_LEVELS.MODERATE, adjustment: ADJUSTMENT_ACTIONS.MODULATE_DENSITY },
   ],
 };
 
