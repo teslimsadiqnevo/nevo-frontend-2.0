@@ -91,8 +91,54 @@ export function useSignals(
   const sessionRef = useRef(sessionId);
   const lessonRef = useRef(lessonId);
   const typeRef = useRef(sessionType);
-  // The envelope's startedAt: when this session began capturing (reset per id).
-  const startedAtRef = useRef<string>(new Date().toISOString());
+  /*
+   * THE SESSION'S CLOCK ANCHOR: one wall-clock reading and one monotonic
+   * reading, taken at the same instant and reset together per session id.
+   *
+   * Rule 4 wants `performance.now()` for anything timed and sent to the engine,
+   * and `SignalEventRequest.timestamp` is `format: date-time`, so the raw float
+   * has nowhere to go. That looks like a deadlock and is not one: what the
+   * contract cannot take is the raw monotonic value, not a timestamp DERIVED
+   * from one.
+   *
+   * So every event is stamped `wall + (performance.now() - perf)`. The wire is
+   * unchanged, and every within-session delta becomes the difference of two
+   * `performance.now()` readings - which is what the engine actually measures.
+   *
+   * WHAT IT FIXES, concretely. `new Date()` per event means a device clock
+   * correction landing mid-lesson shifts every subsequent timestamp, corrupting
+   * every latency that spans it and potentially REORDERING a child's events.
+   * Unsynced Android devices make that ordinary rather than hypothetical, and
+   * frontend §2 is blunt about the cost: latency is the primary signal for
+   * three of the four affective states, and precision the client did not send
+   * cannot be recovered. This is the one class of bug that corrupts data at the
+   * source rather than showing something wrong on a screen.
+   *
+   * KNOWN LIMIT, and it is the one open question. ISO 8601 bottoms out at
+   * millisecond resolution while `performance.now()` offers finer. Every signal
+   * the engine infers from - tap dwell, response latency, idle - lives at 100ms
+   * and up, so 1ms is ample; if affective inference ever needs sub-millisecond,
+   * that IS a contract ask for a numeric monotonic field, and this becomes its
+   * anchor rather than its replacement.
+   */
+  const anchorRef = useRef<{ wall: number; perf: number } | null>(null);
+  /**
+   * The anchor, taken on first use rather than during render.
+   *
+   * Both readings are impure, so React's purity rule forbids taking them in a
+   * `useRef` initialiser - and it is right to: a re-render would re-run them
+   * and silently move the origin every event after it is dated from. Every
+   * caller below is an event handler or a flush, so first use is never render.
+   */
+  const anchor = useCallback(() => {
+    anchorRef.current ??= { wall: Date.now(), perf: performance.now() };
+    return anchorRef.current;
+  }, []);
+  /** An event's time: monotonic in substance, ISO on the wire. */
+  const stamp = useCallback(() => {
+    const { wall, perf } = anchor();
+    return new Date(wall + (performance.now() - perf)).toISOString();
+  }, [anchor]);
 
   // Keep the latest ids in refs without mutating them during render.
   useEffect(() => {
@@ -101,7 +147,13 @@ export function useSignals(
     // second one - resetting there would stamp the envelope later than the
     // events it carries.
     if (sessionRef.current && sessionRef.current !== sessionId) {
-      startedAtRef.current = new Date().toISOString();
+      // Re-anchor BOTH clocks together. A new session restarts the monotonic
+      // window; keeping the old anchor would date its first events from the
+      // previous session's origin.
+      // Dropped, not replaced: the next event re-anchors. Taking the reading
+      // here would date the new session from this effect rather than from its
+      // first event, and the two are not the same moment.
+      anchorRef.current = null;
     }
     sessionRef.current = sessionId;
     lessonRef.current = lessonId;
@@ -149,7 +201,9 @@ export function useSignals(
           sessionId: session,
           lessonId: type === "lesson" ? (lesson ?? null) : null,
           sessionType: type,
-          startedAt: startedAtRef.current,
+          // The same anchor the events are dated from, so the envelope and its
+          // contents cannot disagree about when this session began.
+          startedAt: new Date(anchor().wall).toISOString(),
         },
         batch,
       )
@@ -161,7 +215,7 @@ export function useSignals(
         if (status >= 400 && status < 500) return;
         queue.current = [...batch, ...queue.current];
       });
-  }, []);
+  }, [anchor]);
 
   // Every session opens with its interpretation context (G6): the form factor
   // and reduced-motion mode the signals were produced under. Seeded lazily on
@@ -175,7 +229,7 @@ export function useSignals(
         contextEmittedFor.current = sessionRef.current;
         queue.current.push({
           type: SIGNAL_EVENT_TYPES.SESSION_CONTEXT,
-          timestamp: new Date().toISOString(),
+          timestamp: stamp(),
           payload: {
             formFactor: formFactor(),
             reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)")
@@ -185,12 +239,12 @@ export function useSignals(
       }
       queue.current.push({
         type,
-        timestamp: new Date().toISOString(),
+        timestamp: stamp(),
         payload,
       });
       if (queue.current.length >= SIGNAL_BATCH.MAX_BATCH_SIZE) flush();
     },
-    [flush],
+    [flush, stamp],
   );
 
   useEffect(() => {

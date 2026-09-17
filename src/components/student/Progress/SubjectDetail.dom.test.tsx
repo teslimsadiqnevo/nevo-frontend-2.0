@@ -94,8 +94,11 @@ describe("SubjectDetail", () => {
     const link = await screen.findByRole("link", {
       name: /take another look at Fractions/i,
     });
+    // The concept travels with the link. Without it the review session cannot
+    // tell the scheduler which concept it was for, and every review outcome
+    // was being discarded at the door.
     expect(link.getAttribute("href")).toBe(
-      "/student/lessons/lesson-42/review-session",
+      "/student/lessons/lesson-42/review-session?concept=c-frac",
     );
   });
 

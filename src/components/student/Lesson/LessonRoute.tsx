@@ -48,10 +48,13 @@ function opensLine(opensAt: string | null): string {
 export function LessonRoute({
   lessonId,
   review = false,
+  reviewConceptId,
 }: {
   lessonId: string;
   /** Spaced-retrieval variant (37d) - the same player, different framing. */
   review?: boolean;
+  /** Which concept this review is for, from the due-review chip. */
+  reviewConceptId?: string;
 }) {
   const router = useRouter();
   const {
@@ -119,6 +122,7 @@ export function LessonRoute({
         plan={plan}
         live={live}
         review={review}
+        reviewConceptId={reviewConceptId}
         startAt={resumeAt ?? 0}
         lastWorkedAt={lastWorkedAt}
         adaptSegments={adaptSegments}

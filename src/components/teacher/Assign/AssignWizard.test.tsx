@@ -264,3 +264,80 @@ describe("a lesson that has not been approved", () => {
     expect(screen.queryByText(/waiting for your approval/i)).not.toBeInTheDocument();
   });
 });
+
+/**
+ * THE IN-FLIGHT WINDOW.
+ *
+ * `useTeacherClasses` serves the six fixture classes whenever `data` is null,
+ * and that includes the whole time the read is in flight - not only after it
+ * fails. Both the sample notice and the confirm guard keyed on `sample`, which
+ * is true only once it HAS failed. So for as long as the class list took, a
+ * signed-in teacher was shown invented classes with nothing saying so, and a
+ * class picked in that window was a fixture id on its way to
+ * `POST /api/v1/assignments`.
+ *
+ * Every existing test in this file sets `loading: false`, which is why none of
+ * them saw it. These set it true.
+ */
+describe("while the class list is still loading", () => {
+  const loadingClasses = () =>
+    useTeacherClasses.mockReturnValue({
+      // The shape the hook really returns mid-flight: fixtures present,
+      // `sample` false because nothing has failed, `loading` true.
+      options: CLASSES,
+      classes: [],
+      liveClasses: [],
+      live: false,
+      loading: true,
+      sample: false,
+    });
+
+  it("offers no class to pick, so no fixture can be chosen", () => {
+    // The fix. A fixture that is never offered cannot be picked, and a teacher
+    // who never saw invented classes has nothing to un-choose.
+    loadingClasses();
+    render(<AssignWizard preselect="l-1" />);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    for (const c of CLASSES) {
+      expect(screen.queryByRole("button", { name: new RegExp(c.name) })).not.toBeInTheDocument();
+    }
+  });
+
+  it("does not claim these are samples, because nothing has failed", () => {
+    // "Not back yet" and "never coming" are different sentences, and only the
+    // second is a reason to say the data is invented.
+    loadingClasses();
+    render(<AssignWizard preselect="l-1" />);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(screen.queryByText(/these are sample classes/i)).not.toBeInTheDocument();
+  });
+
+  it("cannot be driven to confirm at all, so nothing is sent", () => {
+    /*
+     * The assertion that replaced a worse one. I first wrote this as "confirm
+     * shows the still-loading error", and it failed - because with skeletons in
+     * the picker there is no class to select, the step-2 guard refuses to
+     * advance, and confirm is never rendered.
+     *
+     * That is a stronger property than the error message, so it is the one
+     * asserted: the flow cannot reach the backend mid-flight, rather than
+     * reaching it and being turned away.
+     *
+     * The `classesLoading` check in `submit()` stays as a backstop and is
+     * therefore NOT exercised by this test. It is unreachable through the UI by
+     * construction; it is kept because the cost of a future refactor
+     * reintroducing the path is a fixture id in a real school's assignments.
+     */
+    loadingClasses();
+    render(<AssignWizard preselect="l-1" />);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(
+      screen.queryByRole("button", { name: "Confirm assignment" }),
+    ).not.toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+  });
+});

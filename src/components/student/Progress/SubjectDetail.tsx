@@ -371,7 +371,10 @@ function LiveSubjectDetail({
               return lessonId ? (
                 <Link
                   key={c.conceptId}
-                  href={`/student/lessons/${lessonId}/review-session`}
+                  // The concept travels with the link. Without it the review
+                  // session cannot tell the scheduler which concept it was for,
+                  // and the outcome of every review was being discarded.
+                  href={`/student/lessons/${lessonId}/review-session?concept=${encodeURIComponent(c.conceptId)}`}
                   aria-label={`Take another look at ${c.name}`}
                   className={`${DUE_CHIP} cursor-pointer transition hover:bg-nevo-navy/[0.16] active:scale-[0.98]`}
                 >

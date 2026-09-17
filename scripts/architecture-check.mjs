@@ -91,6 +91,102 @@ const SCORE_COPY =
 const REWARD =
   /\b(confetti|streak|trophy|leaderboard|badge earned|points earned|you win)\b/i;
 
+// ---------------------------------------------------------------- rule 3
+// "Compute no scores, parameters, or thresholds." Frontend section 6 spells out
+// what that forbids: "Never compute a threshold. Not from row counts, not from
+// dates, not from array lengths, not from how much data looks like enough."
+//
+// WHY THIS RULE EXISTS. The gate checked pronouns and wall-clock use and not
+// this, and the console decided an engine-owned threshold FOUR times: the count
+// interpolation, the stored modality, the insights "still gathering" state, and
+// the settled-week conflation. The third shipped, and it tells a class having a
+// genuinely good week that we do not have enough data about it.
+//
+// Two patterns only, both chosen because they are near-unambiguous. Design
+// offered to accept false positives; these should produce very few, which is
+// worth more than breadth on a gate people have to trust.
+//
+//   1. An array length compared to a numeric literal. This is the insights bug
+//      exactly: `misconceptions.length === 0 && mastery.length === 0` deciding
+//      whether the engine has "enough".
+//   2. Wall-clock arithmetic compared to a numeric literal - a duration
+//      threshold, which is the "not from dates" clause.
+//
+// NOT INCLUDED, deliberately, pending design's call: a numeric-to-label
+// classifier (it would flag `band()` in useTeacherHome, a known accepted case)
+// and arithmetic on server numbers reaching render (it would flag `pct()`,
+// which is percent formatting for a bar, not a threshold).
+//
+// Scoped to the surfaces where a threshold becomes a CLAIM about a person.
+// `lib/` is exempt: a pure helper handed a threshold by the engine is fine, and
+// the decision is made where it is rendered.
+const DECIDES = /[\/](hooks|components[\/](student|teacher|parent))[\/]/;
+
+/**
+ * A SUFFICIENCY VERDICT, computed here.
+ *
+ * The broad version of this rule - any `.length` compared to a number inside a
+ * hook or component - produced 159 findings, almost all of them ordinary list
+ * handling: `parts.length >= 2` splitting a name into first and last,
+ * `queue.current.length === 0` checking whether a batch is empty. It caught the
+ * real bug and buried it, and a gate that cries wolf is a gate people stop
+ * reading. Breadth is worth less here than being believed.
+ *
+ * So this matches the SHAPE of the defect instead: a row count or a bare number
+ * deciding whether the engine has enough to say something, stored under a name
+ * that says so. That is what `useClassInsights` did -
+ * `empty: !loading && failures < 3 && misconceptions.length === 0 && ...` - and
+ * it is the difference between counting rows (fine) and ruling on sufficiency
+ * (the engine's job).
+ *
+ * It will miss a threshold given an innocuous name. That is accepted: this rule
+ * is a net under correct construction, not a substitute for it.
+ */
+const SUFFICIENCY =
+  /^(empty|isEmpty|sparse|gathering|enough|hasEnough|insufficient|hasData|noData|settled|thin|quiet)$/i;
+// `ready` was in this list and is deliberately out. Every match was a form
+// submit guard - `note.trim().length > 0 && !busy` - which decides whether a
+// button is enabled, not whether the engine has enough to say something. Five
+// findings, none of them this rule's business.
+
+function sufficiencyVerdict(node, src) {
+  let name = null;
+  let init = null;
+  if (ts.isPropertyAssignment(node) && ts.isIdentifier(node.name)) {
+    name = node.name.text;
+    init = node.initializer;
+  } else if (
+    ts.isVariableDeclaration(node) &&
+    ts.isIdentifier(node.name) &&
+    node.initializer
+  ) {
+    name = node.name.text;
+    init = node.initializer;
+  }
+  if (!name || !init || !SUFFICIENCY.test(name)) return false;
+  const text = init.getText(src);
+  // A row count, or a bare numeric comparison, inside the verdict.
+  return /\.length\s*(===|!==|==|!=|>=|<=|>|<)\s*\d/.test(text) ||
+    /\d\s*(===|!==|==|!=|>=|<=|>|<)\s*\w+\.length/.test(text) ||
+    /\w+\s*(>=|<=|>|<)\s*\d/.test(text);
+}
+
+/** `Date.now() - x` (or a `new Date()` difference) compared to a number. */
+function clockVsNumber(node, src) {
+  if (!ts.isBinaryExpression(node)) return false;
+  const rel = new Set([
+    ts.SyntaxKind.GreaterThanToken,
+    ts.SyntaxKind.GreaterThanEqualsToken,
+    ts.SyntaxKind.LessThanToken,
+    ts.SyntaxKind.LessThanEqualsToken,
+  ]);
+  if (!rel.has(node.operatorToken.kind)) return false;
+  const hasNum = ts.isNumericLiteral(node.left) || ts.isNumericLiteral(node.right);
+  if (!hasNum) return false;
+  const other = ts.isNumericLiteral(node.left) ? node.right : node.left;
+  return /Date\.now\(\)|new Date\(/.test(other.getText(src));
+}
+
 // ---------------------------------------------------------------- rule 6
 // Never a gendered pronoun in generated copy. No pronoun is stored for any
 // child and there is no field that could make it right.
@@ -169,6 +265,27 @@ for (const abs of files) {
       }
     }
 
+    // rule 3 - thresholds. Expression-level, not string-level: the breach is a
+    // comparison, and by the time it reaches copy the decision is already made.
+    if (!isTest && DECIDES.test(file)) {
+      if (sufficiencyVerdict(node, sf))
+        add(
+          "threshold",
+          file,
+          node,
+          sf,
+          `Sufficiency decided here, not by the engine: \`${node.getText(sf).slice(0, 90)}\``,
+        );
+      if (clockVsNumber(node, sf))
+        add(
+          "threshold",
+          file,
+          node,
+          sf,
+          `Duration threshold derived here: \`${node.getText(sf).slice(0, 70)}\``,
+        );
+    }
+
     // rules 4, 5, 6 - copy. String literals only: an identifier named `score`
     // is a local decision, a sentence on screen is what a child reads.
     if (
@@ -197,6 +314,8 @@ const TITLES = {
   "child-score": "A result shown to a child",
   reward: "Reward mechanics",
   pronoun: "Gendered pronoun in generated copy",
+  threshold:
+    "Threshold derived in the console - the engine owns this (frontend section 6)",
 };
 
 const byKind = {};
