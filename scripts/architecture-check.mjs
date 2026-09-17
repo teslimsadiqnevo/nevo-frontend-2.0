@@ -112,10 +112,16 @@ const REWARD =
 //   2. Wall-clock arithmetic compared to a numeric literal - a duration
 //      threshold, which is the "not from dates" clause.
 //
-// NOT INCLUDED, deliberately, pending design's call: a numeric-to-label
-// classifier (it would flag `band()` in useTeacherHome, a known accepted case)
-// and arithmetic on server numbers reaching render (it would flag `pct()`,
-// which is percent formatting for a bar, not a threshold).
+// THE CLASSIFIER RULE IS NOW IN (design, 17 Sep). It was reserved here
+// pending their call, on the grounds that it would flag `band()` in
+// useTeacherHome - which it does, and which is why the allowlist below carries
+// `band` with its reason written out. Design's framing: it is the
+// highest-signal rule available, because the mastery percentages and the
+// Demonstrated / Developing tiers are the same error in two registers.
+//
+// Arithmetic on server numbers reaching render is STILL OUT, and deliberately.
+// Design asked for a dry run before it is built; the numbers are in the PR
+// that brought this rule in.
 //
 // Scoped to the surfaces where a threshold becomes a CLAIM about a person.
 // `lib/` is exempt: a pure helper handed a threshold by the engine is fine, and
@@ -197,6 +203,216 @@ const COPY_DIR = /[\\/]components[\\/](student|teacher|parent)[\\/]/;
 // positively REQUIRES West African names and settings in reading material
 // because standard Western texts depress scores through cultural reference.
 const AUTHORED_ITEMS = /[\\/](Profiling|Lesson)[\\/].*(Module|Item|Content)\.tsx$/;
+
+// -------------------------------------------------- rule 3, classifier
+/**
+ * A NUMBER BECOMING A WORD ABOUT A PERSON.
+ *
+ * The shape: a function that takes a number, tests it against a cutoff, and
+ * returns a word. `MasteryDualTrack` did exactly this until 17 Sep -
+ * understanding 30 and reading 70 returned "Concept support needed", from
+ * cutoffs no contract states - and it rendered on two live surfaces against
+ * real children's data. A tier is a number wearing a label, and a named tier
+ * is arguably worse than the number, because it reads as a verdict on the
+ * child rather than a measurement.
+ *
+ * DETECTED, not guessed: a function-like node that (a) contains a comparison
+ * against a numeric literal or a cutoff-named property, and (b) returns a
+ * string or template on some path - or returns a call to a function in the
+ * same file that does. The second pass is what catches `band()`, whose own
+ * return is `bandLabel(i)`.
+ *
+ * SCOPED to hooks and the three human-facing component trees, like the
+ * sufficiency rule. `lib/` is exempt for the same reason: a pure helper handed
+ * a band by the engine is fine, and the decision is made where it renders.
+ */
+const CUTOFF_PROPS = new Set(["min", "max", "threshold", "cutoff", "floor"]);
+
+/**
+ * WHAT THE NUMBER IS ABOUT decides whether the word is a verdict, and this
+ * list is where the rule earns its keep.
+ *
+ * The unnarrowed version produced 18 findings and two of them were real. The
+ * other sixteen were a clock turning minutes into "just now", a pluraliser
+ * turning 1 into "lesson", a viewport width turning 640 into "mobile", and
+ * lesson counts turning 0 into "Needs review". Design's own test for this rule
+ * was whether its allowlist would need an entry for every progress bar in the
+ * product - sixteen entries for clocks and plurals is that failure, and a gate
+ * nobody believes is worse than no gate.
+ *
+ * So a comparison is ignored when the thing being compared is a duration, a
+ * screen size, or a count of rows. What is left is a number about how a person
+ * is doing, which is the only kind that can become a verdict about them.
+ *
+ * KNOWN MISS, stated rather than papered over: a classifier that returns an
+ * OBJECT escapes this rule. `strength()` in SetPasswordForm does exactly that
+ * - `{ level, label: level <= 1 ? "Weak" : ... }` - and it is not flagged. It
+ * is also not about a child, so the miss costs nothing today. A net under
+ * correct construction, not a substitute for it.
+ */
+const NOT_ABOUT_A_PERSON = [
+  "min", // minutes, not the cutoff property - see below
+  "minute",
+  "hour",
+  "day",
+  "week",
+  "month",
+  "year",
+  "second",
+  "sec",
+  "ms",
+  "elapsed",
+  "duration",
+  "stamp",
+  "date",
+  "age",
+  "width",
+  "height",
+  "viewport",
+  "count",
+  "length",
+  "size",
+  "total",
+  "index",
+  // An HTTP status is a number about a REQUEST. `err.status === 0` mapping to
+  // "we could not reach the server" is the one shape in this codebase that
+  // looks most like a classifier and is least like a judgement about anyone.
+  "status",
+  "code",
+];
+
+/** Is this operand a duration, a size or a row count rather than a metric? */
+function notAboutAPerson(text) {
+  const t = text.toLowerCase();
+  // `b.min` is a band boundary, not minutes. The property form is the cutoff.
+  if (t.endsWith(".min") || t.endsWith(".max")) return false;
+  // Single letters: the pluraliser's `n`, loop indices, and the viewport
+  // width and height in `useSignals`. A metric never arrives under one letter
+  // except in the mastery fixtures, where `u` and `r` are left IN on purpose -
+  // those two are exactly the numbers the deleted mastery classifier read.
+  if (["n", "i", "w", "h", "x", "y"].includes(t)) return true;
+  return NOT_ABOUT_A_PERSON.some((w) => t.includes(w));
+}
+const REL_OPS = new Set([
+  ts.SyntaxKind.GreaterThanToken,
+  ts.SyntaxKind.GreaterThanEqualsToken,
+  ts.SyntaxKind.LessThanToken,
+  ts.SyntaxKind.LessThanEqualsToken,
+  ts.SyntaxKind.EqualsEqualsEqualsToken,
+  ts.SyntaxKind.EqualsEqualsToken,
+]);
+
+/**
+ * ALLOWED, EACH WITH ITS REASON. Two rules about this list, both from design:
+ * every entry states why, and the entry is the reminder to remove it. An entry
+ * that stops matching anything is reported as stale rather than left to rot -
+ * which is how `band` leaves this list the day backend serves the cutoffs.
+ *
+ * IT IS ALSO THE DETECTOR'S CANARY, which is worth knowing before anyone
+ * "tidies" it. The rule currently finds nothing else, so a refactor that
+ * quietly broke the detection would look exactly like a clean run - except
+ * that `band` would be reported STALE, because nothing matched it. That one
+ * line is the difference between a working gate and a decorative one. Verified
+ * the other way too: reinstating the deleted `AUTO_FLAG` and adding a
+ * `Demonstrated / Developing / Misconception` tier function both flag.
+ */
+const CLASSIFIER_ALLOWED = new Map([
+  [
+    "src/hooks/useTeacherHome.ts:band",
+    "Accepted for launch (design, 17 Sep) pending backend serving the cutoffs. The labels are generated FROM the thresholds - \"Above 75%\", not \"Strong\" - so they cannot state an opinion the number does not support. Remove this entry when the engine sends the bands.",
+  ],
+]);
+const allowlistHits = new Set();
+
+/** The name a function-like node is known by, or null. */
+function functionName(node, sf) {
+  if (ts.isFunctionDeclaration(node) && node.name) return node.name.text;
+  if (ts.isMethodDeclaration(node) && node.name) return node.name.getText(sf);
+  const p = node.parent;
+  if (p && ts.isVariableDeclaration(p) && ts.isIdentifier(p.name)) return p.name.text;
+  if (p && ts.isPropertyAssignment(p) && ts.isIdentifier(p.name)) return p.name.text;
+  return null;
+}
+
+/** Does this expression produce a word on some path? */
+function producesWord(n) {
+  if (!n) return false;
+  if (
+    ts.isStringLiteral(n) ||
+    ts.isNoSubstitutionTemplateLiteral(n) ||
+    ts.isTemplateExpression(n)
+  )
+    return true;
+  if (ts.isConditionalExpression(n))
+    return producesWord(n.whenTrue) || producesWord(n.whenFalse);
+  if (ts.isBinaryExpression(n)) return producesWord(n.left) || producesWord(n.right);
+  if (ts.isParenthesizedExpression(n)) return producesWord(n.expression);
+  return false;
+}
+
+/** A tailwind class list is not a label about a person. */
+function looksLikeStyling(text) {
+  return (
+    text.includes("-") &&
+    (text.includes("[") ||
+      text.includes("/") ||
+      /^(flex|grid|bg|text|border|rounded|w|h|mt|px|py|gap|absolute|relative|hidden)[-\s]/.test(
+        text,
+      ))
+  );
+}
+
+/** The comparison that makes a function a classifier ABOUT A PERSON, or null. */
+function cutoffTest(fn, sf) {
+  let found = null;
+  const visit = (n) => {
+    if (found) return;
+    if (ts.isBinaryExpression(n) && REL_OPS.has(n.operatorToken.kind)) {
+      const sides = [n.left, n.right];
+      const cutoff = sides.some(
+        (side) =>
+          ts.isNumericLiteral(side) ||
+          (ts.isPropertyAccessExpression(side) && CUTOFF_PROPS.has(side.name.text)),
+      );
+      // Both halves have to be about a person. A duration compared to a
+      // literal is a clock; a metric compared to one is a verdict.
+      const aboutAPerson = sides.every((side) => !notAboutAPerson(side.getText(sf)));
+      if (cutoff && aboutAPerson) found = n;
+    }
+    ts.forEachChild(n, visit);
+  };
+  ts.forEachChild(fn, visit);
+  return found;
+}
+
+/** Every word this function can return, and whom it calls on the way. */
+function wordReturns(fn, sf) {
+  const words = [];
+  const calls = new Set();
+  const visit = (n) => {
+    if (n !== fn && ts.isFunctionLike(n)) return; // a nested closure is its own
+    if (ts.isReturnStatement(n) && n.expression) {
+      if (producesWord(n.expression)) {
+        const text = n.expression.getText(sf);
+        if (!looksLikeStyling(text)) words.push({ node: n, text });
+      }
+      if (ts.isCallExpression(n.expression) && ts.isIdentifier(n.expression.expression))
+        calls.add(n.expression.expression.text);
+    }
+    // An arrow with an expression body returns it.
+    if (n === fn && ts.isArrowFunction(n) && n.body && !ts.isBlock(n.body)) {
+      if (producesWord(n.body)) {
+        const text = n.body.getText(sf);
+        if (!looksLikeStyling(text)) words.push({ node: n, text });
+      }
+      if (ts.isCallExpression(n.body) && ts.isIdentifier(n.body.expression))
+        calls.add(n.body.expression.text);
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(fn);
+  return { words, calls };
+}
 
 for (const abs of files) {
   const file = relative(ROOT, abs).replace(/\\/g, "/");
@@ -306,6 +522,47 @@ for (const abs of files) {
     ts.forEachChild(node, visit);
   };
   visit(sf);
+
+  // rule 3, classifier - collected per file so the caller pass can see the
+  // word-producers it calls.
+  if (!isTest && DECIDES.test(file)) {
+    const fns = [];
+    const collect = (node) => {
+      if (ts.isFunctionLike(node)) {
+        const name = functionName(node, sf);
+        const test = cutoffTest(node, sf);
+        const { words, calls } = wordReturns(node, sf);
+        fns.push({ node, name, test, words, calls });
+      }
+      ts.forEachChild(node, collect);
+    };
+    collect(sf);
+
+    const wordProducers = new Set(
+      fns.filter((f) => f.name && f.words.length > 0).map((f) => f.name),
+    );
+    for (const f of fns) {
+      if (!f.test) continue;
+      const direct = f.words[0];
+      const viaCall = [...f.calls].find((c) => wordProducers.has(c));
+      if (!direct && !viaCall) continue;
+      const key = `${file}:${f.name ?? "(anonymous)"}`;
+      if (CLASSIFIER_ALLOWED.has(key)) {
+        allowlistHits.add(key);
+        continue;
+      }
+      const what = direct
+        ? `returns ${direct.text.slice(0, 48)}`
+        : `returns ${viaCall}(), which writes the words`;
+      add(
+        "classifier",
+        file,
+        f.test,
+        sf,
+        `${f.name ?? "This function"} turns a number into a label: \`${f.test.getText(sf).slice(0, 44)}\` and ${what}. The engine owns the cutoffs and the word.`,
+      );
+    }
+  }
 }
 
 const TITLES = {
@@ -316,6 +573,8 @@ const TITLES = {
   pronoun: "Gendered pronoun in generated copy",
   threshold:
     "Threshold derived in the console - the engine owns this (frontend section 6)",
+  classifier:
+    "A number turned into a label about a person - the engine owns the cutoff and the word",
 };
 
 const byKind = {};
@@ -324,6 +583,19 @@ for (const f of findings) (byKind[f.kind] ??= []).push(f);
 for (const [kind, list] of Object.entries(byKind)) {
   console.log(`## ${TITLES[kind] ?? kind}  (${list.length})`);
   for (const f of list) console.log(`   ${f.where}\n     ${f.message}`);
+  console.log();
+}
+
+// The allowlist is printed, never silent: an exception nobody sees is an
+// exception nobody removes. A stale entry is reported the same way, because
+// the entry is what reminds us the acceptance had a condition on it.
+if (CLASSIFIER_ALLOWED.size > 0) {
+  console.log(`## Classifier cases allowed, with their reasons  (${CLASSIFIER_ALLOWED.size})`);
+  for (const [key, why] of CLASSIFIER_ALLOWED) {
+    const stale = allowlistHits.has(key) ? "" : "  [STALE - matched nothing, delete it]";
+    console.log(`   ${key}${stale}
+     ${why}`);
+  }
   console.log();
 }
 
