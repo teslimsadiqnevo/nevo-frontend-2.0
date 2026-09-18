@@ -108,9 +108,7 @@ export default function LoginPage() {
   const [error, setError] = useState<LoginFailure | null>(null);
   const [checking, setChecking] = useState(false);
   const [done, setDone] = useState(false);
-  const [kbOpen, setKbOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -155,7 +153,6 @@ export default function LoginPage() {
 
   useEffect(
     () => () => {
-      if (blurTimer.current) clearTimeout(blurTimer.current);
       if (doneTimer.current) clearTimeout(doneTimer.current);
     },
     [],
@@ -279,14 +276,6 @@ export default function LoginPage() {
             backspace();
           }
         }}
-        onFocus={() => {
-          if (blurTimer.current) clearTimeout(blurTimer.current);
-          setKbOpen(true);
-        }}
-        onBlur={() => {
-          if (blurTimer.current) clearTimeout(blurTimer.current);
-          blurTimer.current = setTimeout(() => setKbOpen(false), 120);
-        }}
         inputMode="none"
         aria-label="PIN"
         className="pointer-events-none absolute -left-[9999px] opacity-0"
@@ -376,6 +365,24 @@ export default function LoginPage() {
               {error === "throttled" &&
                 "That's a lot of tries in a row. Wait a moment, then try again."}
             </p>
+            {/*
+              THE PAD SITS IN THE SCREEN, under the boxes it fills, exactly
+              where 28c-3 draws it.
+
+              It used to be a docked tray summoned by focusing a hidden input,
+              which is the right shape for a field a keyboard would cover and
+              the wrong one for four boxes with nothing beneath them. A child
+              had to tap the screen before they could see how to answer it.
+              Nothing summons this one, so there is nothing to miss.
+            */}
+            <NevoKeyboard
+              layout="pad"
+              presentation="block"
+              onKey={addDigits}
+              onBackspace={backspace}
+              className="mt-7"
+            />
+
             <button
               type="button"
               onClick={(e) => {
@@ -413,14 +420,6 @@ export default function LoginPage() {
         )}
       </div>
 
-      {kbOpen && !done && (
-        <NevoKeyboard
-          layout="pad"
-          onKey={addDigits}
-          onBackspace={backspace}
-          className="shrink-0"
-        />
-      )}
     </main>
   );
 }

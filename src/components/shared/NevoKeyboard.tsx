@@ -83,8 +83,12 @@ export function useNevoKeyboardDock() {
  */
 const HIDE_WHEN_A_REAL_KEYBOARD_EXISTS = "[@media(pointer:fine)]:hidden";
 
+/** See the `presentation` prop. */
+export type KeyboardPresentation = "docked" | "block";
+
 export function NevoKeyboard({
   layout,
+  presentation = "docked",
   onKey,
   onBackspace,
   onReturn,
@@ -94,6 +98,22 @@ export function NevoKeyboard({
   className,
 }: {
   layout: KeyboardLayout;
+  /**
+   * How the keys sit on the screen.
+   *
+   * `docked` (the default, and what every caller had): a full-width tray that
+   * slides up from the bottom edge - the keyboard metaphor, for a field the
+   * keyboard would otherwise cover.
+   *
+   * `block`: a compact, content-sized grid with no tray band and no slide-up,
+   * for a single numeric field sat inside a layout rather than docked - a
+   * child's PIN. The pad is simply part of the screen, so there is nothing to
+   * summon and nothing that can cover the boxes it fills.
+   *
+   * Only meaningful for `layout="pad"`; a qwerty tray has no content-sized
+   * form, and the type says so.
+   */
+  presentation?: KeyboardPresentation;
   /** A character key was pressed (letter, digit, or " "). */
   onKey: (char: string) => void;
   onBackspace: () => void;
@@ -117,18 +137,24 @@ export function NevoKeyboard({
   const isMulti = composer === "multi";
   const hasVal = Boolean(value && value.length > 0);
 
+  const block = presentation === "block" && layout === "pad";
+
   const tray = (
     <div
       className={cn(
-        "flex shrink-0 flex-col gap-2.5 bg-[#e4ddcc] px-1.5 pt-1.5 pb-3 md:gap-[11px] md:px-3 md:pt-3 md:pb-3.5",
+        block
+          ? // No tray band, no padding, no slide-up: the grid IS the assembly.
+            "flex shrink-0 flex-col"
+          : "flex shrink-0 flex-col gap-2.5 bg-[#e4ddcc] px-1.5 pt-1.5 pb-3 md:gap-[11px] md:px-3 md:pt-3 md:pb-3.5",
         // Without a composer the tray is the whole assembly: it carries the
         // top hairline and the slide-up itself.
         !composer &&
+          !block &&
           "border-t border-nevo-near-black/8 motion-safe:animate-nevo-kb-up",
       )}
     >
       {layout === "pad" ? (
-        <PadLayout onKey={onKey} onBackspace={onBackspace} />
+        <PadLayout block={block} onKey={onKey} onBackspace={onBackspace} />
       ) : (
         <QwertyLayout
           caps={caps}
@@ -278,9 +304,12 @@ const ROW = "flex justify-center gap-1.5 md:gap-2";
 /* ── pad (numeric) ──────────────────────────────────────────────────────── */
 
 function PadLayout({
+  block,
   onKey,
   onBackspace,
 }: {
+  /** Content-sized keys rather than a full-width tray. See `presentation`. */
+  block: boolean;
   onKey: (d: string) => void;
   onBackspace: () => void;
 }) {
@@ -290,8 +319,25 @@ function PadLayout({
     ["7", "8", "9"],
     ["", "0", "⌫"],
   ];
+  /*
+   * Block keys are a FIXED size rather than a share of the width, which is the
+   * whole difference: a tray fills the screen edge to edge, and a pad sitting
+   * inside a layout has to be the size of a pad. Sized up at the tablet
+   * breakpoint rather than through a `variant` prop - every other size in this
+   * component is responsive, and a prop would be one more thing a caller can
+   * get wrong on a screen that is already the same on both.
+   */
+  const blockKey =
+    "size-[60px] min-w-0 flex-none cursor-pointer items-center justify-center rounded-lg text-[22px] text-nevo-near-black shadow-[0_1px_1px_rgba(43,43,47,0.28)] transition-transform select-none active:scale-95 flex sm:h-[62px] sm:w-[72px] sm:text-[25px]";
+
   return (
-    <div className="mx-auto grid w-full max-w-[420px] grid-cols-3 gap-1.5 md:gap-2">
+    <div
+      className={cn(
+        block
+          ? "mx-auto grid grid-cols-3 gap-2.5"
+          : "mx-auto grid w-full max-w-[420px] grid-cols-3 gap-1.5 md:gap-2",
+      )}
+    >
       {grid.flat().map((d, i) => {
         if (d === "") return <span key={i} aria-hidden />;
         if (d === "⌫") {
@@ -302,11 +348,23 @@ function PadLayout({
               aria-label="Delete"
               onClick={onBackspace}
               className={cn(
-                KEY_BASE,
+                block ? blockKey : KEY_BASE,
                 "bg-[#d8d0be] shadow-[0_1px_1px_rgba(43,43,47,0.22)]",
               )}
             >
               <Delete className="size-5" strokeWidth={2} />
+            </button>
+          );
+        }
+        if (block) {
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onKey(d)}
+              className={cn(blockKey, "bg-nevo-cream")}
+            >
+              {d}
             </button>
           );
         }

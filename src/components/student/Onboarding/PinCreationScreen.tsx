@@ -265,7 +265,13 @@ export function PinCreationScreen({
       </div>
 
       {showEntry && (
-        <NevoKeyboard layout="pad" onKey={pressDigit} onBackspace={backspace} />
+        <NevoKeyboard
+          layout="pad"
+          presentation="block"
+          onKey={pressDigit}
+          onBackspace={backspace}
+          className="mb-8 shrink-0"
+        />
       )}
     </div>
   );
