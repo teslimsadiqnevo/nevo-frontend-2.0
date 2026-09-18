@@ -158,6 +158,32 @@ export default function LoginPage() {
     [],
   );
 
+  /*
+   * PUT THE CARET WHERE A LAPTOP'S KEYSTROKES WILL LAND.
+   *
+   * The PIN boxes are not an input - they are drawn from `digits`, and the
+   * thing that actually receives typing is the off-screen field below. Nothing
+   * focused it, so on any device with a real keyboard the screen looked ready
+   * and swallowed every keystroke until the child happened to click the page.
+   * There is no cue to do that, because on a tablet - where this screen was
+   * designed and tested - you tap the pad and never need one.
+   *
+   * It has been that way since the screen shipped. The picker made it look
+   * like a new fault rather than an old one: choosing a face IS a click, so it
+   * feels like the page should now be listening, and the click is consumed by
+   * the tile instead.
+   *
+   * `preventScroll` because the field sits at -9999px, and focusing it without
+   * that scrolls the whole page sideways to reveal it.
+   *
+   * Safe on touch: `inputMode="none"` is what stops the OS keyboard appearing,
+   * and it is why the field can hold focus without covering the screen.
+   */
+  useEffect(() => {
+    if (!chosen || done) return;
+    inputRef.current?.focus({ preventScroll: true });
+  }, [chosen, done]);
+
   const submit = useCallback(
     async (pin: string, remembered: RememberedChild) => {
       setChecking(true);
