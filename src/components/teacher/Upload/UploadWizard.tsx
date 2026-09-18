@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { awaitParseRun, contentApi } from "@/lib/api/content";
 import { lessonsApi, type LessonDetailResponse } from "@/lib/api/lessons";
 import { ApiError } from "@/lib/api/client";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useStagedUpload } from "@/hooks/useStagedUpload";
 import { getToken } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
@@ -215,6 +216,8 @@ export function UploadWizard() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("scope");
   const [scope, setScope] = useState<ScopeId | null>(null);
+  const [subject, setSubject] = useState("");
+  const identity = useCurrentUser();
   const [fileName, setFileName] = useState("");
   // The File itself, not just its name: "Try again" on a server fault must
   // resend the same upload, not reopen the picker and ask a teacher to find
@@ -301,7 +304,7 @@ export function UploadWizard() {
     // is the thing that kept this on a mock beat. It stages the file and
     // polls; the structure view takes over from `staged`.
     if (isBlock && scope) {
-      staged.start(file, scope);
+      staged.start(file, scope, subject || undefined);
       return;
     }
 
@@ -315,7 +318,7 @@ export function UploadWizard() {
     // `failureReason` - not as a hang. That is the point of polling it rather
     // than the lesson.
     void contentApi
-      .upload(file)
+      .upload(file, subject || undefined)
       .then(async (accepted) => {
         const run = await awaitParseRun(accepted.parseRunId);
         if (run.status === "failed") {
@@ -380,6 +383,7 @@ export function UploadWizard() {
     stopTimer();
     setPhase("scope");
     setScope(null);
+    setSubject("");
     setFileName("");
     setSample(false);
   };
@@ -529,6 +533,48 @@ export function UploadWizard() {
                   </button>
                 );
               })}
+
+              {/*
+                SUBJECT, from the teacher's own subjects.
+
+                Both upload routes have accepted an optional `subject` all
+                along and neither wrapper sent one, so every lesson this
+                console created arrived unlabelled and the library's filter
+                had nothing to sort by.
+
+                THE OPTIONS ARE NOT A LIST WRITTEN HERE. C07 draws a select
+                of Mathematics, English, Basic Science and Social Studies -
+                a taxonomy that is already wrong for this product's own
+                fixtures, where a class is Biology, Chemistry and Physics.
+                `users/me` carries the subjects a teacher actually teaches,
+                including ones the backend infers from their lessons, so
+                that is the source. A teacher with none recorded gets no
+                field rather than a made-up one, and the upload carries no
+                subject - which is what absence means.
+
+                Raised with design: a teacher uploading outside their own
+                subjects cannot label it, and the question of where the
+                vocabulary comes from is theirs.
+              */}
+              {(identity?.subjects.length ?? 0) > 0 && (
+                <label className="mt-2 block max-w-[420px]">
+                  <span className="text-xs font-semibold tracking-[0.03em] text-nevo-near-black/55 uppercase">
+                    Subject
+                  </span>
+                  <select
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className="mt-1.5 h-12 w-full cursor-pointer rounded-[10px] border border-nevo-near-black/14 bg-nevo-cream-elevated px-3.5 text-[15px] text-nevo-near-black outline-none transition-colors focus:border-nevo-navy"
+                  >
+                    <option value="">Not set</option>
+                    {identity?.subjects.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
           )}
 

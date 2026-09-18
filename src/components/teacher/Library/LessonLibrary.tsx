@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   useLessonLibrary,
   type CardStatus,
 } from "@/hooks/useLessonLibrary";
-import { LIBRARY_FILTERS, type LibraryFilter } from "@/lib/mocks/teacherLibrary";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,9 +16,11 @@ import { cn } from "@/lib/utils";
  * are distinct calm states.
  *
  * Live-first from `GET /api/content/lessons` - see `useLessonLibrary` for what
- * that endpoint does and does not carry. The subject pills are the visible
- * consequence: a real lesson has no subject, so rather than leave five inert
- * filters over live data, they show only over the fixtures they can sort.
+ * that endpoint does and does not carry. The subject pills are built from the
+ * subjects the library actually contains: a shelf where nothing carries one
+ * shows no pills, and a shelf of Biology, Chemistry and Physics shows those
+ * three. Neither the row nor the filter is written from a list in this repo,
+ * which is what used to make them fixture-only.
  */
 
 const SEARCH_ICON = (
@@ -92,14 +93,31 @@ function BulkUploadLink({ className }: { className?: string }) {
 
 export function LessonLibrary() {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<LibraryFilter>("All");
-  const { cards: lessons, live, sample, loading, slow } = useLessonLibrary();
+  const [filter, setFilter] = useState("All");
+  // `live` is no longer read here: the pills used to be gated on it, and now
+  // they are gated on having subjects to show, which is the honest condition.
+  const { cards: lessons, sample, loading, slow } = useLessonLibrary();
+
+  /**
+   * "All", then every subject on the shelf, first-seen order.
+   *
+   * Not sorted and not from a list: these are the subjects teachers gave
+   * their own lessons, and a lesson uploaded without one simply is not in
+   * the row. A filter that cannot filter is worse than no filter, which is
+   * why the row only renders when there is more than one thing to pick.
+   */
+  const subjects = useMemo(() => {
+    const seen: string[] = ["All"];
+    for (const l of lessons) {
+      if (l.subject && !seen.includes(l.subject)) seen.push(l.subject);
+    }
+    return seen;
+  }, [lessons]);
 
   const q = query.trim().toLowerCase();
   const shown = lessons.filter(
     (l) =>
-      // Live lessons carry no subject, so the pills cannot narrow them.
-      (live || filter === "All" || l.subject === filter) &&
+      (filter === "All" || l.subject === filter) &&
       (!q ||
         l.title.toLowerCase().includes(q) ||
         l.meta.toLowerCase().includes(q)),
@@ -208,26 +226,34 @@ export function LessonLibrary() {
         <BulkUploadLink className="h-10 w-full xl:h-[42px] xl:w-auto xl:px-[18px]" />
       </div>
 
-      {/* Subject pills - fixtures only. A live lesson carries no subject, and
-          a filter that cannot filter is worse than no filter. */}
-      {!live && (
-      <div className="mt-4 flex max-w-[1000px] flex-wrap gap-2 xl:mt-[18px] xl:gap-[9px]">
-        {LIBRARY_FILTERS.map((label) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => setFilter(label)}
-            className={cn(
-              "cursor-pointer rounded-full px-[15px] py-2 text-[13.5px] font-medium transition-[transform,background-color] active:scale-[0.99]",
-              filter === label
-                ? "bg-nevo-navy text-nevo-cream"
-                : "border border-nevo-near-black/8 bg-nevo-cream-elevated text-nevo-near-black/72",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/*
+        Subject pills, from the shelf itself.
+
+        These used to render over fixtures only, on the recorded grounds that
+        "a live lesson carries no subject" - true at the time, and true only
+        because the upload never sent one. Now they are whatever the lessons
+        in hand say they are about, in the order they first appear, with All
+        in front. One subject is not a filter, so the row needs two before it
+        earns its place.
+      */}
+      {subjects.length > 2 && (
+        <div className="mt-4 flex max-w-[1000px] flex-wrap gap-2 xl:mt-[18px] xl:gap-[9px]">
+          {subjects.map((label: string) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setFilter(label)}
+              className={cn(
+                "cursor-pointer rounded-full px-[15px] py-2 text-[13.5px] font-medium transition-[transform,background-color] active:scale-[0.99]",
+                filter === label
+                  ? "bg-nevo-navy text-nevo-cream"
+                  : "border border-nevo-near-black/8 bg-nevo-cream-elevated text-nevo-near-black/72",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       )}
 
       {hasQuery && shown.length > 0 && (

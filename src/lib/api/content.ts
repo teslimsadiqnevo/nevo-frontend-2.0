@@ -176,14 +176,25 @@ export const contentApi = {
 
   /**
    * Upload a source file and get the parsed lesson back.
-   * POST /api/content/upload (multipart, one field named `file`).
+   * POST /api/content/upload (multipart: `file`, and an optional `subject`).
+   *
+   * THE SUBJECT IS OPTIONAL AND WAS NEVER SENT. This wrapper took a file and
+   * nothing else, and `useLessonLibrary` recorded the consequence as a fact
+   * about the endpoint - "takes only a file, so no lesson this console creates
+   * carries one" - which is why the library's subject filter was hidden from
+   * live data. `Body_content_upload_content` has carried `subject` all along.
+   *
+   * Free text on the wire, deliberately not an enum here: the contract states
+   * no vocabulary, and a four-value list invented client-side would be wrong
+   * for the first school whose classes are Biology, Chemistry and Physics.
    *
    * An unreadable or unsupported file is a 400 with a functional message -
    * that is a real answer about the file, not a server fault.
    */
-  upload: (file: File) => {
+  upload: (file: File, subject?: string | null) => {
     const form = new FormData();
     form.append("file", file);
+    if (subject) form.append("subject", subject);
     return api.post<ParseAccepted>("/api/content/upload", form);
   },
 };

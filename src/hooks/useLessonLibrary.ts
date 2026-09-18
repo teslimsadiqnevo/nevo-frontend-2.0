@@ -3,10 +3,7 @@
 import { useCallback } from "react";
 import { lessonsApi, type LessonSummary, type LessonSourceType } from "@/lib/api/lessons";
 import { useLiveQuery } from "./useLiveQuery";
-import {
-  LIBRARY_LESSONS,
-  type LibrarySubject,
-} from "@/lib/mocks/teacherLibrary";
+import { LIBRARY_LESSONS } from "@/lib/mocks/teacherLibrary";
 
 /**
  * The lesson library, live-first: GET /api/content/lessons when a session
@@ -33,9 +30,12 @@ import {
  * `assignmentCount` shipped the same day; the footer uses the count, and
  * treats ABSENT as different from zero because it is not a required field.
  *
- * `subject` is read but not filtered on: `POST /api/content/upload` takes
- * only a file, so no lesson this console creates carries one and the pill row
- * would be a single dead "All". Only the staged routes accept a subject.
+ * `subject` IS FILTERED ON as of 18 Sep, and the sentence that used to sit
+ * here was wrong: it said `POST /api/content/upload` takes only a file, so no
+ * lesson this console creates could carry a subject. The endpoint has accepted
+ * one all along - the wrapper simply never sent it. The upload now asks, this
+ * mapper carries what comes back, and the pill row is built from the subjects
+ * the library actually contains rather than from a list written here.
  */
 
 export type CardStatus =
@@ -64,8 +64,13 @@ export interface LibraryCard {
   meta: string;
   /** The quiet third line. */
   footer: string;
-  /** Fixtures only - a live lesson has no subject to filter on. */
-  subject?: LibrarySubject;
+  /**
+   * Whatever the lesson says it is about. A string, not an enum: the contract
+   * states no vocabulary and the fixture's four-value list was never the
+   * product's - a school teaching Biology, Chemistry and Physics has three
+   * subjects the list does not contain.
+   */
+  subject?: string;
 }
 
 const SOURCE_LABEL: Record<LessonSourceType, string> = {
@@ -167,8 +172,18 @@ function toCard(lesson: LessonSummary): LibraryCard {
       .filter(Boolean)
       .join(" · "),
     footer: footerOf(lesson),
+    // Nullable on the summary, and absent means the lesson was uploaded
+    // without one - which is a lesson the pills cannot narrow, not an error.
+    subject: lesson.subject ?? undefined,
   };
 }
+
+/**
+ * Exported for its own test. The library screen mocks this hook, so a mapper
+ * tested only through the component is a mapper nothing runs - the lesson
+ * Home paid for when three component tests could not see a dropped field.
+ */
+export const __toCardForTest = (lesson: LessonSummary) => toCard(lesson);
 
 const FIXTURE_CARDS: LibraryCard[] = LIBRARY_LESSONS.map((l) => ({
   id: l.id,
@@ -185,7 +200,7 @@ const FIXTURE_CARDS: LibraryCard[] = LIBRARY_LESSONS.map((l) => ({
 
 export interface LessonLibraryState {
   cards: LibraryCard[];
-  /** Real lessons are in hand - subject pills do not apply. */
+  /** Real lessons are in hand rather than fixtures. */
   live: boolean;
   /** The call failed, so fixtures stand in. */
   sample: boolean;
