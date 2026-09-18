@@ -389,3 +389,97 @@ describe("what the device remembers a child as", () => {
     );
   });
 });
+
+describe("signing in on a device with a real keyboard", () => {
+  /**
+   * THE PIN ROW HAD NO INPUT OF ANY KIND.
+   *
+   * The boxes are drawn from `digits`; the school code and username above are
+   * real fields. So a keyboard carried a child as far as the PIN and then met
+   * six boxes with nothing behind them, and the Nevo pad - the only way to fill
+   * them - hides itself on a device with a real keyboard. This screen could not
+   * be completed on a laptop at all.
+   *
+   * It is the screen a child reaches on an UNKNOWN device, which is exactly
+   * where a borrowed laptop turns up, and the only route left to an account
+   * when a device remembers nobody.
+   */
+  const pinField = () =>
+    document.querySelector(
+      'input[aria-labelledby="returning-pin-label"]',
+    ) as HTMLInputElement;
+
+  const filledBoxes = () =>
+    document.querySelectorAll("span.rounded-full.bg-nevo-near-black").length;
+
+  it("has a PIN field a keyboard can reach at all", () => {
+    render(<ReturningSignInScreen />);
+
+    expect(pinField()).not.toBeNull();
+  });
+
+  it("fills the boxes from typed digits", () => {
+    render(<ReturningSignInScreen />);
+
+    fireEvent.change(pinField(), { target: { value: "1" } });
+    fireEvent.change(pinField(), { target: { value: "2" } });
+
+    expect(filledBoxes()).toBe(2);
+  });
+
+  it("takes backspace as a correction", () => {
+    render(<ReturningSignInScreen />);
+    for (const d of ["1", "2", "3"]) {
+      fireEvent.change(pinField(), { target: { value: d } });
+    }
+
+    fireEvent.keyDown(pinField(), { key: "Backspace" });
+
+    expect(filledBoxes()).toBe(2);
+  });
+
+  it("ignores anything that is not a digit", () => {
+    // A PIN is digits. Letters arriving from a stray keystroke must not fill a
+    // box with something the pad could never have produced.
+    render(<ReturningSignInScreen />);
+
+    fireEvent.change(pinField(), { target: { value: "a" } });
+
+    expect(filledBoxes()).toBe(0);
+  });
+
+  it("stops at the PIN length, exactly as the pad does", () => {
+    // The pad and the keyboard now share one appender, so they cannot disagree
+    // about the cap - which is the reason to share it.
+    render(<ReturningSignInScreen />);
+    for (const d of ["1", "2", "3", "4", "5", "6", "7", "8"]) {
+      fireEvent.change(pinField(), { target: { value: d } });
+    }
+
+    expect(filledBoxes()).toBe(6);
+  });
+
+  it("takes a whole typed PIN and enables Sign in", () => {
+    render(<ReturningSignInScreen />);
+    const [schoolField, userField] = screen.getAllByRole("textbox");
+    fireEvent.change(schoolField, { target: { value: "751A1136" } });
+    fireEvent.change(userField, { target: { value: "amara.k" } });
+
+    for (const d of ["1", "2", "3", "4", "5", "6"]) {
+      fireEvent.change(pinField(), { target: { value: d } });
+    }
+
+    expect(
+      screen.getByRole("button", { name: "Sign in" }),
+    ).not.toBeDisabled();
+  });
+
+  it("comes after the username in the tab order", () => {
+    // A child tabs school code, username, PIN. An off-screen field would have
+    // worked for typing and put the caret somewhere nobody can see.
+    render(<ReturningSignInScreen />);
+    const fields = [...document.querySelectorAll("input")];
+
+    expect(fields[2]).toBe(pinField());
+  });
+});

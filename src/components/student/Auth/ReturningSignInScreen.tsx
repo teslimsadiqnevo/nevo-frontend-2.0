@@ -88,10 +88,28 @@ export function ReturningSignInScreen({ next }: { next?: string }) {
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<LoginFailure | null>(null);
   const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The field the PIN boxes are a picture of. See the row itself. */
+  const pinRef = useRef<HTMLInputElement>(null);
 
   useEffect(
     () => () => {
       if (doneTimer.current) clearTimeout(doneTimer.current);
+    },
+    [],
+  );
+
+  /*
+   * ONE APPENDER for the pad and the keyboard. They filled `digits` through
+   * two separate inline closures before this screen had a keyboard path at
+   * all; two copies of "add a digit unless we are full" is how they end up
+   * disagreeing about the cap.
+   */
+  const addDigits = useCallback(
+    (raw: string) => {
+      const add = raw.replace(/[^0-9]/g, "");
+      if (!add) return;
+      setError(null);
+      setDigits((d) => (d + add).slice(0, STUDENT_PIN_LENGTH));
     },
     [],
   );
@@ -308,11 +326,54 @@ export function ReturningSignInScreen({ next }: { next?: string }) {
             >
               PIN
             </p>
-            <div
-              className="mt-3 flex gap-3.5"
-              role="group"
-              aria-labelledby="returning-pin-label"
-            >
+            {/*
+              THE PIN ROW HAD NO INPUT OF ANY KIND.
+              
+              The boxes are drawn from `digits`; the school code and username
+              above are real fields, so a keyboard carried a child that far and
+              then met six boxes with nothing behind them. The Nevo pad was the
+              only way to fill them, and the pad hides itself on a device with a
+              real keyboard - so this screen could not be completed on a laptop
+              at all. It is the screen a child reaches on an UNKNOWN device,
+              which is exactly where a borrowed laptop shows up.
+              
+              A real input, laid over the boxes rather than parked off-screen:
+              it takes its turn in the tab order straight after the username,
+              and clicking the boxes focuses it because it covers them. The
+              boxes stay the presentation, which is why it is transparent rather
+              than hidden - a `display:none` field is not focusable.
+              
+              `inputMode="none"` keeps the OS keyboard away on touch, where the
+              Nevo pad is the designed way in and is visible.
+            */}
+            <div className="relative mt-3">
+              <input
+                ref={pinRef}
+                value=""
+                onChange={(e) => {
+                  addDigits(e.target.value);
+                  e.target.value = "";
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Backspace") {
+                    e.preventDefault();
+                    setDigits((d) => d.slice(0, -1));
+                  }
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void submit();
+                  }
+                }}
+                inputMode="none"
+                autoComplete="off"
+                aria-labelledby="returning-pin-label"
+                className="absolute inset-0 z-10 h-full w-full cursor-text rounded-[10px] bg-transparent opacity-0 outline-none"
+              />
+              <div
+                className="flex gap-3.5"
+                role="group"
+                aria-labelledby="returning-pin-label"
+              >
               {Array.from({ length: STUDENT_PIN_LENGTH }, (_, i) => {
                 const active = i === digits.length && !checking;
                 return (
@@ -333,6 +394,7 @@ export function ReturningSignInScreen({ next }: { next?: string }) {
                   </div>
                 );
               })}
+              </div>
             </div>
           </div>
         </div>
@@ -383,8 +445,8 @@ export function ReturningSignInScreen({ next }: { next?: string }) {
           presentation="block"
           className="mt-6"
           onKey={(char) => {
-            if (checking || digits.length >= STUDENT_PIN_LENGTH) return;
-            setDigits((d) => (d + char).slice(0, STUDENT_PIN_LENGTH));
+            if (checking) return;
+            addDigits(char);
           }}
           onBackspace={() => setDigits((d) => d.slice(0, -1))}
           onReturn={() => void submit()}
