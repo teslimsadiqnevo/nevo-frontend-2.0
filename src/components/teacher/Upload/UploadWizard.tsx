@@ -225,6 +225,18 @@ export function UploadWizard() {
   const lastFile = useRef<File | null>(null);
   const [parseStage, setParseStage] = useState(0);
   const [fallbackKind, setFallbackKind] = useState<FallbackKind>("unreadable");
+  /** The server's own reason, when a run finished failed. */
+  const [failureReason, setFailureReason] = useState<string | null>(null);
+  /**
+   * The parse has been going long enough to say so.
+   *
+   * Backend's figures from production: the text step alone runs about 115
+   * seconds, and each generated picture has a budget of up to 600 seconds,
+   * two at a time. A teacher watching a spinner that promised a minute
+   * concludes it has hung - and before today it eventually agreed with
+   * them and reported a failure.
+   */
+  const [longWait, setLongWait] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   /** The screen is showing fixture content, never the teacher's own file. */
   const [sample, setSample] = useState(false);
@@ -233,10 +245,12 @@ export function UploadWizard() {
   const [parsed, setParsed] = useState<LessonDetailResponse | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longWaitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
+      if (longWaitTimer.current) clearTimeout(longWaitTimer.current);
     },
     [],
   );
@@ -285,6 +299,20 @@ export function UploadWizard() {
     timer.current = null;
   };
 
+  /**
+   * How long before the screen says a long wait is normal.
+   *
+   * Inside the text step's own 115 seconds, so the line arrives while the
+   * parse is still doing ordinary work rather than after it looks stuck.
+   */
+  const LONG_WAIT_MS = 75_000;
+
+  const stopLongWait = () => {
+    if (longWaitTimer.current) clearTimeout(longWaitTimer.current);
+    longWaitTimer.current = null;
+    setLongWait(false);
+  };
+
   const startFile = (file: File) => {
     stopTimer();
     lastFile.current = file;
@@ -308,6 +336,11 @@ export function UploadWizard() {
       return;
     }
 
+    // The wait is the teacher's, not the parse's: this says a long one is
+    // normal rather than leaving them to decide the screen has hung.
+    setLongWait(false);
+    longWaitTimer.current = setTimeout(() => setLongWait(true), LONG_WAIT_MS);
+
     // THREE STEPS NOW, NOT ONE. `POST /api/content/upload` answers 202 with a
     // receipt (`lessonId`, `parseRunId`, `pollUrl`) and the parse carries on
     // without us, so the finished lesson is not in that response. Poll the run
@@ -321,12 +354,26 @@ export function UploadWizard() {
       .upload(file, subject || undefined)
       .then(async (accepted) => {
         const run = await awaitParseRun(accepted.parseRunId);
+        /*
+         * A RUN THAT FINISHED FAILED IS ITS OWN OUTCOME.
+         *
+         * This used to throw `new ApiError(500, run.failureReason)`, which
+         * fell into the catch below, matched `status >= 500`, and reported
+         * a parse the backend had answered on as a connection problem -
+         * discarding, on the way, the reason it had already written.
+         * Backend asked for the split on 18 Sep and they were right.
+         */
+        stopLongWait();
         if (run.status === "failed") {
-          throw new ApiError(500, run.failureReason ?? "The parse failed.");
+          setFailureReason(run.failureReason ?? null);
+          setFallbackKind("parseFailed");
+          setPhase("fallback");
+          return null;
         }
         return lessonsApi.detail(accepted.lessonId);
       })
       .then((lesson) => {
+        if (!lesson) return;
         setParsed(lesson);
         setPhase("review");
       })
@@ -340,8 +387,16 @@ export function UploadWizard() {
         // and every unreadable file was reported as "we couldn't reach Nevo",
         // blaming our infrastructure for a file the backend had read and
         // answered on.
+        //
+        // What reaches here is a REQUEST that failed. A run answering
+        // `processing` is not one: it means Nevo was reached and is still
+        // working, and `awaitParseRun` keeps asking rather than calling it
+        // a failure at five minutes - which is how a teacher was shown a
+        // snag for a lesson that had finished half a second earlier.
+        stopLongWait();
         const status = err instanceof ApiError ? err.status : undefined;
         const ourFault = status === undefined || status >= 500;
+        setFailureReason(null);
         setFallbackKind(ourFault ? "unreachable" : "unreadable");
         setPhase("fallback");
       });
@@ -454,6 +509,7 @@ export function UploadWizard() {
       {phase === "fallback" && (
         <ParseFallback
           kind={fallbackKind}
+          reason={failureReason}
           blockName={blockName}
           onBack={() => setPhase("file")}
           onTryAnother={() => setPhase("file")}
@@ -715,15 +771,28 @@ export function UploadWizard() {
                   />
                 </>
               ) : staged.failed ? (
+                /*
+                  TWO FAILURES, TWO SENTENCES.
+
+                  This said "We couldn't read that one" over both a parse
+                  that failed and a request that never landed - so our own
+                  server being unreachable was reported as a fault in the
+                  teacher's file, and the advice was to go and find another
+                  one. Backend asked for the split on 18 Sep.
+                */
                 <div className="max-w-[600px] rounded-[16px] bg-nevo-cream-elevated p-8 shadow-elevation-1">
                   <h3 className="text-[17px] font-semibold text-nevo-near-black">
-                    We couldn&rsquo;t read that one
+                    {staged.failureKind === "request"
+                      ? "We couldn’t reach Nevo just then"
+                      : "Nevo couldn’t finish that one"}
                   </h3>
                   <p className="mt-2 text-sm leading-[1.55] text-nevo-near-black/62">
                     {/* The server's own reason when it gave one - it knows why
                         and we do not. */}
                     {staged.error ??
-                      "Nothing you did is lost. Try another file, and we’ll take it from there."}
+                      (staged.failureKind === "request"
+                        ? "Nothing is wrong with your file, and nothing you did is lost. Try again in a moment."
+                        : "The reading started and stopped partway. Nothing you did is lost.")}
                   </p>
                   <button
                     type="button"
@@ -733,7 +802,12 @@ export function UploadWizard() {
                     }}
                     className="mt-5 h-[46px] cursor-pointer rounded-[10px] bg-nevo-navy px-5 text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
                   >
-                    Try another file
+                    {/* Sending the same file again is the right move when
+                        the call failed; a different one is only worth
+                        suggesting when this file could not be read. */}
+                    {staged.failureKind === "request"
+                      ? "Try again"
+                      : "Try another file"}
                   </button>
                 </div>
               ) : rungFor(staged.stage) >= 0 ? (
@@ -779,9 +853,15 @@ export function UploadWizard() {
                 <h3 className="text-lg font-semibold text-nevo-near-black">
                   {`Getting "${fileName}" ready`}
                 </h3>
+                {/*
+                  "This usually takes under a minute" was measured on a
+                  parse with no pictures in it, and it set a teacher up to
+                  read a normal wait as a hang.
+                */}
                 <p className="mt-1.5 text-[14.5px] leading-[1.5] text-nevo-near-black/66">
-                  Reading the content and building the read, listen and watch
-                  versions. This usually takes under a minute.
+                  {longWait
+                    ? "Still building your lesson. This can take a few minutes when there are pictures to make, and it keeps going if you leave this open."
+                    : "Reading the content and building the read, listen and watch versions."}
                 </p>
               </div>
             </div>

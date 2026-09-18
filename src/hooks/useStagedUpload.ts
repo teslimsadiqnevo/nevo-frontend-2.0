@@ -53,6 +53,19 @@ export interface StagedUpload {
   lessonTitle: string | null;
   /** The parse failed, or the request did. */
   failed: boolean;
+  /**
+   * WHICH of those two, because they are not the same thing to say.
+   *
+   * `parse` - Nevo read the file and could not finish. The server says
+   *   why in `error`, and the file is not the problem to solve.
+   * `request` - the call itself failed, or answered 5xx. That is the
+   *   connection, and trying again is the right advice.
+   *
+   * Both used to set `failed` alone, and the screen said "We couldn't
+   * read that one" over either - blaming a teacher's file for our own
+   * server. Backend asked for the split on 18 Sep.
+   */
+  failureKind: "parse" | "request" | null;
   /** The server's own reason, when it gave one. */
   error: string | null;
   /** Still going, and long enough that a teacher deserves telling. */
@@ -78,6 +91,9 @@ export function useStagedUpload(): StagedUpload {
   const [retrying, setRetrying] = useState(false);
   const [lessonTitle, setLessonTitle] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [failureKind, setFailureKind] = useState<"parse" | "request" | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [slow, setSlow] = useState(false);
   /**
@@ -101,6 +117,7 @@ export function useStagedUpload(): StagedUpload {
     setRetrying(false);
     setLessonTitle(null);
     setFailed(false);
+    setFailureKind(null);
     setError(null);
     setSlow(false);
     setTick(0);
@@ -119,7 +136,10 @@ export function useStagedUpload(): StagedUpload {
           setStatus(res.status);
           setStage(res.stage);
         })
-        .catch(() => setFailed(true));
+        .catch(() => {
+          setFailed(true);
+          setFailureKind("request");
+        });
     },
     [reset],
   );
@@ -178,14 +198,21 @@ export function useStagedUpload(): StagedUpload {
           setFailedPages(res.failedPages ?? []);
           setLessonTitle(res.lessonTitle ?? null);
           setError(res.error);
-          if (res.status === "failed") setFailed(true);
+          if (res.status === "failed") {
+            setFailed(true);
+            // Nevo answered. It read the file and could not finish, which
+            // is a different sentence from a call that never landed.
+            setFailureKind("parse");
+          }
           if (startedAt.current) {
             setSlow(Date.now() - startedAt.current > SLOW_AFTER_MS);
           }
           setTick((n) => n + 1);
         })
         .catch(() => {
-          if (!cancelled) setFailed(true);
+          if (cancelled) return;
+          setFailed(true);
+          setFailureKind("request");
         });
     }, POLL_MS);
     return () => {
@@ -205,6 +232,7 @@ export function useStagedUpload(): StagedUpload {
     retrying,
     lessonTitle,
     failed,
+    failureKind,
     error,
     slow,
     start,

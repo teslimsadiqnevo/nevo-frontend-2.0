@@ -199,36 +199,78 @@ export const contentApi = {
   },
 };
 
-/** How often to ask, and how long before we stop asking. */
-const POLL_EVERY_MS = 1500;
-const POLL_LIMIT_MS = 5 * 60 * 1000;
+/**
+ * How often to ask, and how long before we stop asking.
+ *
+ * THE FIVE-MINUTE CEILING IS GONE (18 Sep), and it cost a teacher a lesson
+ * that had finished. Backend's report on run `de43cb1c`: polling stopped at
+ * 18:24:09.8, the run completed at 18:24:09.3 with ten segments - the last
+ * poll went out half a second before it finished, came back `processing`,
+ * and the screen reported a failure for a lesson that was sitting in the
+ * library.
+ *
+ * The premise was wrong, not the number. This file said a run is "accepted
+ * in about 2s and done in about 17s"; measured in production the text step
+ * alone takes 115s, and every generated picture has a budget of up to 600s,
+ * two at a time. A real parse is longer than five minutes by design.
+ *
+ * THE BACKEND OWNS THE DEADLINE. It marks a run failed itself after thirty
+ * minutes (`STALE_RUN_AFTER`), so a client deadline can only ever be wrong
+ * in one direction: shorter, and it invents a failure the server did not
+ * report. The ceiling below is longer than theirs on purpose - it exists so
+ * a page cannot poll a dead socket for ever, not to judge the work.
+ */
+const POLL_FAST_MS = 1500;
+const POLL_SLOW_MS = 10_000;
+/** Ask quickly while a short parse might still land, then settle down. */
+const SLOW_AFTER_MS = 60_000;
+/** Past the backend's own 30-minute stale marker, never inside it. */
+const POLL_LIMIT_MS = 35 * 60 * 1000;
+/**
+ * One blip is not an answer.
+ *
+ * A single 502 from a cold-started proxy used to reject the whole wait, and
+ * the parse carried on running server-side regardless - so the lesson landed
+ * in the library while the teacher was told we could not reach Nevo. Three
+ * consecutive failures is a real outage; one is traffic.
+ */
+const POLL_FAILURES_ALLOWED = 3;
 
 /**
  * Wait for a parse run to finish, and hand back how it went.
  *
  * Resolves on `finished`, which includes `failed` - so a caller gets a REASON
  * rather than a timeout when the work genuinely could not be done. It rejects
- * only when we stopped asking, or the caller aborted.
+ * only when the requests themselves keep failing, when the ceiling above is
+ * reached, or when the caller aborted.
  *
- * The five-minute ceiling is OURS, not the backend's. Measured after their fix,
- * a run is accepted in about 2s and done in about 17s; production is slower
- * because image generation runs there, but it is bounded. This exists only so a
- * page cannot poll forever if something upstream goes quiet.
+ * A `processing` response is not a failure of any kind: it means Nevo was
+ * reached and is working. Callers must not report it as a connection problem.
  */
 export async function awaitParseRun(
   parseRunId: string,
   options: { signal?: AbortSignal } = {},
 ): Promise<ParseRunStatus> {
-  const until = Date.now() + POLL_LIMIT_MS;
+  const startedAt = Date.now();
+  const until = startedAt + POLL_LIMIT_MS;
+  let consecutiveFailures = 0;
   for (;;) {
     if (options.signal?.aborted) throw new Error("Parse run polling aborted.");
-    const run = await contentApi.parseRun(parseRunId);
-    if (run.finished) return run;
+    try {
+      const run = await contentApi.parseRun(parseRunId);
+      consecutiveFailures = 0;
+      if (run.finished) return run;
+    } catch (error) {
+      consecutiveFailures += 1;
+      if (consecutiveFailures >= POLL_FAILURES_ALLOWED) throw error;
+    }
     if (Date.now() >= until) {
       throw new Error(
-        `Parse run ${parseRunId} was still ${run.status} after ${POLL_LIMIT_MS / 1000}s.`,
+        `Parse run ${parseRunId} had not finished after ${POLL_LIMIT_MS / 60000} minutes.`,
       );
     }
-    await new Promise((resolve) => setTimeout(resolve, POLL_EVERY_MS));
+    const wait =
+      Date.now() - startedAt < SLOW_AFTER_MS ? POLL_FAST_MS : POLL_SLOW_MS;
+    await new Promise((resolve) => setTimeout(resolve, wait));
   }
 }
