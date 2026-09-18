@@ -164,3 +164,65 @@ describe("faint pages", () => {
     expect(result.current.failedPages).toEqual([4, 7]);
   });
 });
+
+describe("whose failure it was", () => {
+  /*
+   * TWO FAILURES WORE ONE FLAG. `failed` was set both when the parse came
+   * back `failed` and when the request itself blew up, and the screen said
+   * "We couldn't read that one" over either - so our own server being
+   * unreachable was reported as a fault in the teacher's file, with the
+   * advice to go and find another one. Backend asked for the split on
+   * 18 Sep, along with the polling fix.
+   */
+  it("is the parse when Nevo read the file and could not finish", async () => {
+    status.mockResolvedValue({
+      ...READY,
+      status: "failed",
+      error: "The document had no readable text after page 3.",
+    });
+    const { result } = renderHook(() => useStagedUpload());
+
+    act(() => result.current.start(new File(["x"], "unit.pdf"), "unit"));
+    await waitFor(() => expect(result.current.failed).toBe(true), {
+      timeout: 4000,
+    });
+
+    expect(result.current.failureKind).toBe("parse");
+    expect(result.current.error).toBe(
+      "The document had no readable text after page 3.",
+    );
+  });
+
+  it("is the request when the call never landed", async () => {
+    create.mockRejectedValue(new Error("network"));
+    const { result } = renderHook(() => useStagedUpload());
+
+    act(() => result.current.start(new File(["x"], "unit.pdf"), "unit"));
+
+    await waitFor(() => expect(result.current.failed).toBe(true));
+    expect(result.current.failureKind).toBe("request");
+  });
+
+  it("is the request when a poll blows up mid-parse", async () => {
+    create.mockResolvedValue({
+      uploadId: "u-1",
+      status: "processing",
+      stage: "lessons",
+    });
+    status.mockRejectedValue(new Error("502"));
+    const { result } = renderHook(() => useStagedUpload());
+
+    act(() => result.current.start(new File(["x"], "unit.pdf"), "unit"));
+
+    await waitFor(() => expect(result.current.failed).toBe(true), {
+      timeout: 4000,
+    });
+    expect(result.current.failureKind).toBe("request");
+  });
+
+  it("carries no kind at all before anything has gone wrong", async () => {
+    const { result } = renderHook(() => useStagedUpload());
+
+    expect(result.current.failureKind).toBeNull();
+  });
+});

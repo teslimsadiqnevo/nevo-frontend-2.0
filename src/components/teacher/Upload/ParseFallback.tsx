@@ -26,12 +26,15 @@ export type FallbackKind =
   | "noBoundary"
   | "partial"
   | "unreadable"
+  /** The parse started and could not finish. The server says why. */
+  | "parseFailed"
   | "unreachable";
 
 export const FALLBACK_HEADINGS: Record<FallbackKind, string> = {
   noBoundary: "One continuous lesson",
   partial: "Read most of your block",
   unreadable: "We hit a snag",
+  parseFailed: "We hit a snag",
   unreachable: "We hit a snag",
 };
 
@@ -39,6 +42,7 @@ const FOOT_NOTES: Record<FallbackKind, string> = {
   noBoundary: "Staying as one lesson - you can split it any time.",
   partial: "Your progress is saved.",
   unreadable: "Your progress is saved - nothing was lost.",
+  parseFailed: "Nothing you did is lost - the file is fine to send again.",
   // C07f's own footnote for this state, from the 31 Aug frame.
   unreachable: "Nothing is wrong with your file - try again in a moment.",
 };
@@ -62,6 +66,7 @@ const ghostBtnSm =
 
 export function ParseFallback({
   kind,
+  reason,
   blockName,
   onBack,
   onTryAnother,
@@ -69,6 +74,8 @@ export function ParseFallback({
   onContinueAnyway,
 }: {
   kind: FallbackKind;
+  /** The server's own failure reason, on `parseFailed`. */
+  reason?: string | null;
   blockName: string;
   onBack: () => void;
   onTryAnother: () => void;
@@ -229,6 +236,61 @@ export function ParseFallback({
                   Pages 15-16 - waiting on a retry
                 </span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {kind === "parseFailed" && (
+          /*
+            A PARSE THAT FAILED IS NOT A CONNECTION PROBLEM, and until 18 Sep
+            it was reported as one: the wizard turned a run with
+            `status: "failed"` into a synthetic 500 and fell through to the
+            unreachable screen, which says "nothing is wrong with your file"
+            and offers to try again. Both halves were wrong, and the
+            `failureReason` the backend had already written was thrown away
+            on the line above.
+
+            NOT DRAWN BY DESIGN. C07f has an unreadable file and a lost
+            connection, and no state for work that started and could not
+            finish. This borrows the unreadable layout and says the server's
+            own reason where that screen guesses at scans and formats.
+          */
+          <div className="mx-auto flex max-w-[560px] flex-col items-center pt-6 text-center xl:pt-10">
+            <span className="flex size-14 shrink-0 items-center justify-center rounded-[16px] bg-nevo-violet/18 text-nevo-navy">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+                <path d="M14 3v6h6" />
+                <path d="M12 12v4M12 19h.01" />
+              </svg>
+            </span>
+            <h3 className="mt-[18px] text-xl font-semibold tracking-[-0.01em] text-nevo-near-black">
+              Nevo couldn&rsquo;t finish this one
+            </h3>
+            <p className="mt-[9px] max-w-[440px] text-[14.5px] leading-[1.6] text-nevo-near-black/70">
+              {/* The server's own reason when it gave one. It knows why and
+                  we do not, so nothing here guesses at the cause. */}
+              {reason ??
+                "The reading started and stopped partway. Nothing you did is lost."}
+            </p>
+            <div className="mt-[22px] flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={onRetrySameFile}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] bg-nevo-navy px-[18px] py-[11px] text-sm font-semibold text-nevo-cream transition-[filter] hover:brightness-93"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                  <path d="M21 3v6h-6" />
+                </svg>
+                Try this file again
+              </button>
+              <button
+                type="button"
+                onClick={onTryAnother}
+                className={ghostBtn}
+              >
+                Try another file
+              </button>
             </div>
           </div>
         )}
