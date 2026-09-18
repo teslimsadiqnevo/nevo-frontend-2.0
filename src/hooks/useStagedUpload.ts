@@ -41,6 +41,14 @@ export interface StagedUpload {
    * can tell "no segments reported" from "a section with none".
    */
   segments: UploadSegment[] | undefined;
+  /**
+   * Pages the parser could not read cleanly. Empty when there are none, and
+   * empty again once a retry has been asked for - the list describes what is
+   * outstanding, not what went wrong historically.
+   */
+  failedPages: number[];
+  /** A retry is in flight. */
+  retrying: boolean;
   /** The unit's own title, when the parse found one. */
   lessonTitle: string | null;
   /** The parse failed, or the request did. */
@@ -50,6 +58,13 @@ export interface StagedUpload {
   /** Still going, and long enough that a teacher deserves telling. */
   slow: boolean;
   start: (file: File, scope: string, subject?: string) => void;
+  /**
+   * Ask for the faint pages again. Sends whatever is outstanding, adopts the
+   * status the server answers with, and lets the poll take over from there -
+   * a retry puts the upload back into parsing, so the screen must follow it
+   * rather than sit on the structure it already has.
+   */
+  retryFailedPages: () => void;
   reset: () => void;
 }
 
@@ -59,6 +74,8 @@ export function useStagedUpload(): StagedUpload {
   const [stage, setStage] = useState<UploadStage | null>(null);
   const [structure, setStructure] = useState<UploadStructure | null>(null);
   const [segments, setSegments] = useState<UploadSegment[] | undefined>(undefined);
+  const [failedPages, setFailedPages] = useState<number[]>([]);
+  const [retrying, setRetrying] = useState(false);
   const [lessonTitle, setLessonTitle] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +97,8 @@ export function useStagedUpload(): StagedUpload {
     setStage(null);
     setStructure(null);
     setSegments(undefined);
+    setFailedPages([]);
+    setRetrying(false);
     setLessonTitle(null);
     setFailed(false);
     setError(null);
@@ -105,6 +124,37 @@ export function useStagedUpload(): StagedUpload {
     [reset],
   );
 
+  const retryFailedPages = useCallback(() => {
+    // The contract takes 1 to 100 page numbers; an empty list is a 422, so a
+    // retry with nothing outstanding is not sent at all.
+    if (!uploadId || failedPages.length === 0 || retrying) return;
+    setRetrying(true);
+    void uploadsApi
+      .retryPages(uploadId, failedPages)
+      .then((res) => {
+        setRetrying(false);
+        // The pages that went back are no longer outstanding. The next poll
+        // replaces this with whatever the re-parse could not read either.
+        setFailedPages([]);
+        setStatus(res.status);
+        setStage(res.stage);
+        setStructure(res.structure ?? null);
+        /*
+         * NOTHING BUMPS `tick` HERE, and that was a line of mine until a
+         * mutation run showed it killed nothing. The poll effect keys on
+         * `status` as well, and this handler always moves it off `ready` -
+         * so the status write is what re-arms the poll. A redundant bump
+         * would be a line nobody could ever remove with confidence.
+         */
+      })
+      .catch(() => {
+        // The upload is untouched and the pages are still outstanding, so the
+        // control stays where it is rather than the screen claiming a failure
+        // of the parse itself.
+        setRetrying(false);
+      });
+  }, [uploadId, failedPages, retrying]);
+
   // Poll while the parse is still running. Settles on ready/confirmed, and
   // stops on failed or cancelled with the server's reason kept.
   useEffect(() => {
@@ -124,6 +174,8 @@ export function useStagedUpload(): StagedUpload {
           // NAME its third level instead of counting it; absent on an older
           // upload, so it stays undefined rather than becoming [].
           setSegments(res.segments);
+          // Absent and empty mean the same thing: nothing outstanding.
+          setFailedPages(res.failedPages ?? []);
           setLessonTitle(res.lessonTitle ?? null);
           setError(res.error);
           if (res.status === "failed") setFailed(true);
@@ -149,11 +201,14 @@ export function useStagedUpload(): StagedUpload {
     stage,
     structure,
     segments,
+    failedPages,
+    retrying,
     lessonTitle,
     failed,
     error,
     slow,
     start,
+    retryFailedPages,
     reset,
   };
 }

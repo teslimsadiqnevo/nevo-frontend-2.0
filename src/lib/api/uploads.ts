@@ -98,8 +98,31 @@ export interface UploadStatusResponse {
    * and empty the same way and fall back to counting.
    */
   segments?: UploadSegment[];
+  /**
+   * Pages the parser could not read cleanly, by page number.
+   *
+   * DEPLOYED AND MISSING FROM THIS TYPE until 18 Sep, which is why a teacher
+   * whose PDF was partly unreadable got either a structure tree with pages
+   * silently absent from it, or a flat "we could not read that one". The
+   * retry endpoint has been wrapped the whole time and had nothing to ask
+   * for: the page numbers only exist here.
+   *
+   * Optional, not required by the contract. Absent and empty are both "no
+   * pages to retry" - there is no third meaning to draw.
+   */
+  failedPages?: number[];
   structure: UploadStructure;
   error: string | null;
+}
+
+/** 200 of `POST /api/v1/uploads/{id}/retry-pages`. */
+export interface UploadRetry {
+  uploadId: string;
+  status: UploadStatus;
+  stage: UploadStage;
+  /** The pages that were re-parsed, not how many. */
+  pagesRetried: number[];
+  structure: UploadStructure;
 }
 
 export interface UploadCreated {
@@ -180,14 +203,22 @@ export const uploadsApi = {
       `/api/v1/uploads/${uploadId}/confirm`,
     ),
 
-  /** Re-parse specific pages that came through faint. */
+  /**
+   * Re-parse specific pages that came through faint.
+   *
+   * THE RESPONSE TYPE HERE WAS WRONG, in three ways, and nothing caught it
+   * because nothing called it. `UploadRetryResponse` carries `status` and
+   * `stage` - which is the whole point, the upload goes back to parsing and
+   * the caller has to resume polling - and `pagesRetried` is the LIST of page
+   * numbers, not a count. There is no `lessonId` on it at all.
+   *
+   * `pageNumbers` is 1 to 100 items per the contract; sending an empty list
+   * is a 422, so callers must not offer a retry with nothing selected.
+   */
   retryPages: (uploadId: string, pageNumbers: number[]) =>
-    api.post<{
-      uploadId: string;
-      lessonId: string;
-      pagesRetried: number;
-      structure: UploadStructure;
-    }>(`/api/v1/uploads/${uploadId}/retry-pages`, { pageNumbers }),
+    api.post<UploadRetry>(`/api/v1/uploads/${uploadId}/retry-pages`, {
+      pageNumbers,
+    }),
 };
 
 /**

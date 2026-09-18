@@ -469,11 +469,18 @@ statements, and the expired consent token, which was already handled.
     missing client type will silently drop it, exactly as `note` was dropped on
     `Assignment`. Today Home's LIVE activity list is strictly poorer than the sample one
     the same screen shows when the read fails.
-22. **`failedPages`.** **M, not S** — re-sized 16 Sep, **and the premise above is false**:
-    there is no `retryPages` control asking for page numbers nobody can supply. The field
-    and the retry endpoint are both deployed; what is missing is the whole seam from poll to
-    a per-page retry affordance. Today a teacher whose PDF was partly unreadable gets either
-    a structure tree with pages silently missing, or a flat "we could not read that one".
+22. ~~**`failedPages`.**~~ **DONE 18 Sep.** The whole seam: the field is on the client
+    type, the poll carries it, the staged review says which pages came through faint and
+    what that means for the unit below, and the control sends exactly those page numbers
+    to `retry-pages`. The retry puts the upload back into parsing and the screen follows
+    it rather than sitting on a structure the server is replacing.
+    **Two corrections found in the doing.** The client's `retryPages` response type was
+    wrong in three ways — it named a `lessonId` the response does not carry, typed
+    `pagesRetried` as a count when it is the list of page numbers, and omitted `status`
+    and `stage`, which are the whole reason a caller has to resume polling. Nothing
+    caught it because nothing called it. **And design has not drawn this state**: C07f
+    covers a parse that failed outright, not one that came back with holes, so what
+    ships is the honest minimum — what is missing, and the one action that fixes it.
 23. **`subject` on upload.** **M, not S** — re-sized 16 Sep. Five files and a seam: the
     field has to be sent on the multipart body, carried into the lesson, read back and
     filtered on, or the subject pills stay hidden and nothing is gained. Two code comments
@@ -693,11 +700,10 @@ for failure. Worth one sweep rather than five fixes.
   named export does not exist at all.
 - **`EditProfileModal.tsx:89`** still says `TODO(api): photo upload - the frame draws the
   affordance only`, while this file records the endpoint as landed 15 Sep.
-- **`uploadsApi.retryPages` is dead API surface** — no caller anywhere — and the backend proxy
-  already grants it the 4-minute long-running budget for a request nothing makes. Meanwhile
-  `failedPages` is deployed and **missing from the client type** (`uploads.ts:89-103`), so the
-  poll silently drops it. Third instance of the pattern that dropped `note` on `Assignment`
-  and `completedCount` on `ActivityRow`.
+- ~~**`uploadsApi.retryPages` is dead API surface**~~ **Closed 18 Sep** with item 22: it has
+  a caller, and `failedPages` is on the client type. The pattern it belonged to now has a
+  fourth instance and a guard: `profileImageUrl` was dropped the same way (closed 18 Sep,
+  with a mapping test), after `note` on `Assignment` and `completedCount` on `ActivityRow`.
 - **A dead session-ended route.** `src/app/auth/session-ended/page.tsx:8-10` mounts the
   student screen with a hardcoded `variant="concurrent"`. Nothing navigates to it. The one
   screen already shaped like a `session_replaced` answer is unreachable while `client.ts`
