@@ -5,11 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { IllustrationWrapper } from "@/components/shared/IllustrationWrapper";
 import { useConnectThreads } from "@/hooks/useConnectThreads";
 import {
-  COMPOSE_STUDENTS,
   type ComposeStudent,
   type Message,
 } from "@/lib/mocks/teacherConnect";
-import { studentSlug } from "@/lib/mocks/teacherStudents";
 import { cn } from "@/lib/utils";
 import { ComposeModal } from "./ComposeModal";
 
@@ -100,22 +98,29 @@ export function ConnectView() {
   } = useConnectThreads();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  // "Message <name>" on a student profile or session panel lands here with a
-  // slug. Seeded in the initialiser rather than an effect: the link is always a
-  // fresh mount from another route, and this keeps the modal open on first
-  // paint instead of flashing the thread list first.
+  /*
+   * "Send them a message" lands here naming a child.
+   *
+   * THE LIVE HALF OF THIS WAS MISSING ENTIRELY until 18 Sep. The three
+   * live callers - the flag card on Home, the student profile and the
+   * session panel - all linked to a bare `/teacher/connect`, so compose
+   * did not open at all and the action was a nav to the thread list. Only
+   * the fixture profile passed the query, which is why the defect read as
+   * a resolver problem rather than a missing link.
+   *
+   * The param is a student id live and a fixture slug signed out, and it
+   * is resolved inside the modal, where the roster already is.
+   *
+   * Seeded in the initialiser rather than an effect: the link is always a
+   * fresh mount from another route, and this keeps the modal open on first
+   * paint instead of flashing the thread list first. An unknown value still
+   * opens compose - the teacher can search - rather than swallowing the
+   * click and looking broken.
+   */
   const params = useSearchParams();
-  const linkedStudent = COMPOSE_STUDENTS.find(
-    (s) => studentSlug(s.name) === params.get("student"),
-  )?.name;
-  // An unknown slug still opens compose - the teacher can search - rather than
-  // swallowing the click and looking broken.
-  const [composeOpen, setComposeOpen] = useState(
-    Boolean(params.get("student")),
-  );
-  const [presetStudent, setPresetStudent] = useState<string | undefined>(
-    linkedStudent,
-  );
+  const linked = params.get("student") ?? undefined;
+  const [composeOpen, setComposeOpen] = useState(Boolean(linked));
+  const [preset, setPreset] = useState<string | undefined>(linked);
   const [toast, setToast] = useState("");
   const [newestId, setNewestId] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -209,7 +214,7 @@ export function ConnectView() {
    * and for a request it had never made.
    */
   const sendFromCompose = async (student: ComposeStudent, text: string) => {
-    setPresetStudent(undefined);
+    setPreset(undefined);
     if (!student.studentId) {
       // A picker row with no id is a fixture. There is nobody to send to.
       throw new Error("no student id");
@@ -442,10 +447,10 @@ export function ConnectView() {
 
       {composeOpen && (
         <ComposeModal
-          presetStudent={presetStudent}
+          preset={preset}
           onClose={() => {
             setComposeOpen(false);
-            setPresetStudent(undefined);
+            setPreset(undefined);
           }}
           onSend={sendFromCompose}
         />
