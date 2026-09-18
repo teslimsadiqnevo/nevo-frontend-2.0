@@ -103,7 +103,10 @@ export function LiveFlagCard({ flag }: { flag: TeacherFlag }) {
         <div className="mt-3 xl:mt-[18px]">
           {/* Above the stretched link, so it stays its own action. */}
           <Link
-            href="/teacher/connect"
+            /* Names the child. A bare /teacher/connect opened the thread
+               list with no compose at all - the action did nothing a
+               teacher could see. */
+            href={`/teacher/connect?student=${flag.studentId}`}
             className="relative z-10 text-[13.5px] font-semibold text-nevo-navy transition-transform active:scale-[0.985] xl:text-[14.5px]"
           >
             Send them a message
