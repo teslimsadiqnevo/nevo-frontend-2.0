@@ -3617,6 +3617,52 @@ and filing them as one blocked item was the mistake.
   is how a learner asks the lesson to change without being told anything about
   themselves.
 
+### 28c shipped, 18 Sep - the tablet remembers up to six children
+
+The longest-standing student blocker, unblocked when design pushed the frame on
+17 Sep and built the next day. The device remembered exactly ONE child, which on
+a classroom tablet meant the previous child came back, found somebody else's
+name on the lock screen, and had no way to their own account except a second
+one - new login, no history, and a class they might not be able to rejoin.
+
+**The split that shapes the code.** A PIN login needs a school code and a login
+identifier, so both are stored; the frame allows the screen to show *"first
+names and avatars only, nowhere a username, surname, class, school code or
+last-used time"*. So components are never handed a roster entry. They get
+`pickerEntries()` - a name, a shape slot and an opaque id - and the identifier
+is looked back up by that id at the moment a PIN is submitted. A component that
+cannot see a credential cannot leak one, which is stronger than remembering not
+to render one. Verified on a real page as well as in tests: the rendered HTML of
+a picker holding a nameless child contains neither the identifier nor the school
+code.
+
+**Every `rememberProfile` now also writes the roster**, and the delegation lives
+in `session.ts` rather than at the two call sites, because two call sites is two
+places to forget. Without it the picker would only ever show children migrated
+from the old single-profile key and would empty out school by school as those
+aged out. The legacy key is still written and read - `ForgotPinScreen` and the
+sign-out destination still use it.
+
+**Three places this departs from the frame, all flagged to design:**
+
+1. **The avatar shape is stored per child, not derived from list position.** The
+   frame assigns by index; entries are ordered by recency, so a child's shape
+   would change every time another child signed in. The frame calls the shape *"a
+   secondary cue for a child still learning to read"*, and a cue that moves is
+   not a cue.
+2. **The picker shows even for a single remembered child**, costing one tap on a
+   one-child device. Going straight to a named PIN screen for one child IS the
+   single-identity lock screen 28c exists to replace.
+3. **Landscape side padding is 40px, not the frame's 64px.** The frame's own
+   landscape numbers disagree: a 960px grid of six 142px tiles needs 932px, and
+   64px padding leaves 896px on a 1024-wide tablet, so the frame's layout would
+   wrap six children to five and one. Following the declared grid keeps them on
+   one row.
+
+**Not done, and it is the rest of the design batch:** the PIN screens still
+carry their own pad rather than calling `NevoKeyboard`'s new presentation prop.
+That is a separate change to a shared component used by more than this screen.
+
 ### Two fixture leaks emptied, 18 Sep - and one of them reached signed-in children
 
 Both found in an admin-side sweep and handed over. Rule 5 in each case, not

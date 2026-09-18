@@ -12,6 +12,7 @@
  */
 
 import { deviceClockSkewMs } from "@/lib/api/serverClock";
+import { rememberChild } from "./deviceRoster";
 
 const SESSION_KEY = "nevo.auth.session";
 const PROFILE_KEY = "nevo.auth.profile";
@@ -168,13 +169,27 @@ export function getRememberedProfile(): RememberedProfile | null {
   }
 }
 
-/** Called when a student finishes onboarding / creates a PIN on this device. */
+/**
+ * Called when a student finishes onboarding / creates a PIN on this device.
+ *
+ * WRITES BOTH THE LEGACY KEY AND THE ROSTER, and the delegation lives here on
+ * purpose. Every path that remembers a child goes through this function -
+ * onboarding's `rememberOnboardedStudent` and the returning sign-in screen - so
+ * doing it at the call sites would have been two places to forget. Without the
+ * roster write, a newly onboarded child would never appear in 28c's picker: it
+ * would only ever show children migrated from the old single-profile key, and
+ * would empty out school by school as those aged out.
+ *
+ * The legacy key is still written because `getRememberedProfile` still backs
+ * `ForgotPinScreen` and `ProfileSettings`' sign-out destination.
+ */
 export function rememberProfile(profile: RememberedProfile): void {
   try {
     window.localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
   } catch {
     // ignore
   }
+  rememberChild(profile);
 }
 
 /**

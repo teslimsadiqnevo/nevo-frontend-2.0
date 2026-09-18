@@ -12,9 +12,14 @@ import {
 import { safeNextPath } from "@/lib/auth/nextPath";
 import { AccountOnPauseScreen } from "@/components/student/Auth/AccountOnPauseScreen";
 import {
-  getRememberedProfile,
-  type RememberedProfile,
-} from "@/lib/auth/session";
+  childById,
+  pickerEntries,
+  rememberChild,
+  type PickerEntry,
+  type RememberedChild,
+} from "@/lib/auth/deviceRoster";
+import { ChildAvatar } from "@/components/student/Auth/ChildAvatar";
+import { ProfilePicker } from "@/components/student/Auth/ProfilePicker";
 import { useAuth } from "@/hooks";
 import { STUDENT_PIN_LENGTH, type UserRole } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -43,21 +48,37 @@ function greeting(displayName?: string): string {
 }
 
 /**
- * Student Login (frame 00) - the returning-student PIN unlock. The device
- * remembers who signs in here (school code + identifier + name, seeded at
- * onboarding); the student only enters their PIN. One box per digit, the Nevo pad
- * keyboard on touch, a calm violet error line - never red - and a pop-check
- * "Welcome back" beat before the dashboard.
+ * The student door, in two beats: WHO, then the PIN (frames 00 and 28c).
  *
- * Wired live: a full PIN submits to POST /auth/login/pin; a rejected PIN
- * clears the boxes with the frame's error copy. A failure that is NOT about
- * the child's PIN says so instead - see `error`. A device with no remembered
- * profile has nothing to unlock - it routes to onboarding.
+ * THIS USED TO REMEMBER EXACTLY ONE CHILD, which on a classroom tablet is the
+ * bug 28c exists to fix: the next child found somebody else's name on the lock
+ * screen, and their only way forward was a second account with no history and a
+ * class they might not be able to rejoin. The device now remembers up to six,
+ * and this screen asks which of them is here.
+ *
+ * THE PICKER SHOWS EVEN FOR A SINGLE REMEMBERED CHILD, which costs one tap on a
+ * one-child device. That is deliberate: 28c exists to replace "the
+ * single-identity lock screen that kept the last child's name and face on an
+ * unauthenticated screen", and going straight to a named PIN screen for one
+ * child IS that screen. Flagged to design rather than optimised away.
+ *
+ * A device that remembers NOBODY still routes straight to the full sign-in -
+ * the frame's own caption for 28c-2 is "no one remembered - straight to
+ * sign-in", so the drawn neutral screen is the state, not an extra tap.
+ *
+ * The PIN beat itself is unchanged: one box per digit, the Nevo pad on touch, a
+ * calm violet error line - never red - and a pop-check "Welcome back" before
+ * the dashboard. A full PIN submits to POST /auth/login/pin; a rejected one
+ * clears the boxes. A failure that is NOT about the child's PIN says so
+ * instead - see `error`.
  */
 export default function LoginPage() {
   const router = useRouter();
   const { signIn } = useAuth();
-  const [profile, setProfile] = useState<RememberedProfile | null>(null);
+  /** Null until the client has read localStorage - never during SSR. */
+  const [entries, setEntries] = useState<PickerEntry[] | null>(null);
+  /** The child whose PIN we are asking for. Null means the picker is up. */
+  const [chosen, setChosen] = useState<RememberedChild | null>(null);
   const [digits, setDigits] = useState("");
   /**
    * What went wrong, not merely THAT something did.
@@ -93,10 +114,10 @@ export default function LoginPage() {
   const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Sync from the device's remembered profile (localStorage, client-only).
+    // Sync from the device's roster (localStorage, client-only).
     const hydrate = () => {
-      const remembered = getRememberedProfile();
-      if (!remembered) {
+      const remembered = pickerEntries();
+      if (remembered.length === 0) {
         /*
          * Nothing to unlock on this device - so ask who they are, rather than
          * assuming they are new.
@@ -127,7 +148,7 @@ export default function LoginPage() {
         );
         return;
       }
-      setProfile(remembered);
+      setEntries(remembered);
     };
     hydrate();
   }, [router]);
@@ -141,7 +162,7 @@ export default function LoginPage() {
   );
 
   const submit = useCallback(
-    async (pin: string, remembered: RememberedProfile) => {
+    async (pin: string, remembered: RememberedChild) => {
       setChecking(true);
       setError(null);
       try {
@@ -157,6 +178,11 @@ export default function LoginPage() {
           name: remembered.displayName,
           method: "manual",
         });
+        // Move them to the front of the roster and restamp the thirty-day
+        // clock. Done on SUCCESS only: a wrong PIN is not a visit, and letting
+        // it count would keep a child who has left the school on the tablet
+        // indefinitely.
+        rememberChild(remembered);
         setDone(true);
         doneTimer.current = setTimeout(
           () => router.push("/student/dashboard"),
@@ -178,17 +204,17 @@ export default function LoginPage() {
 
   const addDigits = useCallback(
     (raw: string) => {
-      if (done || checking || !profile) return;
+      if (done || checking || !chosen) return;
       const add = raw.replace(/[^0-9]/g, "");
       if (!add) return;
       setError(null);
       setDigits((prev) => {
         const next = (prev + add).slice(0, PIN_LENGTH);
-        if (next.length === PIN_LENGTH) void submit(next, profile);
+        if (next.length === PIN_LENGTH) void submit(next, chosen);
         return next;
       });
     },
-    [done, checking, profile, submit],
+    [done, checking, chosen, submit],
   );
 
   const backspace = useCallback(() => {
@@ -196,7 +222,32 @@ export default function LoginPage() {
     setDigits((prev) => prev.slice(0, -1));
   }, []);
 
-  if (!profile) return null;
+  // The client has not read the roster yet. The server cannot see localStorage,
+  // so drawing anything here would flash it at whoever is holding the tablet.
+  if (!entries) return null;
+
+  if (!chosen) {
+    return (
+      <main className="min-h-dvh bg-nevo-cream">
+        <ProfilePicker
+          entries={entries}
+          onChoose={(id) => {
+            // Re-read rather than trusting a row: the roster may have aged out
+            // or been rewritten in another tab since it was drawn.
+            const child = childById(id);
+            if (!child) {
+              setEntries(pickerEntries());
+              return;
+            }
+            setDigits("");
+            setError(null);
+            setChosen(child);
+          }}
+          someoneElseHref="/auth/sign-in"
+        />
+      </main>
+    );
+  }
 
   /*
    * A paused account takes the whole screen, per the frame: it is shown "in
@@ -254,9 +305,16 @@ export default function LoginPage() {
         </span>
 
         {!done && (
-          <span className="mt-9 flex size-14 items-center justify-center rounded-full bg-nevo-navy text-xl font-semibold text-nevo-cream sm:size-16 sm:text-[22px]">
-            {profile.initials}
-          </span>
+          /*
+           * The child's shape, never their initials. 28c: avatars are "soft
+           * geometric shapes, never a face", and initials on a screen anyone
+           * in the room can see name a child to a stranger just as well as a
+           * face does.
+           */
+          <ChildAvatar
+            shapeIndex={chosen.shapeIndex}
+            className="mt-9 size-[104px] sm:size-[120px]"
+          />
         )}
 
         {done ? (
@@ -268,7 +326,7 @@ export default function LoginPage() {
               />
             </span>
             <h2 className="mt-5 text-[23px] leading-[1.3] font-medium tracking-[-0.01em] text-nevo-near-black sm:text-[26px]">
-              {greeting(profile.displayName)}
+              {greeting(chosen.displayName)}
             </h2>
             <p className="mt-2.5 text-[15px] text-nevo-near-black/60">
               Taking you to your lessons…
@@ -277,7 +335,7 @@ export default function LoginPage() {
         ) : (
           <>
             <h2 className="mt-5 text-[23px] leading-[1.3] font-medium tracking-[-0.01em] text-nevo-near-black sm:text-[26px]">
-              {greeting(profile.displayName)}
+              {greeting(chosen.displayName)}
             </h2>
             <p className="mt-2.5 text-[15px] text-nevo-near-black/60">
               Enter your PIN to keep going
@@ -329,21 +387,27 @@ export default function LoginPage() {
               Forgot PIN?
             </button>
             {/*
-              Frame 00c, state 4. The device remembers SOMEBODY, but it may not
-              be the child holding it - a shared classroom tablet remembers only
-              the last child to onboard on it. Without this, the only way past
-              another child's avatar was to re-onboard, which created a second
-              account and orphaned the history behind it.
+              28c-3's "Not you? Go back" - and it now goes BACK TO THE PICKER
+              rather than out to the full sign-in, which is what this button
+              used to do as "Using a different device?".
+
+              The difference matters on the screen this replaces. A child who
+              tapped the wrong face wants the other five faces, not a school
+              code and a username they may not know by heart. The route out to
+              a full sign-in still exists, one step further on, as the picker's
+              "Someone else".
             */}
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                router.push("/auth/sign-in");
+                setChosen(null);
+                setDigits("");
+                setError(null);
               }}
               className="h-11 cursor-pointer px-4 text-[15px] font-medium text-nevo-near-black/70"
             >
-              Using a different device?
+              Not you? Go back
             </button>
           </>
         )}
