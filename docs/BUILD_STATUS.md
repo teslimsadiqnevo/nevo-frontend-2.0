@@ -3617,6 +3617,58 @@ and filing them as one blocked item was the mistake.
   is how a learner asks the lesson to change without being told anything about
   themselves.
 
+### FROZEN: build nothing on `textVariant` or `segment.body`, 18 Sep
+
+**Design's instruction, and it is a stop rather than a queue item:** *"Do not
+build anything that depends on either field until it is answered, including
+Simplify."* Escalated by design directly to Teslim as urgent, not filed as a
+backend question.
+
+**What is frozen.** Simplify (list S-B row 4), anything that would start reading
+`segment.textVariant` in the student app, and anything that would change what
+`fromContent.textFor` builds the child's text from. Slower is NOT frozen - it is
+segmentation, and touches neither field.
+
+**Why it outranks the pace control it was found under.** If the inference holds
+- `body` is parsed source, `textVariant` is generated - then the teacher
+approves `textVariant` and the child reads `body`. Design's words: the approval
+gate *"protects text no child ever sees, and the text a child does read has been
+reviewed by nobody"*. The C07b redraw was built on approval meaning something,
+approval was given to the school as the answer to the mis-transformed lesson
+question, and "your curriculum, not ours" would be untrue in the one place it
+matters.
+
+**The pattern design named, and the instruction that comes with it.** This is
+the THIRD time the wire and the design have described different products:
+dimensions was the first, `expectedInteraction` defaulting to `teacher_review`
+was the second, this is the third. Design's hypothesis: *"Two parallel content
+models, one for review and one for delivery, with nobody having decided that,
+would explain all three at once."* **If a fourth turns up, raise it the same way
+- as an inference, flagged as an inference, before building either side.** That
+flagging is the reason design could act on this one.
+
+### The child's pace choice holds for the lesson, 18 Sep
+
+Design's ruling on the question left open when Slower shipped: *"It holds for
+the current lesson and resets after. Never written to the profile, never sent
+back to the engine as a value, gone at next sign-in."* Resetting every segment
+would be maddening; storing it would make it an accommodation, which is the one
+thing it is not.
+
+So the pick lives in component state and nowhere else. A new lesson is a new
+player, which is the reset. A segment that cannot deliver the chosen density
+renders its default without clearing the pick, so it applies again on the next
+segment that can.
+
+**One false signal fell out of carrying it forward, and it had to be closed in
+the same change.** The player reported a SYSTEM-sourced density trigger for
+every segment whose plan named a density. Once a manual pick persists, the
+system's density is no longer what is on screen - so every later segment would
+have told the engine that an adaptation happened which the child never saw. The
+trigger is now gated on there being no manual pick in force. Design on the
+principle: *"A false reading signal is worse than no signal, because the engine
+acts on it and the child pays for it."*
+
 ### 28c shipped, 18 Sep - the tablet remembers up to six children
 
 The longest-standing student blocker, unblocked when design pushed the frame on
