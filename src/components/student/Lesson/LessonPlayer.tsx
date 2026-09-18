@@ -670,13 +670,38 @@ export function LessonPlayer({
     const nextSegment = lesson.segments[next];
     const nextPlan = planFor(nextSegment.id);
     setIndex(next);
-    // Manual picks don't carry across segments; the new segment rests on its
-    // plan's system density (violet), Simplify when the plan is silent.
-    setDensity(null);
+    /*
+     * THE CHILD'S PACE CHOICE HOLDS FOR THE REST OF THE LESSON.
+     *
+     * This used to clear it on every segment. Design's ruling, 18 Sep:
+     * "Resetting it every segment would be maddening, and storing it would
+     * make it an accommodation, which is exactly what we just said it is not.
+     * It holds for the current lesson and resets after."
+     *
+     * So it lives in component state and nowhere else: never written to the
+     * profile, never sent back to the engine as a value, and gone at the next
+     * sign-in because a new lesson is a new player. What the engine still
+     * learns is the truth about what the child was actually shown, through the
+     * chunked flow's exposure reporting.
+     *
+     * A segment that cannot deliver the chosen density simply renders its
+     * default - the pick is not cleared, so it applies again on the next
+     * segment that can.
+     */
     setModality(openingModality(nextSegment, nextPlan?.startModality));
     setSuggestionSpent(false);
-    // A plan-applied density on the new segment is a system-driven adaptation.
-    if (nextPlan?.density) {
+    /*
+     * A plan-applied density is a system-driven adaptation - but only when the
+     * system's density is the one actually on screen.
+     *
+     * Gated on there being no manual pick in force, which became possible the
+     * moment the pick started carrying across segments. Without the gate, a
+     * child who asked for Slower on segment 1 would have every later segment
+     * report that the SYSTEM applied its own density, while the screen showed
+     * the child's. That is a false signal about an adaptation that did not
+     * happen, and the engine would learn from it.
+     */
+    if (nextPlan?.density && density === null) {
       trackEvent(DENSITY_TRIGGER[nextPlan.density], {
         segmentId: nextSegment.id,
         source: TRIGGER_SOURCE.SYSTEM,
