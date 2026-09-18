@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { mergeOnboardingDraft } from "@/lib/auth/onboarding";
+import { clearSession, getStoredDisplayName } from "@/lib/auth/session";
+import { useHasSession } from "@/hooks/useHasSession";
+import { useHydrated } from "@/hooks/useHydrated";
+import { JoinHandover } from "@/components/student/Onboarding/JoinHandover";
 import { Button, NevoLockup, SettlingCharacter } from "@/components/shared";
 import {
   Sheet,
@@ -38,10 +42,57 @@ export function WelcomeScreen({
   joinToken?: string;
 }) {
   const router = useRouter();
+  const hydrated = useHydrated();
+  const signedIn = useHasSession();
+  const [handedOver, setHandedOver] = useState(false);
+
+  /*
+   * A JOIN LINK ON A TABLET SOMEBODY IS SIGNED INTO IS A HAND-OVER.
+   *
+   * The route guard lets `?token=` through on purpose - bouncing it would
+   * discard the invitation in silence and drop the arriving child into the
+   * signed-in child's dashboard. But letting it run straight into onboarding
+   * means the name, school, class and motor baseline are all collected from
+   * whoever is holding the tablet while a different child's session is live.
+   *
+   * So the tablet is handed over explicitly. Buildable now because 28c remembers
+   * up to six children: signing the current child out costs a PIN rather than
+   * their account.
+   */
+  const needsHandover = Boolean(joinToken) && signedIn && !handedOver;
 
   useEffect(() => {
-    if (joinToken) mergeOnboardingDraft({ joinToken });
-  }, [joinToken]);
+    // Only once the invitation is actually this child's. Writing it while a
+    // hand-over is still on screen would attach the invite to the draft even
+    // if the signed-in child chose to stay.
+    if (joinToken && !needsHandover) mergeOnboardingDraft({ joinToken });
+  }, [joinToken, needsHandover]);
+
+  /*
+   * A token cannot be judged until the client can see the session, so neither
+   * screen is drawn before then. `useHasSession`'s server snapshot is
+   * hardcoded false, so rendering early would show the arriving child the
+   * welcome and then swap it for a hand-over - or worse, let them start.
+   *
+   * Only gated when there IS a token: every ordinary arrival still renders on
+   * the server exactly as it did.
+   */
+  if (joinToken && !hydrated) return null;
+
+  if (needsHandover) {
+    return (
+      <JoinHandover
+        signedInName={getStoredDisplayName()}
+        onCarryOn={() => {
+          // The session goes FIRST. Everything downstream of this - the
+          // baseline especially - must not be able to attribute itself to the
+          // child who was here.
+          clearSession();
+          setHandedOver(true);
+        }}
+      />
+    );
+  }
 
   return (
     // Short viewports start at the top rather than centring: centring wastes

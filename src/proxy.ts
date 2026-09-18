@@ -132,12 +132,14 @@ export function proxy(request: NextRequest) {
      * account being asked to make one is the product forgetting them.
      *
      * A JOIN LINK IS LET THROUGH. `?token=` is a different child arriving on a
-     * device someone is signed into - the shared-classroom-tablet case, which
-     * is frame 28c's to answer and has no frame yet. Bouncing it would discard
-     * the link in silence and drop the new child into the signed-in child's
-     * dashboard, which is a worse version of the bug this fixes. Redeeming the
-     * token replaces the session, so that path attributes correctly; it is only
-     * the pickerless hand-over that is still open, and it is not ours.
+     * device someone is signed into. Bouncing it would discard the invitation
+     * in silence and drop the new child into the signed-in child's dashboard,
+     * which is a worse version of the bug this fixes.
+     *
+     * THE HAND-OVER IS BUILT, as of 18 Sep, and it is in `WelcomeScreen` rather
+     * than here: the session lives in localStorage, which no server can see, so
+     * this file cannot tell a token arrival on a signed-in tablet from one on
+     * an empty tablet. The screen ends the session before onboarding starts.
      *
      * Safe to bounce for the same reason the PIN screen below is: signing out
      * is a HARD navigation, so the cookie clear has settled before this runs.
