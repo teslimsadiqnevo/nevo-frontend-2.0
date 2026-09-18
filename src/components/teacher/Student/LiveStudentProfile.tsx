@@ -472,7 +472,9 @@ export function LiveStudentProfile({
             which a third action turns into a row that runs off a tablet. */}
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
-            href="/teacher/connect"
+            /* With the child's id: compose opens on them rather than on
+               an empty recipient list. */
+            href={`/teacher/connect?student=${student.id}`}
             className="inline-flex h-[50px] cursor-pointer items-center rounded-[10px] border-[1.5px] border-nevo-navy/35 px-[22px] text-[15px] font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6"
           >
             Send them a message
@@ -514,7 +516,7 @@ export function LiveStudentProfile({
           }}
           onMessage={() => {
             setOpenSession(null);
-            router.push("/teacher/connect");
+            router.push(`/teacher/connect?student=${studentId}`);
           }}
         />
 

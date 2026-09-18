@@ -123,7 +123,21 @@ describe("LiveFlagCard", () => {
     render(<LiveFlagCard flag={flag()} />);
     expect(
       screen.getByRole("link", { name: /Send them a message/ }),
-    ).toHaveAttribute("href", "/teacher/connect");
+    ).toBeInTheDocument();
+  });
+
+  it("names the child in the link", () => {
+    /*
+     * THIS TEST ASSERTED THE DEFECT until 18 Sep: it pinned the href as a
+     * bare "/teacher/connect", which is what made the action open the thread
+     * list with no compose at all. Connect derives whether to open compose
+     * from this query, so without it the button did nothing a teacher could
+     * see - and the test made that look deliberate.
+     */
+    render(<LiveFlagCard flag={flag()} />);
+    expect(
+      screen.getByRole("link", { name: /Send them a message/ }),
+    ).toHaveAttribute("href", "/teacher/connect?student=student-9");
   });
 
   it("marks a sudden change apart from a standing pattern", () => {

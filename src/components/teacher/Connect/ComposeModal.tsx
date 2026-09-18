@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStudentDirectory } from "@/hooks/useStudentDirectory";
 import { useHasSession } from "@/hooks/useHasSession";
+import { studentSlug } from "@/lib/mocks/teacherStudents";
 import { useTeacherClasses } from "@/hooks/useTeacherClasses";
 import {
   COMPOSE_CLASS_FILTERS,
@@ -37,11 +38,17 @@ type Phase = "form" | "sending" | "sent" | "failed";
 const SEND_MS = 750;
 
 export function ComposeModal({
-  presetStudent,
+  preset,
   onClose,
   onSend,
 }: {
-  presetStudent?: string;
+  /**
+   * Whoever the link named: a student id for a signed-in teacher, or a
+   * fixture slug for the signed-out walkthrough. Resolved HERE, because
+   * this is where the roster is - the screen above would need a second
+   * read of the same directory to do it.
+   */
+  preset?: string;
   onClose: () => void;
   /** May be async; a rejection is what puts the flow in its failed state. */
   onSend: (student: ComposeStudent, text: string) => void | Promise<void>;
@@ -62,12 +69,13 @@ export function ComposeModal({
   const [filter, setFilter] = useState(COMPOSE_CLASS_FILTERS[0]);
   // Never preset from the fixtures for a signed-in teacher: those rows carry
   // no studentId, and a preselected one would arm the send button against a
-  // child who does not exist.
-  const [picked, setPicked] = useState<ComposeStudent | null>(() =>
+  // child who does not exist. Signed out, the link carries a fixture slug.
+  const [chosen, setChosen] = useState<ComposeStudent | null>(() =>
     signedIn
       ? null
-      : (COMPOSE_STUDENTS.find((s) => s.name === presetStudent) ?? null),
+      : (COMPOSE_STUDENTS.find((s) => studentSlug(s.name) === preset) ?? null),
   );
+  const [presetUsed, setPresetUsed] = useState(false);
   const [text, setText] = useState("");
   const [phase, setPhase] = useState<Phase>("form");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -109,6 +117,31 @@ export function ComposeModal({
     [directory, signedIn],
   );
 
+  /*
+   * THE DEEP LINK LANDS HERE, and it has to wait for the roster.
+   *
+   * "Send them a message" on a student's profile passes that child's id.
+   * The directory is a live read, so the match is not available when this
+   * mounts - and it is matched on `studentId`, never on a name, because a
+   * name match would preselect the wrong child in a school with two
+   * Amaras.
+   *
+   * DERIVED, NOT SET IN AN EFFECT. Writing it with `useEffect` +
+   * `setPicked` is what React's own lint rule calls a cascading render,
+   * and it made the preselection race the roster read. So the recipient is
+   * whatever the teacher chose, falling back to whoever the link named -
+   * until the link's choice has been used, which is what `presetUsed`
+   * records when they send and start another.
+   */
+  const fromLink = useMemo(
+    () =>
+      signedIn && preset && !presetUsed
+        ? (roster.find((s) => s.studentId === preset) ?? null)
+        : null,
+    [signedIn, preset, presetUsed, roster],
+  );
+  const picked = chosen ?? fromLink;
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return roster.filter(
@@ -146,7 +179,10 @@ export function ComposeModal({
   };
 
   const sendAnother = () => {
-    setPicked(null);
+    // The link's choice has been used. Without this the next compose would
+    // reopen on the child the teacher has just finished messaging.
+    setPresetUsed(true);
+    setChosen(null);
     setText("");
     setPhase("form");
   };
@@ -313,7 +349,7 @@ export function ComposeModal({
                     <button
                       key={s.name}
                       type="button"
-                      onClick={() => setPicked(s)}
+                      onClick={() => setChosen(s)}
                       className="flex w-full cursor-pointer items-center gap-[13px] rounded-[10px] px-2 py-[11px] text-left transition-colors hover:bg-nevo-navy/6"
                     >
                       <span className="flex size-[38px] shrink-0 items-center justify-center rounded-full bg-nevo-navy/10 text-[12.5px] font-semibold text-nevo-navy">
@@ -382,7 +418,10 @@ export function ComposeModal({
                   <button
                     type="button"
                     aria-label="Choose a different student"
-                    onClick={() => setPicked(null)}
+                    onClick={() => {
+                      setPresetUsed(true);
+                      setChosen(null);
+                    }}
                     className="shrink-0 cursor-pointer text-nevo-near-black/45 transition-colors hover:text-nevo-near-black/70"
                   >
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
