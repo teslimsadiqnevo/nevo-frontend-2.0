@@ -218,7 +218,7 @@ the contradiction survived a re-verification specifically looking for it.
 | Teacher activation | LIVE | — (copy signed off 14 Sep) | NONE | — |
 | Password reset | LIVE | Error states unsigned-off | DESIGN | S |
 | Session expired door | LIVE | Only the "expired" variant. **Two corrections, 16 Sep.** The code set is **FIVE**, not four — `invalid_session` is in the deployed spec alongside `session_expired`, `session_revoked`, `session_replaced` and `account_paused`. And "none is consumed anywhere" was **false**: `account_paused` is consumed at all four sign-in doors via `loginFailure.ts:38` (`auth/login/page.tsx:171`, `ReturningSignInScreen.tsx:187`, `TeacherSignIn.tsx:153`, `AdminSignIn.tsx:220`). What is true is that none is consumed on the SESSION path, because `handleAuthFailure` is exempted from `/auth/login`, and `ConsoleSessionExpired` takes only `signInHref`. Carrying a reason means changing `client.ts`, which all three consoles route through. Design HAS drawn revoked (`student/28a Session Ended - Revoked`, 10 Sep) — only `session_replaced` and `account_paused` remain undrawn for the console | FRONTEND | **M** |
-| Lesson library | LIVE | Subject pills hidden. `subject` landed on the upload body 15 Sep, so this is ours now — but it is **M**: the field has to be sent, stored, read back and filtered on, and two code comments still assert the endpoint cannot take it | FRONTEND | **M** |
+| Lesson library | LIVE | **Subject pills live 18 Sep.** The upload asks (from the teacher's own `users/me` subjects, not a list written in the repo), both wrappers send it, the card mapper carries it back, and the row is built from the subjects the shelf actually contains — so it shows Biology and Chemistry for a school that teaches them. Hidden below two subjects, because a filter that cannot filter is worse than none. Both stale comments corrected | — | — |
 | Notifications panel | LIVE | — | NONE | — |
 | Feedback panel copy | LIVE | — (counter already present at the last 200 chars; design to confirm the threshold) | NONE | — |
 | Class code / QR | **LIVE** | — **Standalone route built 16 Sep** at `/teacher/classes/{classId}/code`; "Show full screen" now navigates rather than opening an overlay with no URL. Historical note, kept because it cost time: **"Dialog only" is loose shorthand and would send someone to rebuild a screen that exists**: `ClassQrScreen` — the full-screen projection the standalone route is FOR — is already built and mounted from live class detail (`LiveClassDetail.tsx:358-364`, via the dialog's `onProject` at :355). What is missing is a URL that links and reopens, not the screen. Design ruled 15 Sep to build it (section C) | NONE | — |
@@ -481,11 +481,17 @@ statements, and the expired consent token, which was already handled.
     caught it because nothing called it. **And design has not drawn this state**: C07f
     covers a parse that failed outright, not one that came back with holes, so what
     ships is the honest minimum — what is missing, and the one action that fixes it.
-23. **`subject` on upload.** **M, not S** — re-sized 16 Sep. Five files and a seam: the
-    field has to be sent on the multipart body, carried into the lesson, read back and
-    filtered on, or the subject pills stay hidden and nothing is gained. Two code comments
-    (`useLessonLibrary.ts:36-38` and one in `content.ts`) still assert the endpoint cannot
-    take a subject; both are now false.
+23. ~~**`subject` on upload.**~~ **DONE 18 Sep.** The whole seam: asked at upload, sent on
+    both multipart bodies, carried back through `toCard`, and filtered on. Both stale
+    comments are corrected in place rather than deleted, because the reasoning they
+    recorded was sound and the premise was what went stale.
+    **The taxonomy question is raised, not answered.** C07 draws a select of Mathematics,
+    English, Basic Science and Social Studies - a four-value list that is already wrong
+    for this repo's own fixtures, where a class is Biology, Chemistry and Physics. The
+    options come from `users/me.subjects` instead, so a teacher with none recorded is not
+    asked, and a teacher uploading outside their own subjects cannot label it. Where the
+    vocabulary should come from is design's call, and `GET /api/v1/lessons` takes no
+    subject parameter either, so the filtering is over the page in hand.
 24. **Profile photo.** Read `profileImageUrl`, then `POST /api/v1/users/me/profile-photo`
     (multipart, key `file`). **M**, confirmed 16 Sep, no blocker. "Change photo" is the only
     dead control in the profile menu — a `<button>` with no `onClick`.
