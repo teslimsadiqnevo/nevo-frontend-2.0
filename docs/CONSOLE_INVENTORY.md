@@ -959,14 +959,32 @@ Expand / Slower control — which is blocked on authored content (S-B 4).**
    correct inline check, and the after-lesson miss copy is deliberately the product's own
    sentence (`checkpoints.ts:129`) rather than the authored line. **M**
 5. **Render the teacher's note.** `AssignmentResponse.note` is typed and thrown away.
-   When it lands, the teacher console's confirmation copy and the test guarding it change
-   — coordinate with that lane. **S**
+   **MOVED TO LIST S-C (design) ON 18 SEP, not built.** The note reaches the child on
+   `students/me/dashboard` and `useStudentDashboard` passes it through, so the data is
+   here — but **neither frame 19 (Home Dashboard) nor frame 21 (Lesson Preview Sheet) has
+   a slot for it**, checked. That is the `highlights` situation, where design ruled "do
+   not build a surface for it". One difference makes it worth asking rather than closing:
+   a teacher deliberately typed these words TO this child, so withholding them is not
+   neutral the way withholding a generated highlight is. See S-C 11. **S once sited**
 6. **Bounce a signed-in child off `/student/onboarding`.** The root only. This is the
    door a baseline reached the wrong child's account through. **S**
-7. **Fix Subject Detail's lesson list.** It shows the whole-student history under one
-   subject's heading. Invisible with one lesson in the library; visible now. **S**
-8. **Declare `modules` on `LessonDetailResponse`** and drop the second request. **S**
-9. **Send `assignmentId` on the progress write.** Already in memory. **S**
+7. ~~**Fix Subject Detail's lesson list.**~~ **DONE 18 Sep.** It showed the whole-student
+   history under one subject's heading. `LessonProgress` carries no subject, so it could
+   not be filtered here — the narrowed `progress/{subject}` read was already being made
+   for its `reflection` and its lessons were being discarded. **S**
+8. ~~**Declare `modules` on `LessonDetailResponse`**~~ **DONE 18 Sep** in the student
+   lane. Verified against the deployed spec rather than the docblock: both detail paths
+   resolve to the same schema and `modules` is in its `required` list. Typed optional
+   anyway — required in today's document is not present in every deployment a school is
+   running. **`useLessonDetail` (teacher lane) still makes the second call**; the type is
+   shared, so it is a six-line change for that lane to take. **S**
+9. ~~**Send `assignmentId` on the progress write.**~~ **DONE 18 Sep — and "already in
+   memory" was wrong.** The student lane reads no assignments in the player: its route is
+   `/student/lessons/{id}`. The id now rides the link from the card that was tapped
+   (`?assignment=`), read on the server like the join link's `?token=`. Omitted rather
+   than nulled when a lesson was opened from the library, because absent means "not set
+   work" and a null asserts the same thing in a field the backend may read differently.
+   **S**
 10. ~~**Flush a parked baseline vector outside onboarding.**~~ **DONE 16 Sep (#414),** with the ownership guard that had to ship beside it. Today a returning child's
     held measurement never sends. **S**
 11. ~~**Wire `record-review`.**~~ **DONE 17 Sep,** on the back of item 4: the write is

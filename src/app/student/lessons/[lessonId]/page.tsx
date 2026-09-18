@@ -27,9 +27,20 @@ export const metadata: Metadata = {
 // lesson answer 404 on every hard load.
 export default async function StudentLessonPlayerPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ lessonId: string }>;
+  /**
+   * `?assignment=` says which piece of set work this open belongs to, put
+   * there by the card the child tapped. Read on the SERVER, like the join
+   * link's `?token=`, so the client never needs `useSearchParams` and the
+   * Suspense boundary it demands for a value that is known before render.
+   *
+   * Absent for a lesson opened from the library, which is the truth about it.
+   */
+  searchParams: Promise<{ assignment?: string }>;
 }) {
   const { lessonId } = await params;
-  return <LessonRoute lessonId={lessonId} />;
+  const { assignment } = await searchParams;
+  return <LessonRoute lessonId={lessonId} assignmentId={assignment} />;
 }

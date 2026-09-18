@@ -81,6 +81,19 @@ export function useLessonProgress(
    * network's.
    */
   enabled: boolean,
+  /**
+   * The assignment this lesson was opened from, when it was opened from one.
+   *
+   * `ProgressWrite.assignmentId` has been on the wire and typed since the
+   * contract shipped and nothing ever sent it, so every write recorded that a
+   * child had moved through a LESSON and never which piece of set work that
+   * was. A lesson can be assigned more than once, to the same child.
+   *
+   * ABSENT IS CORRECT AND COMMON: a lesson opened from the library is not an
+   * assignment, and claiming one would file a child's own reading under a
+   * teacher's instruction.
+   */
+  assignmentId?: string | null,
 ): LessonProgressState {
   const sessionId = useRef<string | null>(null);
   // Mirrored into state as well: the ref keeps the writes synchronous, and
@@ -113,6 +126,10 @@ export function useLessonProgress(
         .saveProgress(lessonId, {
           sessionId: id,
           status,
+          // Omitted, never null. Absent says "not from an assignment"; a null
+          // would be us asserting the same thing in a field the backend may
+          // read differently.
+          ...(assignmentId ? { assignmentId } : {}),
           ...(position.segment !== undefined
             ? { segmentPosition: position.segment }
             : {}),
@@ -153,7 +170,7 @@ export function useLessonProgress(
           if (completing) setCompletionFailed(true);
         });
     },
-    [lessonId],
+    [lessonId, assignmentId],
   );
 
   useEffect(() => {
