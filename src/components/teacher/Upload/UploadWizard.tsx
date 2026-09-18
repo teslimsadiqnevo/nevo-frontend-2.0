@@ -72,6 +72,24 @@ import { UploadResult } from "./UploadResult";
  * honest, not the screen.
  */
 
+/**
+ * "Page 4", "Pages 4 and 7", "Pages 4, 7 and 12" - said the way a person
+ * says them.
+ *
+ * Not a count and not a threshold: the list is whatever the server sent, in
+ * the order it sent it. The page numbers are the parser's, not ours.
+ */
+export function faintPagesLine(pages: number[]): string {
+  const many = pages.length > 1;
+  const list = many
+    ? `${pages.slice(0, -1).join(", ")} and ${pages[pages.length - 1]}`
+    : String(pages[0] ?? "");
+  return (
+    `${many ? "Pages" : "Page"} ${list} didn\u2019t come through clearly, ` +
+    `so nothing from ${many ? "them" : "it"} is in what you see below.`
+  );
+}
+
 type ScopeId = "single" | "unit" | "term";
 type Phase =
   | "scope"
@@ -606,12 +624,50 @@ export function UploadWizard() {
             <div className="w-full">
               {staged.structure &&
               (staged.status === "ready" || staged.status === "confirmed") ? (
-                <LiveStructureTree
-                  uploadId={staged.uploadId}
-                  structure={staged.structure}
-                  segments={staged.segments}
-                  blockName={blockName}
-                />
+                <>
+                  {/*
+                    FAINT PAGES, SAID OUT LOUD.
+
+                    `failedPages` is on the status response and was missing
+                    from the client type, so until 18 Sep a teacher whose
+                    PDF was partly unreadable got this tree with those pages
+                    silently absent from it - a unit that looks complete and
+                    is not. The retry endpoint was wrapped the whole time
+                    and had nothing to ask for, because the page numbers
+                    only exist in the field nobody was reading.
+
+                    NOT DRAWN BY DESIGN. C07f covers a parse that failed
+                    outright, not one that came back with holes in it, so
+                    this is the honest minimum - what is missing, and the
+                    one action that fixes it - and it is raised rather than
+                    invented further.
+                  */}
+                  {staged.failedPages.length > 0 && (
+                    <div className="mb-5 max-w-[660px] rounded-[12px] border-l-[3px] border-nevo-violet bg-nevo-violet/16 px-[18px] py-4">
+                      <p className="text-[14.5px] leading-[1.55] text-nevo-near-black/82">
+                        {faintPagesLine(staged.failedPages)}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={staged.retryFailedPages}
+                        disabled={staged.retrying}
+                        className="mt-3 inline-flex h-[42px] cursor-pointer items-center rounded-[10px] border-[1.5px] border-nevo-navy/35 bg-nevo-cream-elevated px-[18px] text-[14px] font-medium text-nevo-navy transition-colors hover:bg-nevo-navy/6 disabled:cursor-default disabled:opacity-55"
+                      >
+                        {staged.retrying
+                          ? "Reading them again…"
+                          : staged.failedPages.length === 1
+                            ? "Read that page again"
+                            : "Read those pages again"}
+                      </button>
+                    </div>
+                  )}
+                  <LiveStructureTree
+                    uploadId={staged.uploadId}
+                    structure={staged.structure}
+                    segments={staged.segments}
+                    blockName={blockName}
+                  />
+                </>
               ) : staged.failed ? (
                 <div className="max-w-[600px] rounded-[16px] bg-nevo-cream-elevated p-8 shadow-elevation-1">
                   <h3 className="text-[17px] font-semibold text-nevo-near-black">
