@@ -29,6 +29,44 @@ Verified against the live API, not assumed. **This tenant is demo-ready.**
 No seeding day is needed. Earlier concern about an empty tenant applied to a
 different admin account; this one has history behind it.
 
+### Film this one lesson: **Simple Interest**
+
+`627ad68b-23bd-4fd7-a064-1f1573662dd2`. Probed 18 Sep, and it is the only lesson
+on the tenant that should appear on camera.
+
+| | |
+|---|---|
+| Status | `completed_with_review` |
+| Segments | 9, plus 2 review |
+| Modalities | **text ×7, audio ×6, visual ×3** — all three renderable, nothing that will fail to draw |
+| Assessment / recap | both present, so the summary and review routes resolve |
+| Assignments | 6 |
+| Length | ~19 min |
+| **Modules** | **0 — there is no module boundary screen on this lesson** |
+
+All 256 adaptation events on the tenant are against this one lesson, across 34
+profiled children. It is school-appropriate maths, it exercises every modality
+the player can render, and it is the only content here that fits the audience.
+
+### The teacher account cannot see it — resolve before recording
+
+`TEACHER_EMAIL` in `.env.local` signs in fine (role `teacher`, 3 of the 7
+classes), but its lesson library is **three university computer-science PDFs**:
+
+| Lesson | Problem |
+|---|---|
+| **CSC320 Exam Guide** | `status=failed`, **0 segments**. Opening this as a child triggers the fixture fallback. This is the landmine, and it is sitting in the library. |
+| **Formal Specification Using Z** | Renders, but it is undergraduate CS. |
+| **CSC324 Formal Specification Z Exam Guide** | 1 segment, text + interactive. Interactive does not render. |
+
+Filming clips 6 and 7 from this account does two kinds of damage: it tells an
+intermediary the product is for universities, and it puts a failed lesson one
+click away from the camera.
+
+**What is needed:** credentials for the teacher who owns *Simple Interest*, or
+that lesson assigned to the `TEACHER_EMAIL` account. Until then clips 4, 6 and 7
+should not be recorded.
+
 ### You need three separate logins
 
 The thing most likely to derail a recording day.
@@ -172,21 +210,24 @@ Lydia names each one as it fails to appear.
 
 **Proves:** the central claim. **~4 minutes. Child login from clip 3.**
 
-Pre-flight this lesson id specifically. Text, visual and audio render from real
-parsed content; interactive and calculation do not yet. **Pick a lesson whose
-segments are text, visual and audio.**
+**Film *Simple Interest*** (`627ad68b…`). Nine segments, text/audio/visual
+throughout, assessment and recap both present. Pre-flight it anyway.
 
 | Shot | Component | Action |
 |---|---|---|
 | 1 | `/student/lessons` | The child's lesson list. |
-| 2 | `LessonPlayer` | Open a lesson. **Do not skip this beat** — accommodations are already applied. There is no un-adapted first screen, and that absence is the point. |
+| 2 | `LessonPlayer` | Open *Simple Interest*. **Do not skip this beat** — accommodations are already applied. There is no un-adapted first screen, and that absence is the point. |
 | 3 | `TextSegment` | Read at a child's pace. |
-| 4 | `ModalitySuggestionPill` | When it appears: hover, pause, take it. |
+| 4 | `ModalitySuggestionPill` | When it appears: hover, pause, take it. With 6 audio and 3 visual segments, this will fire. |
 | 5 | `VisualSegment` / `AudioSegment` | The same segment, the other way in. **Same concept, same objective, same assessment.** |
 | 6 | `ScaffoldIndicator` | Get a question wrong; let the circles fill. **Do not point the cursor at it** — it is ambient. Lydia names it; the shot does not chase it. |
-| 7 | `ModuleBoundaryScreen` | "Module 2 of 4". Hold. No confetti, no points, no sound. |
-| 8 | `BreakOfferPill` → `BreakScreen` | Film if it fires. Do not force it. |
-| 9 | `LessonComplete` | Quiet completion. Hold 3 seconds. |
+| 7 | `BreakOfferPill` → `BreakScreen` | Film if it fires — `break_suggested` appears 31 times in the log, so it is live behaviour. Do not force it. |
+| 8 | `LessonComplete` | Quiet completion. Hold 3 seconds. |
+
+**No module boundary shot.** *Simple Interest* has `modules: 0`, so
+`ModuleBoundaryScreen` never renders on it. Chunking has to be described rather
+than filmed, or it needs a different lesson — and there is no other suitable one
+on this tenant.
 
 **Lydia's points:**
 - The switch is between two ways into the *same* segment. The child does not
@@ -250,9 +291,14 @@ in September is not the child they are in March.
 
 The objection-killer for a school that already has schemes of work.
 
+**Blocked on the right teacher account.** The library on `TEACHER_EMAIL` is three
+university CS PDFs, one of them failed — see the tenant section. Shot 1 cannot be
+filmed until a teacher with age-appropriate content is available. Shots 2–5 are
+fine to record with a freshly uploaded lesson of your choosing.
+
 | Shot | Route | Action |
 |---|---|---|
-| 1 | `/teacher/lessons` | The library. |
+| 1 | `/teacher/lessons` | The library. **Do not film the current one.** |
 | 2 | `/teacher/lessons/upload` | Upload a real lesson. Film the parse progressing. |
 | 3 | `/teacher/lessons/[lessonId]` | The parsed result. |
 | 4 | `/teacher/lessons/[lessonId]/variants` | **The money shot** — the same lesson, multiple ways in. |
@@ -274,7 +320,7 @@ changes is the route through it.
 | 2 | `/admin/students` | 37 students, with consent states. |
 | 3 | `/admin/classes` | 7 classes. |
 | 4 | `/admin/senco` → `/admin/senco/[studentId]` | Learning support. |
-| 5 | `/admin/adaptations` | 256 logged events — real triggers, real lesson titles. |
+| 5 | `/admin/adaptations` | 256 logged events. **Scroll this slowly** — the variety is the argument. |
 | 6 | `/admin/compliance` | **Hold the longest shot of the clip here.** |
 | 7 | `/admin/reports` | Close out. |
 
@@ -283,6 +329,24 @@ numbers are real and they say the thing no competitor can say:
 
 > **34 children profiled. 256 adaptations logged. Zero diagnostic labels stored.
 > Compliant.**
+
+The log itself backs the claim up, because the events are varied rather than one
+mechanic firing repeatedly — probed 18 Sep across all 256:
+
+| Event type | Count |
+|---|---|
+| `modality_suggestion_accepted` | 37 |
+| `expand_trigger` | 32 |
+| `simplify_trigger` | 32 |
+| `modality_manual_switch` | 31 |
+| `break_suggested` | 31 |
+| `modality_switch_outcome` | 31 |
+| `slower_trigger` | 31 |
+| `modality_suggestion_shown` | 31 |
+
+Lydia can name these off the screen: the system offered another route and the
+child took it, it expanded, it simplified, it slowed down, it offered a break.
+That is the six mechanics visible as behaviour rather than as a claim.
 
 **Lydia's points:**
 - The database stores `visual_scaffold_density = 0.8`. It never stores anything
