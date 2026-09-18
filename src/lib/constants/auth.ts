@@ -21,7 +21,15 @@
  * issuing. Design frame 00 draws four boxes and says "try 1234", so design and
  * the backend disagree and one of them has to move - raised with Olayinka for
  * the 9pm call. Whichever way that lands, it is this constant that changes,
- * and both screens follow it.
+ * and all three PIN screens follow it.
+ *
+ * STILL UNSETTLED ON 18 SEP, AND DESIGN HAS NOW DRAWN FOUR AGAIN. The 28c
+ * hand-off draws a four-box PIN row in both orientations, which makes it the
+ * second frame family asserting four while the backend issues six. The
+ * disagreement did not get resolved; it got redrawn. Worth settling before a
+ * school does it for us - a child with a six-digit PIN on a four-box screen is
+ * told their PIN is wrong, because the login screen cannot tell a rejected PIN
+ * from a rejected identifier.
  */
 export const STUDENT_PIN_LENGTH = 6;
 

@@ -380,6 +380,7 @@ export function ReturningSignInScreen({ next }: { next?: string }) {
 
         <NevoKeyboard
           layout="pad"
+          presentation="block"
           className="mt-6"
           onKey={(char) => {
             if (checking || digits.length >= STUDENT_PIN_LENGTH) return;
