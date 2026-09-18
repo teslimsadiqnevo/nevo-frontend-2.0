@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { studentsApi } from "@/lib/api/students";
+import { studentsApi, type LessonProgress } from "@/lib/api/students";
 import { getSession } from "@/lib/auth/session";
 import { useLiveQuery } from "./useLiveQuery";
 
@@ -28,11 +28,30 @@ interface SubjectSnapshot {
   /** Null when there was nothing to ask for yet. */
   subject: string | null;
   reflection: string | null;
+  lessons: LessonProgress[];
 }
 
 export interface SubjectProgressState {
   /** The subject's own reflection; null until read. */
   reflection: string | null;
+  /**
+   * The lessons THIS SUBJECT's history, which is the only place they exist.
+   *
+   * Subject Detail used to list `useStudentProgress().lessons` - the whole
+   * student's history - under one subject's heading. Invisible while a library
+   * held one lesson and plainly wrong once it held several: a child looking at
+   * Maths was shown the English they had done.
+   *
+   * It cannot be filtered client-side, because `LessonProgress` carries no
+   * subject. The narrowed route is the only source, and it was already being
+   * called - for `reflection` alone, with its lessons discarded.
+   *
+   * Empty until read, and empty when the read fails. An empty list renders no
+   * lesson section at all, which is the honest nothing-state: a list of other
+   * subjects' lessons under this heading is a false claim about what the child
+   * did here.
+   */
+  lessons: LessonProgress[];
   loading: boolean;
   failed: boolean;
 }
@@ -46,9 +65,9 @@ export function useSubjectProgress(
   const run = useCallback(async (): Promise<SubjectSnapshot> => {
     // `useLiveQuery` has no "enabled" switch, so an unknown subject resolves
     // to an empty snapshot rather than a request with nothing in the path.
-    if (!subject) return { subject: null, reflection: null };
+    if (!subject) return { subject: null, reflection: null, lessons: [] };
     const res = await studentsApi.subjectProgress(studentId!, subject);
-    return { subject, reflection: res.reflection };
+    return { subject, reflection: res.reflection, lessons: res.lessons ?? [] };
   }, [studentId, subject]);
 
   const { data, failed, loading } = useLiveQuery<SubjectSnapshot>(run, [
@@ -56,8 +75,18 @@ export function useSubjectProgress(
     subject,
   ]);
 
+  /*
+   * Only exposed against a MATCHING ask, exactly as the reflection already
+   * was. The response names the subject it answers for, so this is the
+   * response's own claim about its scope rather than an assumption about the
+   * route - and it is what stops a stale answer for Maths being shown under
+   * English while the second request is still in flight.
+   */
+  const forThisSubject = Boolean(data && data.subject === subject);
+
   return {
-    reflection: data && data.subject === subject ? data.reflection : null,
+    reflection: forThisSubject ? (data?.reflection ?? null) : null,
+    lessons: forThisSubject ? (data?.lessons ?? []) : [],
     loading: Boolean(studentId && subject) && loading,
     failed,
   };

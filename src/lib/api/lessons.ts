@@ -183,6 +183,26 @@ export interface LessonDetailResponse extends LessonSummary {
    */
   recap?: string | null;
   assessment?: ComprehensionCheckpoint[];
+  /**
+   * How the parser grouped the segments - ON THIS RESPONSE, as of 18 Sep.
+   *
+   * It was fetched separately, which cost every lesson open a second request
+   * for a field the first response already carried. The docblock on
+   * `LessonModule` has said since 31 Aug that both detail routes return the
+   * same fields "modules and segment review flags included"; nothing acted on
+   * it, so `lessonsApi.modules` kept asking `/api/v1/lessons/{id}` for what
+   * `/api/content/lessons/{id}` had already sent.
+   *
+   * Checked against the deployed spec rather than the docblock: both paths
+   * resolve to this same `LessonDetailResponse` schema, and `modules` is in
+   * its `required` list.
+   *
+   * Typed OPTIONAL anyway. Required in today's document is not the same as
+   * present in every deployment a school is running, and the cost of being
+   * wrong is `res.modules.length` throwing on lesson open. Absent means
+   * ungrouped, which is what the separate call's failure already meant.
+   */
+  modules?: LessonModule[];
 }
 
 /**

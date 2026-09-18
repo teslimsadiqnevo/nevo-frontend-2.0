@@ -107,6 +107,20 @@ function useLocalDate() {
  * pace-affirming note (tertiary — never a score or a streak count). Reduced-motion
  * aware; a settled empty state when there's nothing queued.
  */
+/**
+ * A lesson link that remembers which assignment it came from.
+ *
+ * Read back by the player and sent on every progress write. Omitted when there
+ * is no assignment, rather than sent empty: a library lesson is not set work,
+ * and saying otherwise files a child's own reading under a teacher's name.
+ */
+function assignmentHref(lessonId: string, assignmentId?: string): string {
+  const base = `/student/lessons/${lessonId}`;
+  return assignmentId
+    ? `${base}?assignment=${encodeURIComponent(assignmentId)}`
+    : base;
+}
+
 export function HomeDashboard() {
   const { name: displayName } = useDisplayName();
   const date = useLocalDate();
@@ -181,7 +195,19 @@ export function HomeDashboard() {
                   : frac < 2 / 3
                     ? "About halfway in"
                     : "Nearly there",
-              href: `/student/lessons/${ip.lessonId}`,
+              /*
+               * THE ASSIGNMENT RIDES THE LINK.
+               *
+               * `ProgressWrite.assignmentId` has been typed and unsent since
+               * the contract shipped, so every progress write said a child had
+               * moved through a lesson and never which set work that was. The
+               * player's route is `/student/lessons/{id}` and knows nothing
+               * about assignments, but this card does - it was built from one.
+               *
+               * Only on cards that genuinely came from an assignment. A lesson
+               * opened from the library carries none, which is the truth.
+               */
+              href: assignmentHref(ip.lessonId, byLesson.get(ip.lessonId)?.id),
             }
           : null;
       const contId = cont ? cont.lessonId : null;
@@ -194,7 +220,7 @@ export function HomeDashboard() {
             ? `Due ${new Date(a.dueAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
             : `${a.lesson.segmentCount} ${a.lesson.segmentCount === 1 ? "section" : "sections"}`,
           icon: BookOpen,
-          href: `/student/lessons/${a.lesson.id}`,
+          href: assignmentHref(a.lesson.id, a.id),
         }));
       // The designed line claims "You've been showing up this week" - a
       // claim about the child that nothing verifies. Live students get a

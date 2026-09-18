@@ -43,6 +43,8 @@ const signIn = () =>
     role: "student",
   });
 
+const NOW = new Date().toISOString();
+
 const CONCEPTS = [
   { conceptId: "c-frac", name: "Fractions" },
   { conceptId: "c-deci", name: "Decimals" },
@@ -52,6 +54,10 @@ beforeEach(() => {
   clearSession();
   hooks.useSubjectProgress.mockReturnValue({
     reflection: null,
+    // THE SUBJECT'S OWN lessons, and the only source of them: the screen used
+    // to list the whole student's history here, and `LessonProgress` carries
+    // no subject to filter on.
+    lessons: [],
     loading: false,
     failed: false,
   });
@@ -143,5 +149,81 @@ describe("SubjectDetail", () => {
 
     await waitFor(() => expect(screen.getByText("Mathematics")).toBeTruthy());
     expect(screen.queryByText("FIXTURE NAME")).toBeNull();
+  });
+});
+
+describe("whose lessons are under this subject's heading", () => {
+  /**
+   * THE CHILD'S WHOLE HISTORY USED TO SIT UNDER ONE SUBJECT'S NAME.
+   *
+   * The screen already made a second, narrowed request - `progress/{subject}` -
+   * and kept only its `reflection`, because the whole-student reflection would
+   * have presented a sentence about everything as a sentence about maths. The
+   * same reasoning applies to the lesson list and was not applied to it: a
+   * child opening Maths was shown the English they had done.
+   *
+   * It was invisible while a library held one lesson, which is why it survived.
+   *
+   * `LessonProgress` carries no subject, so this cannot be filtered on the
+   * client. The narrowed read is the only source.
+   */
+  it("lists the subject's own lessons, not the whole student's", async () => {
+    signIn();
+    hooks.useStudentProgress.mockReturnValue({
+      subjects: [
+        { slug: "mathematics", name: "Mathematics", concepts: CONCEPTS },
+      ],
+      // What the child has done across EVERY subject.
+      lessons: [
+        { lessonId: "l-eng", title: "The Lighthouse", updatedAt: NOW },
+        { lessonId: "l-math", title: "Adding Fractions", updatedAt: NOW },
+      ],
+      reflection: null,
+      highlights: [],
+      loading: false,
+      failed: false,
+      live: true,
+    });
+    hooks.useSubjectProgress.mockReturnValue({
+      reflection: null,
+      lessons: [{ lessonId: "l-math", title: "Adding Fractions", updatedAt: NOW }],
+      loading: false,
+      failed: false,
+    });
+
+    render(<SubjectDetail subject={null} slug="mathematics" />);
+
+    await waitFor(() =>
+      expect(screen.getByText("Adding Fractions")).toBeTruthy(),
+    );
+    expect(screen.queryByText("The Lighthouse")).toBeNull();
+  });
+
+  it("lists nothing rather than everything when the narrowed read fails", async () => {
+    // Rule 5. A list of other subjects' lessons under this heading is a false
+    // claim about what the child did here; an absent section claims nothing.
+    signIn();
+    hooks.useStudentProgress.mockReturnValue({
+      subjects: [
+        { slug: "mathematics", name: "Mathematics", concepts: CONCEPTS },
+      ],
+      lessons: [{ lessonId: "l-eng", title: "The Lighthouse", updatedAt: NOW }],
+      reflection: null,
+      highlights: [],
+      loading: false,
+      failed: false,
+      live: true,
+    });
+    hooks.useSubjectProgress.mockReturnValue({
+      reflection: null,
+      lessons: [],
+      loading: false,
+      failed: true,
+    });
+
+    render(<SubjectDetail subject={null} slug="mathematics" />);
+
+    await waitFor(() => expect(screen.getByText("Mathematics")).toBeTruthy());
+    expect(screen.queryByText("The Lighthouse")).toBeNull();
   });
 });

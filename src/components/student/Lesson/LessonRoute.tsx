@@ -47,10 +47,13 @@ function opensLine(opensAt: string | null): string {
  */
 export function LessonRoute({
   lessonId,
+  assignmentId,
   review = false,
   reviewConceptId,
 }: {
   lessonId: string;
+  /** The assignment this open came from, when it came from one. */
+  assignmentId?: string;
   /** Spaced-retrieval variant (37d) - the same player, different framing. */
   review?: boolean;
   /** Which concept this review is for, from the due-review chip. */
@@ -118,6 +121,7 @@ export function LessonRoute({
   if (lesson) {
     const player = (
       <LessonPlayer
+        assignmentId={assignmentId}
         lesson={lesson}
         plan={plan}
         live={live}

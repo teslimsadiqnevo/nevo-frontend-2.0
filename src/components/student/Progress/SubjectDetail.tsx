@@ -102,7 +102,20 @@ export function SubjectDetail({
         name={liveSubject?.name ?? titleFromSlug(slug)}
         reflection={own.reflection}
         concepts={liveSubject?.concepts ?? []}
-        lessons={live.lessons}
+        /*
+         * THIS SUBJECT'S LESSONS, not the child's whole history.
+         *
+         * This was `live.lessons` - the whole-student read - listed under one
+         * subject's heading, which is the same mistake the comment above
+         * describes for the reflection and was left standing for the lessons.
+         * A child opening Maths was shown the English they had done. Invisible
+         * while a library held one lesson; not invisible now.
+         *
+         * `LessonProgress` carries no subject, so this cannot be filtered
+         * here: the narrowed read is the only source, and it was already being
+         * made for the reflection alone.
+         */
+        lessons={own.lessons}
         failed={live.failed}
       />
     );

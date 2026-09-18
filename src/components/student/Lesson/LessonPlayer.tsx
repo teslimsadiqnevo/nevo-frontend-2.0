@@ -138,12 +138,19 @@ export function LessonPlayer({
   review = false,
   reviewConceptId,
   live = false,
+  assignmentId,
   startAt = 0,
   lastWorkedAt = null,
   adaptSegments,
 }: {
   lesson: Lesson;
   plan: AdaptationPlan | null;
+  /**
+   * The assignment this lesson was opened from, carried onto every progress
+   * write. Absent for a lesson opened from the library - see
+   * `useLessonProgress`, which omits rather than nulls it.
+   */
+  assignmentId?: string;
   /**
    * The lesson in the adaptation engine's vocabulary, for the mid-lesson
    * `in_lesson` read. Undefined for a mock, whose authored plan is richer than
@@ -191,7 +198,7 @@ export function LessonPlayer({
   // returned a lesson to unstarted. `useLessonProgress` opens the session and
   // reports position; the two authored mocks opt out (`live`), because their
   // ids are invented and a 404 would be ours, not the network's.
-  const progress = useLessonProgress(lesson.id, live);
+  const progress = useLessonProgress(lesson.id, live, assignmentId);
   const { report: reportProgress } = progress;
 
   // Signals ride the BACKEND's session id, not the local one above - see

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
-import { lessonsApi, type LessonModule } from "@/lib/api/lessons";
+import { lessonsApi } from "@/lib/api/lessons";
 import { getToken } from "@/lib/auth/session";
 import type { AdaptSegment } from "@/lib/api/intelligence";
 import { adaptSegmentsFor } from "@/lib/lessons/adaptation";
@@ -190,18 +190,16 @@ export function useStudentLesson(
     if (!getToken()) return;
     let cancelled = false;
 
-    // Modules are best-effort and come from a different endpoint. A lesson
-    // plays perfectly well ungrouped, so its failure must not fail the page -
-    // which means resolving it to [] rather than letting it reject the pair.
-    const detail = lessonsApi.detail(lessonId);
-    const modules = lessonsApi
-      .modules(lessonId)
-      .catch((): LessonModule[] => []);
-
-    void Promise.all([detail, modules])
-      .then(([res, mods]) => {
+    // ONE REQUEST. Modules ride the detail response - see
+    // `LessonDetailResponse.modules`, checked against the deployed spec. This
+    // used to make a second call to a different route for a field the first
+    // response already carried, on every lesson open. Absent still means
+    // ungrouped, which is exactly what that call's failure meant.
+    void lessonsApi
+      .detail(lessonId)
+      .then((res) => {
         if (cancelled) return;
-        const built = lessonFromContent(res, mods);
+        const built = lessonFromContent(res, res.modules ?? []);
         setResolved(
           built
             ? {
