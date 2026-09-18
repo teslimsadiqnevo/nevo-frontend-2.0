@@ -3617,6 +3617,36 @@ and filing them as one blocked item was the mistake.
   is how a learner asks the lesson to change without being told anything about
   themselves.
 
+### The join-link hand-over, 18 Sep - 28c's other half
+
+Design: *"A join link with nowhere to land was the right call when there was no
+picker, and now there is one."*
+
+A child taps their invitation on a shared tablet someone is signed into.
+Onboarding then collects a name, a school and a class and runs the motor
+baseline, none of which knows a session is live - so the measurements come from
+whoever is holding the tablet and are written against whoever was still signed
+in. The parked-baseline ownership guard stops the send; this stops the walk
+starting under the wrong session at all.
+
+**It lives in `WelcomeScreen`, not the route guard.** The session is in
+localStorage, which no server can see, so `proxy.ts` cannot tell a token arrival
+on a signed-in tablet from one on an empty tablet. The guard still lets
+`?token=` through; the screen decides.
+
+**What 28c made possible.** Signing the current child out used to mean losing
+them - the device remembered exactly one. It now remembers six, so the screen
+can say plainly that carrying on signs them out and that getting back in takes a
+PIN, and have that be true. The promise is the feature.
+
+**Ordering is the fix**: `clearSession()` runs before the first onboarding
+screen renders, so nothing downstream can attribute itself to the child who was
+here. The token is only written to the draft once the hand-over is taken, so a
+child who chooses to stay does not end up with somebody else's invitation in
+their draft. A `useHydrated` gate means neither screen is drawn before the
+client can see the session - and it is scoped to token arrivals, so every
+ordinary arrival keeps its server render.
+
 ### FROZEN: build nothing on `textVariant` or `segment.body`, 18 Sep
 
 **Design's instruction, and it is a stop rather than a queue item:** *"Do not
